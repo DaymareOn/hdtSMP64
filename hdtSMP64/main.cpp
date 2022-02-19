@@ -43,18 +43,14 @@ namespace hdt
 			if (evn && evn->opening && (!strcmp(evn->menuName.data, "Loading Menu") || !strcmp(
 				evn->menuName.data, "RaceSex Menu")))
 			{
-#ifdef _DEBUG
 				_DMESSAGE("loading menu/racesexmenu detected, scheduling physics reset on world un-suspend");
-#endif // _DEBUG
 				SkyrimPhysicsWorld::get()->suspend(true);
 			}
 
 			if (evn && !evn->opening && !strcmp(evn->menuName.data, "RaceSex Menu"))
 			{
-#ifdef _DEBUG
 				_DMESSAGE("racemenu closed, reloading meshes");
-#endif // _DEBUG
-				ActorManager::instance()->reloadMeshes();
+				ActorManager::instance()->onEvent(*evn);
 			}
 
 			return kEvent_Continue;
@@ -361,7 +357,8 @@ namespace hdt
 			Console_Print("running full smp reset");
 			hdt::loadConfig();
 			SkyrimPhysicsWorld::get()->resetTransformsToOriginal();
-			ActorManager::instance()->reloadMeshes();
+			const MenuOpenCloseEvent e { false };
+			ActorManager::instance()->onEvent(e);
 			SkyrimPhysicsWorld::get()->resetSystems();
 			return true;
 		}

@@ -179,11 +179,11 @@ namespace hdt
 		// @brief On this event, we decide which skeletons will be active for physics this frame.
 		void onEvent(const FrameEvent& e) override;
 
+		void onEvent(const MenuOpenCloseEvent&);
 		void onEvent(const ShutdownEvent&) override;
 		void onEvent(const SkinSingleHeadGeometryEvent&) override;
 		void onEvent(const SkinAllHeadGeometryEvent&) override;
 
-		void reloadMeshes();
 #ifdef ANNIVERSARY_EDITION
 		bool skeletonNeedsParts(NiNode* skeleton);
 #endif
@@ -197,5 +197,7 @@ namespace hdt
 		float m_maxDistance2 = 1e8f; // The maxDistance value needs to be transformed to be useful, this is the useful value.
 		float m_maxAngle = 45.0f;
 		float m_cosMaxAngle2 = 0.5f; // The maxAngle value needs to be transformed to be useful, this is the useful value.
+	private:
+		void setSkeletonsActive();
 	};
 }

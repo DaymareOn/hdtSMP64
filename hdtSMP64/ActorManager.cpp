@@ -99,19 +99,17 @@ namespace hdt
 		}
 	}
 
-	void ActorManager::reloadMeshes()
+	// @brief This happens on a closing RaceSex menu, and on 'smp reset'.
+	void ActorManager::onEvent(const MenuOpenCloseEvent&)
 	{
-		const FrameEvent e
-		{
-			false
-		};
+		// The ActorManager members are protected from parallel events by ActorManager.m_lock.
+		std::lock_guard<decltype(m_lock)> l(m_lock);
+		if (m_shutdown) return;
 
-		onEvent(e);
+		setSkeletonsActive();
 
 		for (auto& i : m_skeletons)
-		{
 			i.reloadMeshes();
-		}
 	}
 
 	void ActorManager::onEvent(const FrameEvent& e)
@@ -125,6 +123,12 @@ namespace hdt
 		std::unique_lock<decltype(m_lock)> lock(m_lock, std::try_to_lock);
 		if (!lock.owns_lock()) return;
 
+		setSkeletonsActive();
+	}
+
+	// @brief This function is called by different events, with different locking needs, and is therefore extracted from the events.
+	void ActorManager::setSkeletonsActive()
+	{
 		if (m_shutdown) return;
 
 		// We get the player character and its cell.
