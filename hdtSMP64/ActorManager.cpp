@@ -196,7 +196,7 @@ namespace hdt
 				i.skeleton = nullptr;
 			}
 			else if (i.hasPhysics && i.updateAttachedState(playerCell, activeSkeletons >= maxActiveSkeletons))
-					activeSkeletons++;
+				activeSkeletons++;
 		}
 
 		m_skeletons.erase(
@@ -752,8 +752,12 @@ namespace hdt
 		{
 			if (isPlayerCharacter())
 			{
-				isActive = true;
-				state = SkeletonState::e_ActiveIsPlayer;
+				// We don't set the PC skeleton as active if it is in 1st person view, to avoid calculating physics uselessly.
+				if (!isFirstPersonSkeleton(skeleton))
+				{
+					isActive = true;
+					state = SkeletonState::e_ActiveIsPlayer;
+				}
 			}
 			else if (isInPlayerView())
 			{
