@@ -96,6 +96,13 @@ namespace hdt
 					if (device >= 0 && device < CudaInterface::instance()->deviceCount())
 						CudaInterface::currentDevice = device;
 				}
+#else
+				else if (reader.GetLocalName() == "enableCuda")
+				{
+					if (reader.readBool())
+						_MESSAGE("CUDA isn't built into this version.");
+				}
+				else if (reader.GetLocalName() == "cudaDevice") {}
 #endif
 				else if (reader.GetLocalName() == "maximumAngle")
 				{
