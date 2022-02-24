@@ -193,10 +193,6 @@ namespace hdt
 		bool m_autoAdjustMaxSkeletons = true; // Whether to dynamically change the maxActive skeletons to maintain min_fps
 		int m_maxActiveSkeletons = 20; // The maximum active skeletons; hard limit
 		int m_sampleSize = 5; // how many samples (each sample taken every second) for determining average time per activeSkeleton.
-		float m_maxDistance = 1e4f;
-		float m_maxDistance2 = 1e8f; // The maxDistance value needs to be transformed to be useful, this is the useful value.
-		float m_maxAngle = 45.0f;
-		float m_cosMaxAngle2 = 0.5f; // The maxAngle value needs to be transformed to be useful, this is the useful value.
 	private:
 		void setSkeletonsActive();
 	};
