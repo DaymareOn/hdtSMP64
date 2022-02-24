@@ -9,6 +9,7 @@
 #include "Offsets.h"
 #include "skse64/GameStreams.h"
 #include "skse64/GameData.h"
+#include <numeric>
 
 namespace hdt
 {
@@ -59,6 +60,235 @@ namespace hdt
 				shouldFix = true;
 		}
 		return findNode(skeleton, shouldFix ? "NPC Root [Root]" : "NPC");
+	}
+
+	std::pair<bool, std::string> ActorManager::reloadPhysicsFile(UInt32 on_actor_formID, UInt32 on_item_formID, std::string new_physics_file_path)
+	{
+		std::lock_guard<decltype(m_lock)> l(m_lock);
+
+		auto p = findArmor(on_actor_formID, on_item_formID, new_physics_file_path);
+		auto armor = p.first;
+		std::string old_physics_file_path = "";
+		if (armor)
+		{
+			old_physics_file_path = armor->physicsFile.first;
+			setPhysicsOnArmor(armor, p.second, new_physics_file_path);
+		}
+		return std::pair{ armor, old_physics_file_path };
+	}
+
+	bool ActorManager::swapPhysicsFile(UInt32 on_actor_formID, std::string old_physics_file_path, std::string new_physics_file_path)
+	{
+		std::lock_guard<decltype(m_lock)> l(m_lock);
+
+		auto p = findArmor(on_actor_formID, NULL, old_physics_file_path);
+		auto armor = p.first;
+		if (armor && std::string(old_physics_file_path) != std::string(new_physics_file_path))
+			setPhysicsOnArmor(armor, p.second, new_physics_file_path);
+		return armor;
+	}
+
+	void ActorManager::setPhysicsOnArmor(Armor* armor, Skeleton* skeleton, std::string new_physics_file_path)
+	{
+		// Setting the new physics file
+		armor->physicsFile.first = new_physics_file_path;
+
+		// We set the physics system on the armor.
+		std::unordered_map<IDStr, IDStr> renameMap = std::move(armor->renameMap);
+		hdt::Ref<SkyrimSystem> system = armor->hasPhysics()
+			? SkyrimSystemCreator().updateSystem(armor->m_physics, skeleton->npc, armor->armorWorn, armor->physicsFile, renameMap)
+			: SkyrimSystemCreator().createSystem(skeleton->npc, armor->armorWorn, armor->physicsFile, renameMap);
+
+		if (system) {
+			if (armor->hasPhysics())
+				transferCurrentPosesBetweenSystems(armor->m_physics, system);
+			armor->setPhysics(system, true);
+		}
+
+		// If we didn't manage to set the physics system, we clear the physics on the armor.
+		else if (armor->hasPhysics())
+			armor->clearPhysics();
+	}
+
+	void ActorManager::transferCurrentPosesBetweenSystems(hdt::SkyrimSystem* src, hdt::SkyrimSystem* dst)
+	{
+		for (auto& b1 : src->getBones()) {
+			if (!b1) continue;
+			for (auto& b2 : dst->getBones()) {
+				if (!b2) continue;
+				if (util::_match_name(b1->m_name, b2->m_name)) {
+					b2->m_rig.setWorldTransform(b1->m_rig.getWorldTransform());
+					b2->m_rig.setAngularVelocity(b1->m_rig.getAngularVelocity());
+					b2->m_rig.setLinearVelocity(b1->m_rig.getLinearVelocity());
+					break;
+				}
+			}
+		}
+	}
+
+	std::pair<ActorManager::Armor*, ActorManager::Skeleton*> ActorManager::findArmor(UInt32 on_actor_formID, UInt32 on_item_formID, std::string old_physics_file_path)
+	{
+		auto& skeletons = getSkeletons();
+		for (auto& skeleton : skeletons) {
+			// We don't process a Skeleton without skeleton.
+			if (!skeleton.skeleton) continue;
+
+			// We process only the skeleton which owner formID is on_actor_formID
+			auto owner = skeleton.skeleton->m_owner;
+			if (owner && owner->formID != on_actor_formID) continue;
+
+			auto& armors = skeleton.getArmors();
+			for (auto& armor : armors) {
+				// When we select on item_formid, we want the armor to be worn.
+				// If we are on the right physicsFile, then we are on the right armor, and we return it.
+				if (on_item_formID) {
+					if (!armor.armorWorn) continue;
+					char buffer[16]; sprintf_s(buffer, "%08X", on_item_formID);
+					if (std::string(armor.armorWorn->m_name).find(buffer) == std::string::npos) continue;
+				}
+
+				if (old_physics_file_path == NULL || armor.physicsFile.first == old_physics_file_path.c_str())
+					return std::pair { &armor, &skeleton };
+			}
+		}
+		return std::pair { nullptr, nullptr };
+	}
+
+	std::string ActorManager::queryCurrentPhysicsFile(UInt32 on_actor_formID, UInt32 on_item_formID)
+	{
+		std::lock_guard<decltype(m_lock)> l(m_lock);
+
+		auto armor = findArmor(on_actor_formID, on_item_formID, NULL).first;
+		return armor ? armor->physicsFile.first.c_str() : "";
+	}
+
+	void ActorManager::SMPDebug_PrintDetailed(bool includeItems)
+	{
+		std::lock_guard<decltype(m_lock)> l(m_lock);
+
+		static std::map<ActorManager::SkeletonState, char*> stateStrings =
+		{ { ActorManager::SkeletonState::e_InactiveNotInScene, "Not in scene"},
+			{ActorManager::SkeletonState::e_InactiveUnseenByPlayer, "Unseen by player"},
+			{ActorManager::SkeletonState::e_InactiveTooFar, "Deactivated for performance"},
+			{ActorManager::SkeletonState::e_ActiveIsPlayer, "Is player character"},
+			{ActorManager::SkeletonState::e_ActiveNearPlayer, "Is near player"} };
+
+		auto skeletons = instance()->getSkeletons();
+		std::vector<int>order(skeletons.size());
+		std::iota(order.begin(), order.end(), 0);
+		std::sort(order.begin(), order.end(), [&](int a, int b) { return skeletons[a].state < skeletons[b].state; });
+
+		for (int i : order)
+		{
+			auto& skeleton = skeletons[i];
+
+			TESObjectREFR* skelOwner = nullptr;
+			TESFullName* ownerName = nullptr;
+
+			if (skeleton.skeleton->m_owner)
+			{
+				skelOwner = skeleton.skeleton->m_owner;
+				if (skelOwner->baseForm)
+					ownerName = DYNAMIC_CAST(skelOwner->baseForm, TESForm, TESFullName);
+			}
+
+			Console_Print("[HDT-SMP] %s skeleton - owner %s (refr formid %08x, base formid %08x) - %s",
+				skeleton.state > ActorManager::SkeletonState::e_SkeletonActive ? "active" : "inactive",
+				ownerName ? ownerName->GetName() : "unk_name",
+				skelOwner ? skelOwner->formID : 0x00000000,
+				skelOwner && skelOwner->baseForm ? skelOwner->baseForm->formID : 0x00000000,
+				stateStrings[skeleton.state]
+			);
+
+			if (includeItems)
+			{
+				for (auto armor : skeleton.getArmors())
+				{
+					Console_Print("[HDT-SMP] -- tracked armor addon %s, %s",
+						armor.armorWorn->m_name,
+						armor.state() != ActorManager::ItemState::e_NoPhysics
+						? armor.state() == ActorManager::ItemState::e_Active
+						? "has active physics system"
+						: "has inactive physics system"
+						: "has no physics system");
+
+					if (armor.state() != ActorManager::ItemState::e_NoPhysics)
+						for (auto mesh : armor.meshes())
+							Console_Print("[HDT-SMP] ---- has collision mesh %s", mesh->m_name->cstr());
+				}
+
+				if (skeleton.head.headNode)
+				{
+					for (auto headPart : skeleton.head.headParts)
+					{
+						Console_Print("[HDT-SMP] -- tracked headpart %s, %s",
+							headPart.headPart->m_name,
+							headPart.state() != ActorManager::ItemState::e_NoPhysics
+							? headPart.state() == ActorManager::ItemState::e_Active
+							? "has active physics system"
+							: "has inactive physics system"
+							: "has no physics system");
+
+						if (headPart.state() != ActorManager::ItemState::e_NoPhysics)
+							for (auto mesh : headPart.meshes())
+								Console_Print("[HDT-SMP] ---- has collision mesh %s", mesh->m_name->cstr());
+					}
+				}
+			}
+		}
+	}
+
+	void ActorManager::SMPDebug_Execute()
+	{
+		std::lock_guard<decltype(m_lock)> l(m_lock);
+
+		auto skeletons = ActorManager::instance()->getSkeletons();
+
+		size_t activeSkeletons = 0;
+		size_t armors = 0;
+		size_t headParts = 0;
+		size_t activeArmors = 0;
+		size_t activeHeadParts = 0;
+		size_t activeCollisionMeshes = 0;
+
+		for (auto skeleton : skeletons)
+		{
+			if (skeleton.state > ActorManager::SkeletonState::e_SkeletonActive)
+				activeSkeletons++;
+
+			for (const auto armor : skeleton.getArmors())
+			{
+				armors++;
+
+				if (armor.state() == ActorManager::ItemState::e_Active)
+				{
+					activeArmors++;
+					activeCollisionMeshes += armor.meshes().size();
+				}
+			}
+
+			if (skeleton.head.headNode)
+			{
+				for (const auto headpart : skeleton.head.headParts)
+				{
+					headParts++;
+
+					if (headpart.state() == ActorManager::ItemState::e_Active)
+					{
+						activeHeadParts++;
+						activeCollisionMeshes += headpart.meshes().size();
+					}
+				}
+			}
+		}
+
+		Console_Print("[HDT-SMP] tracked skeletons: %d", skeletons.size());
+		Console_Print("[HDT-SMP] active skeletons: %d", activeSkeletons);
+		Console_Print("[HDT-SMP] tracked armor addons: %d", armors);
+		Console_Print("[HDT-SMP] tracked head parts: %d", headParts);
+		Console_Print("[HDT-SMP] active armor addons: %d", activeArmors);
+		Console_Print("[HDT-SMP] active head parts: %d", activeHeadParts);
+		Console_Print("[HDT-SMP] active collision meshes: %d", activeCollisionMeshes);
 	}
 
 	// TODO Shouldn't there be an ArmorDetachEvent?

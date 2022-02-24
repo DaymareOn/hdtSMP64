@@ -21,15 +21,6 @@ namespace hdt {
 
 		BSFixedString QueryCurrentPhysicsFile(StaticFunctionTag* base, Actor* on_actor, TESObjectARMA* on_item, bool verbose_log);
 
-		namespace impl {
-			bool ReloadPhysicsFileImpl(UInt32 on_actor_formID, UInt32 on_item_formID, std::string physics_file_path, bool persist, bool verbose_log);
-
-			bool SwapPhysicsFileImpl(UInt32 on_actor_formID, std::string old_physics_file_path, std::string new_physics_file_path, bool persist, bool verbose_log);
-
-			std::string QueryCurrentPhysicsFileImpl(UInt32 on_actor_formID, UInt32 on_item_formID, bool verbose_log);
-		}
-
-
 		//UInt32 FindOrCreateAnonymousSystem(StaticFunctionTag* base, TESObjectARMA* system_model, bool verbose_log);
 
 		//UInt32 AttachAnonymousSystem(StaticFunctionTag* base, Actor* on_actor, UInt32 system_handle, bool verbose_log);

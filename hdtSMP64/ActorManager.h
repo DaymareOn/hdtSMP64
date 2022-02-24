@@ -52,6 +52,12 @@ namespace hdt
 		float rollingAverage = 0;
 		struct Skeleton;
 
+		bool m_shutdown = false;
+		std::recursive_mutex m_lock;
+		std::vector<Skeleton> m_skeletons;
+
+		Skeleton& getSkeletonData(NiNode* skeleton);
+
 		struct PhysicsItem
 		{
 			DefaultBBP::PhysicsFile physicsFile;
@@ -141,6 +147,8 @@ namespace hdt
 			static NiNode* cloneNodeTree(NiNode* src, IString* prefix, std::unordered_map<IDStr, IDStr>& map);
 			static void renameTree(NiNode* root, IString* prefix, std::unordered_map<IDStr, IDStr>& map);
 
+			// FIXME we expose through a public fonction the address to a vector, in a multi-thread environment.
+			// If one thread modifies the vector, while another iterates on it, this might lead to a CTD.
 			std::vector<Armor>& getArmors() { return armors; }
 
 			// @brief This is the squared distance between the skeleton and the camera.
@@ -157,14 +165,6 @@ namespace hdt
 			std::vector<Armor> armors;
 		};
 
-		bool m_shutdown = false;
-		std::recursive_mutex m_lock;
-		std::vector<Skeleton> m_skeletons;
-
-
-
-		Skeleton& getSkeletonData(NiNode* skeleton);
-
 	public:
 		ActorManager();
 		~ActorManager();
@@ -173,6 +173,29 @@ namespace hdt
 
 		static IDStr armorPrefix(IDType id);
 		static IDStr headPrefix(IDType id);
+
+		// @brief We set a physics file on a specific actor, on a specific worn armor.
+		std::pair<bool, std::string> reloadPhysicsFile(UInt32 on_actor_formID, UInt32 on_item_formID, std::string new_physics_file_path);
+
+		// @brief We set a physics file on a specific actor, if the physics file isn't already set.
+		bool swapPhysicsFile(UInt32 on_actor_formID, std::string old_physics_file_path, std::string new_physics_file_path);
+
+		// @brief We set the new physics file on the armor, the physics system on the armor, and transfer the current poses to the new system.
+		void setPhysicsOnArmor(Armor* armor, Skeleton* skeleton, std::string new_physics_file_path);
+
+		void transferCurrentPosesBetweenSystems(hdt::SkyrimSystem* src, hdt::SkyrimSystem* dst);
+
+		// @brief We loop through the skeletons to find those which owner is on_actor_formID;
+		// for those, if on_item_formID is defined, then we look for the worn armor with that formID;
+		// then if the old_physics_file_path is set, we check that the armor has this path;
+		// else we simply return te worn armor.
+		std::pair<ActorManager::Armor*, ActorManager::Skeleton*> findArmor(UInt32 on_actor_formID, UInt32 on_item_formID, std::string old_physics_file_path);
+
+		// @brief We return the current physics file of the found armor.
+		std::string queryCurrentPhysicsFile(UInt32 on_actor_formID, UInt32 on_item_formID);
+
+		void SMPDebug_PrintDetailed(bool includeItems);
+		void SMPDebug_Execute();
 
 		void onEvent(const ArmorAttachEvent& e) override;
 
@@ -187,7 +210,6 @@ namespace hdt
 #ifdef ANNIVERSARY_EDITION
 		bool skeletonNeedsParts(NiNode* skeleton);
 #endif
-		std::vector<Skeleton>& getSkeletons();//Altered by Dynamic HDT
 
 		bool m_skinNPCFaceParts = true;
 		bool m_autoAdjustMaxSkeletons = true; // Whether to dynamically change the maxActive skeletons to maintain min_fps
@@ -197,7 +219,22 @@ namespace hdt
 		float m_maxDistance2 = 1e8f; // The maxDistance value needs to be transformed to be useful, this is the useful value.
 		float m_maxAngle = 45.0f;
 		float m_cosMaxAngle2 = 0.5f; // The maxAngle value needs to be transformed to be useful, this is the useful value.
+
 	private:
 		void setSkeletonsActive();
+		std::vector<Skeleton>& getSkeletons();
 	};
+
+	namespace util {
+		inline static std::string _deprefix(std::string str_with_prefix) {
+			return str_with_prefix.find("hdtSSEPhysics_AutoRename_") == 0
+				? str_with_prefix.substr(str_with_prefix.find(' ') + 1)
+				: str_with_prefix;
+		}
+
+		inline static bool _match_name(IDStr& a, IDStr& b) {
+			if (!a || !b) return false;
+			return _deprefix(a->cstr()) == _deprefix(b->cstr());
+		}
+	}
 }

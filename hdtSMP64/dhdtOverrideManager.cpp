@@ -90,7 +90,7 @@ void hdt::Override::OverrideManager::Deserialize(std::stringstream& data_stream)
 				std::string orig_physics_file, override_physics_file;
 				data_stream >> orig_physics_file >> override_physics_file;
 				//this->registerOverride(actor_formID, orig_physics_file, override_physics_file);
-				hdt::papyrus::impl::SwapPhysicsFileImpl(actor_formID, orig_physics_file, override_physics_file, true, false);
+				ActorManager::instance()->swapPhysicsFile(actor_formID, orig_physics_file, override_physics_file);
 			}
 		}
 	}

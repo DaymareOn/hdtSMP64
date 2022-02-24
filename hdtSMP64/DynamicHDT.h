@@ -27,7 +27,5 @@ namespace hdt {
 		UInt32 splitArmorAddonFormID(std::string nodeName);
 
 		std::string UInt32toString(UInt32 formID);
-
-		void transferCurrentPosesBetweenSystems(hdt::SkyrimSystem* src, hdt::SkyrimSystem* dst);
 	}
 }

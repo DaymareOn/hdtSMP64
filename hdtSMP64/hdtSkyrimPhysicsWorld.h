@@ -53,9 +53,6 @@ namespace hdt
 			}
 		}
 
-		void suspendSimulationUntilFinished(std::function<void(void)> process);
-		std::atomic_bool m_isStasis = false;
-
 		btVector3 applyTranslationOffset();
 		void restoreTranslationOffset(const btVector3&);
 
