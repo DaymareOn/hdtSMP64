@@ -40,6 +40,10 @@ namespace hdt {
 		static inline std::vector<SerializerBase*>& GetSerializerList() { return g_SerializerList; };
 
 		static void Save(SKSESerializationInterface* intfc) {
+			// FIXME this is a temporary fix to disable serialization and save to the SKSE save,
+			// until we understand why some users say there is save corruption.
+			return;
+
 			for (auto data_block : g_SerializerList) {
 				//Console_Print("[HDT-SMP] Saving data, type: %s version: %08X", UInt32toStr(data_block->StorageName()).c_str(), data_block->FormatVersion());
 				data_block->SaveData(intfc);
@@ -47,17 +51,22 @@ namespace hdt {
 		};
 
 		static void Load(SKSESerializationInterface* intfc) {
+			// FIXME this is a temporary fix to disable serialization and save to the SKSE save,
+			// until we understand why some users say there is save corruption.
+			return;
+
 			UInt32 type, version, length;
 			//auto load_begin = clock();
+
 			while (intfc->GetNextRecordInfo(&type, &version, &length)) {
-				auto record = std::find_if(g_SerializerList.begin(), g_SerializerList.end(), [type, version](SerializerBase* a_srlzr) {
-					return type == a_srlzr->StorageName() && version == a_srlzr->FormatVersion();
-					}
-				);
-				if (record == g_SerializerList.end())continue;
+				auto record = std::find_if(g_SerializerList.begin(), g_SerializerList.end(), [type, version](SerializerBase* a_srlzr)
+					{ return type == a_srlzr->StorageName() && version == a_srlzr->FormatVersion(); });
+				if (record == g_SerializerList.end()) continue;
+
 				//_MESSAGE("[HDT-SMP] Reading data, type: %s version: %08X length: %d", UInt32toStr(type).c_str(), version, length);
 				(*record)->ReadData(intfc, length);
 			}
+
 			//Less than a microsecond
 			//Console_Print("[HDT-SMP] Serializer loading cost: %.3f sec.", (clock() - load_begin) / 1000.0f);
 		};
