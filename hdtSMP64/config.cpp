@@ -116,6 +116,8 @@ namespace hdt
 				}
 				else if (reader.GetLocalName() == "sampleSize")
 					ActorManager::instance()->m_sampleSize = std::max(reader.readInt(), 1);
+				else if (reader.GetLocalName() == "disable1stPersonViewPhysics")
+					ActorManager::instance()->m_disable1stPersonViewPhysics = reader.readBool();
 				else
 				{
 					_WARNING("Unknown config : %s", reader.GetLocalName());

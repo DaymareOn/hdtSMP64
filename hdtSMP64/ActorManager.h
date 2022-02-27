@@ -197,6 +197,10 @@ namespace hdt
 		float m_maxDistance2 = 1e8f; // The maxDistance value needs to be transformed to be useful, this is the useful value.
 		float m_maxAngle = 45.0f;
 		float m_cosMaxAngle2 = 0.5f; // The maxAngle value needs to be transformed to be useful, this is the useful value.
+
+		// @brief Depending on this setting, we avoid to calculate the physics of the PC when it is in 1st person view.
+		bool m_disable1stPersonViewPhysics = false;
+
 	private:
 		void setSkeletonsActive();
 	};
