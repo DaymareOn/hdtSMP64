@@ -81,12 +81,6 @@ namespace hdt
 					SkyrimPhysicsWorld::get()->m_unclampedResetAngle = reader.readFloat();
 				else if (reader.GetLocalName() == "percentageOfFrameTime")
 					SkyrimPhysicsWorld::get()->m_percentageOfFrameTime = std::clamp(reader.readInt() * 10, 1, 1000);
-				else if (reader.GetLocalName() == "maximumDistance")
-				{
-					auto f = reader.readFloat();
-					ActorManager::instance()->m_maxDistance = f;
-					ActorManager::instance()->m_maxDistance2 = f * f;
-				}
 #ifdef CUDA
 				else if (reader.GetLocalName() == "enableCuda")
 					CudaInterface::enableCuda = reader.readBool();
@@ -104,15 +98,6 @@ namespace hdt
 				}
 				else if (reader.GetLocalName() == "cudaDevice") {}
 #endif
-				else if (reader.GetLocalName() == "maximumAngle")
-				{
-					auto f = reader.readFloat();
-					if (f != 45.0f) // When it's equal, the exact result of cosMaxAngle2 would be 0.5. Let's use the exact value.
-					{
-						ActorManager::instance()->m_maxAngle = f;
-						ActorManager::instance()->m_cosMaxAngle2 = cosf(f / MATH_PI * 180.0f) * cosf(f / MATH_PI * 180.0f);
-					}
-				}
 				else if (reader.GetLocalName() == "maximumActiveSkeletons")
 				{
 					ActorManager::instance()->m_maxActiveSkeletons = reader.readInt();
