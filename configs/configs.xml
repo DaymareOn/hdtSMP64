@@ -42,6 +42,9 @@
             calculate the maximumActiveSkeletons. Increasing sample size will flatten outliers but can slow adjustment responsiveness.
 						Default is 5. -->
     <sampleSize>5</sampleSize>
+    <!-- disable1stPersonViewPhysics: if set to true, the physics of the PC won't be calculated when in 1st person view, to save performance.
+            Default is false. -->
+    <disable1stPersonViewPhysics>false</disable1stPersonViewPhysics>
     <!-- enableCuda: experimental GPU collision algorithm. Try this if you have a slow CPU and fast GPU -->
     <enableCuda>true</enableCuda>
   </smp>
