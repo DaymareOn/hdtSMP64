@@ -40,10 +40,6 @@ namespace hdt {
 		static inline std::vector<SerializerBase*>& GetSerializerList() { return g_SerializerList; };
 
 		static void Save(SKSESerializationInterface* intfc) {
-			// FIXME this is a temporary fix to disable serialization and save to the SKSE save,
-			// until we understand why some users say there is save corruption.
-			return;
-
 			for (auto data_block : g_SerializerList) {
 				//Console_Print("[HDT-SMP] Saving data, type: %s version: %08X", UInt32toStr(data_block->StorageName()).c_str(), data_block->FormatVersion());
 				data_block->SaveData(intfc);
@@ -51,10 +47,6 @@ namespace hdt {
 		};
 
 		static void Load(SKSESerializationInterface* intfc) {
-			// FIXME this is a temporary fix to disable serialization and save to the SKSE save,
-			// until we understand why some users say there is save corruption.
-			return;
-
 			UInt32 type, version, length;
 			//auto load_begin = clock();
 

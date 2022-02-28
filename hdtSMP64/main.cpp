@@ -609,9 +609,10 @@ extern "C" {
 
 			srlz_intfc->SetUniqueID(hdt::g_PluginHandle, 'FHDT');
 
-			srlz_intfc->SetSaveCallback(hdt::g_PluginHandle, hdt::SerializerBase::Save);
-
-			srlz_intfc->SetLoadCallback(hdt::g_PluginHandle, hdt::SerializerBase::Load);
+			// FIXME this is a temporary fix to disable serialization and save to the SKSE save,
+			// until we understand why some users say there is save corruption.
+			// srlz_intfc->SetSaveCallback(hdt::g_PluginHandle, hdt::SerializerBase::Save);
+			// srlz_intfc->SetLoadCallback(hdt::g_PluginHandle, hdt::SerializerBase::Load);
 		}
 
 		ObScriptCommand* hijackedCommand = nullptr;
