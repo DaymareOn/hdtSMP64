@@ -604,10 +604,9 @@ extern "C" {
 					// If we receive a SaveGame message, we serialize our data and save it in our dedicated save files.
 					if (msg && msg->type == SKSEMessagingInterface::kMessage_SaveGame)
 					{
-						std::string save_name = reinterpret_cast<char*>(msg->data);
-						
 						auto data = hdt::Override::OverrideManager::GetSingleton()->Serialize();
 						if (!data.str().empty()) {
+							std::string save_name = reinterpret_cast<char*>(msg->data);
 							std::ofstream ofs(OVERRIDE_SAVE_PATH + save_name + ".dhdt", std::ios::out);
 							if(ofs && ofs.is_open())
 								ofs << data.str();
