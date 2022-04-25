@@ -38,11 +38,8 @@ namespace hdt
 		auto factor3 = factor2 * factor;
 		auto factor5 = factor3 * factor2;
 
-		auto frameA = getFrameOffsetA();
-		auto frameB = getFrameOffsetB();
-
-		frameA.setOrigin(frameA.getOrigin() * factorA);
-		frameB.setOrigin(frameB.getOrigin() * factorB);
+		getFrameOffsetA().setOrigin(getFrameOffsetA().getOrigin() * factorA);
+		getFrameOffsetB().setOrigin(getFrameOffsetB().getOrigin() * factorB);
 		m_linearLimits.m_equilibriumPoint *= factor;
 		// target k = ma / x(kg/s^2)
 		m_linearLimits.m_springStiffness *= factor3;
