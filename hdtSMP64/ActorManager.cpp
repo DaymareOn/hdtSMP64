@@ -164,25 +164,22 @@ namespace hdt
 				auto dl = a_lhs.m_distanceFromCamera2;
 				return
 				// If one of the skeletons is at distance zero (1st person player) from the camera
-				(dl * dr == 0)
+				(btFuzzyZero(dl) || btFuzzyZero(dr))
 				// then it is first.
-				? (dl == 0)
+				? (dl < dr)
 
-				// If one of the skeletons is exacly on the side of the camera (product of cos = 0)
-				: (cl * cr == 0)
+				// If one of the skeletons is exacly on the side of the camera (cos = 0)
+				: (btFuzzyZero(cl) || btFuzzyZero(cr))
 				// then it is last.
-				? (cl != 0)
+				? abs(cl) > abs(cr)
 
-				// If one of the skeletons is behind the camera and the other in front of the camera (product of cos < 0)
-				: (cl * cr < 0)
-				// then the one behind the camera is last (the one with cos(angle) < 0).
-				? (cl > cr)
-
-				// Finally, if both are on the same side of the camera (product of cos > 0):
+				// If both are on the same side of the camera (product of cos > 0):
 				// we want first the smallest angle (so the highest cosinus), and the smallest distance,
 				// so we want the smallest distance / cosinus.
 				// cl = cosinus * distance, dl = distance² => distance / cosinus = dl/cl
 				// So we want dl/cl < dr/cr.
+				// Moreover, this test manages the case where one of the skeletons is behind the camera and the other in front of the camera too;
+				// the one behind the camera is last (the one with cos(angle) = cr < 0).
 				: (dl * cr < dr * cl);
 			});
 
