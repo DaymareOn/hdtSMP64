@@ -11,6 +11,7 @@
 #include "hdtSkyrimPhysicsWorld.h"
 #include "Hooks.h"
 #include "HookEvents.h"
+#include "hdtLog.h"
 
 #include <numeric>
 
@@ -172,13 +173,13 @@ namespace hdt
 
 	void DumpNodeChildren(NiAVObject* node)
 	{
-		_MESSAGE("{%s} {%s} {%X} [%f, %f, %f]", node->GetRTTI()->name, node->m_name, node, node->m_worldTransform.pos.x, node->m_worldTransform.pos.y, node->m_worldTransform.pos.z);
+		hdt::_MESSAGE("{%s} {%s} {%X} [%f, %f, %f]", node->GetRTTI()->name, node->m_name, node, node->m_worldTransform.pos.x, node->m_worldTransform.pos.y, node->m_worldTransform.pos.z);
 		if (node->m_extraDataLen > 0)
 		{
 			gLog.Indent();
 			for (UInt16 i = 0; i < node->m_extraDataLen; i++)
 			{
-				_MESSAGE("{%s} {%s} {%X}", node->m_extraData[i]->GetRTTI()->name, node->m_extraData[i]->m_pcName, node);
+				hdt::_MESSAGE("{%s} {%s} {%X}", node->m_extraData[i]->GetRTTI()->name, node->m_extraData[i]->m_pcName, node);
 			}
 			gLog.Outdent();
 		}
@@ -196,14 +197,14 @@ namespace hdt
 					BSGeometry* geometry = object->GetAsBSGeometry();
 					if (geometry)
 					{
-						_MESSAGE("{%s} {%s} {%X} [%f, %f, %f] - Geometry", object->GetRTTI()->name, object->m_name, object, geometry->m_worldTransform.pos.x, geometry->m_worldTransform.pos.y, geometry->m_worldTransform.pos.z);
+						hdt::_MESSAGE("{%s} {%s} {%X} [%f, %f, %f] - Geometry", object->GetRTTI()->name, object->m_name, object, geometry->m_worldTransform.pos.x, geometry->m_worldTransform.pos.y, geometry->m_worldTransform.pos.z);
 						if (geometry->m_spSkinInstance && geometry->m_spSkinInstance->m_spSkinData)
 						{
 							gLog.Indent();
 							for (int i = 0; i < geometry->m_spSkinInstance->m_spSkinData->m_uiBones; i++)
 							{
 								auto bone = geometry->m_spSkinInstance->m_ppkBones[i];
-								_MESSAGE("Bone %d - {%s} {%s} {%X} [%f, %f, %f]", i, bone->GetRTTI()->name, bone->m_name, bone, bone->m_worldTransform.pos.x, bone->m_worldTransform.pos.y, bone->m_worldTransform.pos.z);
+								hdt::_MESSAGE("Bone %d - {%s} {%s} {%X} [%f, %f, %f]", i, bone->GetRTTI()->name, bone->m_name, bone, bone->m_worldTransform.pos.x, bone->m_worldTransform.pos.y, bone->m_worldTransform.pos.z);
 							}
 							gLog.Outdent();
 						}
@@ -247,7 +248,7 @@ namespace hdt
 					}
 					else
 					{
-						_MESSAGE("{%s} {%s} {%X} [%f, %f, %f]", object->GetRTTI()->name, object->m_name, object, object->m_worldTransform.pos.x, object->m_worldTransform.pos.y, object->m_worldTransform.pos.z);
+						hdt::_MESSAGE("{%s} {%s} {%X} [%f, %f, %f]", object->GetRTTI()->name, object->m_name, object, object->m_worldTransform.pos.x, object->m_worldTransform.pos.y, object->m_worldTransform.pos.z);
 					}
 				}
 			}

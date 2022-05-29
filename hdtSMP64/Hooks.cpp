@@ -9,6 +9,7 @@
 #include "Hooks.h"
 #include "HookEvents.h"
 #include "Offsets.h"
+#include "hdtLog.h"
 #include "skse64/NiNodes.h"
 #include "skse64/GameRTTI.h"
 #include "skse64_common/SafeWrite.h"

@@ -1,5 +1,6 @@
 #include "hdtSkyrimSystem.h"
 #include "hdtSkinnedMesh/hdtSkinnedMeshShape.h"
+#include "hdtLog.h"
 #include "../hdtSSEUtils/NetImmerseUtils.h"
 #include "../hdtSSEUtils/FrameworkUtils.h"
 #ifndef SKYRIMVR
@@ -142,15 +143,15 @@ namespace hdt
 	template <typename ... Args>
 	void SkyrimSystemCreator::Error(const char* fmt, Args ... args)
 	{
-		std::string newfmt = std::string("%s(%d,%d):") + fmt;
-		_ERROR(newfmt.c_str(), m_filePath.c_str(), m_reader->GetRow(), m_reader->GetColumn(), args...);
+		std::string newfmt = std::string("%s(%d,%d): ") + fmt;
+		hdt::_ERROR(newfmt.c_str(), m_filePath.c_str(), m_reader->GetRow(), m_reader->GetColumn(), args...);
 	}
 
 	template <typename ... Args>
 	void SkyrimSystemCreator::Warning(const char* fmt, Args ... args)
 	{
-		std::string newfmt = std::string("%s(%d,%d):") + fmt;
-		_WARNING(newfmt.c_str(), m_filePath.c_str(), m_reader->GetRow(), m_reader->GetColumn(), args...);
+		std::string newfmt = std::string("%s(%d,%d): ") + fmt;
+		hdt::_WARNING(newfmt.c_str(), m_filePath.c_str(), m_reader->GetRow(), m_reader->GetColumn(), args...);
 	}
 
 	NiNode* SkyrimSystemCreator::findObjectByName(const IDStr& name)
@@ -194,9 +195,11 @@ namespace hdt
 	                                               std::unordered_map<IDStr, IDStr> renameMap)
 	{
 		auto path = file.first;
+		// FIXME why not throwing an exception rather than returning nullptr??
 		if (path.empty()) return nullptr;
 
 		auto loaded = readAllFile(path.c_str());
+		// FIXME why not throwing an exception rather than returning nullptr??
 		if (loaded.empty()) return nullptr;
 
 		m_renameMap = std::move(renameMap);
@@ -209,6 +212,7 @@ namespace hdt
 		m_reader = &reader;
 
 		m_reader->nextStartElement();
+		// FIXME why not throwing an exception rather than returning nullptr??
 		if (m_reader->GetName() != "system") return nullptr;
 
 		auto meshNameMap = file.second;
@@ -837,14 +841,14 @@ namespace hdt
 
 		if (m_mesh->findBone(name))
 		{
-			Warning("Bone %s is already exist, skipped", name->cstr());
+			Warning("Bone %s is already defined, skipped", name->cstr());
 			return;
 		}
 
 		auto node = findObjectByName(name);
 		if (!node)
 		{
-			Warning("Bone %s is not exist, skipped", name->cstr());
+			Warning("Bone %s doesn't exist in the skeleton, skipped", name->cstr());
 			m_reader->skipCurrentElement();
 			return;
 		}

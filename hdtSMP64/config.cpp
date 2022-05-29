@@ -1,5 +1,6 @@
 #include "config.h"
 #include "XmlReader.h"
+#include "hdtLog.h"
 
 #include "hdtSkyrimPhysicsWorld.h"
 #ifdef CUDA
@@ -72,7 +73,11 @@ namespace hdt
 			{
 			case XMLReader::Inspected::StartTag:
 				if (reader.GetLocalName() == "logLevel")
-					gLog.SetLogLevel(static_cast<IDebugLog::LogLevel>(reader.readInt()));
+				{
+					auto level = reader.readInt();
+					Log::instance()->level = level;
+					gLog.SetLogLevel(static_cast<IDebugLog::LogLevel>(level));
+				}
 				else if (reader.GetLocalName() == "enableNPCFaceParts")
 					ActorManager::instance()->m_skinNPCFaceParts = reader.readBool();
 				else if (reader.GetLocalName() == "clampRotations")

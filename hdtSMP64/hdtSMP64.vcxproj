@@ -4349,6 +4349,7 @@ copy "$(SolutionDir)configs\configs.xml" "$(TargetDir)..\..\..\..\..\Faster HDT-
     <ClInclude Include="hdtConvertNi.h" />
     <ClInclude Include="hdtDefaultBBP.h" />
     <ClInclude Include="hdtForceUpdateList.h" />
+    <ClInclude Include="hdtLog.h" />
     <ClInclude Include="hdtSerialization.h" />
     <ClInclude Include="hdtSkinnedMesh\hdtAABB.h" />
     <ClInclude Include="hdtSkinnedMesh\hdtBone.h" />

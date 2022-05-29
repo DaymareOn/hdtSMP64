@@ -856,6 +856,9 @@
     <ClInclude Include="hdtSerialization.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="hdtLog.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="hdtSkinnedMesh\hdtAabb.cpp">
