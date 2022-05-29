@@ -2,67 +2,195 @@
 
 <configs>
   <smp>
-    <!-- logLevel: level of logs
-              kLevel_FatalError = 0,
-              kLevel_Error,
-              kLevel_Warning,
-              kLevel_Message,
-              kLevel_VerboseMessage,
-              kLevel_DebugMessage = 5  -->
+
+    <!-- ######################## LOGS #################################### -->
+
+    <!--
+      logLevel: (int 0-5) level of logs
+      0 = kLevel_FatalError
+      1 = kLevel_Error
+      2 = kLevel_Warning
+      3 = kLevel_Message
+      4 = kLevel_VerboseMessage
+      5 = kLevel_DebugMessage
+    -->
     <logLevel>3</logLevel>
-    <!-- enableNPCFaceParts: enable physics for NPC face parts -->
+
+    <!-- #################### NPC FACE PARTS ############################## -->
+
+    <!--
+      enableNPCFaceParts: (boolean) enables physics for NPC face parts.
+      If no value is set, default is true.
+    -->
     <enableNPCFaceParts>true</enableNPCFaceParts>
-    <!-- clampRotations: when turning a large angle, clamp rotation speed, so your character rotates slowly instead of instantly -->
+
+    <!-- ##################### CLAMP ROTATIONS ############################ -->
+
+    <!--
+      clampRotations: (boolean) limits the PC rotation speed when turning a
+      large angle, so that your character rotates slowly instead of instantly.
+      If no value is set, default is true.
+    -->
     <clampRotations>true</clampRotations>
-    <!-- unclampedResets: when unclamped, if you do a large turn (full 180 for example) SMP will attempt to apply physics
-		                      for that enormous turn. setting this to true will instead trigger a physics reset on the actor
-				      if the turn is large enough. you can try setting this false and deciding if you're OK with the
-				      results -->
+
+    <!--
+      unclampedResets: (boolean) when unclamped, if you do a large turn (full
+      180° for example), we will attempt to apply physics for that enormous
+      turn. Setting this to true will instead trigger a physics reset on the
+      actor if the turn is large enough. You can try setting this false and
+      decide if you're OK with the results.
+      If no value is set, default is true.
+    -->
     <unclampedResets>true</unclampedResets>
-    <!-- unclampedResetAngle: angle to reset at. you'll probably want to tweak this until you're happy. -->
+
+    <!--
+      unclampedResetAngle: (int) the angle value in degrees to reset at. You'll
+      probably want to tweak this until you're happy. There is no limitation on
+      value, use your common sense.
+      If no value is set, default is 120°.
+    -->
     <unclampedResetAngle>130.0</unclampedResetAngle>
-    <!-- maximumActiveSkeletons: maximum number of active skeletons/actors for physics. This is a hard limit to autoAdjustMaxSkeletons.
-						Set lower values for more performance - default is 20. -->
-    <maximumActiveSkeletons>20</maximumActiveSkeletons>
-    <!-- autoAdjustMaxSkeletons: enable lowering of maxActiveSkeletons to maintain min-fps (see solver/min-fps) between 1 and maximumActiveSkeletons.
-            This can result in skeletons going inactive with heavy load to try to preserve fps. The algorithm will prioritize closer skeletons within
-            the center of your field of view. If disabled, fps may drop with many active Skeletons.
-						Default is true. -->
+
+    <!-- ################# MAX SKELETONS NUMBER ########################### -->
+
+    <!--
+      autoAdjustMaxSkeletons: (boolean) sets dynamically the maximum number of
+      simultaneous skeletons/actors for which physics is calculated, between 1
+      and maximumActiveSkeletons (below) to consume only the allocated
+      percentageOfFrameTime.
+      This can result in only one active skeleton when the load is heavy.
+      The algorithm will prioritize closer skeletons within the center of your
+      field of view.
+      If disabled, fps may drop when you have too many active skeletons.
+      If no value is set, default is true.
+    -->
     <autoAdjustMaxSkeletons>true</autoAdjustMaxSkeletons>
-    <!-- percentageOfFrameTime: percentage of cpu time per frame doing hdt (integers 1 to 100). Profiler shows 30% is reasonable.
-            Match this to how much frame time is used to calculate physics. This is used for autoAdjustMaxSkeletons to calcualte how many
-            activeSkeletons to allow.
-            Setting higher than your actual percentage will result in poor performance because the adjuster will assume you have more
-            time than available to calculate physics.
-            Setting lower may set maximumActiveSkeletons too low and leave cpu time unused.
-            Default is 30.-->
+
+    <!--
+      maximumActiveSkeletons: (int) the configured maximum number of
+      simultaneous skeletons/actors for which physics is calculated, when
+      autoAdjustMaxSkeletons is enabled. If autoAdjustMaxSkeletons is disabled,
+      the maximum simultaneously active skeletons number is 10 (hardcoded).
+      There is no limit on the value.
+      If no value is set, default is 20.
+    -->
+    <maximumActiveSkeletons>20</maximumActiveSkeletons>
+
+    <!--
+      percentageOfFrameTime: (int 1-100) percentage of the configured min-fps
+      period allocated to physics calculus.
+      If your min-fps is 60 and your percentage is 30, then the allocated time
+      for physics calculus during a frame is 1/60s * 30% = 5ms.
+      Profiler shows 30% is reasonable, but this is a personal decision.
+      The question is: how much cpu time is available to you? If you're already
+      below 60 fps or if you have a 240Hz screen and want to maintain high fps,
+      you might want to limit the time allocated to physics calculus.
+      Setting higher than your actual percentage will result in poor
+      performance because the adjuster will assume you have more time than
+      available to calculate physics.
+      Setting lower may set maximumActiveSkeletons too low and leave cpu time
+      unused.
+      You can set the logs to debug to see how much time is used and how much
+      skeletons are calculated.
+      If no value is set, default is 30.
+    -->
     <percentageOfFrameTime>30</percentageOfFrameTime>
-    <!-- sampleSize: how many samples (sample taken every min_fps frames/every second) for determining average ms per activeSkeleton.
-            This is used to log performance statistics and also used with autoAdjustMaxSkeletons to calculate the running average which is used to
-            calculate the maximumActiveSkeletons. Increasing sample size will flatten outliers but can slow adjustment responsiveness.
-						Default is 5. -->
+
+    <!--
+      sampleSize: (int) how many samples (sample taken every min_fps
+      frames/every second) to determine the average ms per activeSkeleton.
+      This is used to log performance statistics and also used to calculate
+      the processing time average used to limit the number of active skeletons.
+      Increasing the sample size will flatten outliers but can slow adjustment
+      responsiveness.
+      The value must be equal or greater to 1.
+      If no value is set, default is 5.
+    -->
     <sampleSize>5</sampleSize>
-    <!-- disable1stPersonViewPhysics: if set to true, the physics of the PC won't be calculated when in 1st person view, to save performance.
-            Default is false. -->
+
+    <!-- ################## PC PHYSICS WHILE IN 1ST PERSON VIEW ########### -->
+
+    <!--
+      disable1stPersonViewPhysics: (boolean) if set to true, the physics of the
+      PC won't be calculated when in 1st person view, to save performance.
+      If no value is set, default is false.
+    -->
     <disable1stPersonViewPhysics>false</disable1stPersonViewPhysics>
-    <!-- enableCuda: experimental GPU collision algorithm. Try this if you have a slow CPU and fast GPU -->
+
+    <!-- ##################### CUDA ####################################### -->
+
+    <!--
+      enableCuda: (boolean) experimental GPU collision algorithm. Try this if
+      you have a slow CPU and fast GPU. This setting will be ignored if you
+      haven't installed the CUDA-enabled version.
+      If no value is set, default is false.
+    -->
     <enableCuda>true</enableCuda>
+
   </smp>
   <solver>
+
+    <!-- ################ BULLET PHYSICS ENGINE SETTINGS  ################# -->
+
+    <!--
+      numIterations: (int 4-128) could be simplified as 'simulation accuracy',
+      lower values will gain performance at the cost of less quality.
+      If no value is set, default is 10.
+    -->
     <numIterations>16</numIterations>
+
+    <!--
+      groupIterations: (int 0-4096)
+      If no value is set, default is 2.
+    -->
     <groupIterations>16</groupIterations>
+
+    <!--
+      groupEnableMLCP: (boolean) Turns on the higher quality constraint solver,
+      better constraint simulation at the cost of performance.
+      If no value is set, default is true.
+    -->
     <groupEnableMLCP>false</groupEnableMLCP>
+
+    <!--
+      erp: (float ]0-1[) The error correction force applied per simulation
+      step, constraints will drift apart naturally, this value will exert a
+      force to move them back to where they are supposed to be.
+      Do not use the 0 and 1 values.
+      If no value is set, default is 0.2.
+    -->
     <erp>0.2</erp>
-	<!-- min-fps is the main frequency at which physics simulation will advance; in fact, it defines the main period of time at which the physics simulation will advance; (p=1/f).
-         min-fps should never be configured under 60, or the bullet physics engine will badly bug.
-		 The higher it is, the better your physics simulation will be and the more costly for your CPU/GPU. 120 costs twice as much cpu as 60. -->
+
+    <!-- ################ PHYSICS SIMULATION FREQUENCY  ################### -->
+
+    <!--
+      min-fps: (int 60-300), is the main frequency at which physics simulation will
+      advance; in fact, it defines the main period of time at which the physics
+      simulation will advance; (p=1/f). min-fps should never be configured
+      under 60, or the bullet physics engine will badly bug. The higher it is,
+      the better your physics simulation will be and the more costly for your
+      CPU/GPU. 120 costs twice as much cpu as 60.
+      If no value is set, default is 60.
+    -->
     <min-fps>60</min-fps>
-	  <!-- This setting allows you to choose between fps and physics simulation quality, at low fps.
-	       maxSubSteps is the maximum number of physics calculus steps, each frame. Slowdowns are experienced when fps are below min-fps/maxSubSteps.
-	       With the default value, slowdowns are experienced below 60/4 = 15 fps.
-		   The higher it is, the more costly your physics simulation will be at low fps. 2 substeps cost twice as 1 substep.
-		   When fps are above min-fps, one substep is enough; when fps are between min-fps/n and min-fps/(n+1), n+1 substeps are necessary.
-		   The max value is 60, which allows for slowdowns below 5 fps when min-fps is at 300 (max value). -->
-	  <maxSubSteps>4</maxSubSteps>
+
+    <!-- ################### PHYSICS SLOWDOWNS  ########################### -->
+
+    <!--
+      maxSubSteps: (int, 1-60) this setting allows you to choose between fps and
+      physics simulation quality, at low fps.
+      maxSubSteps is the maximum number of physics calculus steps, each frame.
+      Slowdowns are experienced when fps are below min-fps/maxSubSteps.
+      With the default value, slowdowns are experienced below 60/4 = 15 fps.
+      The higher it is, the more costly your physics simulation will be at low
+      fps. 2 substeps cost twice as 1 substep.
+      When fps are above min-fps, one substep is enough; when fps are between
+      min-fps/n and min-fps/(n+1), n+1 substeps are necessary.
+      The max value is 60, which allows for slowdowns below 5 fps when min-fps
+      is at 300 (max value).
+      If no value is set, default is 4.
+    -->
+    <maxSubSteps>4</maxSubSteps>
+
   </solver>
 </configs>
