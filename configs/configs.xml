@@ -64,7 +64,7 @@
       If disabled, fps may drop when you have too many active skeletons.
       If no value is set, default is true.
     -->
-    <autoAdjustMaxSkeletons>true</autoAdjustMaxSkeletons>
+    <autoAdjustMaxSkeletons>false</autoAdjustMaxSkeletons>
 
     <!--
       maximumActiveSkeletons: (int) the configured maximum number of
