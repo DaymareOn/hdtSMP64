@@ -166,8 +166,8 @@ namespace hdt
 		const StiffSpringConstraintTemplate& getStiffSpringConstraintTemplate(const IDStr& name);
 		const ConeTwistConstraintTemplate& getConeTwistConstraintTemplate(const IDStr& name);
 
-		void readBone();
-		void updateBone(SkyrimSystem* old_system);
+		SkyrimBone* SkyrimSystemCreator::createBoneFromNodeName(const IDStr& bodyName, const IDStr& templateName = "", const bool readTemplate = false, SkyrimSystem* old_system = nullptr);
+		void SkyrimSystemCreator::readOrUpdateBone(SkyrimSystem* old_system = nullptr);
 		Ref<SkyrimBody> readPerVertexShape(DefaultBBP::NameMap meshNameMap);
 		Ref<SkyrimBody> readPerTriangleShape(DefaultBBP::NameMap meshNameMap);
 		Ref<Generic6DofConstraint> readGenericConstraint();
@@ -180,6 +180,8 @@ namespace hdt
 		void Error(const char* fmt, Args ... args);
 		template <typename ... Args>
 		void Warning(const char* fmt, Args ... args);
+		template <typename ... Args>
+		void VMessage(const char* fmt, Args ... args);
 
 		std::vector<std::shared_ptr<btCollisionShape>> m_shapeRefs;
 	};

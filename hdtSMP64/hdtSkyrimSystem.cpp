@@ -153,6 +153,13 @@ namespace hdt
 		_WARNING(newfmt.c_str(), m_filePath.c_str(), m_reader->GetRow(), m_reader->GetColumn(), args...);
 	}
 
+	template <typename ... Args>
+	void SkyrimSystemCreator::VMessage(const char* fmt, Args ... args)
+	{
+		std::string newfmt = std::string("%s(%d,%d):") + fmt;
+		_VMESSAGE(newfmt.c_str(), m_filePath.c_str(), m_reader->GetRow(), m_reader->GetColumn(), args...);
+	}
+
 	NiNode* SkyrimSystemCreator::findObjectByName(const IDStr& name)
 	{
 		// TODO check it's not a lurker skeleton
@@ -164,22 +171,8 @@ namespace hdt
 		auto bone = static_cast<SkyrimBone*>(m_mesh->findBone(getRenamedBone(name)));
 		if (bone) return bone;
 
-		Warning("Bone %s use before created, create by current default value", name->cstr());
-		auto node = findObjectByName(name);
-		if (node)
-		{
-			auto defaultBoneInfo = getBoneTemplate("");
-			bone = new SkyrimBone(node->m_name, node, this->m_skeleton, defaultBoneInfo);
-
-			bone->m_localToRig = defaultBoneInfo.m_centerOfMassTransform;
-			bone->m_rigToLocal = defaultBoneInfo.m_centerOfMassTransform.inverse();
-			bone->m_marginMultipler = defaultBoneInfo.m_marginMultipler;
-			bone->m_gravityFactor = defaultBoneInfo.m_gravityFactor;
-			bone->readTransform(RESET_PHYSICS);
-
-			m_mesh->m_bones.push_back(bone);
-		}
-		return bone;
+		Warning("Bone %s used before being created, trying to create it with current default values", name->cstr());
+		return createBoneFromNodeName(name);
 	}
 
 	IDStr SkyrimSystemCreator::getRenamedBone(IDStr name)
@@ -231,7 +224,7 @@ namespace hdt
 					auto name = m_reader->GetName();
 					if (name == "bone")
 					{
-						readBone();
+						readOrUpdateBone();
 					}
 					else if (name == "bone-default")
 					{
@@ -388,7 +381,7 @@ namespace hdt
 					auto name = m_reader->GetName();
 					if (name == "bone")
 					{
-						updateBone(old_system);
+						readOrUpdateBone(old_system);
 					}
 					else if (name == "bone-default")
 					{
@@ -830,89 +823,63 @@ namespace hdt
 		return nullptr;
 	}
 
-	void SkyrimSystemCreator::readBone()
+	void SkyrimSystemCreator::readOrUpdateBone(SkyrimSystem* old_system)
 	{
 		IDStr name = getRenamedBone(m_reader->getAttribute("name"));
-		IDStr cls = m_reader->getAttribute("template", "");
-
 		if (m_mesh->findBone(name))
 		{
-			Warning("Bone %s is already exist, skipped", name->cstr());
+			Warning("Bone %s already exists, skipped", name->cstr());
 			return;
 		}
 
-		auto node = findObjectByName(name);
-		if (!node)
-		{
-			Warning("Bone %s is not exist, skipped", name->cstr());
+		IDStr cls = m_reader->getAttribute("template", "");
+		if (!createBoneFromNodeName(name, cls, true, old_system))
 			m_reader->skipCurrentElement();
-			return;
-		}
-
-		BoneTemplate cinfo = m_boneTemplates[cls];
-		readBoneTemplate(cinfo);
-		auto b = new SkyrimBone(node->m_name, node, this->m_skeleton, cinfo);
-		b->m_localToRig = cinfo.m_centerOfMassTransform;
-		b->m_rigToLocal = cinfo.m_centerOfMassTransform.inverse();
-		b->m_marginMultipler = cinfo.m_marginMultipler;
-		b->m_gravityFactor = cinfo.m_gravityFactor;
-		//b->m_collisionFilter = cinfo.m_collisionFilter;
-
-		b->readTransform(RESET_PHYSICS);
-
-		m_mesh->m_bones.push_back(b);
 	}
 
-	void SkyrimSystemCreator::updateBone(SkyrimSystem* old_system)
+	SkyrimBone* SkyrimSystemCreator::createBoneFromNodeName(const IDStr& bodyName, const IDStr& templateName, const bool readTemplate, SkyrimSystem* old_system)
 	{
-		IDStr name = getRenamedBone(m_reader->getAttribute("name"));
-		IDStr cls = m_reader->getAttribute("template", "");
-
-		if (m_mesh->findBone(name))
+		auto node = findObjectByName(bodyName);
+		if (node)
 		{
-			Warning("Bone %s is already exist, skipped", name->cstr());
-			return;
+			VMessage("Found node named %s, creating bone", bodyName->cstr());
+			auto boneTemplate = getBoneTemplate(templateName);
+			if (readTemplate)
+				readBoneTemplate(boneTemplate);
+			auto bone = new SkyrimBone(node->m_name, node, this->m_skeleton, boneTemplate);
+			bone->m_localToRig = boneTemplate.m_centerOfMassTransform;
+			bone->m_rigToLocal = boneTemplate.m_centerOfMassTransform.inverse();
+			bone->m_marginMultipler = boneTemplate.m_marginMultipler;
+			bone->m_gravityFactor = boneTemplate.m_gravityFactor;
+
+			if (old_system)
+			{
+				auto old_b = old_system->findBone(bodyName);
+				if (old_b)
+				{
+					bone->m_currentTransform = convertNi(bone->m_skeleton->m_worldTransform) * old_b->m_origToSkeletonTransform;
+					auto dest = bone->m_currentTransform.asTransform() * bone->m_localToRig;
+					bone->m_origToSkeletonTransform = old_b->m_origToSkeletonTransform;
+					bone->m_origTransform = old_b->m_origTransform;
+					bone->m_rig.setWorldTransform(dest);
+					bone->m_rig.setInterpolationWorldTransform(dest);
+					bone->m_rig.setLinearVelocity(btVector3(0, 0, 0));
+					bone->m_rig.setAngularVelocity(btVector3(0, 0, 0));
+					bone->m_rig.setInterpolationLinearVelocity(btVector3(0, 0, 0));
+					bone->m_rig.setInterpolationAngularVelocity(btVector3(0, 0, 0));
+					bone->m_rig.updateInertiaTensor();
+				}
+				else
+					bone->readTransform(RESET_PHYSICS);
+			}
+			else
+				bone->readTransform(RESET_PHYSICS);
+
+			m_mesh->m_bones.push_back(bone);
+			return bone;
 		}
-
-		auto node = findObjectByName(name);
-		if (!node)
-		{
-			Warning("Bone %s is not exist, skipped", name->cstr());
-			m_reader->skipCurrentElement();
-			return;
-		}
-
-		BoneTemplate cinfo = m_boneTemplates[cls];
-		readBoneTemplate(cinfo);
-		auto b = new SkyrimBone(node->m_name, node, this->m_skeleton, cinfo);
-		b->m_localToRig = cinfo.m_centerOfMassTransform;
-		b->m_rigToLocal = cinfo.m_centerOfMassTransform.inverse();
-		b->m_marginMultipler = cinfo.m_marginMultipler;
-		b->m_gravityFactor = cinfo.m_gravityFactor;
-		//b->m_collisionFilter = cinfo.m_collisionFilter;
-
-		auto old_b = old_system->findBone(name);
-
-		if (!old_b) {
-			b->readTransform(RESET_PHYSICS);
-		}
-		else {
-			b->m_currentTransform = convertNi(b->m_skeleton->m_worldTransform) * old_b->m_origToSkeletonTransform;
-
-			auto dest = b->m_currentTransform.asTransform() * b->m_localToRig;
-
-			b->m_origToSkeletonTransform = old_b->m_origToSkeletonTransform;
-			b->m_origTransform = old_b->m_origTransform;
-			b->m_rig.setWorldTransform(dest);
-			b->m_rig.setInterpolationWorldTransform(dest);
-			b->m_rig.setLinearVelocity(btVector3(0, 0, 0));
-			b->m_rig.setAngularVelocity(btVector3(0, 0, 0));
-			b->m_rig.setInterpolationLinearVelocity(btVector3(0, 0, 0));
-			b->m_rig.setInterpolationAngularVelocity(btVector3(0, 0, 0));
-			b->m_rig.updateInertiaTensor();
-
-		}
-		m_mesh->m_bones.push_back(b);
+		Warning("Node named % doesn't exist, skipped, no bone created", bodyName->cstr());
+		return nullptr;
 	}
 
 	// float32
@@ -982,6 +949,7 @@ namespace hdt
 					auto defaultBoneInfo = getBoneTemplate("");
 					bone = new SkyrimBone(boneName, node->GetAsNiNode(), this->m_skeleton, defaultBoneInfo);
 					m_mesh->m_bones.push_back(bone);
+					VMessage("Created bone %s added to body %s, created without default values", boneName->cstr(), name);
 				}
 
 				body->addBone(bone, convertNi(boneData->m_kSkinToBone), boundingSphere);
@@ -1366,42 +1334,20 @@ namespace hdt
 
 		if (!bodyA)
 		{
-			auto node = findObjectByName(bodyAName);
-			if (node)
+			Warning("constraint %s <-> %s : bone for bodyA doesn't exist, will try to create it", bodyAName->cstr(), bodyBName->cstr());
+			bodyA = createBoneFromNodeName(bodyAName);
+			if (!bodyA)
 			{
-				auto defaultBoneInfo = getBoneTemplate("");
-				bodyA = new SkyrimBone(node->m_name, node, this->m_skeleton, defaultBoneInfo);
-				bodyA->m_localToRig = defaultBoneInfo.m_centerOfMassTransform;
-				bodyA->m_rigToLocal = defaultBoneInfo.m_centerOfMassTransform.inverse();
-				bodyA->m_marginMultipler = defaultBoneInfo.m_marginMultipler;
-				bodyA->m_gravityFactor = defaultBoneInfo.m_gravityFactor;
-				bodyA->readTransform(RESET_PHYSICS);
-				m_mesh->m_bones.push_back(bodyA);
-			}
-			else
-			{
-				Warning("constraint %s <-> %s : bodyA doesn't exist, skipped", bodyAName->cstr(), bodyBName->cstr());
 				m_reader->skipCurrentElement();
 				return false;
 			}
 		}
 		if (!bodyB)
 		{
-			auto node = findObjectByName(bodyBName);
-			if (node)
+			Warning("constraint %s <-> %s : bone for bodyB doesn't exist, will try to create it", bodyAName->cstr(), bodyBName->cstr());
+			bodyB = createBoneFromNodeName(bodyBName);
+			if (!bodyB)
 			{
-				auto defaultBoneInfo = getBoneTemplate("");
-				bodyB = new SkyrimBone(node->m_name, node, this->m_skeleton, defaultBoneInfo);
-				bodyB->m_localToRig = defaultBoneInfo.m_centerOfMassTransform;
-				bodyB->m_rigToLocal = defaultBoneInfo.m_centerOfMassTransform.inverse();
-				bodyB->m_marginMultipler = defaultBoneInfo.m_marginMultipler;
-				bodyB->m_gravityFactor = defaultBoneInfo.m_gravityFactor;
-				bodyB->readTransform(RESET_PHYSICS);
-				m_mesh->m_bones.push_back(bodyB);
-			}
-			else
-			{
-				Warning("constraint %s <-> %s : bodyB doesn't exist, skipped", bodyAName->cstr(), bodyBName->cstr());
 				m_reader->skipCurrentElement();
 				return false;
 			}
@@ -1420,6 +1366,7 @@ namespace hdt
 			return false;
 		}
 
+		VMessage("OK: constraint between object %s <-> %s", bodyAName->cstr(), bodyBName->cstr());
 		return true;
 	}
 
