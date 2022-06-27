@@ -878,7 +878,7 @@ namespace hdt
 			m_mesh->m_bones.push_back(bone);
 			return bone;
 		}
-		Warning("Node named % doesn't exist, skipped, no bone created", bodyName->cstr());
+		Warning("Node named %s doesn't exist, skipped, no bone created", bodyName->cstr());
 		return nullptr;
 	}
 
