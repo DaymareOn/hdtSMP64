@@ -492,7 +492,8 @@ extern "C" {
 		"hydrogensaysHDT",
 		"",
 		0,	// not version independent
-		{ RUNTIME_VERSION_1_6_353, 0 },
+		SKSEPluginVersionData::kVersionIndependent_StructsPost629,
+		{ RUNTIME_VERSION_1_6_640, 0 },
 		0,	// works with any version of the script extender. you probably do not need to put anything here
 	};
 #else
