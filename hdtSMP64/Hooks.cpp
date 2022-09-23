@@ -60,9 +60,9 @@ namespace hdt
 				if (actor)
 				{
 					TESNPC* actorBase = DYNAMIC_CAST(actor->baseForm, TESForm, TESNPC);
-					for (int i = 0; i < actorBase->numHeadParts; i++)
+					for (int i = 0; i < BGSHeadPart::kNumTypes; i++)
 					{
-						BGSHeadPart* headPart = actorBase->headparts[i];
+						BGSHeadPart* headPart = actorBase->GetCurrentHeadPartByType(i);
 						ProcessHeadPart(headPart, a_skeleton);
 					}
 					if (a_skeleton->m_owner && a_skeleton->m_owner->formID == 0x14)
