@@ -1096,7 +1096,7 @@ copy "$(SolutionDir)configs\configs.xml" "$(TargetDir)..\..\..\..\..\Faster HDT-
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>false</SDLCheck>
-      <PreprocessorDefinitions>CURRENTVERSION=V1_4_15;BT_USE_SSE_IN_API;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>CURRENTVERSION=V1_4_15;SKYRIMVR=CURRENTVERSION==V1_4_15;BT_USE_SSE_IN_API;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
@@ -1227,7 +1227,7 @@ copy "$(SolutionDir)configs\configs.xml" "$(TargetDir)..\..\..\..\..\Faster HDT-
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>CURRENTVERSION=V1_4_15;BT_USE_SSE_IN_API;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>CURRENTVERSION=V1_4_15;SKYRIMVR=CURRENTVERSION==V1_4_15;BT_USE_SSE_IN_API;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
@@ -1361,7 +1361,7 @@ copy "$(SolutionDir)configs\configs.xml" "$(TargetDir)..\..\..\..\..\Faster HDT-
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>false</SDLCheck>
-      <PreprocessorDefinitions>CURRENTVERSION=V1_4_15;CUDA;BT_USE_SSE_IN_API;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>CURRENTVERSION=V1_4_15;SKYRIMVR=CURRENTVERSION==V1_4_15;CUDA;BT_USE_SSE_IN_API;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
@@ -1499,7 +1499,7 @@ copy "$(SolutionDir)configs\configs.xml" "$(TargetDir)..\..\..\..\..\Faster HDT-
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>CURRENTVERSION=V1_4_15;CUDA;BT_USE_SSE_IN_API;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>CURRENTVERSION=V1_4_15;SKYRIMVR=CURRENTVERSION==V1_4_15;CUDA;BT_USE_SSE_IN_API;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
@@ -1771,7 +1771,7 @@ copy "$(SolutionDir)configs\configs.xml" "$(TargetDir)..\..\..\..\..\Faster HDT-
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>false</SDLCheck>
-      <PreprocessorDefinitions>CURRENTVERSION=V1_4_15;CUDA;BT_USE_SSE_IN_API;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>CURRENTVERSION=V1_4_15;SKYRIMVR=CURRENTVERSION==V1_4_15;CUDA;BT_USE_SSE_IN_API;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
@@ -1907,7 +1907,7 @@ copy "$(SolutionDir)configs\configs.xml" "$(TargetDir)..\..\..\..\..\Faster HDT-
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>CURRENTVERSION=V1_4_15;CUDA;BT_USE_SSE_IN_API;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>CURRENTVERSION=V1_4_15;SKYRIMVR=CURRENTVERSION==V1_4_15;CUDA;BT_USE_SSE_IN_API;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
@@ -2187,7 +2187,7 @@ copy "$(SolutionDir)configs\configs.xml" "$(TargetDir)..\..\..\..\..\Faster HDT-
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>false</SDLCheck>
-      <PreprocessorDefinitions>CURRENTVERSION=V1_4_15;CUDA;BT_USE_SSE_IN_API;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>CURRENTVERSION=V1_4_15;SKYRIMVR=CURRENTVERSION==V1_4_15;CUDA;BT_USE_SSE_IN_API;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
@@ -2323,7 +2323,7 @@ copy "$(SolutionDir)configs\configs.xml" "$(TargetDir)..\..\..\..\..\Faster HDT-
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>CURRENTVERSION=V1_4_15;CUDA;BT_USE_SSE_IN_API;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>CURRENTVERSION=V1_4_15;SKYRIMVR=CURRENTVERSION==V1_4_15;CUDA;BT_USE_SSE_IN_API;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
@@ -2595,7 +2595,7 @@ copy "$(SolutionDir)configs\configs.xml" "$(TargetDir)..\..\..\..\..\Faster HDT-
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>false</SDLCheck>
-      <PreprocessorDefinitions>CURRENTVERSION=V1_4_15;CUDA;BT_USE_SSE_IN_API;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>CURRENTVERSION=V1_4_15;SKYRIMVR=CURRENTVERSION==V1_4_15;CUDA;BT_USE_SSE_IN_API;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
@@ -2731,7 +2731,7 @@ copy "$(SolutionDir)configs\configs.xml" "$(TargetDir)..\..\..\..\..\Faster HDT-
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>CURRENTVERSION=V1_4_15;CUDA;BT_USE_SSE_IN_API;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>CURRENTVERSION=V1_4_15;SKYRIMVR=CURRENTVERSION==V1_4_15;CUDA;BT_USE_SSE_IN_API;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
@@ -3122,7 +3122,7 @@ copy "$(SolutionDir)configs\configs.xml" "$(TargetDir)..\..\..\..\..\Faster HDT-
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>false</SDLCheck>
-      <PreprocessorDefinitions>CURRENTVERSION=V1_4_15;BT_USE_SSE_IN_API;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>CURRENTVERSION=V1_4_15;SKYRIMVR=CURRENTVERSION==V1_4_15;BT_USE_SSE_IN_API;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
@@ -3247,7 +3247,7 @@ copy "$(SolutionDir)configs\configs.xml" "$(TargetDir)..\..\..\..\..\Faster HDT-
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>CURRENTVERSION=V1_4_15;BT_USE_SSE_IN_API;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>CURRENTVERSION=V1_4_15;SKYRIMVR=CURRENTVERSION==V1_4_15;BT_USE_SSE_IN_API;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
@@ -3497,7 +3497,7 @@ copy "$(SolutionDir)configs\configs.xml" "$(TargetDir)..\..\..\..\..\Faster HDT-
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>false</SDLCheck>
-      <PreprocessorDefinitions>CURRENTVERSION=V1_4_15;BT_USE_SSE_IN_API;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>CURRENTVERSION=V1_4_15;SKYRIMVR=CURRENTVERSION==V1_4_15;BT_USE_SSE_IN_API;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
@@ -3622,7 +3622,7 @@ copy "$(SolutionDir)configs\configs.xml" "$(TargetDir)..\..\..\..\..\Faster HDT-
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>CURRENTVERSION=V1_4_15;BT_USE_SSE_IN_API;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>CURRENTVERSION=V1_4_15;SKYRIMVR=CURRENTVERSION==V1_4_15;BT_USE_SSE_IN_API;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
@@ -3865,7 +3865,7 @@ copy "$(SolutionDir)configs\configs.xml" "$(TargetDir)..\..\..\..\..\Faster HDT-
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>false</SDLCheck>
-      <PreprocessorDefinitions>CURRENTVERSION=V1_4_15;BT_USE_SSE_IN_API;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>CURRENTVERSION=V1_4_15;SKYRIMVR=CURRENTVERSION==V1_4_15;BT_USE_SSE_IN_API;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
@@ -3976,7 +3976,7 @@ copy "$(SolutionDir)configs\configs.xml" "$(TargetDir)..\..\..\..\..\Faster HDT-
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>CURRENTVERSION=V1_4_15;BT_USE_SSE_IN_API;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>CURRENTVERSION=V1_4_15;SKYRIMVR=CURRENTVERSION==V1_4_15;BT_USE_SSE_IN_API;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
