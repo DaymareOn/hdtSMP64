@@ -10,6 +10,7 @@
 #include "EventDebugLogger.h"
 #include "hdtSkyrimPhysicsWorld.h"
 #include "Hooks.h"
+#include "Offsets.h"
 #include "HookEvents.h"
 
 #include <numeric>
@@ -492,8 +493,10 @@ extern "C" {
 		"hydrogensaysHDT",
 		"",
 		0,	// not version independent
+#ifndef ANNIVERSARY_EDITION_353MINUS
 		SKSEPluginVersionData::kVersionIndependent_StructsPost629,
-		{ RUNTIME_VERSION_1_6_640, 0 },
+#endif // !ANNIVERSARY_EDITION_353MINUS
+		{ CURRENT_RELEASE_RUNTIME, 0 },
 		0,	// works with any version of the script extender. you probably do not need to put anything here
 	};
 #else

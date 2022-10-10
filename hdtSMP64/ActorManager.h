@@ -7,6 +7,7 @@
 
 #include "IEventListener.h"
 #include "HookEvents.h"
+#include "Offsets.h"
 
 #include <mutex>
 #include <optional>
