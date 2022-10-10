@@ -2,6 +2,7 @@
 #include "hdtSkinnedMesh/hdtSkinnedMeshShape.h"
 #include "../hdtSSEUtils/NetImmerseUtils.h"
 #include "../hdtSSEUtils/FrameworkUtils.h"
+#include "Offsets.h"
 #ifndef SKYRIMVR
 #include <skse64/skse64/GameStreams.h>
 #else
