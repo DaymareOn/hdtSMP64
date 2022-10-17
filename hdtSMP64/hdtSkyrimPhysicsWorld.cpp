@@ -94,7 +94,7 @@ namespace hdt
 
 				readTransform(remainingTimeStep);
 
-				g_pluginInterface.onPreStep({ this, remainingTimeStep});
+				g_pluginInterface.onPreStep({ getCollisionObjectArray(), remainingTimeStep });
 
 				updateActiveState();
 				auto offset = applyTranslationOffset();
@@ -102,7 +102,7 @@ namespace hdt
 				restoreTranslationOffset(offset);
 				m_accumulatedInterval = 0;
 
-				g_pluginInterface.onPostStep({ this, remainingTimeStep });
+				g_pluginInterface.onPostStep({ getCollisionObjectArray(), remainingTimeStep });
 
 				writeTransform();
 			}
