@@ -64,7 +64,7 @@ namespace hdt
 		constexpr static Version INTERFACE_VERSION{ 0, 1, 0 };
 		
 		//Is this defined somewhere already? Should it be?
-		constexpr static Version BULLET_VERSION{ 2, 89, 0 };
+		constexpr static Version BULLET_VERSION{ 3, 24, 0 };
 
 	public:
 		virtual ~PluginInterface() = default;
