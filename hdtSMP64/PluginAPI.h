@@ -64,7 +64,7 @@ namespace hdt
 		};
 
 	public:
-		constexpr static Version INTERFACE_VERSION{ 0, 2, 0 };
+		constexpr static Version INTERFACE_VERSION{ 1, 0, 0 };
 		constexpr static Version BULLET_VERSION{ 3, 24, 0 };
 
 	public:
