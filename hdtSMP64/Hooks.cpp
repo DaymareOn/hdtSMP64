@@ -65,7 +65,7 @@ namespace hdt
 						BGSHeadPart* headPart = actorBase->GetCurrentHeadPartByType(i);
 						ProcessHeadPart(headPart, a_skeleton);
 					}
-					if (a_skeleton->m_owner && a_skeleton->m_owner->formID == 0x14)
+					if ((a_skeleton->m_owner && a_skeleton->m_owner->formID == 0x14) || ActorManager::instance()->m_skinNPCFaceParts)
 						needRegularCall = false;
 				}
 			}
