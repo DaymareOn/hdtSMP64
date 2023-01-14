@@ -1,5 +1,6 @@
 #include <detours.h>
 
+#include "skse64/GameData.h"
 #include "skse64/GameForms.h"
 #include "skse64/GameReferences.h"
 #include "skse64/NiObjects.h"
@@ -60,10 +61,23 @@ namespace hdt
 				if (actor)
 				{
 					TESNPC* actorBase = DYNAMIC_CAST(actor->baseForm, TESForm, TESNPC);
-					for (int i = 0; i < BGSHeadPart::kNumTypes; i++)
+					UInt32 numHeadParts = 0;
+					BGSHeadPart** Headparts = nullptr;
+					if (CALL_MEMBER_FN(actorBase, HasOverlays)()) {
+						numHeadParts = GetNumActorBaseOverlays(actorBase);
+						Headparts = GetActorBaseOverlays(actorBase);
+					}
+					else {
+						numHeadParts = actorBase->numHeadParts;
+						Headparts = actorBase->headparts;
+					}
+					if (Headparts)
 					{
-						BGSHeadPart* headPart = actorBase->GetCurrentHeadPartByType(i);
-						ProcessHeadPart(headPart, a_skeleton);
+						for (UInt32 i = 0; i < numHeadParts; i++) {
+							if (Headparts[i]) {
+								ProcessHeadPart(Headparts[i], a_skeleton);
+							}
+						}
 					}
 					if (a_skeleton->m_owner && a_skeleton->m_owner->formID == 0x14)
 						needRegularCall = false;
