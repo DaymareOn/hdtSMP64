@@ -1530,8 +1530,6 @@ namespace hdt
 			{
 				auto name = m_reader->GetName();
 				if (parseFrameType(name, dest.frameType, dest.frame));
-				else if (name == "angularOnly")
-					dest.angularOnly = m_reader->readBool();
 				else if (name == "swingSpan1" || name == "coneLimit" || name == "limitZ")
 					dest.swingSpan1 = std::max(m_reader->readFloat(), 0.f);
 				else if (name == "swingSpan2" || name == "planeLimit" || name == "limitY")
@@ -1633,7 +1631,6 @@ namespace hdt
 		Ref<ConeTwistConstraint> constraint = new ConeTwistConstraint(bodyA, bodyB, frameA, frameB);
 		constraint->setLimit(cinfo.swingSpan1, cinfo.swingSpan2, cinfo.twistSpan, cinfo.limitSoftness, cinfo.biasFactor,
 		                     cinfo.relaxationFactor);
-		constraint->setAngularOnly(cinfo.angularOnly);
 
 		return constraint;
 	}

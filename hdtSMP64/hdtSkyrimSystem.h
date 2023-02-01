@@ -142,7 +142,6 @@ namespace hdt
 		{
 			btTransform frame = btTransform::getIdentity();
 			FrameType frameType = FrameInB;
-			bool angularOnly = false;
 			float swingSpan1 = 0;
 			float swingSpan2 = 0;
 			float twistSpan = 0;
