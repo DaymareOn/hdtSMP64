@@ -581,6 +581,7 @@ extern "C" {
 		hdt::g_shutdownEventDispatcher.addListener(hdt::ActorManager::instance());
 		hdt::g_shutdownEventDispatcher.addListener(hdt::SkyrimPhysicsWorld::get());
 		hdt::g_armorAttachEventDispatcher.addListener(hdt::ActorManager::instance());
+		hdt::g_armorDetachEventDispatcher.addListener(hdt::ActorManager::instance());
 		hdt::g_skinSingleHeadGeometryEventDispatcher.addListener(hdt::ActorManager::instance());
 		hdt::g_skinAllHeadGeometryEventDispatcher.addListener(hdt::ActorManager::instance());
 

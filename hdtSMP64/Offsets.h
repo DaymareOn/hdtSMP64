@@ -42,6 +42,7 @@ namespace hdt
 		{
 			offsetData GameStepTimer_SlowTime;
 			offsetData ArmorAttachFunction;
+			offsetData ItemUnequipFunction;
 			offsetData BSFaceGenNiNode_SkinAllGeometry;
 			offsetData BSFaceGenNiNode_SkinSingleGeometry;
 			offsetData GameLoopFunction;
@@ -56,6 +57,7 @@ namespace hdt
 		{
 			{ 410199, { 0x030C3A08, 0x02F6B948, 0x030064C8, 0x030064c8, 0x03007708, 0x03007708, 0x03006808, 0x03006808 }},
 			{ 15712,  { 0x001DB9E0, 0x001CAFB0, 0x001D6740, 0x001d66b0, 0x001d66a0, 0x001d66a0, 0x001d83b0, 0x001d83b0 }},
+			{ 0,      { 0x006411a0, 0x00638190, 0x00000000, 0x00000000, 0x00000000, 0x0065eca0, 0x00000000, 0x00670210 }},
 			{ 26986,  { 0x003e8120, 0x003D87B0, 0x003F08C0, 0x003f0830, 0x003f09c0, 0x003f0830, 0x003f2990, 0x003f2990 }},
 			{ 26987,  { 0x003e81b0, 0x003D8840, 0x003F0A50, 0x003f09c0, 0x003f0b50, 0x003f09c0, 0x003f2b20, 0x003f2b20 }},
 			{ 36564,  { 0x005BAB10, 0x005B2FF0, 0x005D9F50, 0x005D9CC0, 0x005dae80, 0x005dace0, 0x005ec310, 0x005ec240 }},
@@ -68,6 +70,7 @@ namespace hdt
 
 		constexpr auto GameStepTimer_SlowTime             = functionsOffsets.GameStepTimer_SlowTime            .V[CURRENTVERSION];
 		constexpr auto ArmorAttachFunction                = functionsOffsets.ArmorAttachFunction               .V[CURRENTVERSION];
+		constexpr auto ItemUnequipFunction				  = functionsOffsets.ItemUnequipFunction			   .V[CURRENTVERSION];
 		constexpr auto BSFaceGenNiNode_SkinAllGeometry    = functionsOffsets.BSFaceGenNiNode_SkinAllGeometry   .V[CURRENTVERSION];
 		constexpr auto BSFaceGenNiNode_SkinSingleGeometry = functionsOffsets.BSFaceGenNiNode_SkinSingleGeometry.V[CURRENTVERSION];
 		constexpr auto GameLoopFunction                   = functionsOffsets.GameLoopFunction                  .V[CURRENTVERSION];

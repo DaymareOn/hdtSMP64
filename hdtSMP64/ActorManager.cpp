@@ -1,4 +1,5 @@
 #include "skse64/GameReferences.h"
+#include "skse64/PapyrusActor.h"
 
 #include "WeatherManager.h"
 #include "ActorManager.h"
@@ -62,7 +63,6 @@ namespace hdt
 		return findNode(skeleton, shouldFix ? "NPC Root [Root]" : "NPC");
 	}
 
-	// TODO Shouldn't there be an ArmorDetachEvent?
 	void ActorManager::onEvent(const ArmorAttachEvent& e)
 	{
 		// No armor is ever attached to a lurker skeleton, thus we don't need to test.
@@ -98,6 +98,34 @@ namespace hdt
 		{
 			skeleton.addArmor(e.armorModel);
 		}
+	}
+
+	void ActorManager::onEvent(const ArmorDetachEvent& e)
+	{
+		if (!e.actor || !e.hasDetached)
+			return;
+
+		std::lock_guard<decltype(m_lock)> l(m_lock);
+		if (m_shutdown) return;
+
+		Skeleton* s = get3rdPersonSkeleton(e.actor);
+		setHeadActiveIfNoHairArmor(e.actor, s);
+	}
+
+	// @brief To avoid calculating headparts when they're hidden by a wig,
+	// we mark the head as not active when there is an armor on hair or long hair slots.
+	// We do this during the attach/detach armor events, and on the events leading to scanning the head.
+	// Then when checking which skeletons are active to calculate the frame,
+	// we only allow the activation of headparts that are on active heads.
+	// @param Actor * actor is expected not null.
+	void ActorManager::setHeadActiveIfNoHairArmor(Actor* actor, Skeleton* skeleton)
+	{
+		const int hairslot = 1 << 1;
+		const int longhairslot = 1 << 11;
+		auto worn = papyrusActor::GetWornForm(actor, hairslot | longhairslot);
+
+		if (skeleton)
+			skeleton->head.isActive = !worn;
 	}
 
 	// @brief This happens on a closing RaceSex menu, and on 'smp reset'.
@@ -453,6 +481,17 @@ namespace hdt
 		return m_skeletons.back();
 	}
 
+	ActorManager::Skeleton* ActorManager::get3rdPersonSkeleton(Actor* actor)
+	{
+		for (auto& i : m_skeletons)
+		{
+			const auto owner = DYNAMIC_CAST(i.skeletonOwner.get(), TESForm, Actor);
+			if (actor == owner && i.skeleton && !isFirstPersonSkeleton(i.skeleton))
+				return &i;
+		}
+		return 0;
+	}
+
 	void ActorManager::Skeleton::doSkeletonMerge(NiNode* dst, NiNode* src, IString* prefix,
 		std::unordered_map<IDStr, IDStr>& map)
 	{
@@ -593,6 +632,14 @@ namespace hdt
 				armor.setPhysics(system, isActive);
 				hasPhysics = true;
 			}
+		}
+
+		if (skeleton && skeleton->m_owner)
+		{
+			TESForm* form = LookupFormByID(skeleton->m_owner->formID);
+			Actor* actor = DYNAMIC_CAST(form, TESForm, Actor);
+			if (actor)
+				ActorManager().setHeadActiveIfNoHairArmor(actor, this);
 		}
 	}
 
@@ -820,8 +867,10 @@ namespace hdt
 		}
 
 		// We update the activity state of armors and head parts, and add and remove SkinnedMeshSystems to these parts in consequence.
+		// We set headparts as not active if the head isn't active (for example because it's hidden by a wig).
 		std::for_each(armors.begin(), armors.end(), [=](Armor& armor) { armor.updateActive(isActive); });
-		std::for_each(head.headParts.begin(), head.headParts.end(), [=](Head::HeadPart& headPart) { headPart.updateActive(isActive); });
+		const bool isHeadActive = head.isActive;
+		std::for_each(head.headParts.begin(), head.headParts.end(), [=](Head::HeadPart& headPart) { headPart.updateActive(isHeadActive && isActive); });
 		return isActive;
 	}
 
@@ -866,6 +915,14 @@ namespace hdt
 		}
 
 		std::unordered_set<std::string> physicsDupes;
+
+		if (skeleton && skeleton->m_owner)
+		{
+			TESForm* form = LookupFormByID(skeleton->m_owner->formID);
+			Actor* actor = DYNAMIC_CAST(form, TESForm, Actor);
+			if (actor)
+				ActorManager().setHeadActiveIfNoHairArmor(actor, this);
+		}
 
 		for (auto& headPart : this->head.headParts)
 		{
