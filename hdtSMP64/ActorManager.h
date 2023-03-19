@@ -18,6 +18,7 @@ namespace hdt
 {
 	class ActorManager
 		: public IEventListener<ArmorAttachEvent>
+		, public IEventListener<ArmorDetachEvent>
 		, public IEventListener<SkinSingleHeadGeometryEvent>
 		, public IEventListener<SkinAllHeadGeometryEvent>
 		, public IEventListener<FrameEvent>
@@ -90,6 +91,7 @@ namespace hdt
 			std::unordered_map<IDStr, IDStr> renameMap;
 			std::unordered_map<IDStr, uint8_t> nodeUseCount;
 			bool isFullSkinning;
+			bool isActive = true; // false when hidden by a wig
 		};
 
 		struct Armor : public PhysicsItem
@@ -176,6 +178,8 @@ namespace hdt
 
 
 		Skeleton& getSkeletonData(NiNode* skeleton);
+		ActorManager::Skeleton* get3rdPersonSkeleton(Actor* actor);
+		void ActorManager::setHeadActiveIfNoHairArmor(Actor* actor, Skeleton* skeleton);
 
 	public:
 		ActorManager();
@@ -187,6 +191,7 @@ namespace hdt
 		static IDStr headPrefix(IDType id);
 
 		void onEvent(const ArmorAttachEvent& e) override;
+		void onEvent(const ArmorDetachEvent& e) override;
 
 		// @brief On this event, we decide which skeletons will be active for physics this frame.
 		void onEvent(const FrameEvent& e) override;
