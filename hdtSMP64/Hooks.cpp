@@ -254,20 +254,10 @@ namespace hdt
 		{
 			ArmorDetachEvent event;
 			event.actor = actor;
-			event.item = item;
-			event.extraData = extraData;
-			event.count = count;
-			event.equipSlot = equipSlot;
-			event.unkFlag1 = unkFlag1;
-			event.preventEquip = preventEquip;
-			event.unkFlag2 = unkFlag2;
-			event.unkFlag3 = unkFlag3;
-			event.unk = unk;
 			g_armorDetachEventDispatcher.dispatch(event);
 
 			auto ret = CALL_MEMBER_FN(this, unequipItem)(actor, item, extraData, count, equipSlot, unkFlag1, preventEquip, unkFlag2, unkFlag3, unk);
 
-			event.result = ret;
 			event.hasDetached = true;
 			g_armorDetachEventDispatcher.dispatch(event);
 			return ret;
