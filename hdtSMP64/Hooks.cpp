@@ -106,9 +106,9 @@ namespace hdt
 			}
 
 			_MESSAGE("SkinSingleGeometry %s %d - %s, %s, (formid %08x base form %08x head template form %08x)",
-			         a_skeleton->m_name, a_skeleton->m_children.m_size, a_geometry->m_name, name,
-			         a_skeleton->m_owner ? a_skeleton->m_owner->formID : 0x0,
-			         a_skeleton->m_owner ? a_skeleton->m_owner->baseForm->formID : 0x0, formId);
+				a_skeleton->m_name, a_skeleton->m_children.m_size, a_geometry->m_name, name,
+				a_skeleton->m_owner ? a_skeleton->m_owner->formID : 0x0,
+				a_skeleton->m_owner ? a_skeleton->m_owner->baseForm->formID : 0x0, formId);
 
 			if ((a_skeleton->m_owner && a_skeleton->m_owner->formID == 0x14) || ActorManager::instance()->m_skinNPCFaceParts)
 			{
@@ -238,14 +238,54 @@ namespace hdt
 		}
 	};
 
-	void hookArmor()
+	struct UnequipItem
+	{
+		MEMBER_FN_PREFIX(UnequipItem);
+
+		DEFINE_MEMBER_FN_HOOK(unequipItem, bool, offset::ItemUnequipFunction, Actor* actor, TESForm* item, BaseExtraList* extraData, SInt32 count, BGSEquipSlot* equipSlot, bool unkFlag1, bool preventEquip, bool unkFlag2, bool unkFlag3, void* unk);
+
+		bool unequipItem(Actor* actor, TESForm* item, BaseExtraList* extraData, SInt32 count, BGSEquipSlot* equipSlot, bool unkFlag1, bool preventEquip, bool unkFlag2, bool unkFlag3, void* unk)
+		{
+			ArmorDetachEvent event;
+			event.actor = actor;
+			event.item = item;
+			event.extraData = extraData;
+			event.count = count;
+			event.equipSlot = equipSlot;
+			event.unkFlag1 = unkFlag1;
+			event.preventEquip = preventEquip;
+			event.unkFlag2 = unkFlag2;
+			event.unkFlag3 = unkFlag3;
+			event.unk = unk;
+			g_armorDetachEventDispatcher.dispatch(event);
+
+			auto ret = CALL_MEMBER_FN(this, unequipItem)(actor, item, extraData, count, equipSlot, unkFlag1, preventEquip, unkFlag2, unkFlag3, unk);
+
+			event.result = ret;
+			event.hasDetached = true;
+			g_armorDetachEventDispatcher.dispatch(event);
+			return ret;
+		}
+	};
+
+	void hookAttachArmor()
 	{
 		DetourAttach((void**)Unk001CB0E0::_unk001CB0E0_GetPtrAddr(), (void*)GetFnAddr(&Unk001CB0E0::unk001CB0E0));
 	}
 
-	void unhookArmor()
+	void unhookAttachArmor()
 	{
 		DetourDetach((void**)Unk001CB0E0::_unk001CB0E0_GetPtrAddr(), (void*)GetFnAddr(&Unk001CB0E0::unk001CB0E0));
+	}
+
+	void hookDetachArmor()
+	{
+		DetourAttach((void**)UnequipItem::_unequipItem_GetPtrAddr(), (void*)GetFnAddr(&UnequipItem::unequipItem));
+	}
+
+	void unhookDetachArmor()
+	{
+		DetourDetach((void**)UnequipItem::_unequipItem_GetPtrAddr(), (void*)GetFnAddr(&UnequipItem::unequipItem));
 	}
 
 	struct UnkEngine
@@ -318,7 +358,8 @@ namespace hdt
 		DetourRestoreAfterWith();
 		DetourTransactionBegin();
 		hookEngine();
-		hookArmor();
+		hookAttachArmor();
+		hookDetachArmor();
 		hookFaceGen();
 		DetourTransactionCommit();
 	}
@@ -328,7 +369,8 @@ namespace hdt
 		DetourRestoreAfterWith();
 		DetourTransactionBegin();
 		unhookEngine();
-		unhookArmor();
+		unhookAttachArmor();
+		unhookDetachArmor();
 		unhookFaceGen();
 		DetourTransactionCommit();
 	}
