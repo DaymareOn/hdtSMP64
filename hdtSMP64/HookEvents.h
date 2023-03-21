@@ -1,6 +1,7 @@
 #pragma once
 
 #include "skse64/NiObjects.h"
+#include "skse64/GameReferences.h"
 
 #include "EventDispatcherImpl.h"
 #include "skse64/NiNodes.h"

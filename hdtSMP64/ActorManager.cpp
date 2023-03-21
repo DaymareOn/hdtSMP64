@@ -1,5 +1,3 @@
-#include "skse64/GameReferences.h"
-#include "skse64/PapyrusActor.h"
 
 #include "WeatherManager.h"
 #include "ActorManager.h"
