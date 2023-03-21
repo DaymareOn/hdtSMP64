@@ -1,5 +1,6 @@
 #pragma once
 
+#include "skse64/PapyrusActor.h"
 #include "../hdtSSEUtils/NetImmerseUtils.h"
 #include "../hdtSSEUtils/FrameworkUtils.h"
 
