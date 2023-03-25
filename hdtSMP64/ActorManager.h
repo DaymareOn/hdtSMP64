@@ -196,9 +196,7 @@ namespace hdt
 		void onEvent(const SkinSingleHeadGeometryEvent&) override;
 		void onEvent(const SkinAllHeadGeometryEvent&) override;
 
-#ifdef ANNIVERSARY_EDITION
 		bool skeletonNeedsParts(NiNode* skeleton);
-#endif
 		std::vector<Skeleton>& getSkeletons();//Altered by Dynamic HDT
 
 		bool m_skinNPCFaceParts = true;
