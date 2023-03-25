@@ -24,12 +24,9 @@ namespace hdt
 		MEMBER_FN_PREFIX(BSFaceGenNiNodeEx);
 
 	public:
-		DEFINE_MEMBER_FN_HOOK(SkinAllGeometry, void, offset::BSFaceGenNiNode_SkinAllGeometry, NiNode* a_skeleton,
-		                      char a_unk);
-		DEFINE_MEMBER_FN_HOOK(SkinSingleGeometry, void, offset::BSFaceGenNiNode_SkinSingleGeometry, NiNode* a_skeleton,
-		                      BSGeometry* a_geometry, char a_unk);
+		DEFINE_MEMBER_FN_HOOK(SkinAllGeometry, void, offset::BSFaceGenNiNode_SkinAllGeometry, NiNode* a_skeleton, BSGeometry* a_geometry, char a_unk);
+		DEFINE_MEMBER_FN_HOOK(SkinSingleGeometry, void, offset::BSFaceGenNiNode_SkinSingleGeometry, NiNode* a_skeleton, BSGeometry* a_geometry, BSTriShape* a_trishape);
 
-#ifdef ANNIVERSARY_EDITION
 		void ProcessHeadPart(BGSHeadPart* headPart, NiNode* a_skeleton)
 		{
 			if (headPart)
@@ -39,9 +36,8 @@ namespace hdt
 				{
 					BSGeometry* headGeo = headNode->GetAsBSGeometry();
 					if (headGeo)
-						SkinSingleGeometry(a_skeleton, headGeo, 20);
+						SkinSingleGeometry(a_skeleton, headGeo, nullptr);
 				}
-
 				BGSHeadPart* extraPart = NULL;
 				for (UInt32 p = 0; p < headPart->extraParts.count; p++)
 				{
@@ -51,7 +47,7 @@ namespace hdt
 			}
 		}
 
-		void SkinAllGeometryCalls(NiNode* a_skeleton, char a_unk)
+		void SkinAllGeometryCalls(NiNode* a_skeleton, BSGeometry* a_geometry, char a_unk)
 		{
 			bool needRegularCall = true;
 			if (ActorManager::instance()->skeletonNeedsParts(a_skeleton))
@@ -79,16 +75,15 @@ namespace hdt
 							}
 						}
 					}
-					if ((a_skeleton->m_owner && a_skeleton->m_owner->formID == 0x14) || ActorManager::instance()->m_skinNPCFaceParts)
+					if (a_skeleton->m_owner && a_skeleton->m_owner->formID == 0x14)
 						needRegularCall = false;
 				}
 			}
 			if (needRegularCall)
-				CALL_MEMBER_FN(this, SkinAllGeometry)(a_skeleton, a_unk);
+				CALL_MEMBER_FN(this, SkinAllGeometry)(a_skeleton, a_geometry, a_unk);
 		}
-#endif
 
-		void SkinSingleGeometry(NiNode* a_skeleton, BSGeometry* a_geometry, char a_unk)
+		void SkinSingleGeometry(NiNode* a_skeleton, BSGeometry* a_geometry, BSTriShape* a_trishape)
 		{
 			const char* name = "";
 			uint32_t formId = 0x0;
@@ -98,72 +93,53 @@ namespace hdt
 				auto bname = DYNAMIC_CAST(a_skeleton->m_owner->baseForm, TESForm, TESFullName);
 				if (bname)
 					name = bname->GetName();
-
 				auto bnpc = DYNAMIC_CAST(a_skeleton->m_owner->baseForm, TESForm, TESNPC);
-
 				if (bnpc && bnpc->nextTemplate)
 					formId = bnpc->nextTemplate->formID;
 			}
-
 			_MESSAGE("SkinSingleGeometry %s %d - %s, %s, (formid %08x base form %08x head template form %08x)",
-			         a_skeleton->m_name, a_skeleton->m_children.m_size, a_geometry->m_name, name,
-			         a_skeleton->m_owner ? a_skeleton->m_owner->formID : 0x0,
-			         a_skeleton->m_owner ? a_skeleton->m_owner->baseForm->formID : 0x0, formId);
+				a_skeleton->m_name, a_skeleton->m_children.m_size, a_geometry->m_name, name,
+				a_skeleton->m_owner ? a_skeleton->m_owner->formID : 0x0,
+				a_skeleton->m_owner ? a_skeleton->m_owner->baseForm->formID : 0x0, formId);
 
-			if ((a_skeleton->m_owner && a_skeleton->m_owner->formID == 0x14) || ActorManager::instance()->m_skinNPCFaceParts)
-			{
-				SkinSingleHeadGeometryEvent e;
-				e.skeleton = a_skeleton;
-				e.geometry = a_geometry;
-				e.headNode = this;
-				g_skinSingleHeadGeometryEventDispatcher.dispatch(e);
-			}
-			else
-			{
-				CALL_MEMBER_FN(this, SkinSingleGeometry)(a_skeleton, a_geometry, a_unk);
-			}
+			SkinSingleHeadGeometryEvent e;
+			e.skeleton = a_skeleton;
+			e.geometry = a_geometry;
+			e.headNode = this;
+			g_skinSingleHeadGeometryEventDispatcher.dispatch(e);
 		}
 
-		void SkinAllGeometry(NiNode* a_skeleton, char a_unk)
+		void SkinAllGeometry(NiNode* a_skeleton, BSGeometry* a_geometry, char a_unk)
 		{
 			const char* name = "";
 			uint32_t formId = 0x0;
-
 			if (a_skeleton->m_owner && a_skeleton->m_owner->baseForm)
 			{
 				auto bname = DYNAMIC_CAST(a_skeleton->m_owner->baseForm, TESForm, TESFullName);
 				if (bname)
 					name = bname->GetName();
-
 				auto bnpc = DYNAMIC_CAST(a_skeleton->m_owner->baseForm, TESForm, TESNPC);
-
 				if (bnpc && bnpc->nextTemplate)
 					formId = bnpc->nextTemplate->formID;
 			}
-
 			_MESSAGE("SkinAllGeometry %s %d, %s, (formid %08x base form %08x head template form %08x)",
-			         a_skeleton->m_name, a_skeleton->m_children.m_size, name,
-			         a_skeleton->m_owner ? a_skeleton->m_owner->formID : 0x0,
-			         a_skeleton->m_owner ? a_skeleton->m_owner->baseForm->formID : 0x0, formId);
+				a_skeleton->m_name, a_skeleton->m_children.m_size, name,
+				a_skeleton->m_owner ? a_skeleton->m_owner->formID : 0x0,
+				a_skeleton->m_owner ? a_skeleton->m_owner->baseForm->formID : 0x0, formId);
 
-			if ((a_skeleton->m_owner && a_skeleton->m_owner->formID == 0x14) || ActorManager::instance()->m_skinNPCFaceParts)
-			{
-				SkinAllHeadGeometryEvent e;
-				e.skeleton = a_skeleton;
-				e.headNode = this;
-				g_skinAllHeadGeometryEventDispatcher.dispatch(e);
+			SkinAllHeadGeometryEvent e;
+			e.skeleton = a_skeleton;
+			e.headNode = this;
+			g_skinAllHeadGeometryEventDispatcher.dispatch(e);
+
 #ifdef ANNIVERSARY_EDITION
-				SkinAllGeometryCalls(a_skeleton, a_unk);
+			SkinAllGeometryCalls(a_skeleton, a_geometry, a_unk);
 #else
-				CALL_MEMBER_FN(this, SkinAllGeometry)(a_skeleton, a_unk);
+			CALL_MEMBER_FN(this, SkinAllGeometry)(a_skeleton, a_geometry, a_unk);
 #endif
-				e.hasSkinned = true;
-				g_skinAllHeadGeometryEventDispatcher.dispatch(e);
-			}
-			else
-			{
-				CALL_MEMBER_FN(this, SkinAllGeometry)(a_skeleton, a_unk);
-			}
+
+			e.hasSkinned = true;
+			g_skinAllHeadGeometryEventDispatcher.dispatch(e);
 		}
 	};
 
