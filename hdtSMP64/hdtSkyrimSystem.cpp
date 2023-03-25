@@ -3,11 +3,7 @@
 #include "../hdtSSEUtils/NetImmerseUtils.h"
 #include "../hdtSSEUtils/FrameworkUtils.h"
 #include "Offsets.h"
-#ifndef SKYRIMVR
-#include <skse64/skse64/GameStreams.h>
-#else
-#include <sksevr/skse64/GameStreams.h>
-#endif
+#include <skse64/GameStreams.h>
 #include "skse64/GameReferences.h"
 #include "XmlReader.h"
 

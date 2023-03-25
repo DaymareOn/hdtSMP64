@@ -1,15 +1,9 @@
 #pragma once
 
 #include <common\IPrefix.h>
-#ifndef SKYRIMVR
-#include <skse64\skse64\NiNodes.h>
-#include <skse64\skse64\NiExtraData.h>
-#include <skse64\skse64\NiGeometry.h>
-#else
-#include <sksevr\skse64\NiNodes.h>
-#include <sksevr\skse64\NiExtraData.h>
-#include <sksevr\skse64\NiGeometry.h>
-#endif
+#include <skse64\NiNodes.h>
+#include <skse64\NiExtraData.h>
+#include <skse64\NiGeometry.h>
 #include "Ref.h"
 
 // note: both of these offsets are 0xDEADBEEF guards and were completely wrong prior to this, but things worked anyway I guess

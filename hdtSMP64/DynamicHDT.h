@@ -10,11 +10,7 @@
 #include "hdtSkyrimPhysicsWorld.h"
 #include "Hooks.h"
 #include "HookEvents.h"
-#ifndef SKYRIMVR
-#include "skse64/skse64/PluginAPI.h"
-#else
-#include "sksevr/skse64/PluginAPI.h"
-#endif
+#include "skse64/PluginAPI.h"
 #include "dhdtOverrideManager.h"
 #include "dhdtPapyrusFunctions.h"
 
