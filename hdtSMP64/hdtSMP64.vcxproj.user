@@ -179,7 +179,7 @@
     <LocalDebuggerAttach>false</LocalDebuggerAttach>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='VA_6_659_CUDA_AVX|x64'">
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='V1_6_659_CUDA_AVX|x64'">
     <LocalDebuggerAttach>false</LocalDebuggerAttach>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
