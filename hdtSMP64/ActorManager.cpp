@@ -100,7 +100,7 @@ namespace hdt
 
 	void ActorManager::onEvent(const ArmorDetachEvent& e)
 	{
-		if (!e.actor || !e.hasDetached)
+		if (!e.actor || !e.hasDetached || !instance()->m_disableSMPHairWhenWigEquipped)
 			return;
 
 		std::lock_guard<decltype(m_lock)> l(m_lock);
@@ -632,7 +632,7 @@ namespace hdt
 			}
 		}
 
-		if (skeleton && skeleton->m_owner)
+		if (instance()->m_disableSMPHairWhenWigEquipped && skeleton && skeleton->m_owner)
 		{
 			TESForm* form = LookupFormByID(skeleton->m_owner->formID);
 			Actor* actor = DYNAMIC_CAST(form, TESForm, Actor);
@@ -914,7 +914,7 @@ namespace hdt
 
 		std::unordered_set<std::string> physicsDupes;
 
-		if (skeleton && skeleton->m_owner)
+		if (instance()->m_disableSMPHairWhenWigEquipped && skeleton && skeleton->m_owner)
 		{
 			TESForm* form = LookupFormByID(skeleton->m_owner->formID);
 			Actor* actor = DYNAMIC_CAST(form, TESForm, Actor);

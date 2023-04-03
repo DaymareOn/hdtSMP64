@@ -81,6 +81,8 @@ namespace hdt
 					gLog.SetLogLevel(static_cast<IDebugLog::LogLevel>(reader.readInt()));
 				else if (reader.GetLocalName() == "enableNPCFaceParts")
 					ActorManager::instance()->m_skinNPCFaceParts = reader.readBool();
+				else if (reader.GetLocalName() == "disableSMPHairWhenWigEquipped")
+					ActorManager::instance()->m_disableSMPHairWhenWigEquipped = reader.readBool();
 				else if (reader.GetLocalName() == "clampRotations")
 					SkyrimPhysicsWorld::get()->m_clampRotations = reader.readBool();
 				else if (reader.GetLocalName() == "rotationSpeedLimit")

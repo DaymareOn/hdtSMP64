@@ -208,6 +208,7 @@ namespace hdt
 		std::vector<Skeleton>& getSkeletons();//Altered by Dynamic HDT
 
 		bool m_skinNPCFaceParts = true;
+		bool m_disableSMPHairWhenWigEquipped = false;
 		bool m_autoAdjustMaxSkeletons = true; // Whether to dynamically change the maxActive skeletons to maintain min_fps
 		int m_maxActiveSkeletons = 20; // The maximum active skeletons; hard limit
 		int m_sampleSize = 5; // how many samples (each sample taken every second) for determining average time per activeSkeleton.

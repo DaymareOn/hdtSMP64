@@ -24,6 +24,16 @@
     -->
     <enableNPCFaceParts>true</enableNPCFaceParts>
 
+    <!--
+      disableSMPHairWhenWigEquipped: (boolean) if enabled, when you have at the
+      same time smp hair and smp wig, now, only the wig is physically calculated.
+      More precisely, if you have an armor on the hair or longhair slot, no headpart
+      is physically calculated.
+      You very probably want this, except if you use a hidden helmet mod.
+      If no value is set, default is false.
+    -->
+    <disableSMPHairWhenWigEquipped>false</disableSMPHairWhenWigEquipped>
+
     <!-- ##################### CLAMP ROTATIONS ############################ -->
 
     <!--
