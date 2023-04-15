@@ -123,6 +123,28 @@ namespace hdt
 			btVector3 angularEquilibrium = btVector3(0, 0, 0);
 			btVector3 linearBounce = btVector3(0, 0, 0);
 			btVector3 angularBounce = btVector3(0, 0, 0);
+			bool enableLinearSprings = true;
+			bool enableAngularSprings = true;
+			bool linearStiffnessLimited = true;
+			bool angularStiffnessLimited = true;
+			bool springDampingLimited = true;
+			bool linearMotors = false;
+			bool angularMotors = false;
+			// TODO: Test if servo motors go to [0, 0, 0], or whatever equilibrium is.  Provide option to set server motor target.  Hard coded to equilibrium right now.
+			bool linearServoMotors = false;
+			bool angularServoMotors = false;
+			btVector3 linearNonHookeanDamping = btVector3(0, 0, 0);
+			btVector3 angularNonHookeanDamping = btVector3(0, 0, 0);
+			btVector3 linearNonHookeanStiffness = btVector3(0, 0, 0);
+			btVector3 angularNonHookeanStiffness = btVector3(0, 0, 0);
+			btVector3 linearTargetVelocity = btVector3(0, 0, 0);
+			btVector3 angularTargetVelocity = btVector3(0, 0, 0);
+			btVector3 linearMaxMotorForce = btVector3(0, 0, 0);
+			btVector3 angularMaxMotorForce = btVector3(0, 0, 0);
+			btScalar motorERP = 0.2f;
+			btScalar motorCFM = 0;
+			btScalar stopERP = 0.9f;
+			btScalar stopCFM = 0;
 		};
 
 		std::unordered_map<IDStr, GenericConstraintTemplate> m_genericConstraintTemplates;

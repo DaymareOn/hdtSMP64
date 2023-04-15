@@ -1286,6 +1286,52 @@ namespace hdt
 			{
 				auto name = m_reader->GetName();
 				if (parseFrameType(name, dest.frameType, dest.frame));
+				else if (name == "enableLinearSprings")
+					dest.enableLinearSprings = m_reader->readBool();
+				else if (name == "enableAngularSprings")
+					dest.enableAngularSprings = m_reader->readBool();
+				else if (name == "linearStiffnessLimited")
+					dest.linearStiffnessLimited = m_reader->readBool();
+				else if (name == "angularStiffnessLimited")
+					dest.angularStiffnessLimited = m_reader->readBool();
+
+				else if (name == "springDampingLimited")
+					dest.springDampingLimited = m_reader->readBool();
+				else if (name == "linearNonHookeanDamping")
+					dest.linearNonHookeanDamping = m_reader->readVector3();
+				else if (name == "angularNonHookeanDamping")
+					dest.angularNonHookeanDamping = m_reader->readVector3();
+				else if (name == "linearNonHookeanStiffness")
+					dest.linearNonHookeanStiffness = m_reader->readVector3();
+				else if (name == "angularNonHookeanStiffness")
+					dest.angularNonHookeanStiffness = m_reader->readVector3();
+
+				else if (name == "linearMotors")
+					dest.linearMotors = m_reader->readBool();
+				else if (name == "angularMotors")
+					dest.angularMotors = m_reader->readBool();
+				else if (name == "linearServoMotors")
+					dest.linearServoMotors = m_reader->readBool();
+				else if (name == "angularServoMotors")
+					dest.angularServoMotors = m_reader->readBool();
+				else if (name == "linearTargetVelocity")
+					dest.linearTargetVelocity = m_reader->readVector3();
+				else if (name == "angularTargetVelocity")
+					dest.angularTargetVelocity = m_reader->readVector3();
+				else if (name == "linearMaxMotorForce")
+					dest.linearMaxMotorForce = m_reader->readVector3();
+				else if (name == "angularMaxMotorForce")
+					dest.angularMaxMotorForce = m_reader->readVector3();
+
+				else if (name == "stopERP")
+					dest.stopERP = m_reader->readFloat();
+				else if (name == "stopCFM")
+					dest.stopCFM = m_reader->readFloat();
+				else if (name == "motorERP")
+					dest.motorERP = m_reader->readFloat();
+				else if (name == "motorCFM")
+					dest.motorCFM = m_reader->readFloat();
+
 				else if (name == "useLinearReferenceFrameA")
 					dest.useLinearReferenceFrameA = m_reader->readBool();
 				else if (name == "linearLowerLimit")
@@ -1471,12 +1517,37 @@ namespace hdt
 		constraint->setAngularUpperLimit(cinfo.angularUpperLimit);
 		for (int i = 0; i < 3; ++i)
 		{
-			constraint->setStiffness(i, cinfo.linearStiffness[i]);
-			constraint->setStiffness(i + 3, cinfo.angularStiffness[i]);
-			constraint->setDamping(i, cinfo.linearDamping[i]);
-			constraint->setDamping(i + 3, cinfo.angularDamping[i]);
+			constraint->setStiffness(i, cinfo.linearStiffness[i], cinfo.linearStiffnessLimited);
+			constraint->setStiffness(i + 3, cinfo.angularStiffness[i], cinfo.angularStiffnessLimited);
+			constraint->setDamping(i, cinfo.linearDamping[i], cinfo.springDampingLimited);
+			constraint->setDamping(i + 3, cinfo.angularDamping[i], cinfo.springDampingLimited);
 			constraint->setEquilibriumPoint(i, cinfo.linearEquilibrium[i]);
 			constraint->setEquilibriumPoint(i + 3, cinfo.angularEquilibrium[i]);
+
+			constraint->setNonHookeanDamping(i, cinfo.linearNonHookeanDamping[i]);
+			constraint->setNonHookeanDamping(i + 3, cinfo.angularNonHookeanDamping[i]);
+			constraint->setNonHookeanStiffness(i, cinfo.linearNonHookeanStiffness[i]);
+			constraint->setNonHookeanStiffness(i + 3, cinfo.angularNonHookeanStiffness[i]);
+
+			constraint->enableSpring(i, cinfo.enableLinearSprings);
+			constraint->enableSpring(i + 3, cinfo.enableAngularSprings);
+
+			constraint->enableMotor(i, cinfo.linearMotors);
+			constraint->enableMotor(i + 3, cinfo.angularMotors);
+			constraint->setServo(i, cinfo.linearServoMotors);
+			constraint->setServo(i + 3, cinfo.angularServoMotors);
+			// TODO: Test if servo motors go to [0, 0, 0], or whatever equilibrium is.  Provide option to set server motor target.  Hard coded to equilibrium right now.
+			constraint->setServoTarget(i, cinfo.linearEquilibrium[i]);
+			constraint->setServoTarget(i + 3, cinfo.angularEquilibrium[i]);
+			constraint->setTargetVelocity(i, cinfo.linearTargetVelocity[i]);
+			constraint->setTargetVelocity(i + 3, cinfo.angularTargetVelocity[i]);
+			constraint->setMaxMotorForce(i, cinfo.linearMaxMotorForce[i]);
+			constraint->setMaxMotorForce(i + 3, cinfo.angularMaxMotorForce[i]);
+
+			constraint->setParam(BT_CONSTRAINT_ERP, cinfo.motorERP, i);
+			constraint->setParam(BT_CONSTRAINT_CFM, cinfo.motorCFM, i);
+			constraint->setParam(BT_CONSTRAINT_STOP_ERP, cinfo.stopERP, i);
+			constraint->setParam(BT_CONSTRAINT_STOP_CFM, cinfo.stopCFM, i);
 		}
 		constraint->getTranslationalLimitMotor()->m_bounce = cinfo.linearBounce;
 		constraint->getRotationalLimitMotor(0)->m_bounce = cinfo.angularBounce[0];

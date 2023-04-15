@@ -520,6 +520,9 @@ int btGeneric6DofSpring2Constraint::setLinearLimits(btConstraintInfo2* info, int
 			limot.m_motorCFM = (flags & BT_6DOF_FLAGS_CFM_MOTO2) ? m_linearLimits.m_motorCFM[i] : info->cfm[0];
 			limot.m_motorERP = (flags & BT_6DOF_FLAGS_ERP_MOTO2) ? m_linearLimits.m_motorERP[i] : info->erp;
 
+			limot.m_nonHookeanDamping = m_linearLimits.m_nonHookeanDamping[i];
+			limot.m_nonHookeanStiffness = m_linearLimits.m_nonHookeanStiffness[i];
+
 			//rotAllowed is a bit of a magic from the original 6dof. The calculation of it here is something that imitates the original behavior as much as possible.
 			int indx1 = (i + 1) % 3;
 			int indx2 = (i + 2) % 3;
@@ -807,7 +810,9 @@ int btGeneric6DofSpring2Constraint::get_limit_motor_info2(
 
 	if (limot->m_enableSpring)
 	{
-		btScalar error = limot->m_currentPosition - limot->m_equilibriumPoint;
+		btScalar ep = limot->m_equilibriumPoint;
+		btScalar pos = limot->m_currentPosition;
+		btScalar error = pos - ep;
 		calculateJacobi(limot, transA, transB, info, srow, ax1, rotational, rotAllowed);
 
 		//btScalar cfm = 1.0 / ((1.0/info->fps)*limot->m_springStiffness+ limot->m_springDamping);
@@ -832,6 +837,21 @@ int btGeneric6DofSpring2Constraint::get_limit_motor_info2(
 			btVector3 tanVelB = angVelB.cross(m_calculatedTransformB.getOrigin() - transB.getOrigin());
 			vel = (linVelA + tanVelA).dot(ax1) - (linVelB + tanVelB).dot(ax1);
 		}
+
+		btScalar dampingFactor = limot->m_nonHookeanDamping;
+		btScalar stiffnessFactor = limot->m_nonHookeanStiffness;
+		if (error != 0 && (dampingFactor != 0 || stiffnessFactor != 0))
+		{
+			btScalar range = pos < ep ? ep - limot->m_loLimit : limot->m_hiLimit - ep;
+			btScalar rf = range != 0 ? btFabs(error) / range : BT_ZERO;
+			// Avoid blowing shit up.
+			btScalar t = btClamped(rf, BT_ZERO, BT_ONE);
+			btScalar originalKd = kd;
+
+			kd *= BT_ONE - (dampingFactor * t);
+			ks *= BT_ONE - (stiffnessFactor * t);
+		}
+
 		btScalar cfm = BT_ZERO;
 		btScalar mA = BT_ONE / m_rbA.getInvMass();
 		btScalar mB = BT_ONE / m_rbB.getInvMass();
@@ -1145,6 +1165,34 @@ void btGeneric6DofSpring2Constraint::setStiffness(int index, btScalar stiffness,
 	{
 		m_angularLimits[index - 3].m_springStiffness = stiffness;
 		m_angularLimits[index - 3].m_springStiffnessLimited = limitIfNeeded;
+	}
+}
+
+// Elastic, uneven damping used to fake non-Hookean springs for a specific axis.
+// Default: 0 (disabled).  Other values below 1 will likely blow your spring up.. individual speed and hilarity may vary.
+void btGeneric6DofSpring2Constraint::setNonHookeanDamping(int index, btScalar damping)
+{
+	btAssert((index >= 0) && (index < 6));
+	if (index < 3)
+	{
+		m_linearLimits.m_nonHookeanDamping[index] = damping;
+	}
+	else
+	{
+		m_angularLimits[index - 3].m_nonHookeanDamping = damping;
+	}
+}
+
+void btGeneric6DofSpring2Constraint::setNonHookeanStiffness(int index, btScalar damping)
+{
+	btAssert((index >= 0) && (index < 6));
+	if (index < 3)
+	{
+		m_linearLimits.m_nonHookeanStiffness[index] = damping;
+	}
+	else
+	{
+		m_angularLimits[index - 3].m_nonHookeanStiffness = damping;
 	}
 }
 
