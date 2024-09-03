@@ -7,15 +7,25 @@
 
     <!--
       logLevel: (int 0-5) level of logs
-      0 = kLevel_FatalError
-      1 = kLevel_Error
-      2 = kLevel_Warning
-      3 = kLevel_Message
-      4 = kLevel_VerboseMessage
-      5 = kLevel_DebugMessage
+      0 = trace
+      1 = debug
+      2 = info
+      3 = warn
+      4 = error
+      5 = critical
+	  6 = off
     -->
-    <logLevel>3</logLevel>
+    <logLevel>2</logLevel>
 
+    <!-- ######################## Bone Node Backup #################################### -->
+
+    <!--
+      There's A unique issue with this port where when the skeleton and the body merge there is a chance that one of the bones don't get moved over and gets deleted
+	  when this happens it will cause a crash later down the line, if you encouter this issue add the node name into and it'll be backed up before the merge and put back as it should be.
+	  example, SOS-SAM and the "VirtualHands" node when hdt is enabled... this will cause a crash unless added here.
+    -->
+    <backupNodeByName></backupNodeByName>
+	
     <!-- #################### NPC FACE PARTS ############################## -->
 
     <!--

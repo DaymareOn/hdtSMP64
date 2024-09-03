@@ -4,8 +4,7 @@ Fork of [https://github.com/Karonar1/hdtSMP64] by Karonar1, of fork of [version]
 [original code](https://github.com/HydrogensaysHDT/hdt-skyrimse-mods) by hydrogensaysHDT
 
 ## Changes
-
-+ Managed AE version, and corresponding SKSE (currently 1.6.353 and 2.1.5).
++ CommonLibSSE-NG used for building instead of staticlly linking with SKSE.
 + Added maximum angle in ActorManager. A max angle can be used to specify physics on NPCs within a field of view.
   0 degrees represents straight in front of the camera. Default is 45 which is treated as + or - 45 degrees,
   so 90 total degrees. 180 would be all around.
@@ -130,6 +129,7 @@ The plugin recognizes the following optional parameters:
 
 ## Known issues
 
++ CUDA Is Currently un-defined and compiling with it results in a PC binary(someone with experience with cuda and CMake should take a look, i don't use cuda so i wouldn't even know where to begin to add proper support for it).
 + Several options, including shape and collision definitions on bones, exist but don't seem to do anything.
 + Sphere-triangle collision check without penetration defined is obviously wrong, but fixing the test
   doesn't improve things. Needs further investigation.
@@ -147,69 +147,58 @@ The plugin recognizes the following optional parameters:
   issues I have personally observed.
 + [Known bugs on the Nexus](https://nexusmods.com/skyrimspecialedition/mods/57339?tab=bugs&BH=5)
 
-## Build Instructions
+## Build Instructions And Requirements
 
-Here is the [article](https://www.nexusmods.com/skyrimspecialedition/articles/3606) by DayDreamingDay.
-These should be complete instructions to set up and build the plugin, without assuming prior coding
-experience. I'm checking everything out into D:\Dev-noAVX and building without AVX support, but of course you
-can use any directory.
+- [CMake](https://cmake.org/)
+  - Add this to your `PATH`
+- [PowerShell](https://github.com/PowerShell/PowerShell/releases/latest)
+- [Vcpkg](https://github.com/microsoft/vcpkg)
+  - Add the environment variable `VCPKG_ROOT` with the value as the path to the folder containing vcpkg
+- [Visual Studio Community 2019](https://visualstudio.microsoft.com/)
+  - Desktop development with C++
+- [CommonLibSSENG](https://github.com/alandtse/CommonLibVR/tree/ng)
+  - Add this as as an environment variable `CommonLibSSEPath`
+- [CUDA Toolkit 11.6]
 
-You will need:
-+ Visual Studio 2019 (any edition)
-+ Git
-+ CMake
-+ CUDA 11.6
+## User Requirements
 
-Open a VS2019 command prompt ("x64 Native Tools Command Prompt for VS2019"). Download and build Detours and
-Bullet:
+- [Address Library for SKSE](https://www.nexusmods.com/skyrimspecialedition/mods/32444)
+  - Needed for SSE/AE
+- [VR Address Library for SKSEVR](https://www.nexusmods.com/skyrimspecialedition/mods/58101)
+  - Needed for VR
 
+## Register Visual Studio as a Generator
+
+- Open `x64 Native Tools Command Prompt`
+- Run `cmake`
+- Close the cmd window
+
+## Building
 ```
-d:
-mkdir Dev-noAVX
-cd Dev-noAVX
-git clone https://github.com/microsoft/Detours.git
-git clone https://github.com/bulletphysics/bullet3.git
-cd Detours
-nmake
-cd ..\bullet3
-cmake .
+#
+git clone -b test https://github.com/Backporter/hdtSMP64.git
+
+# 
+cd hdtSMP64
+
+#
+git submodule update --init --recursive
+
+#
+cmake --preset vs2022-windows-nocuda-avx2
+
+#
+cmake --build build --config Release
 ```
-
-If you want AVX support in Bullet, use `cmake-gui` instead of `cmake`, and check the `USE_MSVC_AVX` box
-before clicking Configure then Generate. This should give a fairly significant performance boost if your CPU
-supports it.
-+ Note that AVX support in Bullet and the HDT-SMP plugin itself are independent configuration options. Enable
-  it in both for maximum performance; disable it in both for maximum compatibility.
-
-Open D:\Dev-noAVX\bullet3\BULLET_PHYSICS.sln in Visual Studio, select the Release configuration, then
-Build -> Build solution.
-
-Download skse64_2_00_19.7z and unpack into Dev-noAVX (source code is included in the official distribution),
-then get the HDT-SMP source:
-
-```
-cd D:\Dev-noAVX\skse64_2_00_19\src\skse64
-git init
-git remote add origin https://github/com/Karonar1/hdtSMP64.git
-git fetch
-git checkout master
-```
-
-Open D:\Dev-noAVX\skse64_2_00_19\src\skse64\hdtSMP64.sln in Visual Studio. If you are asked to retarget
-projects, just accept the defaults and click OK.
-
-Open properties for the hdtSMP64 project. Select "All Configurations" at the top, and the C/C++ page. Add the
-following to Additional Include Directories (just delete anything that was there before):
-+ D:\Dev-noAVX\Detours\include
-+ D:\Dev-noAVX\bullet3\src
-+ D:\Dev-noAVX\skse64_2_00_19\src
-
-On the Linker -> General page, add the following to Additional Library Directories:
-+ D:\Dev-noAVX\bullet3\lib\Release
-+ D:\Dev-noAVX\Detours\lib.X64
-
-Open properties for the skse64 project. Select General, and change Configuration Type from "Dynamic Library
-(.dll)" to "Static Library (.lib)".
+## Build Targets
+vs2022-windows-nocuda<br>
+vs2022-windows-nocuda-avx<br>
+vs2022-windows-nocuda-avx2<br>
+vs2022-windows-nocuda-avx512<br>
+vs2022-windows-cuda<br>
+vs2022-windows-cuda-avx<br>
+vs2022-windows-cuda-avx2<br>
+vs2022-windows-cuda-avx512
 
 ## Credits
 
