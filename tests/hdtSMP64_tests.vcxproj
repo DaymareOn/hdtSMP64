@@ -81,6 +81,7 @@
     <ClCompile Include="test_main.cpp" />
     <ClCompile Include="unit\test_config.cpp" />
     <ClCompile Include="unit\test_collision.cpp" />
+    <ClCompile Include="unit\test_non_hookean.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\catch.hpp" />

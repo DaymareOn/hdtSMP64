@@ -48,6 +48,20 @@ Example: `V1_6_659_CUDA_AVX2` builds for AE 1.6.659 with CUDA and AVX2 optimizat
 
 Output is a `.dll` file that goes in Skyrim's `Data/SKSE/Plugins/` directory.
 
+### Command Line Build (PowerShell)
+
+```powershell
+# Build specific configuration (e.g., V1_6_1170_NOCUDA_AVX2)
+& 'C:/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools/MSBuild/Current/Bin/amd64/MSBuild.exe' 'hdtSMP64.sln' '-p:Configuration=V1_6_1170_NOCUDA_AVX2' '-p:Platform=x64' '-v:m'
+```
+
+### Command Line Build (Git Bash)
+
+```bash
+# Build specific configuration
+powershell.exe -NoProfile -Command "& 'C:/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools/MSBuild/Current/Bin/amd64/MSBuild.exe' 'hdtSMP64.sln' '-p:Configuration=V1_6_1170_NOCUDA_AVX2' '-p:Platform=x64' '-v:m'"
+```
+
 ## Architecture
 
 ### Solution Structure
@@ -143,6 +157,37 @@ In-game console commands via `smp <command>`:
 | `smp stats` | Show current performance stats |
 | `smp gpu` | Toggle CUDA collision (CUDA builds only) |
 | `smp dumptree` | Dump targeted reference's node tree |
+
+## Running Tests
+
+Unit tests use Catch2 and are in the `tests/` directory.
+
+### Build and Run Tests (PowerShell)
+
+```powershell
+# Build
+& 'C:/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools/MSBuild/Current/Bin/amd64/MSBuild.exe' 'tests/hdtSMP64_tests.vcxproj' '-p:Configuration=Release' '-p:Platform=x64' '-v:m'
+
+# Run
+./tests/x64/tests/Release/hdtSMP64_tests.exe --reporter console
+```
+
+### Build and Run Tests (Git Bash)
+
+```bash
+# Build
+powershell.exe -NoProfile -Command "& 'C:/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools/MSBuild/Current/Bin/amd64/MSBuild.exe' 'tests/hdtSMP64_tests.vcxproj' '-p:Configuration=Release' '-p:Platform=x64' '-v:m'"
+
+# Run
+./tests/x64/tests/Release/hdtSMP64_tests.exe --reporter console
+```
+
+### Test Structure
+
+- `tests/test_main.cpp` - Catch2 main entry point
+- `tests/unit/test_config.cpp` - Config parsing tests
+- `tests/unit/test_collision.cpp` - Collision algorithm tests
+- `tests/unit/test_non_hookean.cpp` - Non-Hookean spring physics tests
 
 ## Static Analysis
 
