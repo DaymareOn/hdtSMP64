@@ -102,12 +102,14 @@ jobs:
       - name: Setup Dependencies
         run: |
           # Create minimal paths props for CI build using backslashes for Windows
+          # Note: ianpatt/common repo has nested common/ directory, so SKSE_ROOT = external/common
+          # This makes $(SKSE_ROOT)/common/IPrefix.h = external/common/common/IPrefix.h
           $workspace = "${{ github.workspace }}".Replace('/', '\')
           @"
           <?xml version="1.0" encoding="utf-8"?>
           <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
             <PropertyGroup Label="hdtSMP64Paths">
-              <SKSE_ROOT>$workspace\external</SKSE_ROOT>
+              <SKSE_ROOT>$workspace\external\common</SKSE_ROOT>
               <SKSE_DIR>$workspace\external\skse</SKSE_DIR>
               <DETOURS_DIR>$workspace\external\detours</DETOURS_DIR>
               <OUTPUT_DIR_PREFIX></OUTPUT_DIR_PREFIX>
@@ -115,7 +117,7 @@ jobs:
           </Project>
           "@ | Out-File -FilePath hdtSMP64.paths.props -Encoding utf8
           Write-Host "Created hdtSMP64.paths.props with paths:"
-          Write-Host "  SKSE_ROOT: $workspace\external"
+          Write-Host "  SKSE_ROOT: $workspace\external\common"
           Write-Host "  SKSE_DIR: $workspace\external\skse"
           Get-Content hdtSMP64.paths.props
 
