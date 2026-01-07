@@ -84,20 +84,40 @@ jobs:
       - name: Add MSBuild to PATH
         uses: microsoft/setup-msbuild@v2
 
+      - name: Verify Submodules
+        run: |
+          Write-Host "=== Checking submodule contents ==="
+          Write-Host "external/common contents:"
+          Get-ChildItem -Path external/common -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  $_" }
+          Write-Host "external/skse contents:"
+          Get-ChildItem -Path external/skse -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  $_" }
+          if (Test-Path "external/common/IPrefix.h") {
+            Write-Host "IPrefix.h found at external/common/IPrefix.h"
+          } else {
+            Write-Host "WARNING: IPrefix.h NOT found at external/common/IPrefix.h"
+            Write-Host "Looking for IPrefix.h recursively..."
+            Get-ChildItem -Path external -Recurse -Filter "IPrefix.h" -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  Found: $($_.FullName)" }
+          }
+
       - name: Setup Dependencies
         run: |
-          # Create minimal paths props for CI build
+          # Create minimal paths props for CI build using backslashes for Windows
+          $workspace = "${{ github.workspace }}".Replace('/', '\')
           @"
           <?xml version="1.0" encoding="utf-8"?>
           <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
             <PropertyGroup Label="hdtSMP64Paths">
-              <SKSE_ROOT>${{ github.workspace }}/external</SKSE_ROOT>
-              <SKSE_DIR>${{ github.workspace }}/external/skse</SKSE_DIR>
-              <DETOURS_DIR>${{ github.workspace }}/external/detours</DETOURS_DIR>
+              <SKSE_ROOT>$workspace\external</SKSE_ROOT>
+              <SKSE_DIR>$workspace\external\skse</SKSE_DIR>
+              <DETOURS_DIR>$workspace\external\detours</DETOURS_DIR>
               <OUTPUT_DIR_PREFIX></OUTPUT_DIR_PREFIX>
             </PropertyGroup>
           </Project>
           "@ | Out-File -FilePath hdtSMP64.paths.props -Encoding utf8
+          Write-Host "Created hdtSMP64.paths.props with paths:"
+          Write-Host "  SKSE_ROOT: $workspace\external"
+          Write-Host "  SKSE_DIR: $workspace\external\skse"
+          Get-Content hdtSMP64.paths.props
 
       - name: Cache Detours
         id: cache-detours
