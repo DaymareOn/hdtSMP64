@@ -68,30 +68,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Skyrim SE builds
-          - version: SE
-            cuda: NOCUDA
-            avx: NoAVX
-          - version: SE
-            cuda: NOCUDA
-            avx: AVX2
-
-          # Anniversary Edition builds (latest)
+          # Anniversary Edition 1.6.1170 (primary target)
           - version: V1_6_1170
             cuda: NOCUDA
             avx: NoAVX
           - version: V1_6_1170
-            cuda: NOCUDA
-            avx: AVX
-          - version: V1_6_1170
-            cuda: NOCUDA
-            avx: AVX2
-
-          # VR builds
-          - version: VR
-            cuda: NOCUDA
-            avx: NoAVX
-          - version: VR
             cuda: NOCUDA
             avx: AVX2
 
