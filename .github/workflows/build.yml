@@ -91,7 +91,7 @@ jobs:
           <?xml version="1.0" encoding="utf-8"?>
           <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
             <PropertyGroup Label="hdtSMP64Paths">
-              <SKSE_ROOT>${{ github.workspace }}/external/skse</SKSE_ROOT>
+              <SKSE_ROOT>${{ github.workspace }}/external</SKSE_ROOT>
               <SKSE_DIR>${{ github.workspace }}/external/skse</SKSE_DIR>
               <DETOURS_DIR>${{ github.workspace }}/external/detours</DETOURS_DIR>
               <OUTPUT_DIR_PREFIX></OUTPUT_DIR_PREFIX>

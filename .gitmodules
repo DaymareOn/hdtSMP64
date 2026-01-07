@@ -1,3 +1,6 @@
 [submodule "external/skse"]
 	path = external/skse
 	url = https://github.com/ianpatt/skse64.git
+[submodule "external/common"]
+	path = external/common
+	url = https://github.com/ianpatt/common.git
