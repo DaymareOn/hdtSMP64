@@ -6,6 +6,13 @@
 
 #include "skse64/GameMenus.h"
 
+// Local wrapper for MenuManager::IsGamePaused()
+// Official SKSE doesn't expose this - numPauseGame is private at offset 0x160
+inline bool IsMenuManagerGamePaused(MenuManager* mm) {
+	// numPauseGame offset from SKSE GameMenus.h: 0x160
+	return *reinterpret_cast<UInt32*>(reinterpret_cast<uintptr_t>(mm) + 0x160) > 0;
+}
+
 namespace hdt
 {
 	static const float* timeStamp = (float*)0x12E355C;
@@ -301,9 +308,9 @@ namespace hdt
 	{
 		auto mm = MenuManager::GetSingleton();
 
-		if ((e.gamePaused || mm->IsGamePaused()) && !m_suspended)
+		if ((e.gamePaused || IsMenuManagerGamePaused(mm)) && !m_suspended)
 			suspend();
-		else if (!(e.gamePaused || mm->IsGamePaused()) && m_suspended)
+		else if (!(e.gamePaused || IsMenuManagerGamePaused(mm)) && m_suspended)
 			resume();
 
 		LARGE_INTEGER ticks;
