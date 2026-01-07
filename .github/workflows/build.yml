@@ -25,6 +25,15 @@ jobs:
       - name: Add MSBuild to PATH
         uses: microsoft/setup-msbuild@v2
 
+      - name: Cache Test Build
+        uses: actions/cache@v4
+        with:
+          path: |
+            tests/x64
+          key: test-build-${{ hashFiles('tests/**/*.cpp', 'tests/**/*.h', 'tests/**/*.vcxproj') }}
+          restore-keys: |
+            test-build-
+
       - name: Build Tests
         run: msbuild tests/hdtSMP64_tests.vcxproj /p:Configuration=Release /p:Platform=x64 /m
 
@@ -129,10 +138,18 @@ jobs:
           copy include\*.h ..\detours\include\
           copy lib.X64\*.lib ..\detours\lib.X64\
 
+      - name: Cache Build
+        uses: actions/cache@v4
+        with:
+          path: |
+            x64/${{ matrix.version }}_${{ matrix.cuda }}_${{ matrix.avx }}
+          key: build-${{ matrix.version }}-${{ matrix.cuda }}-${{ matrix.avx }}-${{ hashFiles('hdtSMP64/**/*.cpp', 'hdtSMP64/**/*.h') }}
+          restore-keys: |
+            build-${{ matrix.version }}-${{ matrix.cuda }}-${{ matrix.avx }}-
+
       - name: Build
         run: |
           msbuild ${{ env.SOLUTION_FILE_PATH }} /p:Configuration=${{ matrix.version }}_${{ matrix.cuda }}_${{ matrix.avx }} /p:Platform=x64 /m
-        continue-on-error: true  # Allow builds to fail until deps are properly set up
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
