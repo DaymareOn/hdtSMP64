@@ -20,9 +20,9 @@
 #include "skse64/GameRTTI.h"
 #include "skse64_common/BranchTrampoline.h"
 
+#include "hdtSkinnedMesh/hdtFrameTimer.h"
 #ifdef CUDA
 #include "hdtSkinnedMesh/hdtCudaInterface.h"
-#include "hdtSkinnedMesh/hdtFrameTimer.h"
 #endif
 
 #include "WeatherManager.h"
@@ -391,13 +391,49 @@ namespace hdt
 			}
 			return true;
 		}
+#endif
 		if (_strnicmp(buffer, "timing", MAX_PATH) == 0)
 		{
-			FrameTimer::instance()->reset(200);
-			Console_Print("Started frame timing");
+			int frames = 200;
+			if (buffer2[0] != '\0')
+			{
+				frames = atoi(buffer2);
+				if (frames < 10) frames = 10;
+				if (frames > 1000) frames = 1000;
+			}
+			FrameTimer::instance()->reset(frames);
+			Console_Print("Started frame timing for %d frames", frames);
 			return true;
 		}
-#endif
+		if (_strnicmp(buffer, "metrics", MAX_PATH) == 0)
+		{
+			auto world = SkyrimPhysicsWorld::get();
+			world->m_forceMetrics = !world->m_forceMetrics;
+			if (world->m_forceMetrics)
+			{
+				Console_Print("[HDT-SMP] Metrics logging enabled (check hdtSMP64.log)");
+			}
+			else
+			{
+				Console_Print("[HDT-SMP] Metrics logging disabled");
+				Console_Print("[HDT-SMP] Avg main loop: %.2f ms, Avg 2nd step: %.2f ms",
+					world->m_averageSMPProcessingTimeInMainLoop,
+					world->m_2ndStepAverageProcessingTime);
+			}
+			return true;
+		}
+		if (_strnicmp(buffer, "stats", MAX_PATH) == 0)
+		{
+			auto world = SkyrimPhysicsWorld::get();
+			Console_Print("[HDT-SMP] Performance Stats:");
+			Console_Print("  Main loop avg: %.3f ms", world->m_averageSMPProcessingTimeInMainLoop);
+			Console_Print("  2nd step avg: %.3f ms", world->m_2ndStepAverageProcessingTime);
+			Console_Print("  Total avg: %.3f ms", world->m_averageSMPProcessingTimeInMainLoop + world->m_2ndStepAverageProcessingTime);
+			float fps = 1000.0f / (world->m_averageSMPProcessingTimeInMainLoop + world->m_2ndStepAverageProcessingTime + 0.001f);
+			Console_Print("  Max theoretical FPS (SMP only): %.1f", fps > 1000 ? 1000.0f : fps);
+			Console_Print("  Metrics logging: %s", world->m_forceMetrics ? "ON" : "OFF");
+			return true;
+		}
 		if (_strnicmp(buffer, "dumptree", MAX_PATH) == 0)
 		{
 			if (thisObj)
@@ -655,7 +691,7 @@ namespace hdt
 
 			cmd.longName = "SMPDebug";
 			cmd.shortName = "smp";
-			cmd.helpText = "smp <reset|reload|on|off|list|detail|dumptree>";
+			cmd.helpText = "smp <reset|reload|on|off|list|detail|dumptree|timing [frames]|metrics|stats>";
 			cmd.needsParent = 0;
 			cmd.numParams = 1;
 			cmd.params = params;

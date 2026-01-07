@@ -33,18 +33,18 @@ namespace hdt
 
 	private:
 
-		int m_nFrames;
+		int m_nFrames = 0;
 		std::map<Events, int64_t> m_timings;
 
-		int m_count;
+		int m_count = 0;
 		std::map<Measurements, float> m_sumsCPU;
 		std::map<Measurements, float> m_sumsSquaredCPU;
 		std::map<Measurements, float> m_sumsGPU;
 		std::map<Measurements, float> m_sumsSquaredGPU;
 
-		int m_nManifoldsCPU;
-		int m_nManifolds2CPU;
-		int m_nManifoldsGPU;
-		int m_nManifolds2GPU;
+		int m_nManifoldsCPU = 0;
+		int m_nManifolds2CPU = 0;
+		int m_nManifoldsGPU = 0;
+		int m_nManifolds2GPU = 0;
 	};
 }

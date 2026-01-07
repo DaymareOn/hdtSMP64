@@ -362,9 +362,11 @@ namespace hdt
 
 		// We share the same doMetrics condition here and in hdtSkyrimPhysicsWorld to avoid any gap between both.
 		// The evaluation is done here rather than in hdtSkyrimPhysicsWorld because this event is called first.
-		world->m_doMetrics = updateMetrics &&                    // do not do metrics on a MenuOpenCloseEvent
-			                 !world->isSuspended() &&            // do not do metrics while paused
-		                     frameCount++ % world->min_fps == 0; // check every min-fps frames (i.e., a stable 60 fps should wait for 1 second)
+		// m_forceMetrics is user-controlled via 'smp metrics' command and overrides the sampling logic.
+		world->m_doMetrics = world->m_forceMetrics ||           // user forced via 'smp metrics'
+		                     (updateMetrics &&                   // do not do metrics on a MenuOpenCloseEvent
+			                  !world->isSuspended() &&           // do not do metrics while paused
+		                      frameCount++ % world->min_fps == 0); // check every min-fps frames (i.e., a stable 60 fps should wait for 1 second)
 
 		if (world->m_doMetrics)
 		{

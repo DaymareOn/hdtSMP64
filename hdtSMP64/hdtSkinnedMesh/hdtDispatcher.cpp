@@ -1,9 +1,9 @@
 #include "hdtDispatcher.h"
 #include "hdtSkinnedMeshBody.h"
 #include "hdtSkinnedMeshAlgorithm.h"
+#include "hdtFrameTimer.h"
 #ifdef CUDA
 #include "hdtCudaInterface.h"
-#include "hdtFrameTimer.h"
 #endif
 
 #include <LinearMath/btPoolAllocator.h>
@@ -300,6 +300,7 @@ namespace hdt
 	}
 #else
 			});
+		FrameTimer::instance()->logEvent(FrameTimer::e_Start);
 		concurrency::parallel_for_each(bodies.begin(), bodies.end(), [](SkinnedMeshBody* shape)
 		{
 			shape->internalUpdate();
@@ -316,12 +317,16 @@ namespace hdt
 		{
 			body->m_bulletShape.m_aabb = body->m_shape->m_tree.aabbAll;
 		}
+		FrameTimer::instance()->logEvent(FrameTimer::e_Internal);
 		concurrency::parallel_for_each(m_pairs.begin(), m_pairs.end(), [&, this](const std::pair<SkinnedMeshBody*, SkinnedMeshBody*>& i)
 		{
 			if (i.first->m_shape->m_tree.collapseCollideL(&i.second->m_shape->m_tree))
 				SkinnedMeshAlgorithm::processCollision(i.first, i.second, this);
 		});
+		FrameTimer::instance()->logEvent(FrameTimer::e_Launched);
 		m_pairs.clear();
+		FrameTimer::instance()->addManifoldCount(getNumManifolds());
+		FrameTimer::instance()->logEvent(FrameTimer::e_End);
 	}
 #endif
 

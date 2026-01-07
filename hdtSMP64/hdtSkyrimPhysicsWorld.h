@@ -86,6 +86,7 @@ namespace hdt
 		bool disabled = false;
 		uint8_t m_resetPc;
 		bool m_doMetrics = false;
+		std::atomic<bool> m_forceMetrics{false}; // User-controlled via 'smp metrics' command
 		int m_sampleSize = 5; // how many samples (each sample taken every second) for determining average time per activeSkeleton.
 
 		//wind settings

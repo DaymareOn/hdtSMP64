@@ -163,10 +163,17 @@ jobs:
       - name: Run cppcheck
         run: |
           cppcheck --enable=warning,performance,portability --error-exitcode=0 \
+            -j $(nproc) \
             --suppress=missingIncludeSystem \
             --suppress=unknownMacro \
             --suppress=noExplicitConstructor \
-            -I hdtSMP64 \
+            --suppress=*:*Bullet* \
+            --suppress=*:*LinearMath* \
+            -i hdtSMP64/BulletCollision \
+            -i hdtSMP64/BulletDynamics \
+            -i hdtSMP64/Bullet3Collision \
+            -i hdtSMP64/Bullet3Dynamics \
+            -i hdtSMP64/LinearMath \
             hdtSMP64/*.cpp hdtSMP64/hdtSkinnedMesh/*.cpp \
             2>&1 | tee cppcheck-results.txt
 
