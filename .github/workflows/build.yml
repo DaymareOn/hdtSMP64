@@ -87,7 +87,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: external/skse
-          key: skse-2.2.6-1.6.1170-v2
+          key: skse-2.2.6-1.6.1170-v3
 
       - name: Download SKSE (if not cached)
         if: steps.cache-skse.outputs.cache-hit != 'true'
@@ -101,33 +101,58 @@ jobs:
           # Extract using 7z (available on windows-latest)
           7z x $skseZip -oexternal/skse-temp
 
-          # Debug: show extracted structure
+          # Find extracted root (e.g., skse64_2_02_06)
           $extracted = Get-ChildItem -Path external/skse-temp -Directory | Select-Object -First 1
+          $srcDir = "$($extracted.FullName)/src"
+
           Write-Host "=== Extracted SKSE structure ==="
           Write-Host "Root: $($extracted.FullName)"
-          Get-ChildItem -Path $extracted.FullName | ForEach-Object { Write-Host "  $_" }
-          Write-Host "src/ contents:"
-          Get-ChildItem -Path "$($extracted.FullName)/src" -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  $_" }
+          Write-Host "Looking in: $srcDir"
 
-          # Flatten structure to match local dev setup
-          New-Item -ItemType Directory -Path external/skse -Force
-
-          # common is nested: src/common/common/
-          Move-Item -Path "$($extracted.FullName)/src/common/common" -Destination "external/skse/common"
-
-          # skse64 and skse64_common might be at root level, not in src/
-          if (Test-Path "$($extracted.FullName)/src/skse64") {
-            Move-Item -Path "$($extracted.FullName)/src/skse64" -Destination "external/skse/skse64"
-          } elseif (Test-Path "$($extracted.FullName)/skse64") {
-            Move-Item -Path "$($extracted.FullName)/skse64" -Destination "external/skse/skse64"
+          # Show full tree for debugging
+          Write-Host "=== Full tree (3 levels) ==="
+          Get-ChildItem -Path $extracted.FullName -Recurse -Depth 2 | ForEach-Object {
+            $rel = $_.FullName.Substring($extracted.FullName.Length)
+            Write-Host "  $rel"
           }
 
-          if (Test-Path "$($extracted.FullName)/src/skse64_common") {
-            Move-Item -Path "$($extracted.FullName)/src/skse64_common" -Destination "external/skse/skse64_common"
-          } elseif (Test-Path "$($extracted.FullName)/skse64_common") {
-            Move-Item -Path "$($extracted.FullName)/skse64_common" -Destination "external/skse/skse64_common"
+          # Create target directory
+          New-Item -ItemType Directory -Path external/skse -Force | Out-Null
+
+          # SKSE release structure: src/common/common/ (nested!), src/skse64/, src/skse64_common/
+          # Local dev structure: common/, skse64/, skse64_common/ (flat)
+
+          # Copy common - it's nested as src/common/common/
+          $commonSrc = "$srcDir/common/common"
+          if (Test-Path $commonSrc) {
+            Write-Host "Copying $commonSrc -> external/skse/common"
+            Copy-Item -Path $commonSrc -Destination "external/skse/common" -Recurse
+          } else {
+            Write-Error "ERROR: Common source not found at $commonSrc"
+            exit 1
           }
 
+          # Copy skse64
+          $skse64Src = "$srcDir/skse64"
+          if (Test-Path $skse64Src) {
+            Write-Host "Copying $skse64Src -> external/skse/skse64"
+            Copy-Item -Path $skse64Src -Destination "external/skse/skse64" -Recurse
+          } else {
+            Write-Error "ERROR: skse64 source not found at $skse64Src"
+            exit 1
+          }
+
+          # Copy skse64_common
+          $skse64CommonSrc = "$srcDir/skse64_common"
+          if (Test-Path $skse64CommonSrc) {
+            Write-Host "Copying $skse64CommonSrc -> external/skse/skse64_common"
+            Copy-Item -Path $skse64CommonSrc -Destination "external/skse/skse64_common" -Recurse
+          } else {
+            Write-Error "ERROR: skse64_common source not found at $skse64CommonSrc"
+            exit 1
+          }
+
+          # Cleanup
           Remove-Item -Path external/skse-temp -Recurse -Force
           Remove-Item -Path $skseZip
 
