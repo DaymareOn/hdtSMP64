@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [master, test]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   SOLUTION_FILE_PATH: hdtSMP64.sln
 
