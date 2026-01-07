@@ -378,7 +378,7 @@ namespace hdt
 			if (activeSkeletons > 0) {
 				averageTimePerSkeletonInMainLoop = averageProcessingTimeInMainLoop / activeSkeletons;
 			}
-			_VMESSAGE("msecs/activeSkeleton %2.2g activeSkeletons/maxActive/total %d/%d/%d processTimeInMainLoop/targetTime %2.2g/%2.2g", averageTimePerSkeletonInMainLoop, activeSkeletons, maxActiveSkeletons, m_skeletons.size(), averageProcessingTimeInMainLoop, target_time);
+			HDT_LOG_INFO("msecs/activeSkeleton %2.2g activeSkeletons/maxActive/total %d/%d/%zu processTimeInMainLoop/targetTime %2.2g/%2.2g", averageTimePerSkeletonInMainLoop, activeSkeletons, maxActiveSkeletons, m_skeletons.size(), averageProcessingTimeInMainLoop, target_time);
 			if (m_autoAdjustMaxSkeletons) {
 				maxActiveSkeletons += target_time > averageProcessingTimeInMainLoop ? 2 : -2;
 				// clamp the value to the m_maxActiveSkeletons value
