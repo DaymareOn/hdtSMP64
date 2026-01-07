@@ -6,14 +6,6 @@
 
 #include "skse64/GameMenus.h"
 
-// SKSE compatibility: IsGamePaused() is not in official SKSE release
-// The function checks if the game is paused via menu (numPauseGame > 0)
-#ifndef SKSE_HAS_ISGAMEPAUSED
-inline bool MenuManager_IsGamePaused(MenuManager* mm) {
-	return mm->numPauseGame > 0;
-}
-#endif
-
 namespace hdt
 {
 	static const float* timeStamp = (float*)0x12E355C;
@@ -309,9 +301,9 @@ namespace hdt
 	{
 		auto mm = MenuManager::GetSingleton();
 
-		if ((e.gamePaused || MenuManager_IsGamePaused(mm)) && !m_suspended)
+		if ((e.gamePaused || mm->IsGamePaused()) && !m_suspended)
 			suspend();
-		else if (!(e.gamePaused || MenuManager_IsGamePaused(mm)) && m_suspended)
+		else if (!(e.gamePaused || mm->IsGamePaused()) && m_suspended)
 			resume();
 
 		LARGE_INTEGER ticks;

@@ -87,7 +87,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: external/skse
-          key: skse-2.2.6-1.6.1170-v4
+          key: skse-2.2.6-1.6.1170-v5
 
       - name: Download SKSE (if not cached)
         if: steps.cache-skse.outputs.cache-hit != 'true'
@@ -154,6 +154,24 @@ jobs:
             Write-Error "ERROR: skse64_common source not found at $skse64CommonSrc"
             exit 1
           }
+
+          # Copy xbyak - nested as src/skse64/xbyak/
+          $xbyakSrc = "$srcDir\skse64\xbyak"
+          if (Test-Path $xbyakSrc) {
+            Write-Host "Copying $xbyakSrc -> external/skse/xbyak"
+            Copy-Item -Path $xbyakSrc -Destination "external\skse\xbyak" -Recurse
+          } else {
+            Write-Error "ERROR: xbyak source not found at $xbyakSrc"
+            exit 1
+          }
+
+          # Patch GameMenus.h to add IsGamePaused() - not in official SKSE release
+          $gameMenus = "external\skse\skse64\GameMenus.h"
+          $content = Get-Content $gameMenus -Raw
+          $patch = "`tpublic:`n`tbool IsGamePaused() const { return numPauseGame > 0; }`n`nprivate:"
+          $content = $content -replace "private:\s*\n\s*UInt32\s+numPauseGame;", $patch + "`n`tUInt32`t`t`t`tnumPauseGame;"
+          Set-Content -Path $gameMenus -Value $content
+          Write-Host "Patched GameMenus.h with IsGamePaused()"
 
           # Cleanup
           Remove-Item -Path external/skse-temp -Recurse -Force
