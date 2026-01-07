@@ -25,7 +25,7 @@ namespace hdt
 		{
 		}
 
-		SolverBodyMt& operator=(const SolverBodyMt& rhs) { m_body = rhs.m_body; }
+		SolverBodyMt& operator=(const SolverBodyMt& rhs) { m_body = rhs.m_body; return *this; }
 
 	private:
 		SpinLock m_lock;
