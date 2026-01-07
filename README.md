@@ -5,7 +5,7 @@ Fork of [https://github.com/Karonar1/hdtSMP64] by Karonar1, of fork of [version]
 
 ## Changes
 
-+ Managed AE version, and corresponding SKSE (currently 1.6.353 and 2.1.5).
++ Supports Skyrim SE (1.5.97), VR (1.4.15), and AE (1.6.353, 1.6.640, 1.6.659, 1.6.1170).
 + Added maximum angle in ActorManager. A max angle can be used to specify physics on NPCs within a field of view.
   0 degrees represents straight in front of the camera. Default is 45 which is treated as + or - 45 degrees,
   so 90 total degrees. 180 would be all around.
@@ -111,17 +111,19 @@ infamous dark face bug. Special restrictions apply to NPCs that do have facegen 
 The `smp` console command will print some basic information about the number of tracked and active objects.
 The plugin recognizes the following optional parameters:
 
-* `smp reset` reloads the configs.xml file, attempts to reload all meshes and reset the whole HDT-SMP system.
-  However, it is a little buggy and may fail to reload some meshes or constraints properly.
-* `smp gpu` toggles the CUDA collision algorithm, if there is at least one CUDA device available. If there is
-  no device available, it does nothing.
-* `smp timing` starts a timing sequence for the collision detection algorithm. The next 200 frames will
-  switch between CPU and GPU collision. Once complete, mean and standard deviation of timings for the two
-  collision algorithms are displayed on the console.
-* `smp dumptree` dumps the entire node tree of the current targeted NPC to the log file.
-* `smp detail` shows extended details of all tracked actors, including active and inactive armour and head
-  parts.
-* `smp list` shows a more concise list of tracked actors.
+| Command | Description |
+|---------|-------------|
+| `smp reset` | Reloads configs.xml and attempts to reload all meshes and reset the physics system. May fail to reload some meshes or constraints properly. |
+| `smp reload` | Alias for `smp reset`. |
+| `smp on` | Enable physics simulation. |
+| `smp off` | Disable physics simulation. |
+| `smp gpu` | Toggle CUDA collision algorithm (CUDA builds only). Does nothing if no CUDA device available. |
+| `smp timing [N]` | Start frame timing for N frames (default 200, range 10-1000). Results logged to hdtSMP64.log. |
+| `smp metrics` | Toggle continuous performance logging to hdtSMP64.log. |
+| `smp stats` | Display current performance statistics in the console. |
+| `smp dumptree` | Dump the entire node tree of the targeted NPC to the log file. |
+| `smp detail` | Show extended details of all tracked actors, including active/inactive armor and head parts. |
+| `smp list` | Show a concise list of tracked actors, sorted by active status. |
 
 ## Coming soon (maybe)
 
@@ -155,10 +157,24 @@ experience. I'm checking everything out into D:\Dev-noAVX and building without A
 can use any directory.
 
 You will need:
-+ Visual Studio 2019 (any edition)
++ Visual Studio 2019 or newer (any edition)
 + Git
 + CMake
 + CUDA 11.6
+
+### Build Configurations
+
+Configuration names follow the pattern: `{VERSION}_{CUDA}_{AVX}[_DEBUG]`
+
+**Game Versions:** `SE` (1.5.97), `VR` (1.4.15), `V1_6_353`, `V1_6_640`, `V1_6_659`, `V1_6_1170`
+
+**CUDA Options:** `CUDA` (GPU collision) or `NOCUDA` (CPU-only)
+
+**AVX Options:** `NoAVX` (max compatibility), `AVX`, `AVX2`, `AVX512`
+
+Example: `V1_6_1170_NOCUDA_AVX2` builds for AE 1.6.1170 with CPU collision and AVX2 optimizations.
+
+### Building Dependencies
 
 Open a VS2019 command prompt ("x64 Native Tools Command Prompt for VS2019"). Download and build Detours and
 Bullet:
@@ -184,13 +200,14 @@ supports it.
 Open D:\Dev-noAVX\bullet3\BULLET_PHYSICS.sln in Visual Studio, select the Release configuration, then
 Build -> Build solution.
 
-Download skse64_2_00_19.7z and unpack into Dev-noAVX (source code is included in the official distribution),
-then get the HDT-SMP source:
+Download the appropriate SKSE64 source for your target game version and unpack into Dev-noAVX (source code
+is included in the official distribution). For example, skse64_2_00_19 for SE 1.5.97, or a newer version
+for AE builds. Then get the HDT-SMP source:
 
 ```
 cd D:\Dev-noAVX\skse64_2_00_19\src\skse64
 git init
-git remote add origin https://github/com/Karonar1/hdtSMP64.git
+git remote add origin https://github.com/Karonar1/hdtSMP64.git
 git fetch
 git checkout master
 ```

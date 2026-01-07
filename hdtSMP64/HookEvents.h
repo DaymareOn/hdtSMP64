@@ -41,11 +41,16 @@ namespace hdt
 		bool gamePaused;
 	};
 
+	struct FrameSyncEvent
+	{
+	};
+
 	struct ShutdownEvent
 	{
 	};
 
 	extern EventDispatcherImpl<FrameEvent> g_frameEventDispatcher;
+	extern EventDispatcherImpl<FrameSyncEvent> g_frameSyncEventDispatcher;
 	extern EventDispatcherImpl<ShutdownEvent> g_shutdownEventDispatcher;
 	extern EventDispatcherImpl<ArmorAttachEvent> g_armorAttachEventDispatcher;
 	extern EventDispatcherImpl<ArmorDetachEvent> g_armorDetachEventDispatcher;

@@ -142,7 +142,7 @@ void hdt::WeatherCheck()
 			}else {
 				_MESSAGE("Wind Speed: %2.2g, Wind Direction: %2.2g", skyPtr->windSpeed, skyPtr->windDirection);
 				// use sky wind info
-				const float theta = (((skyPtr->windDirection) * 180.0f) / 256.0f) - 90.f + randomGenerator(-range, range);
+				const float theta = (((skyPtr->windDirection) * 180.0f) / 256.0f) - 90.f + (randomGenerator(0, 2 * range) - range);
 				precipDirection = rotate(precipDirection, NiPoint3(0, 0, 1.0f), theta / 57.295776f);
 				world->setWind(&precipDirection, world->m_windStrength * scaleSkyrim * skyPtr->windSpeed);
 			}

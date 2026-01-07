@@ -20,15 +20,18 @@
 #include "skse64/GameRTTI.h"
 #include "skse64_common/BranchTrampoline.h"
 
+#include "hdtSkinnedMesh/hdtFrameTimer.h"
 #ifdef CUDA
 #include "hdtSkinnedMesh/hdtCudaInterface.h"
-#include "hdtSkinnedMesh/hdtFrameTimer.h"
 #endif
 
 #include "WeatherManager.h"
+#include "hdtLog.h"
 
 namespace hdt
 {
+	constexpr UInt32 hdtSMP64Version = 200500; // patch version + 10^2 * minor version + 10^5 * major version
+
 	IDebugLog gLog;
 	EventDebugLogger g_eventDebugLogger;
 	PluginHandle g_PluginHandle;
@@ -47,13 +50,13 @@ namespace hdt
 			if (evn && evn->opening && (!strcmp(evn->menuName.data, "Loading Menu") || !strcmp(
 				evn->menuName.data, "RaceSex Menu")))
 			{
-				_DMESSAGE("loading menu/racesexmenu detected, scheduling physics reset on world un-suspend");
+				_DMESSAGE("Loading menu/racesexmenu detected, scheduling physics reset on world un-suspend.");
 				SkyrimPhysicsWorld::get()->suspend(true);
 			}
 
 			if (evn && !evn->opening && !strcmp(evn->menuName.data, "RaceSex Menu"))
 			{
-				_DMESSAGE("racemenu closed, reloading meshes");
+				_DMESSAGE("Racemenu closed, reloading meshes.");
 				ActorManager::instance()->onEvent(*evn);
 			}
 
@@ -347,11 +350,7 @@ namespace hdt
 		char buffer2[MAX_PATH];
 		memset(buffer2, 0, MAX_PATH);
 
-#ifdef ANNIVERSARY_EDITION
 		if (!ObScript_ExtractArgs(paramInfo, scriptData, opcodeOffsetPtr, thisObj, containingObj, scriptObj, locals, buffer, buffer2))
-#else
-		if (!ObjScript_ExtractArgs(paramInfo, scriptData, opcodeOffsetPtr, thisObj, containingObj, scriptObj, locals, buffer, buffer2))
-#endif
 		{
 			return false;
 		}
@@ -364,6 +363,14 @@ namespace hdt
 			const MenuOpenCloseEvent e { false };
 			ActorManager::instance()->onEvent(e);
 			SkyrimPhysicsWorld::get()->resetSystems();
+			return true;
+		}
+		if (_strnicmp(buffer, "reload", MAX_PATH) == 0)
+		{
+			Console_Print("[hdtSMP64] Reloading configs.xml...");
+			hdt::loadConfig();
+			Console_Print("[hdtSMP64] Config reloaded. Changes to solver/wind/smp settings now active.");
+			HDT_LOG_INFO("Console command: config reloaded via 'smp reload'");
 			return true;
 		}
 #ifdef CUDA
@@ -380,13 +387,49 @@ namespace hdt
 			}
 			return true;
 		}
+#endif
 		if (_strnicmp(buffer, "timing", MAX_PATH) == 0)
 		{
-			FrameTimer::instance()->reset(200);
-			Console_Print("Started frame timing");
+			int frames = 200;
+			if (buffer2[0] != '\0')
+			{
+				frames = atoi(buffer2);
+				if (frames < 10) frames = 10;
+				if (frames > 1000) frames = 1000;
+			}
+			FrameTimer::instance()->reset(frames);
+			Console_Print("Started frame timing for %d frames", frames);
 			return true;
 		}
-#endif
+		if (_strnicmp(buffer, "metrics", MAX_PATH) == 0)
+		{
+			auto world = SkyrimPhysicsWorld::get();
+			world->m_forceMetrics = !world->m_forceMetrics;
+			if (world->m_forceMetrics)
+			{
+				Console_Print("[HDT-SMP] Metrics logging enabled (check hdtSMP64.log)");
+			}
+			else
+			{
+				Console_Print("[HDT-SMP] Metrics logging disabled");
+				Console_Print("[HDT-SMP] Avg main loop: %.2f ms, Avg 2nd step: %.2f ms",
+					world->m_averageSMPProcessingTimeInMainLoop,
+					world->m_2ndStepAverageProcessingTime);
+			}
+			return true;
+		}
+		if (_strnicmp(buffer, "stats", MAX_PATH) == 0)
+		{
+			auto world = SkyrimPhysicsWorld::get();
+			Console_Print("[HDT-SMP] Performance Stats:");
+			Console_Print("  Main loop avg: %.3f ms", world->m_averageSMPProcessingTimeInMainLoop);
+			Console_Print("  2nd step avg: %.3f ms", world->m_2ndStepAverageProcessingTime);
+			Console_Print("  Total avg: %.3f ms", world->m_averageSMPProcessingTimeInMainLoop + world->m_2ndStepAverageProcessingTime);
+			float fps = 1000.0f / (world->m_averageSMPProcessingTimeInMainLoop + world->m_2ndStepAverageProcessingTime + 0.001f);
+			Console_Print("  Max theoretical FPS (SMP only): %.1f", fps > 1000 ? 1000.0f : fps);
+			Console_Print("  Metrics logging: %s", world->m_forceMetrics ? "ON" : "OFF");
+			return true;
+		}
 		if (_strnicmp(buffer, "dumptree", MAX_PATH) == 0)
 		{
 			if (thisObj)
@@ -484,100 +527,73 @@ namespace hdt
 		Console_Print("[HDT-SMP] active collision meshes: %d", activeCollisionMeshes);
 		return true;
 	}
-}
 
-extern "C" {
-
-	constexpr UInt32 hdtSMP64Version = 105004; // patch version + 10^2 * minor version + 10^5 * major version
-
-#ifdef ANNIVERSARY_EDITION
-	__declspec(dllexport) SKSEPluginVersionData SKSEPlugin_Version =
+	int filterException(int code, PEXCEPTION_POINTERS ex)
 	{
-		SKSEPluginVersionData::kVersion,
-		hdtSMP64Version,
-		"hdtSMP64",
-		"hydrogensaysHDT",
-		"",
-		0,	// not version independent
-#ifndef ANNIVERSARY_EDITION_353MINUS
-		SKSEPluginVersionData::kVersionIndependent_StructsPost629,
-#endif // !ANNIVERSARY_EDITION_353MINUS
-		{ CURRENT_RELEASE_RUNTIME, 0 },
-		0,	// works with any version of the script extender. you probably do not need to put anything here
-	};
-#else
-	bool SKSEPlugin_Query(const SKSEInterface* skse, PluginInfo* info)
+		_FATALERROR("SEH exception caught while loading FSMP plugin into SKSE.");
+		if (code == -529697949)
+		{
+			_FATALERROR("This exception occurs when a system process, application, or file fails to open, or your system lacks some necessary redistributable packages like Visual C++ extensions.\
+						It can be caused by Damaged or Corrupt system files, Missing files in the registry, Improper configuration of system files, Conflict with third-party programs.\
+						Please see https://www.elevenforum.com/t/0xe06d7363-error-which-fix-to-use.8382/post-201372. SEH exception code: %x", code);
+			return EXCEPTION_EXECUTE_HANDLER;
+		}
+		else
+		{
+			_FATALERROR("Contact DaydreamingDay on the FSMP discord server, and provide him with this SEH exception code: %x. The discord invite is on the Nexus FSMP description page.", code);
+			return EXCEPTION_EXECUTE_HANDLER;
+		}
+	}
+
+	/* This function is the most prone to SEH exceptions. */
+	static bool enclosedLoadConfig(const SKSEInterface* skse)
 	{
-		// populate info structure
-		info->infoVersion = PluginInfo::kInfoVersion;
-		info->name = "hdtSMP64";
-		info->version = hdtSMP64Version;
-
-		hdt::gLog.OpenRelative(CSIDL_MYDOCUMENTS,
-#ifndef SKYRIMVR
-			"\\My Games\\Skyrim Special Edition\\SKSE\\hdtSMP64.log"
-
-#else
-			"\\My Games\\Skyrim VR\\SKSE\\hdtSMP64.log"
-#endif
-		);
-		hdt::gLog.SetLogLevel(IDebugLog::LogLevel::kLevel_Message);
-
-		_MESSAGE("hdtSMP64 %lu", hdtSMP64Version);
-
-		if (skse->isEditor)
+		__try
 		{
+			hdt::loadConfig();
+		}
+		__except (hdt::filterException(GetExceptionCode(), GetExceptionInformation()))
+		{
+			_FATALERROR("A fatal exception has occurred thrown while reading FSMP's configs.xml");
 			return false;
 		}
-
-		if (skse->runtimeVersion != CURRENT_RELEASE_RUNTIME)
-		{
-			_FATALERROR("attempted to load plugin into unsupported game version, exiting");
-			return false;
-		}
-
-		if (!g_branchTrampoline.Create(1024 * 1))
-		{
-			_FATALERROR("couldn't create branch trampoline. this is fatal. skipping remainder of init process.");
-			return false;
-		}
-
-		if (!g_localTrampoline.Create(1024 * 1, nullptr))
-		{
-			_FATALERROR("couldn't create codegen buffer. this is fatal. skipping remainder of init process.");
-			return false;
-		}
-
-		hdt::g_PluginHandle = skse->GetPluginHandle();
-
 		return true;
 	}
-#endif
 
-	bool SKSEPlugin_Load(const SKSEInterface* skse)
+	static bool hdtSKSEPlugin_Load(const SKSEInterface* skse)
 	{
 #ifdef ANNIVERSARY_EDITION
-		hdt::gLog.OpenRelative(CSIDL_MYDOCUMENTS, "\\My Games\\Skyrim Special Edition\\SKSE\\hdtSMP64.log");
-		hdt::gLog.SetLogLevel(IDebugLog::LogLevel::kLevel_Message);
-		_MESSAGE("hdtSMP64 %lu", hdtSMP64Version);
+			hdt::gLog.OpenRelative(CSIDL_MYDOCUMENTS, "\\My Games\\Skyrim Special Edition\\SKSE\\hdtSMP64.log");
+			hdt::gLog.SetLogLevel(IDebugLog::LogLevel::kLevel_Message);
+			_MESSAGE("hdtSMP64 %lu", hdt::hdtSMP64Version);
 
-		if (!g_branchTrampoline.Create(1024 * 1))
-		{
-			_FATALERROR("Couldn't create branch trampoline. This is fatal. Skipping remainder of init process.");
-			return false;
-		}
+			// Initialize thread-safe logger
+			char logPath[MAX_PATH];
+			if (SUCCEEDED(SHGetFolderPathA(NULL, CSIDL_MYDOCUMENTS, NULL, SHGFP_TYPE_CURRENT, logPath)))
+			{
+				strcat_s(logPath, "\\My Games\\Skyrim Special Edition\\SKSE\\hdtSMP64_debug.log");
+				hdt::Logger::getInstance().init(logPath);
+				HDT_LOG_INFO("hdtSMP64 debug log initialized, version %lu", hdt::hdtSMP64Version);
+			}
 
-		if (!g_localTrampoline.Create(1024 * 1, nullptr))
-		{
-			_FATALERROR("Couldn't create codegen buffer. This is fatal. Skipping remainder of init process.");
-			return false;
-		}
+			if (!g_branchTrampoline.Create(1024 * 1))
+			{
+				_FATALERROR("Couldn't create branch trampoline. This is fatal. Skipping remainder of init process.");
+				return false;
+			}
 
-		hdt::g_PluginHandle = skse->GetPluginHandle();
+			if (!g_localTrampoline.Create(1024 * 1, nullptr))
+			{
+				_FATALERROR("Couldn't create codegen buffer. This is fatal. Skipping remainder of init process.");
+				return false;
+			}
+
+			hdt::g_PluginHandle = skse->GetPluginHandle();
 #endif // ANNIVERSARY_EDITION
 
 		hdt::g_frameEventDispatcher.addListener(hdt::ActorManager::instance());
 		hdt::g_frameEventDispatcher.addListener(hdt::SkyrimPhysicsWorld::get());
+		hdt::g_frameSyncEventDispatcher.addListener(hdt::SkyrimPhysicsWorld::get());
 		hdt::g_shutdownEventDispatcher.addListener(hdt::ActorManager::instance());
 		hdt::g_shutdownEventDispatcher.addListener(hdt::SkyrimPhysicsWorld::get());
 		hdt::g_armorAttachEventDispatcher.addListener(hdt::ActorManager::instance());
@@ -607,7 +623,7 @@ extern "C" {
 							mm->MenuOpenCloseEventDispatcher()->AddEventSink(&hdt::g_freezeEventHandler);
 						hdt::checkOldPlugins();
 
-// I think we only have _DEBUG now...
+						// I think we only have _DEBUG now...
 #ifdef DEBUG
 						hdt::g_armorAttachEventDispatcher.addListener(&hdt::g_eventDebugLogger);
 						GetEventDispatcherList()->unk1B8.AddEventSink(&hdt::g_eventDebugLogger);
@@ -671,7 +687,7 @@ extern "C" {
 
 			cmd.longName = "SMPDebug";
 			cmd.shortName = "smp";
-			cmd.helpText = "smp <reset>";
+			cmd.helpText = "smp <reset|reload|on|off|list|detail|dumptree|timing [frames]|metrics|stats>";
 			cmd.needsParent = 0;
 			cmd.numParams = 1;
 			cmd.params = params;
@@ -681,12 +697,97 @@ extern "C" {
 		}
 
 		hdt::papyrus::RegisterAllFunctions(reinterpret_cast<SKSEPapyrusInterface*>(skse->QueryInterface(kInterface_Papyrus)));
-		hdt::loadConfig();
+
+		if (!enclosedLoadConfig(skse)) return false;
+
 		if (hdt::SkyrimPhysicsWorld::get()->m_enableWind) {
 			_MESSAGE("Wind enabled");
 			std::thread t(hdt::WeatherCheck);
 			t.detach();
 		}
 		return true;
+	}
+}
+
+extern "C" {
+
+#ifdef ANNIVERSARY_EDITION
+	__declspec(dllexport) SKSEPluginVersionData SKSEPlugin_Version =
+	{
+		SKSEPluginVersionData::kVersion,
+		hdt::hdtSMP64Version,
+		"hdtSMP64",
+		"hydrogensaysHDT",
+		"",
+		0,	// not version independent
+#ifndef ANNIVERSARY_EDITION_353MINUS
+		SKSEPluginVersionData::kVersionIndependent_StructsPost629,
+#endif // !ANNIVERSARY_EDITION_353MINUS
+		{ CURRENT_RELEASE_RUNTIME, 0 },
+		0,	// works with any version of the script extender. you probably do not need to put anything here
+	};
+#else
+	bool SKSEPlugin_Query(const SKSEInterface* skse, PluginInfo* info)
+	{
+		// populate info structure
+		info->infoVersion = PluginInfo::kInfoVersion;
+		info->name = "hdtSMP64";
+		info->version = hdt::hdtSMP64Version;
+
+		hdt::gLog.OpenRelative(CSIDL_MYDOCUMENTS,
+#ifndef SKYRIMVR
+			"\\My Games\\Skyrim Special Edition\\SKSE\\hdtSMP64.log"
+
+#else
+			"\\My Games\\Skyrim VR\\SKSE\\hdtSMP64.log"
+#endif
+		);
+		hdt::gLog.SetLogLevel(IDebugLog::LogLevel::kLevel_Message);
+
+		_MESSAGE("hdtSMP64 %lu", hdt::hdtSMP64Version);
+
+		if (skse->isEditor)
+		{
+			return false;
+		}
+
+		if (skse->runtimeVersion != CURRENT_RELEASE_RUNTIME)
+		{
+			_FATALERROR("attempted to load plugin into unsupported game version, exiting");
+			return false;
+		}
+
+		if (!g_branchTrampoline.Create(1024 * 1))
+		{
+			_FATALERROR("couldn't create branch trampoline. this is fatal. skipping remainder of init process.");
+			return false;
+		}
+
+		if (!g_localTrampoline.Create(1024 * 1, nullptr))
+		{
+			_FATALERROR("couldn't create codegen buffer. this is fatal. skipping remainder of init process.");
+			return false;
+		}
+
+		hdt::g_PluginHandle = skse->GetPluginHandle();
+
+		return true;
+	}
+#endif
+
+	bool SKSEPlugin_Load(const SKSEInterface* skse)
+	{
+		// SKSE for AE now __try'es/__except's the plugins load,
+		// but doesn't provide the exception code.
+		// So, we __try/__except our code to better log and understand what happens in case of bug.
+		int nCode;
+		__try
+		{
+			return hdt::hdtSKSEPlugin_Load(skse);
+		}
+		__except (nCode = hdt::filterException(GetExceptionCode(), GetExceptionInformation()))
+		{
+			return nCode == EXCEPTION_CONTINUE_EXECUTION;
+		}
 	}
 }

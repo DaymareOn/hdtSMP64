@@ -1,0 +1,292 @@
+name: Build and Test
+
+on:
+  push:
+    branches: [master, test, feature/*]
+  pull_request:
+    branches: [master, test]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  SOLUTION_FILE_PATH: hdtSMP64.sln
+
+jobs:
+  # Run unit tests first (fast feedback)
+  test:
+    name: Unit Tests
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Add MSBuild to PATH
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Cache Test Build
+        uses: actions/cache@v4
+        with:
+          path: |
+            tests/x64
+          key: test-build-${{ hashFiles('tests/**/*.cpp', 'tests/**/*.h', 'tests/**/*.vcxproj') }}
+          restore-keys: |
+            test-build-
+
+      - name: Build Tests
+        run: msbuild tests/hdtSMP64_tests.vcxproj /p:Configuration=Release /p:Platform=x64 /m
+
+      - name: Run Tests
+        run: |
+          # Find and run the test executable
+          $testExe = Get-ChildItem -Path . -Recurse -Filter "hdtSMP64_tests.exe" | Select-Object -First 1
+          if ($testExe) {
+            # Catch2 v2 syntax: -r for reporter, -o for output
+            & $testExe.FullName -r junit -o test-results.xml
+            # Also run with console output for logs
+            & $testExe.FullName
+          } else {
+            Write-Error "Test executable not found"
+            exit 1
+          }
+
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: test-results.xml
+
+  # Build matrix for different configurations
+  build:
+    name: Build ${{ matrix.version }}_${{ matrix.cuda }}_${{ matrix.avx }}
+    runs-on: windows-latest
+    needs: test  # Only build if tests pass
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Anniversary Edition 1.6.1170 (primary target)
+          - version: V1_6_1170
+            cuda: NOCUDA
+            avx: NoAVX
+          - version: V1_6_1170
+            cuda: NOCUDA
+            avx: AVX2
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Add MSBuild to PATH
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Cache SKSE
+        id: cache-skse
+        uses: actions/cache@v4
+        with:
+          path: external/skse
+          key: skse-2.2.6-1.6.1170-v7
+
+      - name: Download SKSE (if not cached)
+        if: steps.cache-skse.outputs.cache-hit != 'true'
+        run: |
+          # Download official SKSE release (GitHub repo is incomplete)
+          $skseUrl = "https://skse.silverlock.org/beta/skse64_2_02_06.7z"
+          $skseZip = "skse64.7z"
+          Write-Host "Downloading SKSE from $skseUrl"
+          Invoke-WebRequest -Uri $skseUrl -OutFile $skseZip
+
+          # Extract using 7z (available on windows-latest)
+          7z x $skseZip -oexternal/skse-temp
+
+          # Find extracted root (e.g., skse64_2_02_06)
+          $extracted = Get-ChildItem -Path external/skse-temp -Directory | Select-Object -First 1
+          $srcDir = "$($extracted.FullName)/src"
+
+          Write-Host "=== Extracted SKSE structure ==="
+          Write-Host "Root: $($extracted.FullName)"
+          Write-Host "Looking in: $srcDir"
+
+          # Show full tree for debugging
+          Write-Host "=== Full tree (3 levels) ==="
+          Get-ChildItem -Path $extracted.FullName -Recurse -Depth 2 | ForEach-Object {
+            $rel = $_.FullName.Substring($extracted.FullName.Length)
+            Write-Host "  $rel"
+          }
+
+          # Create target directory
+          New-Item -ItemType Directory -Path external/skse -Force | Out-Null
+
+          # SKSE release structure (verified by extraction):
+          #   src/common/common/         <- IPrefix.h here
+          #   src/skse64/skse64/         <- SKSE source (double nested!)
+          #   src/skse64/skse64_common/  <- SKSE common
+          # Local dev structure: common/, skse64/, skse64_common/ (flat)
+
+          # Copy common - nested as src/common/common/
+          $commonSrc = "$srcDir\common\common"
+          if (Test-Path $commonSrc) {
+            Write-Host "Copying $commonSrc -> external/skse/common"
+            Copy-Item -Path $commonSrc -Destination "external\skse\common" -Recurse
+          } else {
+            Write-Error "ERROR: Common source not found at $commonSrc"
+            exit 1
+          }
+
+          # Copy skse64 - nested as src/skse64/skse64/
+          $skse64Src = "$srcDir\skse64\skse64"
+          if (Test-Path $skse64Src) {
+            Write-Host "Copying $skse64Src -> external/skse/skse64"
+            Copy-Item -Path $skse64Src -Destination "external\skse\skse64" -Recurse
+          } else {
+            Write-Error "ERROR: skse64 source not found at $skse64Src"
+            exit 1
+          }
+
+          # Copy skse64_common - nested as src/skse64/skse64_common/
+          $skse64CommonSrc = "$srcDir\skse64\skse64_common"
+          if (Test-Path $skse64CommonSrc) {
+            Write-Host "Copying $skse64CommonSrc -> external/skse/skse64_common"
+            Copy-Item -Path $skse64CommonSrc -Destination "external\skse\skse64_common" -Recurse
+          } else {
+            Write-Error "ERROR: skse64_common source not found at $skse64CommonSrc"
+            exit 1
+          }
+
+          # Copy xbyak - nested as src/skse64/xbyak/
+          $xbyakSrc = "$srcDir\skse64\xbyak"
+          if (Test-Path $xbyakSrc) {
+            Write-Host "Copying $xbyakSrc -> external/skse/xbyak"
+            Copy-Item -Path $xbyakSrc -Destination "external\skse\xbyak" -Recurse
+          } else {
+            Write-Error "ERROR: xbyak source not found at $xbyakSrc"
+            exit 1
+          }
+
+          # Fix WIN32_FIND_DATA SDK compatibility in GameData.h
+          # These asserts fail with different Windows SDK versions but hdtSMP64
+          # doesn't use these fields (numRefMods, author) - safe to disable
+          $gameData = "external\skse\skse64\GameData.h"
+          (Get-Content $gameData) -replace `
+            'STATIC_ASSERT\(offsetof\(ModInfo, numRefMods\)', `
+            '// STATIC_ASSERT(offsetof(ModInfo, numRefMods)' -replace `
+            'STATIC_ASSERT\(offsetof\(ModInfo, author\)', `
+            '// STATIC_ASSERT(offsetof(ModInfo, author)' -replace `
+            'STATIC_ASSERT\(sizeof\(ModInfo\)', `
+            '// STATIC_ASSERT(sizeof(ModInfo)' | Set-Content $gameData
+          Write-Host "Patched GameData.h - disabled WIN32_FIND_DATA-dependent asserts"
+
+          # Cleanup
+          Remove-Item -Path external/skse-temp -Recurse -Force
+          Remove-Item -Path $skseZip
+
+          Write-Host "=== Final external/skse structure ==="
+          Get-ChildItem -Path external/skse | ForEach-Object { Write-Host "  $_" }
+
+      - name: Verify SKSE
+        run: |
+          Write-Host "=== Checking SKSE contents ==="
+          if (Test-Path "external/skse/common/IPrefix.h") {
+            Write-Host "IPrefix.h found at external/skse/common/IPrefix.h"
+          } else {
+            Write-Host "ERROR: IPrefix.h NOT found"
+            Get-ChildItem -Path external/skse -Recurse -Filter "IPrefix.h" | ForEach-Object { Write-Host "  Found: $($_.FullName)" }
+            exit 1
+          }
+
+      - name: Setup Dependencies
+        run: |
+          # Create paths props for CI build (matches local dev structure)
+          # Structure: external/skse/common/, external/skse/skse64/
+          $workspace = "${{ github.workspace }}".Replace('/', '\')
+          @"
+          <?xml version="1.0" encoding="utf-8"?>
+          <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+            <PropertyGroup Label="hdtSMP64Paths">
+              <SKSE_ROOT>$workspace\external\skse</SKSE_ROOT>
+              <SKSE_DIR>$workspace\external\skse</SKSE_DIR>
+              <DETOURS_DIR>$workspace\external\detours</DETOURS_DIR>
+              <OUTPUT_DIR_PREFIX></OUTPUT_DIR_PREFIX>
+            </PropertyGroup>
+          </Project>
+          "@ | Out-File -FilePath hdtSMP64.paths.props -Encoding utf8
+          Write-Host "Created hdtSMP64.paths.props:"
+          Get-Content hdtSMP64.paths.props
+
+      - name: Cache Detours
+        id: cache-detours
+        uses: actions/cache@v4
+        with:
+          path: external/detours
+          key: detours-4.0.1
+
+      - name: Build Detours (if not cached)
+        if: steps.cache-detours.outputs.cache-hit != 'true'
+        shell: cmd
+        run: |
+          git clone --depth 1 --branch v4.0.1 https://github.com/microsoft/Detours.git external\detours-src
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+          cd external\detours-src
+          nmake
+          mkdir ..\detours\include
+          mkdir ..\detours\lib.X64
+          copy include\*.h ..\detours\include\
+          copy lib.X64\*.lib ..\detours\lib.X64\
+
+      - name: Cache Build
+        uses: actions/cache@v4
+        with:
+          path: |
+            x64/${{ matrix.version }}_${{ matrix.cuda }}_${{ matrix.avx }}
+          key: build-${{ matrix.version }}-${{ matrix.cuda }}-${{ matrix.avx }}-${{ hashFiles('hdtSMP64/**/*.cpp', 'hdtSMP64/**/*.h') }}
+          restore-keys: |
+            build-${{ matrix.version }}-${{ matrix.cuda }}-${{ matrix.avx }}-
+
+      - name: Build
+        run: |
+          msbuild ${{ env.SOLUTION_FILE_PATH }} /p:Configuration=${{ matrix.version }}_${{ matrix.cuda }}_${{ matrix.avx }} /p:Platform=x64 /m
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: hdtSMP64-${{ matrix.version }}-${{ matrix.cuda }}-${{ matrix.avx }}
+          path: |
+            x64/${{ matrix.version }}_${{ matrix.cuda }}_${{ matrix.avx }}/hdtSMP64.dll
+            x64/${{ matrix.version }}_${{ matrix.cuda }}_${{ matrix.avx }}/hdtSMP64.pdb
+
+  # Static analysis (runs on Ubuntu where cppcheck is properly packaged)
+  analyze:
+    name: Static Analysis
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install cppcheck
+        run: sudo apt-get update && sudo apt-get install -y cppcheck
+
+      - name: Run cppcheck
+        run: |
+          cppcheck --enable=warning,performance,portability --error-exitcode=0 \
+            -j $(nproc) \
+            --suppress=missingIncludeSystem \
+            --suppress=unknownMacro \
+            --suppress=noExplicitConstructor \
+            --suppress=*:*Bullet* \
+            --suppress=*:*LinearMath* \
+            -i hdtSMP64/BulletCollision \
+            -i hdtSMP64/BulletDynamics \
+            -i hdtSMP64/Bullet3Collision \
+            -i hdtSMP64/Bullet3Dynamics \
+            -i hdtSMP64/LinearMath \
+            hdtSMP64/*.cpp hdtSMP64/hdtSkinnedMesh/*.cpp \
+            2>&1 | tee cppcheck-results.txt
+
+      - name: Upload Analysis Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: cppcheck-results
+          path: cppcheck-results.txt

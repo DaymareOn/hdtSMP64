@@ -4,6 +4,7 @@
 namespace hdt
 {
 	EventDispatcherImpl<FrameEvent> g_frameEventDispatcher;
+	EventDispatcherImpl<FrameSyncEvent> g_frameSyncEventDispatcher;
 	EventDispatcherImpl<ShutdownEvent> g_shutdownEventDispatcher;
 	EventDispatcherImpl<ArmorAttachEvent> g_armorAttachEventDispatcher;
 	EventDispatcherImpl<ArmorDetachEvent> g_armorDetachEventDispatcher;

@@ -67,7 +67,7 @@ namespace hdt
 
 		NiAVObject::ControllerUpdateContext ctx =
 		{ 0.f,
-			dirty ? NiAVObject::ControllerUpdateContext::kDirty : NiAVObject::ControllerUpdateContext::kNone
+			dirty ? NiAVObject::ControllerUpdateContext::kDirty : 0
 		};
 		
 		obj->UpdateWorldData(&ctx);

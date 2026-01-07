@@ -451,7 +451,7 @@ namespace hdt
 			buildNodeData(*tree, m_nodeData.get(), biggestNode);
 			m_nodeData.toDevice(stream);
 			
-			_DMESSAGE("Tree with %d nodes, largest %d, total %d colliders",
+			_DMESSAGE("Tree with %d nodes, largest %d, total %d colliders.",
 				m_numNodes,
 				biggestNode,
 				m_nodeData[m_numNodes-1].first + m_nodeData[m_numNodes-1].second);

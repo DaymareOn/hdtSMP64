@@ -143,10 +143,7 @@ bool hdt::papyrus::impl::ReloadPhysicsFileImpl(UInt32 on_actor_formID, UInt32 on
 
 					SkyrimPhysicsWorld::get()->suspendSimulationUntilFinished([&]() {
 
-						if (armor.hasPhysics())
-							system = SkyrimSystemCreator().updateSystem(armor.m_physics, skeleton.npc, armor.armorWorn, armor.physicsFile, std::move(renameMap));
-						else
-							system = SkyrimSystemCreator().createSystem(skeleton.npc, armor.armorWorn, armor.physicsFile, std::move(renameMap));
+						system = SkyrimSystemCreator().createOrUpdateSystem(skeleton.npc, armor.armorWorn, &armor.physicsFile, std::move(renameMap), armor.m_physics);
 
 						if (!system) {
 							if (armor.hasPhysics())
@@ -248,10 +245,7 @@ bool hdt::papyrus::impl::SwapPhysicsFileImpl(UInt32 on_actor_formID, std::string
 
 					SkyrimPhysicsWorld::get()->suspendSimulationUntilFinished([&]() {
 
-						if (armor.hasPhysics())
-							system = SkyrimSystemCreator().updateSystem(armor.m_physics, skeleton.npc, armor.armorWorn, armor.physicsFile, std::move(renameMap));
-						else
-							system = SkyrimSystemCreator().createSystem(skeleton.npc, armor.armorWorn, armor.physicsFile, std::move(renameMap));
+						system = SkyrimSystemCreator().createOrUpdateSystem(skeleton.npc, armor.armorWorn, &armor.physicsFile, std::move(renameMap), armor.m_physics);
 
 						if (!system) {
 							if (armor.hasPhysics())

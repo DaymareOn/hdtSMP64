@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  hdtSMP64 Build Paths Configuration Template
+
+  SETUP INSTRUCTIONS:
+  1. Download SKSE64 source from https://skse.silverlock.org/ (v2.2.6 for Skyrim 1.6.1170)
+  2. Extract and flatten to this structure:
+       your_skse_dir/
+       ├── common/         (from src/common/common/)
+       │   └── IPrefix.h
+       ├── skse64/         (from src/skse64/)
+       └── skse64_common/  (from src/skse64_common/)
+  3. Build Microsoft Detours from https://github.com/microsoft/Detours
+  4. Copy this file to 'hdtSMP64.paths.props'
+  5. Update paths below to match your installation
+
+  hdtSMP64.paths.props is gitignored - your local paths won't be committed.
+
+  NOTE: The ianpatt/skse64 GitHub repo is INCOMPLETE and won't work.
+        You must use the official SKSE release from skse.silverlock.org
+
+  REQUIRED PATHS:
+  - SKSE_ROOT: Directory containing common/ folder (with IPrefix.h)
+  - SKSE_DIR: Directory containing skse64/ and skse64_common/ folders
+  - DETOURS_DIR: Path to Microsoft Detours installation
+-->
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup Label="hdtSMP64Paths">
+    <!-- SKSE64 paths - both point to same flattened directory -->
+    <SKSE_ROOT>C:\path\to\your_skse_dir</SKSE_ROOT>
+    <SKSE_DIR>C:\path\to\your_skse_dir</SKSE_DIR>
+
+    <!-- Microsoft Detours Directory (contains include and lib.X64 folders) -->
+    <!-- Build from source: https://github.com/microsoft/Detours -->
+    <DETOURS_DIR>C:\path\to\Detours</DETOURS_DIR>
+
+    <!-- Optional: Output directory prefix for built DLLs (leave empty to disable post-build copy) -->
+    <!-- Full path: $(OUTPUT_DIR_PREFIX)$(Configuration)\SKSE\Plugins -->
+    <OUTPUT_DIR_PREFIX></OUTPUT_DIR_PREFIX>
+  </PropertyGroup>
+</Project>

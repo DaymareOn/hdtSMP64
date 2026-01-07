@@ -1,9 +1,18 @@
 #include "hdtSkyrimPhysicsWorld.h"
+#include "hdtLog.h"
 #include <ppl.h>
 #include "Offsets.h"
 #include "PluginInterfaceImpl.h"
 
 #include "skse64/GameMenus.h"
+
+// Local wrapper for MenuManager::IsGamePaused()
+// Official SKSE 2.2.6 doesn't expose this - numPauseGame is private at offset 0x160
+// Verified against SKSE64 2.2.6 - GameMenus.h line 1075
+inline bool IsMenuManagerGamePaused(MenuManager* mm) {
+	if (!mm) return false;
+	return *reinterpret_cast<UInt32*>(reinterpret_cast<uintptr_t>(mm) + 0x160) > 0;
+}
 
 namespace hdt
 {
@@ -59,10 +68,6 @@ namespace hdt
 	{
 		_MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
 
-		LARGE_INTEGER ticks;
-		QueryPerformanceCounter(&ticks);
-		int64_t startTime = ticks.QuadPart;
-
 		// Time passed since last computation
 		m_accumulatedInterval += interval;
 
@@ -70,7 +75,7 @@ namespace hdt
 		m_averageInterval += (interval - m_averageInterval) * .125f;
 
 		// No need to calculate physics if there is no active skeleton.
-		if (hdt::ActorManager::instance()->activeSkeletons)
+		if (!disabled && hdt::ActorManager::instance()->activeSkeletons)
 		{
 			// The tick is the given time for each computation substep. We set it to the average fps
 			// to have one average computation each frame when everything is usual.
@@ -93,26 +98,49 @@ namespace hdt
 
 				readTransform(remainingTimeStep);
 
-				g_pluginInterface.onPreStep({ getCollisionObjectArray(), remainingTimeStep });
-
-				updateActiveState();
-				auto offset = applyTranslationOffset();
-				stepSimulation(remainingTimeStep, 0/*=maxSubSteps, ignored*/, tick);
-				restoreTranslationOffset(offset);
-				m_accumulatedInterval = 0;
-
-				g_pluginInterface.onPostStep({ getCollisionObjectArray(), remainingTimeStep });
-
-				writeTransform();
+				m_tasks.run([this, interval, tick, remainingTimeStep] { doUpdate2ndStep(interval, tick, remainingTimeStep); });
 			}
 		}
+	}
 
-		QueryPerformanceCounter(&ticks);
-		int64_t endTime = ticks.QuadPart;
-		QueryPerformanceFrequency(&ticks);
-		// float ticks_per_ms = static_cast<float>(ticks.QuadPart) * 1e-3;
-		float lastProcessingTime = (endTime - startTime) / static_cast<float>(ticks.QuadPart) * 1e3;
-		m_averageProcessingTime = (m_averageProcessingTime + lastProcessingTime) * 0.5;
+	void SkyrimPhysicsWorld::doUpdate2ndStep(float interval, const float tick, const float remainingTimeStep)
+	{
+		if (m_suspended || m_isStasis)
+			return;
+
+		std::lock_guard<decltype(m_lock)> l(m_lock);
+
+		_MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
+
+		LARGE_INTEGER ticks;
+		int64_t startTime = 0;
+		if (m_doMetrics)
+		{
+			QueryPerformanceCounter(&ticks);
+			startTime = ticks.QuadPart;
+		}
+
+		g_pluginInterface.onPreStep({ getCollisionObjectArray(), remainingTimeStep });
+
+		updateActiveState();
+		auto offset = applyTranslationOffset();
+		stepSimulation(remainingTimeStep, 0, tick);
+		restoreTranslationOffset(offset);
+		m_accumulatedInterval = 0;
+
+		g_pluginInterface.onPostStep({ getCollisionObjectArray(), remainingTimeStep });
+
+		writeTransform();
+
+		if (m_doMetrics)
+		{
+			QueryPerformanceCounter(&ticks);
+			int64_t endTime = ticks.QuadPart;
+			QueryPerformanceFrequency(&ticks);
+			// float ticks_per_ms = static_cast<float>(ticks.QuadPart) * 1e-3;
+			float lastProcessingTime = (endTime - startTime) / static_cast<float>(ticks.QuadPart) * 1e3;
+			m_2ndStepAverageProcessingTime = (m_2ndStepAverageProcessingTime + lastProcessingTime) * 0.5;
+		}
 	}
 
 	void SkyrimPhysicsWorld::suspendSimulationUntilFinished(std::function<void(void)> process)
@@ -170,7 +198,7 @@ namespace hdt
 		const auto oldValueWeight = a_smoothingSamples - 1;
 		if (!btFuzzyZero((m_windSpeed - btVector3(a_point->x, a_point->y, a_point->z)).length())) {
 			m_windSpeed.setValue((oldValueWeight * m_windSpeed.getX() + a_point->x * a_scale) / a_smoothingSamples, (oldValueWeight * m_windSpeed.getY() + a_point->y * a_scale) / a_smoothingSamples, (oldValueWeight * m_windSpeed.getZ() + a_point->z * a_scale) / a_smoothingSamples);
-			_DMESSAGE("Wind Speed now (%2.2g, %2.2g, %2.2g), target (%2.2g, %2.2g, %2.2g) using %d samples", m_windSpeed.getX(), m_windSpeed.getY(), m_windSpeed.getZ(), a_point->x * a_scale, a_point->y * a_scale, a_point->z * a_scale, a_smoothingSamples);
+			_DMESSAGE("Wind Speed now (%2.2g, %2.2g, %2.2g), target (%2.2g, %2.2g, %2.2g) using %d samples.", m_windSpeed.getX(), m_windSpeed.getY(), m_windSpeed.getZ(), a_point->x * a_scale, a_point->y * a_scale, a_point->z * a_scale, a_smoothingSamples);
 		}
 	}
 
@@ -238,6 +266,8 @@ namespace hdt
 		auto s = dynamic_cast<SkyrimSystem*>(system);
 		if (!s) return;
 
+		HDT_LOG_DEBUG("Adding skinned mesh system: %s", s->m_skeleton ? s->m_skeleton->m_name : "unknown");
+
 		s->m_initialized = false;
 		SkinnedMeshWorld::addSkinnedMeshSystem(system);
 	}
@@ -279,25 +309,61 @@ namespace hdt
 	{
 		auto mm = MenuManager::GetSingleton();
 
-		if ((e.gamePaused || mm->IsGamePaused()) && !m_suspended)
+		if ((e.gamePaused || IsMenuManagerGamePaused(mm)) && !m_suspended)
 			suspend();
-		else if (!(e.gamePaused || mm->IsGamePaused()) && m_suspended)
+		else if (!(e.gamePaused || IsMenuManagerGamePaused(mm)) && m_suspended)
 			resume();
 
-		// See comment in void ActorManager::onEvent(const FrameEvent& e) about why try_to_lock on FrameEvent.
-		std::unique_lock<decltype(m_lock)> lock(m_lock, std::try_to_lock);
-		if (!lock.owns_lock()) return;
+		LARGE_INTEGER ticks;
+		int64_t startTime = 0;
+		int64_t endTime = 0;
+		float lastProcessingTime = 0.f;
+		if (m_doMetrics)
+		{
+			QueryPerformanceCounter(&ticks);
+			startTime = ticks.QuadPart;
+		}
 
-		float interval = *(float*)(RelocationManager::s_baseAddr + offset::GameStepTimer_SlowTime);
+		std::lock_guard<decltype(m_lock)> l(m_lock);
+
+		float interval = *(float*)(RelocationManager::s_baseAddr + (m_useRealTime ? offset::GameStepTimer_RealTime : offset::GameStepTimer_SlowTime));
 
 		if (interval > FLT_EPSILON && !m_suspended && !m_isStasis && !m_systems.empty())
-		{
 			doUpdate(interval);
-		}
 		else if (m_isStasis || (m_suspended && !m_loading))
-		{
 			writeTransform();
+
+		if (m_doMetrics)
+		{
+			QueryPerformanceCounter(&ticks);
+			endTime = ticks.QuadPart;
+			QueryPerformanceFrequency(&ticks);
+			// float ticks_per_ms = static_cast<float>(ticks.QuadPart) * 1e-3;
+			m_SMPProcessingTimeInMainLoop = (endTime - startTime) / static_cast<float>(ticks.QuadPart) * 1e3;
 		}
+	}
+
+	void SkyrimPhysicsWorld::onEvent(const FrameSyncEvent& e)
+	{
+		if (m_doMetrics)
+		{
+			LARGE_INTEGER ticks;
+			QueryPerformanceCounter(&ticks);
+			int64_t startTime = ticks.QuadPart;
+
+			m_tasks.wait();
+
+			QueryPerformanceCounter(&ticks);
+			int64_t endTime = ticks.QuadPart;
+			QueryPerformanceFrequency(&ticks);
+			// float ticks_per_ms = static_cast<float>(ticks.QuadPart) * 1e-3;
+			m_SMPProcessingTimeInMainLoop += (endTime - startTime) / static_cast<float>(ticks.QuadPart) * 1e3;
+			m_averageSMPProcessingTimeInMainLoop = (m_averageSMPProcessingTimeInMainLoop * (m_sampleSize - 1) + m_SMPProcessingTimeInMainLoop) / m_sampleSize;
+			float totalSMPTime = m_averageSMPProcessingTimeInMainLoop + m_2ndStepAverageProcessingTime;
+			HDT_LOG_INFO("smp cost in main loop (msecs): %2.2g, cost outside main loop: %2.2g, percentage outside vs total: %2.2f%%", m_averageSMPProcessingTimeInMainLoop, m_2ndStepAverageProcessingTime, 100. * m_2ndStepAverageProcessingTime / totalSMPTime);
+		}
+		else
+			m_tasks.wait();
 	}
 
 	void SkyrimPhysicsWorld::onEvent(const ShutdownEvent& e)

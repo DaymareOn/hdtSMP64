@@ -10,9 +10,9 @@ namespace hdt
 		if (start_pos != std::string::npos)
 			s.replace(start_pos, 1, ".");
 
-		char* end;
-		float ret = strtof(s.c_str(), &end);
-		if (end != s.c_str() + s.length())
+		errno = 0; // Reinitializing the error global variable (thread-safe)
+		float ret = strtof(s.c_str(), nullptr);
+		if (errno != 0) // Checking if there has been an error
 			throw std::string("not a float value");
 		return ret;
 	}

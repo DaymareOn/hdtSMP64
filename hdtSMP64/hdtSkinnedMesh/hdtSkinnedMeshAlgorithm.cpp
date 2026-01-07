@@ -139,7 +139,7 @@ namespace hdt
 		{
 			auto s0 = v0[a->vertex];
 			auto r0 = s0.marginMultiplier() * sp0->margin;
-			auto s1 = v0[a->vertex];
+			auto s1 = v1[b->vertex];
 			auto r1 = s1.marginMultiplier() * sp1->margin;
 
 			auto ret = checkSphereSphere(s0.pos(), s1.pos(), r0, r1, res);

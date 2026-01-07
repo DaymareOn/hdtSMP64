@@ -94,6 +94,10 @@ public:
 	btScalar m_currentPosition;
 	int m_currentLimit;
 
+	// BM: Definitely a better way to do this, but yay dirty hacks for Skyrims.
+	btScalar m_nonHookeanDamping;
+	btScalar m_nonHookeanStiffness;
+
 	btRotationalLimitMotor2()
 	{
 		m_loLimit = 1.0f;
@@ -119,6 +123,9 @@ public:
 		m_currentLimitErrorHi = 0;
 		m_currentPosition = 0;
 		m_currentLimit = 0;
+
+		m_nonHookeanDamping = 0.f;
+		m_nonHookeanStiffness = 0.f;
 	}
 
 	btRotationalLimitMotor2(const btRotationalLimitMotor2& limot)
@@ -146,6 +153,9 @@ public:
 		m_currentLimitErrorHi = limot.m_currentLimitErrorHi;
 		m_currentPosition = limot.m_currentPosition;
 		m_currentLimit = limot.m_currentLimit;
+
+		m_nonHookeanDamping = limot.m_nonHookeanDamping;
+		m_nonHookeanStiffness = limot.m_nonHookeanStiffness;
 	}
 
 	bool isLimited()
@@ -187,6 +197,10 @@ public:
 	btVector3 m_currentLinearDiff;
 	int m_currentLimit[3];
 
+	// BM: Definitely a better way to do this, but yay dirty hacks for Skyrims.
+	btVector3 m_nonHookeanDamping;
+	btVector3 m_nonHookeanStiffness;
+
 	btTranslationalLimitMotor2()
 	{
 		m_lowerLimit.setValue(0.f, 0.f, 0.f);
@@ -216,6 +230,9 @@ public:
 			m_maxMotorForce[i] = btScalar(0.f);
 
 			m_currentLimit[i] = 0;
+
+			m_nonHookeanDamping[i] = btScalar(0.f);
+			m_nonHookeanStiffness[i] = btScalar(0.f);
 		}
 	}
 
@@ -248,6 +265,9 @@ public:
 			m_maxMotorForce[i] = other.m_maxMotorForce[i];
 
 			m_currentLimit[i] = other.m_currentLimit[i];
+
+			m_nonHookeanDamping[i] = other.m_nonHookeanDamping[i];
+			m_nonHookeanStiffness[i] = other.m_nonHookeanStiffness[i];
 		}
 	}
 
@@ -464,6 +484,8 @@ public:
 
 	void enableSpring(int index, bool onOff);
 	void setStiffness(int index, btScalar stiffness, bool limitIfNeeded = true);  // if limitIfNeeded is true the system will automatically limit the stiffness in necessary situations where otherwise the spring would move unrealistically too widely
+	void setNonHookeanDamping(int index, btScalar factor);                        // Increases spring damping by factor (using a power of 2 curve), the closer the current position is to equilibrium.
+	void setNonHookeanStiffness(int index, btScalar factor);                      // Increases spring stiffness the further position is from equilibrium, by this factor (power curve).
 	void setDamping(int index, btScalar damping, bool limitIfNeeded = true);      // if limitIfNeeded is true the system will automatically limit the damping in necessary situations where otherwise the spring would blow up
 	void setEquilibriumPoint();                                                   // set the current constraint position/orientation as an equilibrium point for all DOF
 	void setEquilibriumPoint(int index);                                          // set the current constraint position/orientation as an equilibrium point for given DOF

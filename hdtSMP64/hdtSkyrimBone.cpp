@@ -31,7 +31,6 @@ namespace hdt
 		auto newScale = m_currentTransform.getScale();
 
 		auto current = m_rig.getWorldTransform();
-		auto dest = m_currentTransform.asTransform() * m_localToRig;
 
 		auto factor = oldScale / newScale;
 		if (!m_rig.isStaticOrKinematicObject() && !btFuzzyZero(factor - 1))
@@ -53,6 +52,8 @@ namespace hdt
 		}
 		m_rig.getCollisionShape()->setLocalScaling(setAll(newScale));
 
+		auto dest = m_currentTransform.asTransform() * m_localToRig;
+		
 		if (timeStep <= RESET_PHYSICS)
 		{
 			m_origToSkeletonTransform = convertNi(m_skeleton->m_worldTransform).inverse() * convertNi(m_node->m_worldTransform);

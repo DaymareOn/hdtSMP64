@@ -4,6 +4,7 @@
 #include <skse64\NiNodes.h>
 #include <skse64\NiExtraData.h>
 #include <skse64\NiGeometry.h>
+#include <skse64\NiRTTI.h>
 #include "Ref.h"
 
 // note: both of these offsets are 0xDEADBEEF guards and were completely wrong prior to this, but things worked anyway I guess
@@ -52,7 +53,8 @@ namespace hdt
 
 	inline NiNode* castNiNode(NiAVObject* obj) { return obj ? obj->GetAsNiNode() : nullptr; }
 	inline BSTriShape* castBSTriShape(NiAVObject* obj) { return obj ? obj->GetAsBSTriShape() : nullptr; }
-	inline BSDynamicTriShape* castBSDynamicTriShape(NiAVObject* obj) { return obj ? obj->GetAsBSDynamicTriShape() : nullptr; }
+	// Use proper RTTI check - static_cast from BSTriShape is WRONG as it returns non-NULL for any BSTriShape
+	inline BSDynamicTriShape* castBSDynamicTriShape(NiAVObject* obj) { return obj ? ni_cast(obj, BSDynamicTriShape) : nullptr; }
 
 	NiNode* addParentToNode(NiNode* node, const char* name);
 

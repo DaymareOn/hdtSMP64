@@ -652,7 +652,7 @@ public:
 		btVector3 col3 = getColumn(2);
 
 		btScalar det = btDot(col1, btCross(col2, col3));
-		if (btFabs(det) > SIMD_EPSILON)
+		if (btFabs(det) != 0)
 		{
 			det = 1.0f / det;
 		}
