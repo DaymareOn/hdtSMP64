@@ -12,17 +12,24 @@
   - DETOURS_DIR: Path to Microsoft Detours installation
 
   OPTIONAL PATHS:
-  - OUTPUT_DIR: Where to copy built DLL (for direct testing)
+  - OUTPUT_DIR_PREFIX: Base path prefix for build outputs (for direct testing)
+    Full path will be: $(OUTPUT_DIR_PREFIX)$(Configuration)\SKSE\Plugins
+    Example: D:\mods\FSMP_ with config V1_6_1170_NOCUDA_AVX becomes:
+             D:\mods\FSMP_V1_6_1170_NOCUDA_AVX\SKSE\Plugins
 -->
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Label="hdtSMP64Paths">
-    <!-- SKSE64 Source Directory (contains skse64, skse64_common, common folders) -->
+    <!-- SKSE64 Root Directory (contains common/ folder) -->
+    <SKSE_ROOT>C:\path\to\skse64_2_02_06</SKSE_ROOT>
+
+    <!-- SKSE64 Source Directory (contains skse64/, skse64_common/ folders) -->
     <SKSE_DIR>C:\path\to\skse64_2_02_06\src</SKSE_DIR>
 
     <!-- Microsoft Detours Directory (contains include and lib.X64 folders) -->
     <DETOURS_DIR>C:\path\to\Detours</DETOURS_DIR>
 
-    <!-- Optional: Output directory for built DLL (leave empty to disable post-build copy) -->
-    <OUTPUT_DIR></OUTPUT_DIR>
+    <!-- Optional: Output directory prefix for built DLLs (leave empty to disable post-build copy) -->
+    <!-- Full path: $(OUTPUT_DIR_PREFIX)$(Configuration)\SKSE\Plugins -->
+    <OUTPUT_DIR_PREFIX></OUTPUT_DIR_PREFIX>
   </PropertyGroup>
 </Project>
