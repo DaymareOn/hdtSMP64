@@ -113,8 +113,9 @@ jobs:
       - name: Verify SKSE
         run: |
           Write-Host "=== Checking SKSE contents ==="
-          if (Test-Path "external/skse/src/common/IPrefix.h") {
-            Write-Host "IPrefix.h found"
+          # SKSE release has nested common/common/ structure
+          if (Test-Path "external/skse/src/common/common/IPrefix.h") {
+            Write-Host "IPrefix.h found at external/skse/src/common/common/IPrefix.h"
           } else {
             Write-Host "ERROR: IPrefix.h NOT found"
             Get-ChildItem -Path external/skse -Recurse -Filter "IPrefix.h" | ForEach-Object { Write-Host "  Found: $($_.FullName)" }
@@ -124,13 +125,15 @@ jobs:
       - name: Setup Dependencies
         run: |
           # Create paths props for CI build
-          # SKSE release structure: skse64_2_02_06/src/common/, skse64_2_02_06/src/skse64/
+          # SKSE release structure has nested common/common/, so:
+          # SKSE_ROOT = src/common (so $(SKSE_ROOT)/common/IPrefix.h works)
+          # SKSE_DIR = src (contains skse64/, skse64_common/)
           $workspace = "${{ github.workspace }}".Replace('/', '\')
           @"
           <?xml version="1.0" encoding="utf-8"?>
           <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
             <PropertyGroup Label="hdtSMP64Paths">
-              <SKSE_ROOT>$workspace\external\skse\src</SKSE_ROOT>
+              <SKSE_ROOT>$workspace\external\skse\src\common</SKSE_ROOT>
               <SKSE_DIR>$workspace\external\skse\src</SKSE_DIR>
               <DETOURS_DIR>$workspace\external\detours</DETOURS_DIR>
               <OUTPUT_DIR_PREFIX></OUTPUT_DIR_PREFIX>
