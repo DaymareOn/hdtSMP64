@@ -29,7 +29,10 @@ jobs:
           # Find and run the test executable
           $testExe = Get-ChildItem -Path . -Recurse -Filter "hdtSMP64_tests.exe" | Select-Object -First 1
           if ($testExe) {
-            & $testExe.FullName --reporter console --reporter junit --out test-results.xml
+            # Catch2 v2 syntax: -r for reporter, -o for output
+            & $testExe.FullName -r junit -o test-results.xml
+            # Also run with console output for logs
+            & $testExe.FullName
           } else {
             Write-Error "Test executable not found"
             exit 1
