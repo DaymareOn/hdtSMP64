@@ -87,7 +87,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: external/skse
-          key: skse-2.2.6-1.6.1170-flat
+          key: skse-2.2.6-1.6.1170-v2
 
       - name: Download SKSE (if not cached)
         if: steps.cache-skse.outputs.cache-hit != 'true'
@@ -101,18 +101,37 @@ jobs:
           # Extract using 7z (available on windows-latest)
           7z x $skseZip -oexternal/skse-temp
 
-          # Flatten structure to match local dev setup:
-          # From: skse64_2_02_06/src/common/common/, skse64_2_02_06/src/skse64/
-          # To:   external/skse/common/, external/skse/skse64/
-          New-Item -ItemType Directory -Path external/skse -Force
+          # Debug: show extracted structure
           $extracted = Get-ChildItem -Path external/skse-temp -Directory | Select-Object -First 1
+          Write-Host "=== Extracted SKSE structure ==="
+          Write-Host "Root: $($extracted.FullName)"
+          Get-ChildItem -Path $extracted.FullName | ForEach-Object { Write-Host "  $_" }
+          Write-Host "src/ contents:"
+          Get-ChildItem -Path "$($extracted.FullName)/src" -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  $_" }
+
+          # Flatten structure to match local dev setup
+          New-Item -ItemType Directory -Path external/skse -Force
+
+          # common is nested: src/common/common/
           Move-Item -Path "$($extracted.FullName)/src/common/common" -Destination "external/skse/common"
-          Move-Item -Path "$($extracted.FullName)/src/skse64" -Destination "external/skse/skse64"
-          Move-Item -Path "$($extracted.FullName)/src/skse64_common" -Destination "external/skse/skse64_common"
+
+          # skse64 and skse64_common might be at root level, not in src/
+          if (Test-Path "$($extracted.FullName)/src/skse64") {
+            Move-Item -Path "$($extracted.FullName)/src/skse64" -Destination "external/skse/skse64"
+          } elseif (Test-Path "$($extracted.FullName)/skse64") {
+            Move-Item -Path "$($extracted.FullName)/skse64" -Destination "external/skse/skse64"
+          }
+
+          if (Test-Path "$($extracted.FullName)/src/skse64_common") {
+            Move-Item -Path "$($extracted.FullName)/src/skse64_common" -Destination "external/skse/skse64_common"
+          } elseif (Test-Path "$($extracted.FullName)/skse64_common") {
+            Move-Item -Path "$($extracted.FullName)/skse64_common" -Destination "external/skse/skse64_common"
+          }
+
           Remove-Item -Path external/skse-temp -Recurse -Force
           Remove-Item -Path $skseZip
 
-          Write-Host "SKSE flattened to external/skse (matches local dev structure)"
+          Write-Host "=== Final external/skse structure ==="
           Get-ChildItem -Path external/skse | ForEach-Object { Write-Host "  $_" }
 
       - name: Verify SKSE
