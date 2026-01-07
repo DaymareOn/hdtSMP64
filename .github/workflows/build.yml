@@ -87,7 +87,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: external/skse
-          key: skse-2.2.6-1.6.1170-v6
+          key: skse-2.2.6-1.6.1170-v7
 
       - name: Download SKSE (if not cached)
         if: steps.cache-skse.outputs.cache-hit != 'true'
@@ -164,6 +164,19 @@ jobs:
             Write-Error "ERROR: xbyak source not found at $xbyakSrc"
             exit 1
           }
+
+          # Fix WIN32_FIND_DATA SDK compatibility in GameData.h
+          # These asserts fail with different Windows SDK versions but hdtSMP64
+          # doesn't use these fields (numRefMods, author) - safe to disable
+          $gameData = "external\skse\skse64\GameData.h"
+          (Get-Content $gameData) -replace `
+            'STATIC_ASSERT\(offsetof\(ModInfo, numRefMods\)', `
+            '// STATIC_ASSERT(offsetof(ModInfo, numRefMods)' -replace `
+            'STATIC_ASSERT\(offsetof\(ModInfo, author\)', `
+            '// STATIC_ASSERT(offsetof(ModInfo, author)' -replace `
+            'STATIC_ASSERT\(sizeof\(ModInfo\)', `
+            '// STATIC_ASSERT(sizeof(ModInfo)' | Set-Content $gameData
+          Write-Host "Patched GameData.h - disabled WIN32_FIND_DATA-dependent asserts"
 
           # Cleanup
           Remove-Item -Path external/skse-temp -Recurse -Force
