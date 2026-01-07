@@ -1,6 +1,0 @@
-[submodule "external/skse"]
-	path = external/skse
-	url = https://github.com/ianpatt/skse64.git
-[submodule "external/skse-common"]
-	path = external/skse-common
-	url = https://github.com/ianpatt/common.git

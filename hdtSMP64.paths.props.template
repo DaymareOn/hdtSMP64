@@ -3,20 +3,20 @@
   hdtSMP64 Build Paths Configuration Template
 
   SETUP INSTRUCTIONS:
-  Option A - Use git submodules (recommended):
-    1. Run: git submodule update --init --recursive
-    2. Copy this file to 'hdtSMP64.paths.props'
-    3. Use the submodule paths shown below
+  1. Download SKSE64 source from https://skse.silverlock.org/ (v2.2.6 for Skyrim 1.6.1170)
+  2. Extract to a location (e.g., C:\dev\skse64_2_02_06)
+  3. Copy this file to 'hdtSMP64.paths.props'
+  4. Update paths below to match your installation
+  5. Build Microsoft Detours from https://github.com/microsoft/Detours
 
-  Option B - Use your own SKSE installation:
-    1. Copy this file to 'hdtSMP64.paths.props'
-    2. Update paths to your SKSE installation location
+  hdtSMP64.paths.props is gitignored - your local paths won't be committed.
 
-  hdtSMP64.paths.props is gitignored - your paths won't be committed.
+  NOTE: The ianpatt/skse64 GitHub repo is INCOMPLETE and won't work.
+        You must use the official SKSE release from skse.silverlock.org
 
   REQUIRED PATHS:
-  - SKSE_ROOT: Directory containing common/ folder
-  - SKSE_DIR: Directory containing skse64/, skse64_common/ folders
+  - SKSE_ROOT: SKSE root directory (contains src/common/ folder)
+  - SKSE_DIR: SKSE source directory (contains src/skse64/, src/skse64_common/ folders)
   - DETOURS_DIR: Path to Microsoft Detours installation
 
   OPTIONAL PATHS:
@@ -25,14 +25,9 @@
 -->
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Label="hdtSMP64Paths">
-    <!-- Option A: Use git submodules (recommended) -->
-    <!-- Run: git submodule update --init --recursive -->
-    <SKSE_ROOT>$(SolutionDir)external\skse-common</SKSE_ROOT>
-    <SKSE_DIR>$(SolutionDir)external\skse</SKSE_DIR>
-
-    <!-- Option B: Use your own SKSE installation (uncomment and edit) -->
-    <!-- <SKSE_ROOT>C:\path\to\skse64_2_02_06</SKSE_ROOT> -->
-    <!-- <SKSE_DIR>C:\path\to\skse64_2_02_06</SKSE_DIR> -->
+    <!-- SKSE64 paths - update these to your installation -->
+    <SKSE_ROOT>C:\path\to\skse64_2_02_06\src</SKSE_ROOT>
+    <SKSE_DIR>C:\path\to\skse64_2_02_06\src</SKSE_DIR>
 
     <!-- Microsoft Detours Directory (contains include and lib.X64 folders) -->
     <!-- Build from source: https://github.com/microsoft/Detours -->

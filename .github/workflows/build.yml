@@ -78,46 +78,66 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: true
 
       - name: Add MSBuild to PATH
         uses: microsoft/setup-msbuild@v2
 
-      - name: Verify Submodules
+      - name: Cache SKSE
+        id: cache-skse
+        uses: actions/cache@v4
+        with:
+          path: external/skse
+          key: skse-2.2.6-1.6.1170
+
+      - name: Download SKSE (if not cached)
+        if: steps.cache-skse.outputs.cache-hit != 'true'
         run: |
-          Write-Host "=== Checking submodule contents ==="
-          Write-Host "external/skse-common contents:"
-          Get-ChildItem -Path external/skse-common -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  $_" }
-          Write-Host "external/skse contents:"
-          Get-ChildItem -Path external/skse -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  $_" }
-          if (Test-Path "external/skse-common/common/IPrefix.h") {
-            Write-Host "IPrefix.h found at external/skse-common/common/IPrefix.h"
+          # Download official SKSE release (GitHub repo is incomplete)
+          $skseUrl = "https://skse.silverlock.org/beta/skse64_2_02_06.7z"
+          $skseZip = "skse64.7z"
+          Write-Host "Downloading SKSE from $skseUrl"
+          Invoke-WebRequest -Uri $skseUrl -OutFile $skseZip
+
+          # Extract using 7z (available on windows-latest)
+          7z x $skseZip -oexternal/skse-temp
+
+          # Move to final location (strip top-level folder)
+          $extracted = Get-ChildItem -Path external/skse-temp -Directory | Select-Object -First 1
+          Move-Item -Path $extracted.FullName -Destination external/skse
+          Remove-Item -Path external/skse-temp -Recurse -Force
+          Remove-Item -Path $skseZip
+
+          Write-Host "SKSE extracted to external/skse"
+          Get-ChildItem -Path external/skse | ForEach-Object { Write-Host "  $_" }
+
+      - name: Verify SKSE
+        run: |
+          Write-Host "=== Checking SKSE contents ==="
+          if (Test-Path "external/skse/src/common/IPrefix.h") {
+            Write-Host "IPrefix.h found"
           } else {
-            Write-Host "WARNING: IPrefix.h NOT found"
-            Write-Host "Looking for IPrefix.h recursively..."
-            Get-ChildItem -Path external -Recurse -Filter "IPrefix.h" -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  Found: $($_.FullName)" }
+            Write-Host "ERROR: IPrefix.h NOT found"
+            Get-ChildItem -Path external/skse -Recurse -Filter "IPrefix.h" | ForEach-Object { Write-Host "  Found: $($_.FullName)" }
+            exit 1
           }
 
       - name: Setup Dependencies
         run: |
-          # Create minimal paths props for CI build using backslashes for Windows
-          # Structure: external/skse-common/common/IPrefix.h, external/skse/skse64/
+          # Create paths props for CI build
+          # SKSE release structure: skse64_2_02_06/src/common/, skse64_2_02_06/src/skse64/
           $workspace = "${{ github.workspace }}".Replace('/', '\')
           @"
           <?xml version="1.0" encoding="utf-8"?>
           <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
             <PropertyGroup Label="hdtSMP64Paths">
-              <SKSE_ROOT>$workspace\external\skse-common</SKSE_ROOT>
-              <SKSE_DIR>$workspace\external\skse</SKSE_DIR>
+              <SKSE_ROOT>$workspace\external\skse\src</SKSE_ROOT>
+              <SKSE_DIR>$workspace\external\skse\src</SKSE_DIR>
               <DETOURS_DIR>$workspace\external\detours</DETOURS_DIR>
               <OUTPUT_DIR_PREFIX></OUTPUT_DIR_PREFIX>
             </PropertyGroup>
           </Project>
           "@ | Out-File -FilePath hdtSMP64.paths.props -Encoding utf8
-          Write-Host "Created hdtSMP64.paths.props with paths:"
-          Write-Host "  SKSE_ROOT: $workspace\external\skse-common"
-          Write-Host "  SKSE_DIR: $workspace\external\skse"
+          Write-Host "Created hdtSMP64.paths.props:"
           Get-Content hdtSMP64.paths.props
 
       - name: Cache Detours
