@@ -350,11 +350,7 @@ namespace hdt
 		char buffer2[MAX_PATH];
 		memset(buffer2, 0, MAX_PATH);
 
-#ifdef ANNIVERSARY_EDITION
 		if (!ObScript_ExtractArgs(paramInfo, scriptData, opcodeOffsetPtr, thisObj, containingObj, scriptObj, locals, buffer, buffer2))
-#else
-		if (!ObjScript_ExtractArgs(paramInfo, scriptData, opcodeOffsetPtr, thisObj, containingObj, scriptObj, locals, buffer, buffer2))
-#endif
 		{
 			return false;
 		}

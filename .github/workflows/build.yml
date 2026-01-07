@@ -88,6 +88,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
 
       - name: Add MSBuild to PATH
         uses: microsoft/setup-msbuild@v2
@@ -100,27 +102,12 @@ jobs:
           <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
             <PropertyGroup Label="hdtSMP64Paths">
               <SKSE_ROOT>${{ github.workspace }}/external/skse</SKSE_ROOT>
-              <SKSE_DIR>${{ github.workspace }}/external/skse/src</SKSE_DIR>
+              <SKSE_DIR>${{ github.workspace }}/external/skse</SKSE_DIR>
               <DETOURS_DIR>${{ github.workspace }}/external/detours</DETOURS_DIR>
               <OUTPUT_DIR_PREFIX></OUTPUT_DIR_PREFIX>
             </PropertyGroup>
           </Project>
           "@ | Out-File -FilePath hdtSMP64.paths.props -Encoding utf8
-
-      - name: Cache SKSE
-        id: cache-skse
-        uses: actions/cache@v4
-        with:
-          path: external/skse
-          key: skse-2.2.6
-
-      - name: Download SKSE (if not cached)
-        if: steps.cache-skse.outputs.cache-hit != 'true'
-        run: |
-          mkdir -p external/skse
-          # Note: SKSE source would need to be fetched from official sources
-          # This is a placeholder - actual CI setup needs SKSE source access
-          echo "SKSE source required - see README for setup"
 
       - name: Cache Detours
         id: cache-detours
