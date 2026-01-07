@@ -3,29 +3,39 @@
   hdtSMP64 Build Paths Configuration Template
 
   SETUP INSTRUCTIONS:
-  1. Copy this file to 'hdtSMP64.paths.props' (same directory)
-  2. Edit hdtSMP64.paths.props with your local paths
-  3. hdtSMP64.paths.props is gitignored - your paths won't be committed
+  Option A - Use git submodules (recommended):
+    1. Run: git submodule update --init --recursive
+    2. Copy this file to 'hdtSMP64.paths.props'
+    3. Use the submodule paths shown below
+
+  Option B - Use your own SKSE installation:
+    1. Copy this file to 'hdtSMP64.paths.props'
+    2. Update paths to your SKSE installation location
+
+  hdtSMP64.paths.props is gitignored - your paths won't be committed.
 
   REQUIRED PATHS:
-  - SKSE_DIR: Path to extracted SKSE64 source (e.g., skse64_2_02_06\src)
+  - SKSE_ROOT: Directory containing common/ folder
+  - SKSE_DIR: Directory containing skse64/, skse64_common/ folders
   - DETOURS_DIR: Path to Microsoft Detours installation
 
   OPTIONAL PATHS:
   - OUTPUT_DIR_PREFIX: Base path prefix for build outputs (for direct testing)
     Full path will be: $(OUTPUT_DIR_PREFIX)$(Configuration)\SKSE\Plugins
-    Example: D:\mods\FSMP_ with config V1_6_1170_NOCUDA_AVX becomes:
-             D:\mods\FSMP_V1_6_1170_NOCUDA_AVX\SKSE\Plugins
 -->
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Label="hdtSMP64Paths">
-    <!-- SKSE64 Root Directory (contains common/ folder) -->
-    <SKSE_ROOT>C:\path\to\skse64_2_02_06</SKSE_ROOT>
+    <!-- Option A: Use git submodules (recommended) -->
+    <!-- Run: git submodule update --init --recursive -->
+    <SKSE_ROOT>$(SolutionDir)external\skse-common</SKSE_ROOT>
+    <SKSE_DIR>$(SolutionDir)external\skse</SKSE_DIR>
 
-    <!-- SKSE64 Source Directory (contains skse64/, skse64_common/ folders) -->
-    <SKSE_DIR>C:\path\to\skse64_2_02_06\src</SKSE_DIR>
+    <!-- Option B: Use your own SKSE installation (uncomment and edit) -->
+    <!-- <SKSE_ROOT>C:\path\to\skse64_2_02_06</SKSE_ROOT> -->
+    <!-- <SKSE_DIR>C:\path\to\skse64_2_02_06</SKSE_DIR> -->
 
     <!-- Microsoft Detours Directory (contains include and lib.X64 folders) -->
+    <!-- Build from source: https://github.com/microsoft/Detours -->
     <DETOURS_DIR>C:\path\to\Detours</DETOURS_DIR>
 
     <!-- Optional: Output directory prefix for built DLLs (leave empty to disable post-build copy) -->
