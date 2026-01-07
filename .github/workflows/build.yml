@@ -1,0 +1,165 @@
+name: Build and Test
+
+on:
+  push:
+    branches: [master, test, feature/*]
+  pull_request:
+    branches: [master, test]
+
+env:
+  SOLUTION_FILE_PATH: hdtSMP64.sln
+
+jobs:
+  # Run unit tests first (fast feedback)
+  test:
+    name: Unit Tests
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Add MSBuild to PATH
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Build Tests
+        run: msbuild tests/hdtSMP64_tests.vcxproj /p:Configuration=Release /p:Platform=x64 /m
+
+      - name: Run Tests
+        run: tests/x64/tests/Release/hdtSMP64_tests.exe --reporter junit --out test-results.xml
+
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: test-results.xml
+
+  # Build matrix for different configurations
+  build:
+    name: Build ${{ matrix.version }}_${{ matrix.cuda }}_${{ matrix.avx }}
+    runs-on: windows-latest
+    needs: test  # Only build if tests pass
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Skyrim SE builds
+          - version: SE
+            cuda: NOCUDA
+            avx: NoAVX
+          - version: SE
+            cuda: NOCUDA
+            avx: AVX2
+
+          # Anniversary Edition builds (latest)
+          - version: V1_6_1170
+            cuda: NOCUDA
+            avx: NoAVX
+          - version: V1_6_1170
+            cuda: NOCUDA
+            avx: AVX
+          - version: V1_6_1170
+            cuda: NOCUDA
+            avx: AVX2
+
+          # VR builds
+          - version: VR
+            cuda: NOCUDA
+            avx: NoAVX
+          - version: VR
+            cuda: NOCUDA
+            avx: AVX2
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Add MSBuild to PATH
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Setup Dependencies
+        run: |
+          # Create minimal paths props for CI build
+          @"
+          <?xml version="1.0" encoding="utf-8"?>
+          <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+            <PropertyGroup Label="hdtSMP64Paths">
+              <SKSE_ROOT>${{ github.workspace }}/external/skse</SKSE_ROOT>
+              <SKSE_DIR>${{ github.workspace }}/external/skse/src</SKSE_DIR>
+              <DETOURS_DIR>${{ github.workspace }}/external/detours</DETOURS_DIR>
+              <OUTPUT_DIR_PREFIX></OUTPUT_DIR_PREFIX>
+            </PropertyGroup>
+          </Project>
+          "@ | Out-File -FilePath hdtSMP64.paths.props -Encoding utf8
+
+      - name: Cache SKSE
+        id: cache-skse
+        uses: actions/cache@v4
+        with:
+          path: external/skse
+          key: skse-2.2.6
+
+      - name: Download SKSE (if not cached)
+        if: steps.cache-skse.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p external/skse
+          # Note: SKSE source would need to be fetched from official sources
+          # This is a placeholder - actual CI setup needs SKSE source access
+          echo "SKSE source required - see README for setup"
+
+      - name: Cache Detours
+        id: cache-detours
+        uses: actions/cache@v4
+        with:
+          path: external/detours
+          key: detours-4.0.1
+
+      - name: Build Detours (if not cached)
+        if: steps.cache-detours.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 --branch v4.0.1 https://github.com/microsoft/Detours.git external/detours-src
+          cd external/detours-src
+          nmake
+          mkdir -p ../detours/include ../detours/lib.X64
+          cp include/*.h ../detours/include/
+          cp lib.X64/*.lib ../detours/lib.X64/
+
+      - name: Build
+        run: |
+          msbuild ${{ env.SOLUTION_FILE_PATH }} /p:Configuration=${{ matrix.version }}_${{ matrix.cuda }}_${{ matrix.avx }} /p:Platform=x64 /m
+        continue-on-error: true  # Allow builds to fail until deps are properly set up
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: hdtSMP64-${{ matrix.version }}-${{ matrix.cuda }}-${{ matrix.avx }}
+          path: |
+            x64/${{ matrix.version }}_${{ matrix.cuda }}_${{ matrix.avx }}/hdtSMP64.dll
+            x64/${{ matrix.version }}_${{ matrix.cuda }}_${{ matrix.avx }}/hdtSMP64.pdb
+
+  # Static analysis
+  analyze:
+    name: Static Analysis
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install cppcheck
+        run: choco install cppcheck -y
+
+      - name: Run cppcheck
+        run: |
+          cppcheck --enable=warning,performance,portability --error-exitcode=0 `
+            --suppress=missingIncludeSystem `
+            --suppress=unknownMacro `
+            -I hdtSMP64 `
+            hdtSMP64/*.cpp hdtSMP64/hdtSkinnedMesh/*.cpp `
+            2>&1 | Tee-Object -FilePath cppcheck-results.txt
+
+      - name: Upload Analysis Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: cppcheck-results
+          path: cppcheck-results.txt

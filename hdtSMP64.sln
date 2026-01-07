@@ -7,6 +7,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "hdtSMP64", "hdtSMP64\hdtSMP
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "hdtSSEUtils", "hdtSSEUtils\hdtSSEUtils.vcxproj", "{EBB1A6FA-5E3C-49B5-A5B6-A6495B9CD5B0}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "hdtSMP64_tests", "tests\hdtSMP64_tests.vcxproj", "{E8F1C5B7-9D4A-4B3C-8E2F-1A6B5C9D0E3F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		SE_CUDA_AVX_DEBUG|x64 = SE_CUDA_AVX_DEBUG|x64
