@@ -798,10 +798,21 @@ namespace hdt
 			}
 
 			NiSkinPartition* skinPartition = triShape->m_spSkinInstance->m_spSkinPartition;
+			if (!skinPartition || !skinPartition->m_pkPartitions)
+			{
+				_WARNING("generateMeshBody: skinPartition or partitions NULL for mesh %s, skipping", meshName.c_str());
+				continue;
+			}
 			body->m_vertices.resize(vertexStart + skinPartition->vertexCount);
 
 			// vertices data are all the same in every partitions
 			auto partition = skinPartition->m_pkPartitions;
+
+			if (!partition->shapeData || !partition->shapeData->m_RawVertexData)
+			{
+				_WARNING("generateMeshBody: shapeData or RawVertexData NULL for mesh %s, skipping", meshName.c_str());
+				continue;
+			}
 			auto vFlags = NiSkinPartition::GetVertexFlags(partition->vertexDesc);
 			auto vSize = NiSkinPartition::GetVertexSize(partition->vertexDesc);
 

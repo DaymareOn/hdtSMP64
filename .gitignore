@@ -45,6 +45,9 @@ x64
 # vs folder
 .vs
 
+# User-specific build paths (copy from .template and customize)
+hdtSMP64.paths.props
+
 # folders from skse source
 skse64
 skse64_common

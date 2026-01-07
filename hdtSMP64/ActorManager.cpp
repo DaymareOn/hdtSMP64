@@ -4,11 +4,46 @@
 #include "hdtSkyrimPhysicsWorld.h"
 #include "hdtDefaultBBP.h"
 #include "skse64/GameRTTI.h"
+#include "skse64/NiRTTI.h"
 #include "skse64/NiSerialization.h"
 #include <cinttypes>
 #include "Offsets.h"
 #include "skse64/GameStreams.h"
 #include "skse64/GameData.h"
+#include "skse64/GameExtraData.h"
+#include "skse64/GameFormComponents.h"
+
+// Local implementation of papyrusActor::GetWornForm to avoid pulling in all of PapyrusActor.cpp
+namespace papyrusActor
+{
+	class MatchBySlot : public FormMatcher
+	{
+		UInt32 m_mask;
+	public:
+		MatchBySlot(UInt32 slot) : m_mask(slot) {}
+
+		bool Matches(TESForm* pForm) const {
+			if (pForm) {
+				BGSBipedObjectForm* pBip = DYNAMIC_CAST(pForm, TESForm, BGSBipedObjectForm);
+				if (pBip) {
+					return (pBip->data.parts & m_mask) != 0;
+				}
+			}
+			return false;
+		}
+	};
+
+	TESForm* GetWornForm(Actor* thisActor, UInt32 mask)
+	{
+		MatchBySlot matcher(mask);
+		ExtraContainerChanges* pContainerChanges = static_cast<ExtraContainerChanges*>(thisActor->extraData.GetByType(kExtraData_ContainerChanges));
+		if (pContainerChanges) {
+			EquipData eqD = pContainerChanges->FindEquipped(matcher);
+			return eqD.pForm;
+		}
+		return NULL;
+	}
+}
 
 namespace hdt
 {
@@ -1120,7 +1155,7 @@ namespace hdt
 								niStream->LoadStream(&binaryStream);
 								if (niStream->m_rootObjects.m_data[0])
 								{
-									auto rootFadeNode = niStream->m_rootObjects.m_data[0]->GetAsBSFadeNode();
+									auto rootFadeNode = ni_cast(niStream->m_rootObjects.m_data[0], BSFadeNode);
 									if (rootFadeNode)
 									{
 										_DMESSAGE("NPC facegeometry root fadeNode found.");

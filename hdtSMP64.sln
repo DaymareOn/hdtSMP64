@@ -3,18 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.5.33502.453
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "skse64_common", "skse64_common\skse64_common.vcxproj", "{5FD1C08D-DB80-480C-A1C6-F0920005CD13}"
-EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "common_vc14", "..\common\common_vc14.vcxproj", "{472E19AB-DEF0-42DF-819B-18722E8DC822}"
-EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "skse64", "skse64\skse64.vcxproj", "{7028B79C-06E3-4D9A-B38C-1DC3680B1BDB}"
-EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "hdtSMP64", "hdtSMP64\hdtSMP64.vcxproj", "{B9F47E7B-068A-419A-9AA8-F72CCE662C2B}"
-	ProjectSection(ProjectDependencies) = postProject
-		{5FD1C08D-DB80-480C-A1C6-F0920005CD13} = {5FD1C08D-DB80-480C-A1C6-F0920005CD13}
-		{472E19AB-DEF0-42DF-819B-18722E8DC822} = {472E19AB-DEF0-42DF-819B-18722E8DC822}
-		{7028B79C-06E3-4D9A-B38C-1DC3680B1BDB} = {7028B79C-06E3-4D9A-B38C-1DC3680B1BDB}
-	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "hdtSSEUtils", "hdtSSEUtils\hdtSSEUtils.vcxproj", "{EBB1A6FA-5E3C-49B5-A5B6-A6495B9CD5B0}"
 EndProject

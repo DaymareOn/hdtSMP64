@@ -198,6 +198,7 @@
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <Import Project="$(SolutionDir)hdtSMP64.paths.props" Condition="exists('$(SolutionDir)hdtSMP64.paths.props')" />
   <ImportGroup Label="ExtensionSettings">
   </ImportGroup>
   <ImportGroup Label="Shared">
@@ -256,87 +257,92 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='AVX|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(SolutionDir);$(SolutionDir)..;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir);$(SKSE_ROOT);$(SKSE_DIR);$(IncludePath)</IncludePath>
     <EnableMicrosoftCodeAnalysis>false</EnableMicrosoftCodeAnalysis>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='V1_6_1179_CUDA_AVX|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(SolutionDir);$(SolutionDir)..;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir);$(SKSE_ROOT);$(SKSE_DIR);$(IncludePath)</IncludePath>
+    <EnableMicrosoftCodeAnalysis>false</EnableMicrosoftCodeAnalysis>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='V1_6_1179_CUDA_AVX|x64'">
+    <LinkIncremental>false</LinkIncremental>
+    <IncludePath>$(SolutionDir);$(SKSE_ROOT);$(SKSE_DIR);$(IncludePath)</IncludePath>
     <EnableMicrosoftCodeAnalysis>false</EnableMicrosoftCodeAnalysis>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='VR_AVX|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(SolutionDir);$(SolutionDir)..;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir);$(SKSE_ROOT);$(SKSE_DIR);$(IncludePath)</IncludePath>
     <EnableMicrosoftCodeAnalysis>false</EnableMicrosoftCodeAnalysis>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='AVX_DEBUG|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(SolutionDir);$(SolutionDir)..;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir);$(SKSE_ROOT);$(SKSE_DIR);$(IncludePath)</IncludePath>
     <EnableMicrosoftCodeAnalysis>false</EnableMicrosoftCodeAnalysis>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='VR_AVX_DEBUG|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(SolutionDir);$(SolutionDir)..;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir);$(SKSE_ROOT);$(SKSE_DIR);$(IncludePath)</IncludePath>
     <EnableMicrosoftCodeAnalysis>false</EnableMicrosoftCodeAnalysis>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='NoAVX|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(SolutionDir);$(SolutionDir)..;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir);$(SKSE_ROOT);$(SKSE_DIR);$(IncludePath)</IncludePath>
     <EnableMicrosoftCodeAnalysis>false</EnableMicrosoftCodeAnalysis>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='VR_NoAVX|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(SolutionDir);$(SolutionDir)..;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir);$(SKSE_ROOT);$(SKSE_DIR);$(IncludePath)</IncludePath>
     <EnableMicrosoftCodeAnalysis>false</EnableMicrosoftCodeAnalysis>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='NoAVX_DEBUG|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(SolutionDir);$(SolutionDir)..;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir);$(SKSE_ROOT);$(SKSE_DIR);$(IncludePath)</IncludePath>
     <EnableMicrosoftCodeAnalysis>false</EnableMicrosoftCodeAnalysis>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='VR_NoAVX_DEBUG|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(SolutionDir);$(SolutionDir)..;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir);$(SKSE_ROOT);$(SKSE_DIR);$(IncludePath)</IncludePath>
     <EnableMicrosoftCodeAnalysis>false</EnableMicrosoftCodeAnalysis>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='AVX2|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(SolutionDir);$(SolutionDir)..;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir);$(SKSE_ROOT);$(SKSE_DIR);$(IncludePath)</IncludePath>
     <EnableMicrosoftCodeAnalysis>false</EnableMicrosoftCodeAnalysis>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='VR_AVX2|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(SolutionDir);$(SolutionDir)..;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir);$(SKSE_ROOT);$(SKSE_DIR);$(IncludePath)</IncludePath>
     <EnableMicrosoftCodeAnalysis>false</EnableMicrosoftCodeAnalysis>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='AVX2_DEBUG|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(SolutionDir);$(SolutionDir)..;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir);$(SKSE_ROOT);$(SKSE_DIR);$(IncludePath)</IncludePath>
     <EnableMicrosoftCodeAnalysis>false</EnableMicrosoftCodeAnalysis>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='VR_AVX2_DEBUG|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(SolutionDir);$(SolutionDir)..;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir);$(SKSE_ROOT);$(SKSE_DIR);$(IncludePath)</IncludePath>
     <EnableMicrosoftCodeAnalysis>false</EnableMicrosoftCodeAnalysis>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='AVX512|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(SolutionDir);$(SolutionDir)..;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir);$(SKSE_ROOT);$(SKSE_DIR);$(IncludePath)</IncludePath>
     <EnableMicrosoftCodeAnalysis>false</EnableMicrosoftCodeAnalysis>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='VR_AVX512|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(SolutionDir);$(SolutionDir)..;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir);$(SKSE_ROOT);$(SKSE_DIR);$(IncludePath)</IncludePath>
     <EnableMicrosoftCodeAnalysis>false</EnableMicrosoftCodeAnalysis>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='AVX512_DEBUG|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(SolutionDir);$(SolutionDir)..;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir);$(SKSE_ROOT);$(SKSE_DIR);$(IncludePath)</IncludePath>
     <EnableMicrosoftCodeAnalysis>false</EnableMicrosoftCodeAnalysis>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='VR_AVX512_DEBUG|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(SolutionDir);$(SolutionDir)..;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir);$(SKSE_ROOT);$(SKSE_DIR);$(IncludePath)</IncludePath>
     <EnableMicrosoftCodeAnalysis>false</EnableMicrosoftCodeAnalysis>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='AVX|x64'">
@@ -917,33 +923,36 @@
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\common\IDataStream.cpp" />
-    <ClCompile Include="..\..\common\IDebugLog.cpp" />
-    <ClCompile Include="..\..\common\IErrors.cpp" />
-    <ClCompile Include="..\..\common\IFileStream.cpp" />
-    <ClCompile Include="..\skse64\GameAPI.cpp" />
-    <ClCompile Include="..\skse64\GameBSExtraData.cpp" />
-    <ClCompile Include="..\skse64\GameData.cpp" />
-    <ClCompile Include="..\skse64\GameEvents.cpp" />
-    <ClCompile Include="..\skse64\GameExtraData.cpp" />
-    <ClCompile Include="..\skse64\GameFormComponents.cpp" />
-    <ClCompile Include="..\skse64\GameForms.cpp" />
-    <ClCompile Include="..\skse64\GameReferences.cpp" />
-    <ClCompile Include="..\skse64\GameRTTI.cpp" />
-    <ClCompile Include="..\skse64\GameStreams.cpp" />
-    <ClCompile Include="..\skse64\GameTypes.cpp" />
-    <ClCompile Include="..\skse64\GameUtilities.cpp" />
-    <ClCompile Include="..\skse64\HashUtil.cpp" />
-    <ClCompile Include="..\skse64\NiGeometry.cpp" />
-    <ClCompile Include="..\skse64\NiNodes.cpp" />
-    <ClCompile Include="..\skse64\NiObjects.cpp" />
-    <ClCompile Include="..\skse64\NiRTTI.cpp" />
-    <ClCompile Include="..\skse64\NiTypes.cpp" />
-    <ClCompile Include="..\skse64\PapyrusArgs.cpp" />
-    <ClCompile Include="..\skse64\PapyrusInterfaces.cpp" />
-    <ClCompile Include="..\skse64\PapyrusNativeFunctions.cpp" />
-    <ClCompile Include="..\skse64\PapyrusVM.cpp" />
-    <ClCompile Include="..\skse64_common\Relocation.cpp" />
+    <ClCompile Include="$(SKSE_ROOT)\common\IDataStream.cpp" />
+    <ClCompile Include="$(SKSE_ROOT)\common\IDebugLog.cpp" />
+    <ClCompile Include="$(SKSE_ROOT)\common\IErrors.cpp" />
+    <ClCompile Include="$(SKSE_ROOT)\common\IFileStream.cpp" />
+    <ClCompile Include="$(SKSE_DIR)\skse64\GameAPI.cpp" />
+    <ClCompile Include="$(SKSE_DIR)\skse64\GameBSExtraData.cpp" />
+    <ClCompile Include="$(SKSE_DIR)\skse64\GameData.cpp" />
+    <ClCompile Include="$(SKSE_DIR)\skse64\GameEvents.cpp" />
+    <ClCompile Include="$(SKSE_DIR)\skse64\GameExtraData.cpp" />
+    <ClCompile Include="$(SKSE_DIR)\skse64\GameFormComponents.cpp" />
+    <ClCompile Include="$(SKSE_DIR)\skse64\GameForms.cpp" />
+    <ClCompile Include="$(SKSE_DIR)\skse64\GameReferences.cpp" />
+    <ClCompile Include="$(SKSE_DIR)\skse64\GameRTTI.cpp" />
+    <ClCompile Include="$(SKSE_DIR)\skse64\GameStreams.cpp" />
+    <ClCompile Include="$(SKSE_DIR)\skse64\GameTypes.cpp" />
+    <ClCompile Include="$(SKSE_DIR)\skse64\GameUtilities.cpp" />
+    <ClCompile Include="$(SKSE_DIR)\skse64\HashUtil.cpp" />
+    <ClCompile Include="$(SKSE_DIR)\skse64\NiGeometry.cpp" />
+    <ClCompile Include="$(SKSE_DIR)\skse64\NiNodes.cpp" />
+    <ClCompile Include="$(SKSE_DIR)\skse64\NiObjects.cpp" />
+    <ClCompile Include="$(SKSE_DIR)\skse64\NiRTTI.cpp" />
+    <ClCompile Include="$(SKSE_DIR)\skse64\NiTypes.cpp" />
+    <ClCompile Include="$(SKSE_DIR)\skse64\PapyrusArgs.cpp" />
+    <ClCompile Include="$(SKSE_DIR)\skse64\PapyrusInterfaces.cpp" />
+    <ClCompile Include="$(SKSE_DIR)\skse64\PapyrusNativeFunctions.cpp" />
+    <ClCompile Include="$(SKSE_DIR)\skse64\PapyrusVM.cpp" />
+    <ClCompile Include="$(SKSE_DIR)\skse64_common\Relocation.cpp" />
+    <ClCompile Include="$(SKSE_DIR)\skse64_common\BranchTrampoline.cpp" />
+    <ClCompile Include="$(SKSE_DIR)\skse64_common\SafeWrite.cpp" />
+    <ClCompile Include="$(SKSE_DIR)\skse64\ObScript.cpp" />
     <ClCompile Include="NetImmerseUtils.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='AVX|x64'">Create</PrecompiledHeader>

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  hdtSMP64 Build Paths Configuration Template
+
+  SETUP INSTRUCTIONS:
+  1. Copy this file to 'hdtSMP64.paths.props' (same directory)
+  2. Edit hdtSMP64.paths.props with your local paths
+  3. hdtSMP64.paths.props is gitignored - your paths won't be committed
+
+  REQUIRED PATHS:
+  - SKSE_DIR: Path to extracted SKSE64 source (e.g., skse64_2_02_06\src)
+  - DETOURS_DIR: Path to Microsoft Detours installation
+
+  OPTIONAL PATHS:
+  - OUTPUT_DIR: Where to copy built DLL (for direct testing)
+-->
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup Label="hdtSMP64Paths">
+    <!-- SKSE64 Source Directory (contains skse64, skse64_common, common folders) -->
+    <SKSE_DIR>C:\path\to\skse64_2_02_06\src</SKSE_DIR>
+
+    <!-- Microsoft Detours Directory (contains include and lib.X64 folders) -->
+    <DETOURS_DIR>C:\path\to\Detours</DETOURS_DIR>
+
+    <!-- Optional: Output directory for built DLL (leave empty to disable post-build copy) -->
+    <OUTPUT_DIR></OUTPUT_DIR>
+  </PropertyGroup>
+</Project>

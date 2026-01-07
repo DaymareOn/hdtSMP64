@@ -26,6 +26,7 @@
 #endif
 
 #include "WeatherManager.h"
+#include "hdtLog.h"
 
 namespace hdt
 {
@@ -368,6 +369,14 @@ namespace hdt
 			SkyrimPhysicsWorld::get()->resetSystems();
 			return true;
 		}
+		if (_strnicmp(buffer, "reload", MAX_PATH) == 0)
+		{
+			Console_Print("[hdtSMP64] Reloading configs.xml...");
+			hdt::loadConfig();
+			Console_Print("[hdtSMP64] Config reloaded. Changes to solver/wind/smp settings now active.");
+			HDT_LOG_INFO("Console command: config reloaded via 'smp reload'");
+			return true;
+		}
 #ifdef CUDA
 		if (_strnicmp(buffer, "gpu", MAX_PATH) == 0)
 		{
@@ -637,7 +646,7 @@ namespace hdt
 
 			cmd.longName = "SMPDebug";
 			cmd.shortName = "smp";
-			cmd.helpText = "smp <reset>";
+			cmd.helpText = "smp <reset|reload|on|off|list|detail|dumptree>";
 			cmd.needsParent = 0;
 			cmd.numParams = 1;
 			cmd.params = params;
