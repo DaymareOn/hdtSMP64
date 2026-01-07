@@ -25,7 +25,15 @@ jobs:
         run: msbuild tests/hdtSMP64_tests.vcxproj /p:Configuration=Release /p:Platform=x64 /m
 
       - name: Run Tests
-        run: tests/x64/tests/Release/hdtSMP64_tests.exe --reporter junit --out test-results.xml
+        run: |
+          # Find and run the test executable
+          $testExe = Get-ChildItem -Path . -Recurse -Filter "hdtSMP64_tests.exe" | Select-Object -First 1
+          if ($testExe) {
+            & $testExe.FullName --reporter console --reporter junit --out test-results.xml
+          } else {
+            Write-Error "Test executable not found"
+            exit 1
+          }
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v4
@@ -138,25 +146,26 @@ jobs:
             x64/${{ matrix.version }}_${{ matrix.cuda }}_${{ matrix.avx }}/hdtSMP64.dll
             x64/${{ matrix.version }}_${{ matrix.cuda }}_${{ matrix.avx }}/hdtSMP64.pdb
 
-  # Static analysis
+  # Static analysis (runs on Ubuntu where cppcheck is properly packaged)
   analyze:
     name: Static Analysis
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
 
       - name: Install cppcheck
-        run: choco install cppcheck -y
+        run: sudo apt-get update && sudo apt-get install -y cppcheck
 
       - name: Run cppcheck
         run: |
-          cppcheck --enable=warning,performance,portability --error-exitcode=0 `
-            --suppress=missingIncludeSystem `
-            --suppress=unknownMacro `
-            -I hdtSMP64 `
-            hdtSMP64/*.cpp hdtSMP64/hdtSkinnedMesh/*.cpp `
-            2>&1 | Tee-Object -FilePath cppcheck-results.txt
+          cppcheck --enable=warning,performance,portability --error-exitcode=0 \
+            --suppress=missingIncludeSystem \
+            --suppress=unknownMacro \
+            --suppress=noExplicitConstructor \
+            -I hdtSMP64 \
+            hdtSMP64/*.cpp hdtSMP64/hdtSkinnedMesh/*.cpp \
+            2>&1 | tee cppcheck-results.txt
 
       - name: Upload Analysis Results
         uses: actions/upload-artifact@v4
