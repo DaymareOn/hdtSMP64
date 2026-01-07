@@ -7,9 +7,10 @@
 #include "skse64/GameMenus.h"
 
 // Local wrapper for MenuManager::IsGamePaused()
-// Official SKSE doesn't expose this - numPauseGame is private at offset 0x160
+// Official SKSE 2.2.6 doesn't expose this - numPauseGame is private at offset 0x160
+// Verified against SKSE64 2.2.6 - GameMenus.h line 1075
 inline bool IsMenuManagerGamePaused(MenuManager* mm) {
-	// numPauseGame offset from SKSE GameMenus.h: 0x160
+	if (!mm) return false;
 	return *reinterpret_cast<UInt32*>(reinterpret_cast<uintptr_t>(mm) + 0x160) > 0;
 }
 
