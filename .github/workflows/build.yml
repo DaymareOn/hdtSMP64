@@ -87,7 +87,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: external/skse
-          key: skse-2.2.6-1.6.1170
+          key: skse-2.2.6-1.6.1170-flat
 
       - name: Download SKSE (if not cached)
         if: steps.cache-skse.outputs.cache-hit != 'true'
@@ -101,21 +101,25 @@ jobs:
           # Extract using 7z (available on windows-latest)
           7z x $skseZip -oexternal/skse-temp
 
-          # Move to final location (strip top-level folder)
+          # Flatten structure to match local dev setup:
+          # From: skse64_2_02_06/src/common/common/, skse64_2_02_06/src/skse64/
+          # To:   external/skse/common/, external/skse/skse64/
+          New-Item -ItemType Directory -Path external/skse -Force
           $extracted = Get-ChildItem -Path external/skse-temp -Directory | Select-Object -First 1
-          Move-Item -Path $extracted.FullName -Destination external/skse
+          Move-Item -Path "$($extracted.FullName)/src/common/common" -Destination "external/skse/common"
+          Move-Item -Path "$($extracted.FullName)/src/skse64" -Destination "external/skse/skse64"
+          Move-Item -Path "$($extracted.FullName)/src/skse64_common" -Destination "external/skse/skse64_common"
           Remove-Item -Path external/skse-temp -Recurse -Force
           Remove-Item -Path $skseZip
 
-          Write-Host "SKSE extracted to external/skse"
+          Write-Host "SKSE flattened to external/skse (matches local dev structure)"
           Get-ChildItem -Path external/skse | ForEach-Object { Write-Host "  $_" }
 
       - name: Verify SKSE
         run: |
           Write-Host "=== Checking SKSE contents ==="
-          # SKSE release has nested common/common/ structure
-          if (Test-Path "external/skse/src/common/common/IPrefix.h") {
-            Write-Host "IPrefix.h found at external/skse/src/common/common/IPrefix.h"
+          if (Test-Path "external/skse/common/IPrefix.h") {
+            Write-Host "IPrefix.h found at external/skse/common/IPrefix.h"
           } else {
             Write-Host "ERROR: IPrefix.h NOT found"
             Get-ChildItem -Path external/skse -Recurse -Filter "IPrefix.h" | ForEach-Object { Write-Host "  Found: $($_.FullName)" }
@@ -124,17 +128,15 @@ jobs:
 
       - name: Setup Dependencies
         run: |
-          # Create paths props for CI build
-          # SKSE release structure has nested common/common/, so:
-          # SKSE_ROOT = src/common (so $(SKSE_ROOT)/common/IPrefix.h works)
-          # SKSE_DIR = src (contains skse64/, skse64_common/)
+          # Create paths props for CI build (matches local dev structure)
+          # Structure: external/skse/common/, external/skse/skse64/
           $workspace = "${{ github.workspace }}".Replace('/', '\')
           @"
           <?xml version="1.0" encoding="utf-8"?>
           <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
             <PropertyGroup Label="hdtSMP64Paths">
-              <SKSE_ROOT>$workspace\external\skse\src\common</SKSE_ROOT>
-              <SKSE_DIR>$workspace\external\skse\src</SKSE_DIR>
+              <SKSE_ROOT>$workspace\external\skse</SKSE_ROOT>
+              <SKSE_DIR>$workspace\external\skse</SKSE_DIR>
               <DETOURS_DIR>$workspace\external\detours</DETOURS_DIR>
               <OUTPUT_DIR_PREFIX></OUTPUT_DIR_PREFIX>
             </PropertyGroup>
