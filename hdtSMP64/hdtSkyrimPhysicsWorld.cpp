@@ -1,4 +1,5 @@
 #include "hdtSkyrimPhysicsWorld.h"
+#include "hdtLog.h"
 #include <ppl.h>
 #include "Offsets.h"
 #include "PluginInterfaceImpl.h"
@@ -256,6 +257,8 @@ namespace hdt
 		std::lock_guard<decltype(m_lock)> l(m_lock);
 		auto s = dynamic_cast<SkyrimSystem*>(system);
 		if (!s) return;
+
+		HDT_LOG_DEBUG("Adding skinned mesh system: %s", s->m_skeleton ? s->m_skeleton->m_name : "unknown");
 
 		s->m_initialized = false;
 		SkinnedMeshWorld::addSkinnedMeshSystem(system);

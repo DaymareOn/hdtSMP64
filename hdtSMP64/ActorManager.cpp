@@ -3,6 +3,7 @@
 #include "ActorManager.h"
 #include "hdtSkyrimPhysicsWorld.h"
 #include "hdtDefaultBBP.h"
+#include "hdtLog.h"
 #include "skse64/GameRTTI.h"
 #include "skse64/NiRTTI.h"
 #include "skse64/NiSerialization.h"
@@ -148,6 +149,9 @@ namespace hdt
 
 		std::lock_guard<decltype(m_lock)> l(m_lock);
 		if (m_shutdown) return;
+
+		HDT_LOG_DEBUG("ArmorAttachEvent: skeleton=%p, hasAttached=%d, armorModel=%s",
+			e.skeleton, e.hasAttached, e.armorModel ? e.armorModel->m_name : "null");
 
 		fixArmorNameMaps();
 

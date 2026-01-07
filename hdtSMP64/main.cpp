@@ -535,6 +535,15 @@ namespace hdt
 			hdt::gLog.SetLogLevel(IDebugLog::LogLevel::kLevel_Message);
 			_MESSAGE("hdtSMP64 %lu", hdt::hdtSMP64Version);
 
+			// Initialize thread-safe logger
+			char logPath[MAX_PATH];
+			if (SUCCEEDED(SHGetFolderPathA(NULL, CSIDL_MYDOCUMENTS, NULL, SHGFP_TYPE_CURRENT, logPath)))
+			{
+				strcat_s(logPath, "\\My Games\\Skyrim Special Edition\\SKSE\\hdtSMP64_debug.log");
+				hdt::Logger::getInstance().init(logPath);
+				HDT_LOG_INFO("hdtSMP64 debug log initialized, version %lu", hdt::hdtSMP64Version);
+			}
+
 			if (!g_branchTrampoline.Create(1024 * 1))
 			{
 				_FATALERROR("Couldn't create branch trampoline. This is fatal. Skipping remainder of init process.");

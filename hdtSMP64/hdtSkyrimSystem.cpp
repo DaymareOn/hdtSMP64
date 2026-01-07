@@ -2,6 +2,7 @@
 #include "hdtSkinnedMesh/hdtSkinnedMeshShape.h"
 #include "../hdtSSEUtils/NetImmerseUtils.h"
 #include "../hdtSSEUtils/FrameworkUtils.h"
+#include "hdtLog.h"
 #include "Offsets.h"
 #include <skse64/GameStreams.h>
 #include "skse64/GameReferences.h"
@@ -41,6 +42,7 @@ namespace hdt
 		: m_skeleton(skeleton), m_oldRoot(nullptr)
 	{
 		m_oldRoot = m_skeleton;
+		HDT_LOG_INFO("Created SkyrimSystem for skeleton: %s", skeleton ? skeleton->m_name : "null");
 	}
 
 	static constexpr float PI = 3.1415926535897932384626433832795f;
