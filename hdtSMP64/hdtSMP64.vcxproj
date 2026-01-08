@@ -2382,7 +2382,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_5_97;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -2443,7 +2443,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_4_15;SKYRIMVR=CURRENTVERSION==V1_4_15;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -2504,7 +2504,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_5_97;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -2571,7 +2571,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_4_15;SKYRIMVR=CURRENTVERSION==V1_4_15;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -2638,7 +2638,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_5_97;CUDA;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -2701,7 +2701,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_4_15;SKYRIMVR=CURRENTVERSION==V1_4_15;CUDA;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -2764,7 +2764,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_5_97;CUDA;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -2835,7 +2835,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_4_15;SKYRIMVR=CURRENTVERSION==V1_4_15;CUDA;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -2904,7 +2904,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_640;CUDA;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -2967,7 +2967,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_1130;CUDA;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -3030,7 +3030,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_1170;CUDA;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -3093,7 +3093,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_1179;CUDA;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -3156,7 +3156,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_659;CUDA;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -3219,7 +3219,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_353;CUDA;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -3282,7 +3282,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_640;CUDA;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -3351,7 +3351,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_1130;CUDA;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -3420,7 +3420,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_659;CUDA;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -3489,7 +3489,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_353;CUDA;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -3558,7 +3558,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_5_97;CUDA;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -3621,7 +3621,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_4_15;SKYRIMVR=CURRENTVERSION==V1_4_15;CUDA;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -3684,7 +3684,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_5_97;CUDA;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -3753,7 +3753,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_4_15;SKYRIMVR=CURRENTVERSION==V1_4_15;CUDA;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -3822,7 +3822,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_640;CUDA;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -3889,7 +3889,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_1130;CUDA;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -3956,7 +3956,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_1170;CUDA;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -4023,7 +4023,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_1179;CUDA;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -4090,7 +4090,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_659;CUDA;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -4157,7 +4157,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_353;CUDA;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -4224,7 +4224,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_640;CUDA;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -4297,7 +4297,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_1130;CUDA;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -4370,7 +4370,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_659;CUDA;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -4443,7 +4443,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_353;CUDA;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -4516,7 +4516,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_5_97;CUDA;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -4579,7 +4579,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_4_15;SKYRIMVR=CURRENTVERSION==V1_4_15;CUDA;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -4642,7 +4642,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_5_97;CUDA;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -4711,7 +4711,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_4_15;SKYRIMVR=CURRENTVERSION==V1_4_15;CUDA;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -4780,7 +4780,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_640;CUDA;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -4843,7 +4843,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_1130;CUDA;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -4906,7 +4906,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_1170;CUDA;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -4969,7 +4969,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_1179;CUDA;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -5032,7 +5032,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_659;CUDA;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -5095,7 +5095,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_353;CUDA;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -5158,7 +5158,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_640;CUDA;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -5227,7 +5227,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_1130;CUDA;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -5296,7 +5296,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_659;CUDA;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -5365,7 +5365,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_353;CUDA;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -5434,7 +5434,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_5_97;CUDA;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -5497,7 +5497,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_4_15;SKYRIMVR=CURRENTVERSION==V1_4_15;CUDA;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -5560,7 +5560,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_5_97;CUDA;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -5629,7 +5629,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_4_15;SKYRIMVR=CURRENTVERSION==V1_4_15;CUDA;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -5698,7 +5698,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_640;CUDA;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -5761,7 +5761,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_1130;CUDA;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -5824,7 +5824,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_1170;CUDA;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -5887,7 +5887,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_1179;CUDA;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -5950,7 +5950,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_659;CUDA;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -6013,7 +6013,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_353;CUDA;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -6076,7 +6076,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_640;CUDA;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -6145,7 +6145,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_1130;CUDA;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -6214,7 +6214,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_659;CUDA;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -6283,7 +6283,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_353;CUDA;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -6352,7 +6352,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_640;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -6410,7 +6410,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_1130;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -6468,7 +6468,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_1170;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -6527,7 +6527,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_1179;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -6586,7 +6586,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_659;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -6644,7 +6644,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_353;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -6701,7 +6701,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_640;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -6765,7 +6765,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_1130;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -6829,7 +6829,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_659;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -6893,7 +6893,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_353;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -6957,7 +6957,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_5_97;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -7015,7 +7015,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_4_15;SKYRIMVR=CURRENTVERSION==V1_4_15;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -7073,7 +7073,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_5_97;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -7137,7 +7137,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_4_15;SKYRIMVR=CURRENTVERSION==V1_4_15;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -7201,7 +7201,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_640;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -7259,7 +7259,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_1130;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -7317,7 +7317,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_1170;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -7375,7 +7375,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_1179;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -7433,7 +7433,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_659;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -7491,7 +7491,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_353;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -7548,7 +7548,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_640;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -7612,7 +7612,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_1130;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -7676,7 +7676,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_659;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -7740,7 +7740,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_353;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -7804,7 +7804,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_5_97;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -7862,7 +7862,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_4_15;SKYRIMVR=CURRENTVERSION==V1_4_15;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -7920,7 +7920,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_5_97;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -7984,7 +7984,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_4_15;SKYRIMVR=CURRENTVERSION==V1_4_15;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -8048,7 +8048,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_640;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -8106,7 +8106,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_1130;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -8164,7 +8164,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_1170;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -8222,7 +8222,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_1179;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -8280,7 +8280,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_659;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -8338,7 +8338,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_353;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -8395,7 +8395,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_640;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -8459,7 +8459,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_1130;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -8523,7 +8523,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_659;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -8587,7 +8587,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_353;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -8651,7 +8651,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_5_97;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -8702,7 +8702,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_4_15;SKYRIMVR=CURRENTVERSION==V1_4_15;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -8753,7 +8753,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_5_97;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -8810,7 +8810,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_4_15;SKYRIMVR=CURRENTVERSION==V1_4_15;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -8867,7 +8867,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_640;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -8918,7 +8918,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_1130;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -8969,7 +8969,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_1170;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -9020,7 +9020,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_1179;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -9071,7 +9071,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_659;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -9122,7 +9122,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_353;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;NDEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -9172,7 +9172,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_640;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -9229,7 +9229,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_1130;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -9286,7 +9286,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_659;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -9343,7 +9343,7 @@
       <PreprocessorDefinitions>CURRENTVERSION=V1_6_353;BT_USE_SSE_IN_API;_SILENCE_AMP_DEPRECATION_WARNINGS;_DISABLE_EXTENDED_ALIGNED_STORAGE;_DEBUG;HDTSSEPHYSICS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles>common/IPrefix.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>hdtPrefix.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <AdditionalIncludeDirectories>$(DETOURS_DIR)\include;$(SolutionDir)hdtSMP64;$(SKSE_ROOT);$(SKSE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>

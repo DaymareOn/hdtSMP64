@@ -58,7 +58,7 @@ namespace hdt
 		if (body0->checkCollideWith(body1) || body1->checkCollideWith(body0))
 		{
 			auto rb0 = static_cast<SkinnedMeshBone*>(body0->getUserPointer());
-			auto rb1 = static_cast<SkinnedMeshBone*>(body0->getUserPointer());
+			auto rb1 = static_cast<SkinnedMeshBone*>(body1->getUserPointer());
 
 			return rb0->canCollideWith(rb1) && rb1->canCollideWith(rb0);
 		}

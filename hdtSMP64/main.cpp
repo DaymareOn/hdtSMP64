@@ -27,6 +27,7 @@
 
 #include "WeatherManager.h"
 #include "hdtLog.h"
+#include "BuildInfo.h"
 
 namespace hdt
 {
@@ -565,7 +566,10 @@ namespace hdt
 #ifdef ANNIVERSARY_EDITION
 			hdt::gLog.OpenRelative(CSIDL_MYDOCUMENTS, "\\My Games\\Skyrim Special Edition\\SKSE\\hdtSMP64.log");
 			hdt::gLog.SetLogLevel(IDebugLog::LogLevel::kLevel_Message);
-			_MESSAGE("hdtSMP64 %lu", hdt::hdtSMP64Version);
+			_MESSAGE("hdtSMP64 v%lu", hdt::hdtSMP64Version);
+			_MESSAGE("  Build: %s %s", hdt::BuildInfo::GetBuildDate(), hdt::BuildInfo::GetBuildTime());
+			_MESSAGE("  Target: %s | %s | %s", hdt::BuildInfo::GetGameVersionString(), hdt::BuildInfo::GetCudaStatus(), hdt::BuildInfo::GetAVXLevel());
+			_MESSAGE("  Compiler: %s (%s)", hdt::BuildInfo::GetCompilerInfo(), hdt::BuildInfo::GetBuildType());
 
 			// Initialize thread-safe logger
 			char logPath[MAX_PATH];
@@ -744,7 +748,10 @@ extern "C" {
 		);
 		hdt::gLog.SetLogLevel(IDebugLog::LogLevel::kLevel_Message);
 
-		_MESSAGE("hdtSMP64 %lu", hdt::hdtSMP64Version);
+		_MESSAGE("hdtSMP64 v%lu", hdt::hdtSMP64Version);
+		_MESSAGE("  Build: %s %s", hdt::BuildInfo::GetBuildDate(), hdt::BuildInfo::GetBuildTime());
+		_MESSAGE("  Target: %s | %s | %s", hdt::BuildInfo::GetGameVersionString(), hdt::BuildInfo::GetCudaStatus(), hdt::BuildInfo::GetAVXLevel());
+		_MESSAGE("  Compiler: %s (%s)", hdt::BuildInfo::GetCompilerInfo(), hdt::BuildInfo::GetBuildType());
 
 		if (skse->isEditor)
 		{

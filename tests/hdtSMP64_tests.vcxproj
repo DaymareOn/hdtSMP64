@@ -82,6 +82,8 @@
     <ClCompile Include="unit\test_config.cpp" />
     <ClCompile Include="unit\test_collision.cpp" />
     <ClCompile Include="unit\test_non_hookean.cpp" />
+    <ClCompile Include="unit\test_dispatcher.cpp" />
+    <ClCompile Include="unit\test_serialization.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\catch.hpp" />

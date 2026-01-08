@@ -1,5 +1,6 @@
 #include "hdtSkinnedMeshAlgorithm.h"
 #include "hdtCollider.h"
+#include <memory>
 
 #ifdef CUDA
 #include <numeric>
@@ -767,23 +768,22 @@ namespace hdt
 		MergeBuffer merge;
 		merge.alloc(body0->m_skinnedBones.size(), body1->m_skinnedBones.size());
 
-		auto collision = new CollisionResult[MaxCollisionCount];
+		auto collision = std::make_unique<CollisionResult[]>(MaxCollisionCount);
 		if (body0->m_shape->asPerTriangleShape() && body1->m_shape->asPerTriangleShape())
 		{
 			processCollision(body0->m_shape->asPerTriangleShape(), body1->m_shape->asPerVertexShape(), merge,
-				collision);
+				collision.get());
 			processCollision(body0->m_shape->asPerVertexShape(), body1->m_shape->asPerTriangleShape(), merge,
-				collision);
+				collision.get());
 		}
 		else if (body0->m_shape->asPerTriangleShape())
 			processCollision(body0->m_shape->asPerTriangleShape(), body1->m_shape->asPerVertexShape(), merge,
-				collision);
+				collision.get());
 		else if (body1->m_shape->asPerTriangleShape())
 			processCollision(body0->m_shape->asPerVertexShape(), body1->m_shape->asPerTriangleShape(), merge,
-				collision);
-		else processCollision(body0->m_shape->asPerVertexShape(), body1->m_shape->asPerVertexShape(), merge, collision);
+				collision.get());
+		else processCollision(body0->m_shape->asPerVertexShape(), body1->m_shape->asPerVertexShape(), merge, collision.get());
 
-		delete[] collision;
 		merge.apply(body0, body1, dispatcher);
 		merge.release();
 	}

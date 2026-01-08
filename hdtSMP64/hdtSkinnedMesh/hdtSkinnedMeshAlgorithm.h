@@ -91,7 +91,7 @@ namespace hdt
 				buffer = new CollisionMerge[mergeSize];
 			}
 
-			void release() { if (buffer) delete[] buffer; }
+			void release() { if (buffer) { delete[] buffer; buffer = nullptr; } }
 
 			CollisionMerge* get(int x, int y) { return &buffer[x * mergeStride + y]; }
 

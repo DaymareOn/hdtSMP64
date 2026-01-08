@@ -1,11 +1,15 @@
 #pragma once
 
-#include <fstream>
-#include <mutex>
+// Unified timestamped logging for hdtSMP64
+// Uses SKSE's gLog (writes to hdtSMP64.log) with timestamps
+
 #include <ctime>
-#include <iomanip>
-#include <sstream>
+#include <cstdio>
 #include <cstdarg>
+#include <mutex>
+
+// Forward declare gLog from SKSE
+extern IDebugLog gLog;
 
 namespace hdt
 {
@@ -26,28 +30,10 @@ namespace hdt
 			return instance;
 		}
 
-		void init(const char* filename)
+		// init() no longer needed - we use gLog which is already initialized
+		void init(const char* /*filename*/)
 		{
-			std::lock_guard<std::mutex> lock(m_mutex);
-			try
-			{
-				if (m_file.is_open())
-					m_file.close();
-				m_file.open(filename, std::ios::out | std::ios::trunc);
-				if (m_file.is_open())
-				{
-					// Write directly without calling log() to avoid lock recursion
-					auto now = std::time(nullptr);
-					auto tm = *std::localtime(&now);
-					m_file << std::put_time(&tm, "[%Y-%m-%d %H:%M:%S] ");
-					m_file << "[INFO]  hdtSMP64 Logger initialized" << std::endl;
-					m_file.flush();
-				}
-			}
-			catch (...)
-			{
-				// Silently fail - don't crash the game over logging
-			}
+			m_initialized = true;
 		}
 
 		void setLevel(LogLevel level) { m_level = level; }
@@ -60,34 +46,35 @@ namespace hdt
 
 			std::lock_guard<std::mutex> lock(m_mutex);
 
-			if (!m_file.is_open())
-				return;
-
 			try
 			{
-				// Timestamp
+				// Format timestamp
+				char timeBuf[24];
 				auto now = std::time(nullptr);
 				auto tm = *std::localtime(&now);
-				m_file << std::put_time(&tm, "[%Y-%m-%d %H:%M:%S] ");
+				std::strftime(timeBuf, sizeof(timeBuf), "[%H:%M:%S]", &tm);
 
-				// Level
+				// Level prefix
+				const char* levelStr = "";
 				switch (level)
 				{
-				case LogLevel::Debug:   m_file << "[DEBUG] "; break;
-				case LogLevel::Info:    m_file << "[INFO]  "; break;
-				case LogLevel::Warning: m_file << "[WARN]  "; break;
-				case LogLevel::Error:   m_file << "[ERROR] "; break;
+				case LogLevel::Debug:   levelStr = "[DEBUG]"; break;
+				case LogLevel::Info:    levelStr = "[INFO] "; break;
+				case LogLevel::Warning: levelStr = "[WARN] "; break;
+				case LogLevel::Error:   levelStr = "[ERROR]"; break;
 				}
 
-				// Message
-				char buffer[2048];
+				// Format message
+				char msgBuf[2048];
 				va_list args;
 				va_start(args, format);
-				vsnprintf(buffer, sizeof(buffer), format, args);
+				vsnprintf(msgBuf, sizeof(msgBuf), format, args);
 				va_end(args);
 
-				m_file << buffer << std::endl;
-				m_file.flush();
+				// Combine and send to gLog
+				char finalBuf[2200];
+				snprintf(finalBuf, sizeof(finalBuf), "%s %s %s", timeBuf, levelStr, msgBuf);
+				gLog.Message(finalBuf);
 			}
 			catch (...)
 			{
@@ -95,39 +82,47 @@ namespace hdt
 			}
 		}
 
-		void close()
-		{
-			std::lock_guard<std::mutex> lock(m_mutex);
-			try
-			{
-				if (m_file.is_open())
-				{
-					auto now = std::time(nullptr);
-					auto tm = *std::localtime(&now);
-					m_file << std::put_time(&tm, "[%Y-%m-%d %H:%M:%S] ");
-					m_file << "[INFO]  Logger shutting down" << std::endl;
-					m_file.close();
-				}
-			}
-			catch (...)
-			{
-				// Silently fail
-			}
-		}
+		void close() { /* gLog handles its own cleanup */ }
 
 	private:
-		Logger() : m_enabled(true), m_level(LogLevel::Info) {}
-		~Logger() { close(); }
+		Logger() : m_enabled(true), m_level(LogLevel::Info), m_initialized(false) {}
+		~Logger() = default;
 
-		std::ofstream m_file;
 		std::mutex m_mutex;
 		bool m_enabled;
+		bool m_initialized;
 		LogLevel m_level;
 	};
 
-	// Convenience macros
+	// Convenience macros - these now write to the main hdtSMP64.log with timestamps
 	#define HDT_LOG_DEBUG(fmt, ...) hdt::Logger::getInstance().log(hdt::LogLevel::Debug, fmt, ##__VA_ARGS__)
 	#define HDT_LOG_INFO(fmt, ...)  hdt::Logger::getInstance().log(hdt::LogLevel::Info, fmt, ##__VA_ARGS__)
 	#define HDT_LOG_WARN(fmt, ...)  hdt::Logger::getInstance().log(hdt::LogLevel::Warning, fmt, ##__VA_ARGS__)
 	#define HDT_LOG_ERROR(fmt, ...) hdt::Logger::getInstance().log(hdt::LogLevel::Error, fmt, ##__VA_ARGS__)
+
+	// Timestamped replacements for SKSE logging macros
+	// Use these instead of _MESSAGE, _WARNING, etc. for timestamped output
+	namespace logging
+	{
+		inline void TimestampedMessage(const char* fmt, ...)
+		{
+			char timeBuf[16];
+			auto now = std::time(nullptr);
+			auto tm = *std::localtime(&now);
+			std::strftime(timeBuf, sizeof(timeBuf), "[%H:%M:%S] ", &tm);
+
+			char msgBuf[4096];
+			va_list args;
+			va_start(args, fmt);
+			vsnprintf(msgBuf, sizeof(msgBuf), fmt, args);
+			va_end(args);
+
+			char finalBuf[4200];
+			snprintf(finalBuf, sizeof(finalBuf), "%s%s", timeBuf, msgBuf);
+			gLog.Message(finalBuf);
+		}
+	}
+
+	// Drop-in timestamped replacement for _MESSAGE
+	#define _TMESSAGE(fmt, ...) hdt::logging::TimestampedMessage(fmt, ##__VA_ARGS__)
 }

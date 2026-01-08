@@ -3,6 +3,7 @@
 #include <sstream>
 #include <vector>
 #include <iostream>
+#include <algorithm>
 #include <skse64/Serialization.h>
 
 namespace hdt {
@@ -70,7 +71,12 @@ namespace hdt {
 			g_SerializerList.push_back(this);
 		};
 
-		~Serializer() {};
+		~Serializer() {
+			auto it = std::find(g_SerializerList.begin(), g_SerializerList.end(), static_cast<SerializerBase*>(this));
+			if (it != g_SerializerList.end()) {
+				g_SerializerList.erase(it);
+			}
+		};
 
 		virtual _Stream_t Serialize() = 0;
 		virtual _Storage_t Deserialize(_Stream_t&) = 0;
@@ -100,6 +106,7 @@ namespace hdt {
 		char* data_block = new char[length];
 		intfc->ReadRecordData(data_block, length);
 		std::string s_data(data_block, length);
+		delete[] data_block;
 		//_MESSAGE("Reading Data: %s", s_data.c_str());
 		_Stream_t _stream; _stream << s_data;
 		this->Deserialize(_stream);

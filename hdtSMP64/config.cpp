@@ -60,7 +60,7 @@ namespace hdt
 					SkyrimPhysicsWorld::get()->m_distanceForMaxWind = btClamped(reader.readFloat(), 0.f, 10000.f);
 				else
 				{
-					_WARNING("Unknown config : ", reader.GetLocalName());
+					_WARNING("Unknown config : %s", reader.GetLocalName());
 					reader.skipCurrentElement();
 				}
 				break;
