@@ -9,34 +9,29 @@ namespace hdt
 	EventResult EventDebugLogger::ReceiveEvent(TESCellAttachDetachEvent* evn,
 	                                           EventDispatcher<TESCellAttachDetachEvent>* dispatcher)
 	{
-#ifdef _DEBUG
 		if (evn && evn->reference && evn->reference->formType == Character::kTypeID)
 		{
-			_DMESSAGE("received TESCellAttachDetachEvent(formID %08llX, name %s, attached=%s)", evn->reference->formID,
+			_DMESSAGE("Received TESCellAttachDetachEvent(formID %08llX, name %s, attached=%s).", evn->reference->formID,
 			          evn->reference->baseForm->GetFullName(), evn->attached ? "true" : "false");
 		}
-#endif // _DEBUG
 		return kEvent_Continue;
 	}
 
 	EventResult EventDebugLogger::ReceiveEvent(TESMoveAttachDetachEvent* evn,
 	                                           EventDispatcher<TESMoveAttachDetachEvent>* dispatcher)
 	{
-#ifdef _DEBUG
 		if (evn && evn->reference && evn->reference->formType == Character::kTypeID)
 		{
-			_DMESSAGE("received TESMoveAttachDetachEvent(formID %08llX, name %s, attached=%s)", evn->reference->formID,
+			_DMESSAGE("Received TESMoveAttachDetachEvent(formID %08llX, name %s, attached=%s).", evn->reference->formID,
 			          evn->reference->baseForm->GetFullName(), evn->attached ? "true" : "false");
 		}
-#endif // _DEBUG
 		return kEvent_Continue;
 	}
 
 	void EventDebugLogger::onEvent(const ArmorAttachEvent& e)
 	{
-#ifdef _DEBUG
 		_DMESSAGE(
-			"received ArmorAttachEvent(armorModel=%s (%016llX), skeleton=%s (%016llX), attachedNode=%s (%016llX), hasAttached=%s)",
+			"Received ArmorAttachEvent(armorModel=%s (%016llX), skeleton=%s (%016llX), attachedNode=%s (%016llX), hasAttached=%s).",
 			e.armorModel ? e.armorModel->m_name : "null",
 			(uintptr_t)e.armorModel,
 			e.skeleton ? e.skeleton->m_name : "null",
@@ -44,6 +39,5 @@ namespace hdt
 			e.attachedNode ? e.attachedNode->m_name : "null",
 			(uintptr_t)e.attachedNode,
 			static_cast<uintptr_t>(e.hasAttached) ? "true" : "false");
-#endif // _DEBUG
 	}
 }

@@ -17,8 +17,10 @@ namespace hdt
 		if (this->block_resetting)
 			return;
 
-		for (int i = 0; i < m_bones.size(); ++i)
-			m_bones[i]->readTransform(timeStep);
+		concurrency::parallel_for_each(m_bones.begin(), m_bones.end(),
+			[=](Ref<SkinnedMeshBone> bone) {
+				bone->readTransform(timeStep);
+			});
 
 		for (auto i : m_constraints)
 			i->scaleConstraint();

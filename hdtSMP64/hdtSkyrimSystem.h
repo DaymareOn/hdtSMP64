@@ -48,10 +48,7 @@ namespace hdt
 	{
 	public:
 		SkyrimSystemCreator();
-		Ref<SkyrimSystem> createSystem(NiNode* skeleton, NiAVObject* model, const DefaultBBP::PhysicsFile file,
-		                             std::unordered_map<IDStr, IDStr> renameMap);
-		Ref<SkyrimSystem> updateSystem(SkyrimSystem* old_system, NiNode* skeleton, NiAVObject* model, const DefaultBBP::PhysicsFile file,
-			std::unordered_map<IDStr, IDStr> renameMap);
+		Ref<SkyrimSystem> createOrUpdateSystem(NiNode* skeleton, NiAVObject* model, DefaultBBP::PhysicsFile *file, std::unordered_map<IDStr, IDStr> renameMap, SkyrimSystem* old_system);
 	protected:
 
 		using VertexOffsetMap = std::unordered_map<std::string, int>;
@@ -123,6 +120,28 @@ namespace hdt
 			btVector3 angularEquilibrium = btVector3(0, 0, 0);
 			btVector3 linearBounce = btVector3(0, 0, 0);
 			btVector3 angularBounce = btVector3(0, 0, 0);
+			bool enableLinearSprings = true;
+			bool enableAngularSprings = true;
+			bool linearStiffnessLimited = true;
+			bool angularStiffnessLimited = true;
+			bool springDampingLimited = true;
+			bool linearMotors = false;
+			bool angularMotors = false;
+			// TODO: Test if servo motors go to [0, 0, 0], or whatever equilibrium is.  Provide option to set server motor target.  Hard coded to equilibrium right now.
+			bool linearServoMotors = false;
+			bool angularServoMotors = false;
+			btVector3 linearNonHookeanDamping = btVector3(0, 0, 0);
+			btVector3 angularNonHookeanDamping = btVector3(0, 0, 0);
+			btVector3 linearNonHookeanStiffness = btVector3(0, 0, 0);
+			btVector3 angularNonHookeanStiffness = btVector3(0, 0, 0);
+			btVector3 linearTargetVelocity = btVector3(0, 0, 0);
+			btVector3 angularTargetVelocity = btVector3(0, 0, 0);
+			btVector3 linearMaxMotorForce = btVector3(0, 0, 0);
+			btVector3 angularMaxMotorForce = btVector3(0, 0, 0);
+			btScalar motorERP = 0.9f;
+			btScalar motorCFM = 0;
+			btScalar stopERP = 0.2f;
+			btScalar stopCFM = 0;
 		};
 
 		std::unordered_map<IDStr, GenericConstraintTemplate> m_genericConstraintTemplates;
@@ -153,7 +172,7 @@ namespace hdt
 		std::unordered_map<IDStr, ConeTwistConstraintTemplate> m_coneTwistConstraintTemplates;
 		std::unordered_map<IDStr, std::shared_ptr<btCollisionShape>> m_shapes;
 
-		std::pair< Ref<SkyrimBody>, VertexOffsetMap > generateMeshBody(const std::string name, const DefaultBBP::NameSet& names);
+		std::pair< Ref<SkyrimBody>, VertexOffsetMap > generateMeshBody(const std::string name, DefaultBBP::NameSet* names);
 
 		void readFrameLerp(btTransform& tr);
 		void readBoneTemplate(BoneTemplate& dest);
@@ -169,7 +188,7 @@ namespace hdt
 		SkyrimBone* SkyrimSystemCreator::createBoneFromNodeName(const IDStr& bodyName, const IDStr& templateName = "", const bool readTemplate = false, SkyrimSystem* old_system = nullptr);
 		void SkyrimSystemCreator::readOrUpdateBone(SkyrimSystem* old_system = nullptr);
 		Ref<SkyrimBody> readPerVertexShape(DefaultBBP::NameMap meshNameMap);
-		Ref<SkyrimBody> readPerTriangleShape(DefaultBBP::NameMap meshNameMap);
+		Ref<SkyrimBody> readPerTriangleShape(DefaultBBP::NameMap* meshNameMap);
 		Ref<Generic6DofConstraint> readGenericConstraint();
 		Ref<StiffSpringConstraint> readStiffSpringConstraint();
 		Ref<ConeTwistConstraint> readConeTwistConstraint();

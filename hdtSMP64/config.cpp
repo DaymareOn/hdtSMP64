@@ -81,6 +81,8 @@ namespace hdt
 					gLog.SetLogLevel(static_cast<IDebugLog::LogLevel>(reader.readInt()));
 				else if (reader.GetLocalName() == "enableNPCFaceParts")
 					ActorManager::instance()->m_skinNPCFaceParts = reader.readBool();
+				else if (reader.GetLocalName() == "disableSMPHairWhenWigEquipped")
+					ActorManager::instance()->m_disableSMPHairWhenWigEquipped = reader.readBool();
 				else if (reader.GetLocalName() == "clampRotations")
 					SkyrimPhysicsWorld::get()->m_clampRotations = reader.readBool();
 				else if (reader.GetLocalName() == "rotationSpeedLimit")
@@ -91,6 +93,8 @@ namespace hdt
 					SkyrimPhysicsWorld::get()->m_unclampedResetAngle = reader.readFloat();
 				else if (reader.GetLocalName() == "percentageOfFrameTime")
 					SkyrimPhysicsWorld::get()->m_percentageOfFrameTime = std::clamp(reader.readInt() * 10, 1, 1000);
+				else if (reader.GetLocalName() == "useRealTime")
+					SkyrimPhysicsWorld::get()->m_useRealTime = reader.readBool();
 #ifdef CUDA
 				else if (reader.GetLocalName() == "enableCuda")
 					CudaInterface::enableCuda = reader.readBool();
@@ -108,6 +112,8 @@ namespace hdt
 				}
 				else if (reader.GetLocalName() == "cudaDevice") {}
 #endif
+				else if (reader.GetLocalName() == "minCullingDistance")
+					ActorManager::instance()->m_minCullingDistance = reader.readFloat();
 				else if (reader.GetLocalName() == "maximumActiveSkeletons")
 				{
 					ActorManager::instance()->m_maxActiveSkeletons = reader.readInt();
@@ -117,7 +123,7 @@ namespace hdt
 					ActorManager::instance()->m_autoAdjustMaxSkeletons = reader.readBool();
 				}
 				else if (reader.GetLocalName() == "sampleSize")
-					ActorManager::instance()->m_sampleSize = std::max(reader.readInt(), 1);
+					SkyrimPhysicsWorld::get()->m_sampleSize = std::max(reader.readInt(), 1);
 				else if (reader.GetLocalName() == "disable1stPersonViewPhysics")
 					ActorManager::instance()->m_disable1stPersonViewPhysics = reader.readBool();
 				else

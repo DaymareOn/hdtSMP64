@@ -180,10 +180,9 @@ namespace hdt
 		return name;
 	}
 
-	Ref<SkyrimSystem> SkyrimSystemCreator::createSystem(NiNode* skeleton, NiAVObject* model, const DefaultBBP::PhysicsFile file,
-	                                               std::unordered_map<IDStr, IDStr> renameMap)
+	Ref<SkyrimSystem> SkyrimSystemCreator::createOrUpdateSystem(NiNode* skeleton, NiAVObject* model, DefaultBBP::PhysicsFile *file, std::unordered_map<IDStr, IDStr> renameMap, SkyrimSystem* old_system)
 	{
-		auto path = file.first;
+		auto path = file->first;
 		if (path.empty()) return nullptr;
 
 		auto loaded = readAllFile(path.c_str());
@@ -193,7 +192,8 @@ namespace hdt
 		m_skeleton = skeleton;
 		m_model = model;
 		m_filePath = path;
-		updateTransformUpDown(m_skeleton, true);
+		if (!old_system)
+			updateTransformUpDown(m_skeleton, true);
 
 		XMLReader reader((uint8_t*)loaded.data(), loaded.size());
 		m_reader = &reader;
@@ -201,164 +201,7 @@ namespace hdt
 		m_reader->nextStartElement();
 		if (m_reader->GetName() != "system") return nullptr;
 
-		auto meshNameMap = file.second;
-
-		m_mesh = new SkyrimSystem(skeleton);
-
-		// Store original locale
-		char saved_locale[32];
-		strcpy_s(saved_locale, std::setlocale(LC_NUMERIC, nullptr));
-
-		// Set locale to en_US
-		std::setlocale(LC_NUMERIC, "en_US");
-
-		try
-		{
-			while (m_reader->Inspect())
-			{
-				if (m_reader->GetInspected() == XMLReader::Inspected::StartTag)
-				{
-					auto name = m_reader->GetName();
-					if (name == "bone")
-					{
-						readOrUpdateBone();
-					}
-					else if (name == "bone-default")
-					{
-						auto clsname = m_reader->getAttribute("name", "");
-						auto extends = m_reader->getAttribute("extends", "");
-						auto defaultBoneInfo = getBoneTemplate(extends);
-						readBoneTemplate(defaultBoneInfo);
-						m_boneTemplates[clsname] = defaultBoneInfo;
-					}
-					else if (name == "per-vertex-shape")
-					{
-						auto shape = readPerVertexShape(meshNameMap);
-						if (shape && shape->m_vertices.size())
-						{
-							m_mesh->m_meshes.push_back(shape);
-							shape->m_mesh = m_mesh;
-						}
-					}
-					else if (name == "per-triangle-shape")
-					{
-						auto shape = readPerTriangleShape(meshNameMap);
-						if (shape && shape->m_vertices.size())
-						{
-							m_mesh->m_meshes.push_back(shape);
-							shape->m_mesh = m_mesh;
-						}
-					}
-					else if (name == "constraint-group")
-					{
-						auto constraint = readConstraintGroup();
-						if (constraint) m_mesh->m_constraintGroups.push_back(constraint);
-					}
-					else if (name == "generic-constraint")
-					{
-						auto constraint = readGenericConstraint();
-						if (constraint) m_mesh->m_constraints.push_back(constraint);
-					}
-					else if (name == "stiffspring-constraint")
-					{
-						auto constraint = readStiffSpringConstraint();
-						if (constraint) m_mesh->m_constraints.push_back(constraint);
-					}
-					else if (name == "conetwist-constraint")
-					{
-						auto constraint = readConeTwistConstraint();
-						if (constraint) m_mesh->m_constraints.push_back(constraint);
-					}
-					else if (name == "generic-constraint-default")
-					{
-						auto clsname = m_reader->getAttribute("name", "");
-						auto extends = m_reader->getAttribute("extends", "");
-						auto defaultGenericConstraintTemplate = getGenericConstraintTemplate(extends);
-						readGenericConstraintTemplate(defaultGenericConstraintTemplate);
-						m_genericConstraintTemplates[clsname] = defaultGenericConstraintTemplate;
-					}
-					else if (name == "stiffspring-constraint-default")
-					{
-						auto clsname = m_reader->getAttribute("name", "");
-						auto extends = m_reader->getAttribute("extends", "");
-						auto defaultStiffSpringConstraintTemplate = getStiffSpringConstraintTemplate(extends);
-						readStiffSpringConstraintTemplate(defaultStiffSpringConstraintTemplate);
-						m_stiffSpringConstraintTemplates[clsname] = defaultStiffSpringConstraintTemplate;
-					}
-					else if (name == "conetwist-constraint-default")
-					{
-						auto clsname = m_reader->getAttribute("name", "");
-						auto extends = m_reader->getAttribute("extends", "");
-						auto defaultConeTwistConstraintTemplate = getConeTwistConstraintTemplate(extends);
-						readConeTwistConstraintTemplate(defaultConeTwistConstraintTemplate);
-						m_coneTwistConstraintTemplates[clsname] = defaultConeTwistConstraintTemplate;
-					}
-					else if (name == "shape")
-					{
-						auto name = m_reader->getAttribute("name");
-						auto shape = readShape();
-						if (shape)
-						{
-							m_shapeRefs.push_back(shape);
-							m_shapes.insert(std::make_pair(name, shape));
-						}
-					}
-					else
-					{
-						Warning("unknown element - %s", name.c_str());
-						m_reader->skipCurrentElement();
-					}
-				}
-				else if (m_reader->GetInspected() == XMLReader::Inspected::EndTag)
-					break;
-			}
-		}
-		catch (const std::string& err)
-		{
-			Error("xml parse error - %s", err.c_str());
-			return nullptr;
-		}
-
-		// Restore original locale
-		std::setlocale(LC_NUMERIC, saved_locale);
-
-		if (m_reader->GetErrorCode() != Xml::ErrorCode::None)
-		{
-			Error("xml parse error - %s", m_reader->GetErrorMessage());
-			return nullptr;
-		}
-
-		m_mesh->m_skeleton = m_skeleton;
-		m_mesh->m_shapeRefs.swap(m_shapeRefs);
-		std::sort(m_mesh->m_bones.begin(), m_mesh->m_bones.end(), [](SkinnedMeshBone* a, SkinnedMeshBone* b)
-		{
-			return static_cast<SkyrimBone*>(a)->m_depth < static_cast<SkyrimBone*>(b)->m_depth;
-		});
-
-		return m_mesh->valid() ? m_mesh : nullptr;
-	}
-
-	Ref<SkyrimSystem> SkyrimSystemCreator::updateSystem(SkyrimSystem* old_system, NiNode* skeleton, NiAVObject* model, const DefaultBBP::PhysicsFile file,
-		std::unordered_map<IDStr, IDStr> renameMap)
-	{
-		auto path = file.first;
-		if (path.empty()) return nullptr;
-
-		auto loaded = readAllFile(path.c_str());
-		if (loaded.empty()) return nullptr;
-
-		m_renameMap = std::move(renameMap);
-		m_skeleton = skeleton;
-		m_model = model;
-		m_filePath = path;
-		//updateTransformUpDown(m_skeleton, true);
-		XMLReader reader((uint8_t*)loaded.data(), loaded.size());
-		m_reader = &reader;
-
-		m_reader->nextStartElement();
-		if (m_reader->GetName() != "system") return nullptr;
-
-		auto meshNameMap = file.second;
+		auto meshNameMap = file->second;
 
 		m_mesh = new SkyrimSystem(skeleton);
 
@@ -399,7 +242,7 @@ namespace hdt
 					}
 					else if (name == "per-triangle-shape")
 					{
-						auto shape = readPerTriangleShape(meshNameMap);
+						auto shape = readPerTriangleShape(&meshNameMap);
 						if (shape && shape->m_vertices.size())
 						{
 							m_mesh->m_meshes.push_back(shape);
@@ -909,7 +752,7 @@ namespace hdt
 		*((uint32_t*)out) = t1;
 	};
 
-	std::pair< Ref<SkyrimBody>, SkyrimSystemCreator::VertexOffsetMap > SkyrimSystemCreator::generateMeshBody(const std::string name, const DefaultBBP::NameSet& names)
+	std::pair< Ref<SkyrimBody>, SkyrimSystemCreator::VertexOffsetMap > SkyrimSystemCreator::generateMeshBody(const std::string name, DefaultBBP::NameSet* names)
 	{
 		Ref<SkyrimBody> body = new SkyrimBody;
 		body->m_name = name;
@@ -919,8 +762,10 @@ namespace hdt
 
 		VertexOffsetMap vertexOffsetMap;
 
-		for (auto meshName : names)
+		for (auto& meshName : *names)
 		{
+			// We wouldn't find the trishape here without the ActorManager::fixArmorNameMaps() fix when the related bug happens
+			// (for example when doing the smp reset).
 			auto* triShape = castBSTriShape(findObject(m_model, meshName.c_str()));
 			auto* dynamicShape = castBSDynamicTriShape(findObject(m_model, meshName.c_str()));
 			if (!triShape)
@@ -1026,7 +871,7 @@ namespace hdt
 		auto it = meshNameMap.find(name);
 		auto names = (it == meshNameMap.end()) ? DefaultBBP::NameSet({ name }) : it->second;
 
-		auto body = generateMeshBody(name, names).first;
+		auto body = generateMeshBody(name, &names).first;
 		if (!body) return nullptr;
 
 		auto shape = new PerVertexShape(body);
@@ -1115,13 +960,13 @@ namespace hdt
 		return body;
 	}
 
-	Ref<SkyrimBody> SkyrimSystemCreator::readPerTriangleShape(DefaultBBP::NameMap meshNameMap)
+	Ref<SkyrimBody> SkyrimSystemCreator::readPerTriangleShape(DefaultBBP::NameMap* meshNameMap)
 	{
 		auto name = m_reader->getAttribute("name");
-		auto it = meshNameMap.find(name);
-		auto names = (it == meshNameMap.end()) ? DefaultBBP::NameSet({ name }) : it->second;
+		auto it = meshNameMap->find(name);
+		auto names = (it == meshNameMap->end()) ? DefaultBBP::NameSet({ name }) : it->second;
 
-		auto bodyData = generateMeshBody(name, names);
+		auto bodyData = generateMeshBody(name, &names);
 		auto body = bodyData.first;
 		auto vertexOffsetMap = bodyData.second;
 		if (!body) return nullptr;
@@ -1286,6 +1131,52 @@ namespace hdt
 			{
 				auto name = m_reader->GetName();
 				if (parseFrameType(name, dest.frameType, dest.frame));
+				else if (name == "enableLinearSprings")
+					dest.enableLinearSprings = m_reader->readBool();
+				else if (name == "enableAngularSprings")
+					dest.enableAngularSprings = m_reader->readBool();
+				else if (name == "linearStiffnessLimited")
+					dest.linearStiffnessLimited = m_reader->readBool();
+				else if (name == "angularStiffnessLimited")
+					dest.angularStiffnessLimited = m_reader->readBool();
+
+				else if (name == "springDampingLimited")
+					dest.springDampingLimited = m_reader->readBool();
+				else if (name == "linearNonHookeanDamping")
+					dest.linearNonHookeanDamping = m_reader->readVector3();
+				else if (name == "angularNonHookeanDamping")
+					dest.angularNonHookeanDamping = m_reader->readVector3();
+				else if (name == "linearNonHookeanStiffness")
+					dest.linearNonHookeanStiffness = m_reader->readVector3();
+				else if (name == "angularNonHookeanStiffness")
+					dest.angularNonHookeanStiffness = m_reader->readVector3();
+
+				else if (name == "linearMotors")
+					dest.linearMotors = m_reader->readBool();
+				else if (name == "angularMotors")
+					dest.angularMotors = m_reader->readBool();
+				else if (name == "linearServoMotors")
+					dest.linearServoMotors = m_reader->readBool();
+				else if (name == "angularServoMotors")
+					dest.angularServoMotors = m_reader->readBool();
+				else if (name == "linearTargetVelocity")
+					dest.linearTargetVelocity = m_reader->readVector3();
+				else if (name == "angularTargetVelocity")
+					dest.angularTargetVelocity = m_reader->readVector3();
+				else if (name == "linearMaxMotorForce")
+					dest.linearMaxMotorForce = m_reader->readVector3();
+				else if (name == "angularMaxMotorForce")
+					dest.angularMaxMotorForce = m_reader->readVector3();
+
+				else if (name == "stopERP")
+					dest.stopERP = m_reader->readFloat();
+				else if (name == "stopCFM")
+					dest.stopCFM = m_reader->readFloat();
+				else if (name == "motorERP")
+					dest.motorERP = m_reader->readFloat();
+				else if (name == "motorCFM")
+					dest.motorCFM = m_reader->readFloat();
+
 				else if (name == "useLinearReferenceFrameA")
 					dest.useLinearReferenceFrameA = m_reader->readBool();
 				else if (name == "linearLowerLimit")
@@ -1471,12 +1362,38 @@ namespace hdt
 		constraint->setAngularUpperLimit(cinfo.angularUpperLimit);
 		for (int i = 0; i < 3; ++i)
 		{
-			constraint->setStiffness(i, cinfo.linearStiffness[i]);
-			constraint->setStiffness(i + 3, cinfo.angularStiffness[i]);
-			constraint->setDamping(i, cinfo.linearDamping[i]);
-			constraint->setDamping(i + 3, cinfo.angularDamping[i]);
+			constraint->setStiffness(i, cinfo.linearStiffness[i], cinfo.linearStiffnessLimited);
+			constraint->setStiffness(i + 3, cinfo.angularStiffness[i], cinfo.angularStiffnessLimited);
+			constraint->setDamping(i, cinfo.linearDamping[i], cinfo.springDampingLimited);
+			constraint->setDamping(i + 3, cinfo.angularDamping[i], cinfo.springDampingLimited);
+
 			constraint->setEquilibriumPoint(i, cinfo.linearEquilibrium[i]);
 			constraint->setEquilibriumPoint(i + 3, cinfo.angularEquilibrium[i]);
+
+			constraint->setNonHookeanDamping(i, cinfo.linearNonHookeanDamping[i]);
+			constraint->setNonHookeanDamping(i + 3, cinfo.angularNonHookeanDamping[i]);
+			constraint->setNonHookeanStiffness(i, cinfo.linearNonHookeanStiffness[i]);
+			constraint->setNonHookeanStiffness(i + 3, cinfo.angularNonHookeanStiffness[i]);
+
+			constraint->enableSpring(i, cinfo.enableLinearSprings);
+			constraint->enableSpring(i + 3, cinfo.enableAngularSprings);
+
+			constraint->enableMotor(i, cinfo.linearMotors);
+			constraint->enableMotor(i + 3, cinfo.angularMotors);
+			constraint->setServo(i, cinfo.linearServoMotors);
+			constraint->setServo(i + 3, cinfo.angularServoMotors);
+			// TODO: Test if servo motors go to [0, 0, 0], or whatever equilibrium is.  Provide option to set server motor target.  Hard coded to equilibrium right now.
+			constraint->setServoTarget(i, cinfo.linearEquilibrium[i]);
+			constraint->setServoTarget(i + 3, cinfo.angularEquilibrium[i]);
+			constraint->setTargetVelocity(i, cinfo.linearTargetVelocity[i]);
+			constraint->setTargetVelocity(i + 3, cinfo.angularTargetVelocity[i]);
+			constraint->setMaxMotorForce(i, cinfo.linearMaxMotorForce[i]);
+			constraint->setMaxMotorForce(i + 3, cinfo.angularMaxMotorForce[i]);
+
+			constraint->setParam(BT_CONSTRAINT_ERP, cinfo.motorERP, i);
+			constraint->setParam(BT_CONSTRAINT_CFM, cinfo.motorCFM, i);
+			constraint->setParam(BT_CONSTRAINT_STOP_ERP, cinfo.stopERP, i);
+			constraint->setParam(BT_CONSTRAINT_STOP_CFM, cinfo.stopCFM, i);
 		}
 		constraint->getTranslationalLimitMotor()->m_bounce = cinfo.linearBounce;
 		constraint->getRotationalLimitMotor(0)->m_bounce = cinfo.angularBounce[0];

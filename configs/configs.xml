@@ -24,6 +24,16 @@
     -->
     <enableNPCFaceParts>true</enableNPCFaceParts>
 
+    <!--
+      disableSMPHairWhenWigEquipped: (boolean) if enabled, when you have at the
+      same time smp hair and smp wig, now, only the wig is physically calculated.
+      More precisely, if you have an armor on the hair or longhair slot, no headpart
+      is physically calculated.
+      You very probably want this, except if you use a hidden helmet mod.
+      If no value is set, default is false.
+    -->
+    <disableSMPHairWhenWigEquipped>false</disableSMPHairWhenWigEquipped>
+
     <!-- ##################### CLAMP ROTATIONS ############################ -->
 
     <!--
@@ -58,6 +68,37 @@
     -->
     <unclampedResetAngle>130.0</unclampedResetAngle>
 
+    <!-- ######################### CLOCK ################################## -->
+
+    <!--
+      useRealTime: (boolean) when enabled, use the RealTime clock instead of
+      the WorldTime clock.
+      This is quite a conceptual change: the physics are calculated not
+      depending on what we think is the inner game clock, but depending on what we
+      think is the external real clock. Theoretically this should be a worse choice,
+      as we calculate physics for the game world with its own world clock. But the
+      preliminary tests show a better stability of the physics simulation when the
+      game time is strongly slowed, when the fps are high (for example 100+), and of
+      course with a combination of both. My hypothesis for this better physics
+      simulation is that the inner game clock has a larger error margin / a
+      larger deviation than the real world clock, and that this causes
+      artifacts in the physics simulation.
+      Players tests will indicate if this is a choice to keep.
+      If no value is set, default is false.
+    -->
+    <useRealTime>false</useRealTime>
+
+    <!-- ######################### CULLING ################################### -->
+
+    <!--
+      minCullingDistance: (float) the minimum distance from the camera under which
+      no skeleton is culled.
+      If no value is set, default is 500. It's useful if for example the skeleton
+      origin is very near, behind the camera, but some parts of the skeleton
+      are in front of the camera and need to be animated.
+    -->
+    <minCullingDistance>500</minCullingDistance>
+
     <!-- ################# MAX SKELETONS NUMBER ########################### -->
 
     <!--
@@ -84,22 +125,30 @@
     <maximumActiveSkeletons>20</maximumActiveSkeletons>
 
     <!--
-      percentageOfFrameTime: (int 1-100) percentage of the configured min-fps
-      period allocated to physics calculus.
+      percentageOfFrameTime: (int 1-100) [requires autoAdjustMaxSkeleton = true]
+      percentage of the configured min-fps period allocated to additional physics calculus.
+
+      Each frame, FSMP uses a certain time to calculate physics (T).
+      Each frame, the work done by the Skyrim executable can be split into 2 parts:
+        one that can be parallelized with the FSMP calculus (T1),
+        one that can't because it depend on it (T2).
+      If the FSMP calculus T is shorter than T1, then physics doesn't cost any fps.
+      If it is longer, the Skyrim executable must wait (T - T1) for the physics calculus to finish.
+
+      This setting allows you to choose how much fps you're willing to lose to increase
+      the number of skeletons with physics at the same time :)
+
+      FSMP being heavily parallelized, adding a 10th skeleton on top of 9
+      doesn't cost a lot, so you should do your tests with a reasonable number
+      of skeletons (10?), and set this setting depending on what performance
+      you want to have in a heavy context. Whiterun seems a good place.
+      Absolutely check what happens with the log at level 4 (verbose);
+      it depends A LOT on your personal setup.
+
       If your min-fps is 60 and your percentage is 30, then the allocated time
-      for physics calculus during a frame is 1/60s * 30% = 5ms.
-      Profiler shows 30% is reasonable, but this is a personal decision.
-      The question is: how much cpu time is available to you? If you're already
-      below 60 fps or if you have a 240Hz screen and want to maintain high fps,
-      you might want to limit the time allocated to physics calculus.
-      Setting higher than your actual percentage will result in poor
-      performance because the adjuster will assume you have more time than
-      available to calculate physics.
-      Setting lower may set maximumActiveSkeletons too low and leave cpu time
-      unused.
-      You can set the logs to debug to see how much time is used and how much
-      skeletons are calculated.
-      If no value is set, default is 30.
+      for additional physics calculus during a frame is 1/60s * 30% = 5ms.
+
+      If no value is set, default is 30, which is NOT optimized.
     -->
     <percentageOfFrameTime>30</percentageOfFrameTime>
 
