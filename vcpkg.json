@@ -1,0 +1,14 @@
+{
+  "name": "hdtsmp64",
+  "version": "1",
+  "dependencies": 
+  [
+    "directxtk",
+    "fmt",
+    "rapidcsv",
+    "detours", 
+    "spdlog", 
+	"bullet3",
+    "xbyak"
+  ]
+}
