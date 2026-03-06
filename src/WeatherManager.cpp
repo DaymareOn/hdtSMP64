@@ -117,11 +117,7 @@ void hdt::WeatherCheck()
 				continue;
 			}
 
-	#ifdef SKYRIMVR
-			RE::TESWorldSpace* worldSpace = cell->GetRuntimeData().unk120;
-	#else
 			RE::TESWorldSpace* worldSpace = cell->GetRuntimeData().worldSpace;
-	#endif
 			if (!worldSpace) // Interior cell
 			{
 				//LOG("In interior cell. Waiting for 5 seconds");
