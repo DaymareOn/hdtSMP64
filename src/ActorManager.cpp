@@ -1272,7 +1272,7 @@ namespace hdt
 				if (skeleton->GetUserData() && skeleton->GetUserData()->GetObjectReference())
 				{
 					auto skeletonNpc = skyrim_cast<RE::TESNPC*>(skeleton->GetUserData()->GetObjectReference());
-					if (npc)
+					if (skeletonNpc)
 					{
 						char filePath[MAX_PATH];
 						if (TESNPC_GetFaceGeomPath(skeletonNpc, filePath))

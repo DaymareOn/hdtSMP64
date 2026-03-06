@@ -150,6 +150,7 @@ namespace hdt
 				else if (reader.GetLocalName() == "useRealTime") 
 				{
 					SkyrimPhysicsWorld::get()->m_useRealTime = reader.readBool();
+				}
 #ifdef CUDA
 				else if (reader.GetLocalName() == "enableCuda")
 				{
@@ -164,7 +165,6 @@ namespace hdt
 					}
 				}
 #else
-				}
 				else if (reader.GetLocalName() == "enableCuda")
 				{
 					if (reader.readBool())

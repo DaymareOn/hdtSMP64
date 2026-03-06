@@ -1,6 +1,5 @@
 #include "Hooks.h"
 #include "Events.h"
-#include "Hooks.h"
 #include "ActorManager.h"
 #include "hdtSkyrimPhysicsWorld.h"
 #include "PluginInterfaceImpl.h"
@@ -600,7 +599,7 @@ extern "C" DLLEXPORT constinit auto SKSEPlugin_Version = []()
 
 extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* a_skse)
 {
-// #ifndef NDEBUG
+#ifndef NDEBUG
 	auto start = std::chrono::high_resolution_clock::now();
 
 	while (!IsDebuggerPresent()) 
@@ -613,7 +612,7 @@ extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* a_s
 			break;
 		}
 	}
-// #endif
+#endif
 
 	//
 	hdt::loadConfig();
