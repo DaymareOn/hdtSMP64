@@ -1,8 +1,8 @@
 #pragma once
 
-#include <BulletDynamics/Dynamics/btDiscreteDynamicsWorldMt.h>
-
 #include "hdtGroupConstraintSolver.h"
+#include <BulletDynamics/ConstraintSolver/btSequentialImpulseConstraintSolverMt.h>
+#include <BulletDynamics/Dynamics/btDiscreteDynamicsWorldMt.h>
 
 namespace hdt
 {
@@ -52,6 +52,6 @@ namespace hdt
 	private:
 		std::vector<SkinnedMeshBody*> _bodies;
 		std::vector<SkinnedMeshShape*> _shapes;
-		btConstraintSolverPoolMt* m_solverPool;
+		btSequentialImpulseConstraintSolverMt* m_solverMt;
 	};
 }

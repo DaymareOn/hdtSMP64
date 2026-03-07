@@ -10,7 +10,7 @@
 namespace hdt
 {
 	SkinnedMeshWorld::SkinnedMeshWorld() :
-		btDiscreteDynamicsWorldMt(nullptr, nullptr, new btConstraintSolverPoolMt(BT_MAX_THREAD_COUNT), nullptr, nullptr)
+		btDiscreteDynamicsWorldMt(nullptr, nullptr, nullptr, new btSequentialImpulseConstraintSolverMt(), nullptr)
 	{
 		btSetTaskScheduler(btGetPPLTaskScheduler());
 
@@ -18,15 +18,12 @@ namespace hdt
 
 		auto collisionConfiguration = new btDefaultCollisionConfiguration;
 		auto collisionDispatcher = new CollisionDispatcher(collisionConfiguration);
+
 		SkinnedMeshAlgorithm::registerAlgorithm(collisionDispatcher);
+
 		m_dispatcher1 = collisionDispatcher;
-
-		auto broadphase = new btDbvtBroadphase();
-		m_broadphasePairCache = broadphase;
-		m_solverPool = static_cast<btConstraintSolverPoolMt*>(m_constraintSolver);
-
-		//m_islandManager->~btSimulationIslandManager();
-		//new (m_islandManager) SimulationIslandManager();
+		m_broadphasePairCache = new btDbvtBroadphase();
+		m_solverMt = static_cast<btSequentialImpulseConstraintSolverMt*>(m_constraintSolverMt);
 	}
 
 	SkinnedMeshWorld::~SkinnedMeshWorld()
@@ -216,16 +213,16 @@ namespace hdt
 		if (!m_collisionObjects.size())
 			return;
 
-		m_solverPool->prepareSolve(getCollisionWorld()->getNumCollisionObjects(),
+		m_solverMt->prepareSolve(getCollisionWorld()->getNumCollisionObjects(),
 			getCollisionWorld()->getDispatcher()->getNumManifolds());
 
 		btPersistentManifold** manifold = m_dispatcher1->getInternalManifoldPointer();
 		int maxNumManifolds = m_dispatcher1->getNumManifolds();
-		m_solverPool->solveGroup(&m_collisionObjects[0], m_collisionObjects.size(), manifold, maxNumManifolds,
+		m_solverMt->solveGroup(&m_collisionObjects[0], m_collisionObjects.size(), manifold, maxNumManifolds,
 			&m_constraints[0], m_constraints.size(), solverInfo, m_debugDrawer,
 			m_dispatcher1);
 
-		m_solverPool->allSolved(solverInfo, m_debugDrawer);
+		m_solverMt->allSolved(solverInfo, m_debugDrawer);
 		static_cast<CollisionDispatcher*>(m_dispatcher1)->clearAllManifold();
 	}
 }
