@@ -468,8 +468,6 @@ set(SOURCE_FILES
 	"${SOURCE_DIR}/hdtSkinnedMesh/hdtFrameTimer.h"
 	"${SOURCE_DIR}/hdtSkinnedMesh/hdtGeneric6DofConstraint.cpp"
 	"${SOURCE_DIR}/hdtSkinnedMesh/hdtGeneric6DofConstraint.h"
-	"${SOURCE_DIR}/hdtSkinnedMesh/hdtGroupConstraintSolver.cpp"
-	"${SOURCE_DIR}/hdtSkinnedMesh/hdtGroupConstraintSolver.h"
 	"${SOURCE_DIR}/hdtSkinnedMesh/hdtSkinnedMeshAlgorithm.cpp"
 	"${SOURCE_DIR}/hdtSkinnedMesh/hdtSkinnedMeshAlgorithm.h"
 	"${SOURCE_DIR}/hdtSkinnedMesh/hdtSkinnedMeshBody.cpp"

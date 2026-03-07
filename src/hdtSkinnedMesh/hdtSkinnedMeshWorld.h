@@ -1,6 +1,7 @@
 #pragma once
 
-#include "hdtGroupConstraintSolver.h"
+#include "hdtSkinnedMeshSystem.h"
+
 #include <BulletDynamics/ConstraintSolver/btSequentialImpulseConstraintSolverMt.h>
 #include <BulletDynamics/Dynamics/btDiscreteDynamicsWorldMt.h>
 
