@@ -85,20 +85,4 @@ namespace hdt
 		bool collapseCollideL(ColliderTree* r);
 		bool collapseCollideR(ColliderTree* r);
 	};
-
-	/*
-	struct _CRT_ALIGN(16) ColliderTree
-	{
-
-		Aabb aabb;
-		vectorA16<Node> nodes;
-		U32 isKinematic;
-
-		void insertCollider(const std::vector<U32>& keys, const Collider& c);
-		void checkCollision(const ColliderTree& r, std::vector<std::pair<Node*, Node*>>& ret);
-		void clipCollider(const std::function<bool(const Collider&)>& func);
-		void updateKinematic(const std::function<bool(const Collider*)>& func);
-		void updateAabb(const std::function<void(Collider*)>& func);
-		void visitColliders(const std::function<void(Collider*)>& func);
-	};*/
 }

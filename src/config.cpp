@@ -24,11 +24,11 @@ namespace hdt
 				} 
 				else if (reader.GetLocalName() == "groupIterations") 
 				{
-					ConstraintGroup::MaxIterations = btClamped(reader.readInt(), 0, 4096);
+					//ConstraintGroup::MaxIterations = btClamped(reader.readInt(), 0, 4096); // Todo: Find alternative, this didn't actually do anything
 				} 
 				else if (reader.GetLocalName() == "groupEnableMLCP") 
 				{
-					ConstraintGroup::EnableMLCP = reader.readBool();
+					//ConstraintGroup::EnableMLCP = reader.readBool();  // Todo: Find alternative, this didn't actually do anything
 				} 
 				else if (reader.GetLocalName() == "erp") 
 				{
