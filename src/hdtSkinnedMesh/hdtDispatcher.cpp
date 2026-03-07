@@ -247,17 +247,21 @@ namespace hdt
 	}
 #else
 		std::vector<SkinnedMeshBody*> bodies;
-		std::vector<PerVertexShape*> vertex_shapes;
-		std::vector<PerTriangleShape*> triangle_shapes;
+		// SkinnedMeshBody:internalUpdate() already calls m_shape->internalUpdate() for both
+		// PerVertexShape and PerTriangleShape, so separate vertex/triangle shape update lists are
+		// unnecessary. The only shapes not covered are the m_verticesCollision companions
+		// that PerTriangleShape creates for triangle-vs-triangle collision pairs.
+		// Tldr: Triangle shapes ARE still updated because body->internalUpdate() handles them
+		std::vector<PerVertexShape*> extra_vertex_shapes;
+
 		bodies.reserve(size * 2);
-		vertex_shapes.reserve(size);
-		triangle_shapes.reserve(size);
+		extra_vertex_shapes.reserve(size);
 
 		for (int i = 0; i < size; ++i) {
 			auto& pair = pairs[i];
-
 			auto obj0 = static_cast<btCollisionObject*>(pair.m_pProxy0->m_clientObject);
 			auto obj1 = static_cast<btCollisionObject*>(pair.m_pProxy1->m_clientObject);
+
 			bool skinned0 = isSkinnedMesh(obj0);
 			bool skinned1 = isSkinnedMesh(obj1);
 
@@ -273,17 +277,9 @@ namespace hdt
 					auto a = shape0->m_shape->asPerTriangleShape();
 					auto b = shape1->m_shape->asPerTriangleShape();
 
-					if (a)
-						triangle_shapes.push_back(a);
-					else
-						vertex_shapes.push_back(shape0->m_shape->asPerVertexShape());
-					if (b)
-						triangle_shapes.push_back(b);
-					else
-						vertex_shapes.push_back(shape1->m_shape->asPerVertexShape());
 					if (a && b) {
-						vertex_shapes.push_back(a->m_verticesCollision.get());
-						vertex_shapes.push_back(b->m_verticesCollision.get());
+						extra_vertex_shapes.push_back(a->m_verticesCollision.get());
+						extra_vertex_shapes.push_back(b->m_verticesCollision.get());
 					}
 				}
 			} else
@@ -292,27 +288,28 @@ namespace hdt
 
 		std::sort(bodies.begin(), bodies.end());
 		bodies.erase(std::unique(bodies.begin(), bodies.end()), bodies.end());
-		std::sort(vertex_shapes.begin(), vertex_shapes.end());
-		vertex_shapes.erase(std::unique(vertex_shapes.begin(), vertex_shapes.end()), vertex_shapes.end());
-		std::sort(triangle_shapes.begin(), triangle_shapes.end());
-		triangle_shapes.erase(std::unique(triangle_shapes.begin(), triangle_shapes.end()), triangle_shapes.end());
+
+		std::sort(extra_vertex_shapes.begin(), extra_vertex_shapes.end());
+		extra_vertex_shapes.erase(std::unique(extra_vertex_shapes.begin(), extra_vertex_shapes.end()), extra_vertex_shapes.end());
 
 		concurrency::parallel_for_each(bodies.begin(), bodies.end(), [](SkinnedMeshBody* shape) {
-			shape->internalUpdate();
+			// Bodies with it false were already fully skinned and their shape AABBs are already correct
+			// NOTE: if updateBoundingSphereAabb() ever changes to stop calling internalUpdate() for !m_useBoundingSphere bodies, this optimization would break
+			if (shape->m_useBoundingSphere)
+				shape->internalUpdate();
 		});
-		concurrency::parallel_for_each(vertex_shapes.begin(), vertex_shapes.end(), [](PerVertexShape* shape) {
-			shape->internalUpdate();
-		});
-		concurrency::parallel_for_each(triangle_shapes.begin(), triangle_shapes.end(), [](PerTriangleShape* shape) {
-			shape->internalUpdate();
-		});
-		for (auto body : bodies) {
-			body->m_bulletShape.m_aabb = body->m_shape->m_tree.aabbAll;
+
+		if (!extra_vertex_shapes.empty()) {
+			concurrency::parallel_for_each(extra_vertex_shapes.begin(), extra_vertex_shapes.end(), [](PerVertexShape* shape) {
+				shape->internalUpdate();
+			});
 		}
+
 		concurrency::parallel_for_each(m_pairs.begin(), m_pairs.end(), [&, this](const std::pair<SkinnedMeshBody*, SkinnedMeshBody*>& i) {
 			if (i.first->m_shape->m_tree.collapseCollideL(&i.second->m_shape->m_tree))
 				SkinnedMeshAlgorithm::processCollision(i.first, i.second, this);
 		});
+
 		m_pairs.clear();
 	}
 #endif
