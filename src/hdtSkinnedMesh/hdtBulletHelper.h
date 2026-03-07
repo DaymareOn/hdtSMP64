@@ -384,17 +384,19 @@ namespace hdt
 	public:
 		void lock()
 		{
-			long count = 0;
-			while (m_flag.test_and_set(std::memory_order_acquire))
-			{
-				if (++count > 10000)
-				{
+			for (int spin = 0; m_flag.test_and_set(std::memory_order_acquire); ++spin) {
+				if (spin < 16)
+					_mm_pause();
+				else if (spin < 128) {
+					for (int i = 0; i < spin; ++i)
+						_mm_pause();
+				} else
 					SwitchToThread();
-				}
 			}
 		}
 
 		void unlock() { m_flag.clear(std::memory_order_release); }
+
 	protected:
 		std::atomic_flag m_flag = ATOMIC_FLAG_INIT;
 	};
