@@ -5,11 +5,22 @@
 #include "hdtSkyrimPhysicsWorld.h"
 #include "hdtSkyrimSystem.h"
 #include <random>
+#include <thread>
+#include <unordered_map>
+#include <unordered_set>
 
 namespace hdt
 {
 	SkinnedMeshWorld::SkinnedMeshWorld() :
-		btDiscreteDynamicsWorldMt(nullptr, nullptr, nullptr, new btSequentialImpulseConstraintSolverMt(), nullptr)
+		btDiscreteDynamicsWorldMt(
+			nullptr,
+			nullptr,
+			// Pool of regular sequential solvers one per hardware thread.
+			// Each island gets dispatched to a free solver on any thread.
+			new btConstraintSolverPoolMt(
+				std::max(1, static_cast<int>(std::thread::hardware_concurrency()))),
+			nullptr,  // no Mt solver, avoids btBatchedConstraints entirely (we are not designed for that yet)
+			nullptr)
 	{
 		btSetTaskScheduler(btGetPPLTaskScheduler());
 
@@ -22,7 +33,6 @@ namespace hdt
 
 		m_dispatcher1 = collisionDispatcher;
 		m_broadphasePairCache = new btDbvtBroadphase();
-		m_solverMt = static_cast<btSequentialImpulseConstraintSolverMt*>(m_constraintSolverMt);
 	}
 
 	SkinnedMeshWorld::~SkinnedMeshWorld()
@@ -32,17 +42,25 @@ namespace hdt
 				removeCollisionObject(system->m_meshes[i].get());
 
 			for (int i = 0; i < system->m_constraints.size(); ++i)
-				removeConstraint(system->m_constraints[i]->m_constraint);
+				if (system->m_constraints[i]->m_constraint)
+					removeConstraint(system->m_constraints[i]->m_constraint);
 
 			for (int i = 0; i < system->m_bones.size(); ++i)
 				removeRigidBody(&system->m_bones[i]->m_rig);
 
 			for (auto i : system->m_constraintGroups)
 				for (auto j : i->m_constraints)
-					removeConstraint(j->m_constraint);
+					if (j->m_constraint)
+						removeConstraint(j->m_constraint);
 		}
 
 		m_systems.clear();
+
+		// Just a note, this was created by us and the base constructor wont delete it.
+		// This is just a hacky workaround that also avoids a dangling pointer..
+		auto solver = m_constraintSolver;
+		m_constraintSolver = nullptr;
+		delete solver;
 	}
 
 	void SkinnedMeshWorld::addSkinnedMeshSystem(SkinnedMeshSystem* system)
@@ -62,17 +80,66 @@ namespace hdt
 			addRigidBody(&system->m_bones[i]->m_rig, 0, 0);
 		}
 
+		// Safety: validate constraints before adding.
+		// This shouldn't be needed, but exists just in case.
+		// Was added due to crashing with the batch solver, but didn't fix that either. 
+		// Exists purely as a means of debugging for now, but should probably be removed on official release
+		auto isBodyInWorld = [this](const btRigidBody& body) -> bool {
+			for (int k = 0; k < m_collisionObjects.size(); ++k) {
+				if (m_collisionObjects[k] == &body)
+					return true;
+			}
+			return false;
+		};
+
+		int skippedConstraintCount = 0;
+
+		auto addValidatedConstraint = [&](btTypedConstraint* constraint) {
+			if (!constraint)
+				return;
+			if (!isBodyInWorld(constraint->getRigidBodyA()) ||
+				!isBodyInWorld(constraint->getRigidBodyB())) {
+				skippedConstraintCount++;
+				return;
+			}
+			addConstraint(constraint, true);
+		};
+
 		for (auto i : system->m_constraintGroups)
 			for (auto j : i->m_constraints)
-				addConstraint(j->m_constraint, true);
+				addValidatedConstraint(j->m_constraint);
 
 		for (int i = 0; i < system->m_constraints.size(); ++i)
-			addConstraint(system->m_constraints[i]->m_constraint, true);
+			addValidatedConstraint(system->m_constraints[i]->m_constraint);
+
+		if (skippedConstraintCount > 0) {
+			logger::warn("[MeshWorld] Skipped {} constraints with missing bodies (bones without collision shapes?)",
+				skippedConstraintCount);
+		}
 
 		// -10 allows RESET_PHYSICS down the calls. But equality with a float?...
 		system->readTransform(RESET_PHYSICS);
 
 		system->m_world = this;
+
+		// Diagnostics, TODO: Remove this or put it under a compile rule
+		int totalConstraints = 0;
+		int skippedConstraints = 0;
+		for (auto i : system->m_constraintGroups)
+			for (auto j : i->m_constraints)
+				totalConstraints++;
+		totalConstraints += static_cast<int>(system->m_constraints.size());
+
+		int worldConstraints = static_cast<int>(m_constraints.size());
+
+		logger::info(
+			"[MeshWorld] Added system: bones={}, meshes={}, total_constraints_attempted={}, "
+			"world_constraints_after={}, collision_objects={}",
+			system->m_bones.size(),
+			system->m_meshes.size(),
+			totalConstraints,
+			worldConstraints,
+			m_collisionObjects.size());
 	}
 
 	void SkinnedMeshWorld::removeSkinnedMeshSystem(SkinnedMeshSystem* system)
@@ -83,12 +150,14 @@ namespace hdt
 
 		for (auto i : system->m_constraintGroups)
 			for (auto j : i->m_constraints)
-				removeConstraint(j->m_constraint);
+				if (j->m_constraint)
+					removeConstraint(j->m_constraint);
 
 		for (int i = 0; i < system->m_meshes.size(); ++i)
 			removeCollisionObject(system->m_meshes[i].get());
 		for (int i = 0; i < system->m_constraints.size(); ++i)
-			removeConstraint(system->m_constraints[i]->m_constraint);
+			if (system->m_constraints[i]->m_constraint)
+				removeConstraint(system->m_constraints[i]->m_constraint);
 		for (int i = 0; i < system->m_bones.size(); ++i)
 			removeRigidBody(&system->m_bones[i]->m_rig);
 
@@ -121,10 +190,26 @@ namespace hdt
 		return 0;
 	}
 
+	// Parallelize internalUpdate
+	// Todo: Verify this is even safe lol (mainly internalUpdate)
 	void SkinnedMeshWorld::performDiscreteCollisionDetection()
 	{
-		for (int i = 0; i < m_systems.size(); ++i)
-			m_systems[i]->internalUpdate();
+		if (m_systems.size() > 0) {
+			struct SystemUpdater : public btIParallelForBody
+			{
+				RE::BSTSmartPointer<SkinnedMeshSystem>* systems;
+
+				void forLoop(int iBegin, int iEnd) const BT_OVERRIDE
+				{
+					for (int i = iBegin; i < iEnd; ++i)
+						systems[i]->internalUpdate();
+				}
+			};
+
+			SystemUpdater updater;
+			updater.systems = m_systems.data();
+			btParallelFor(0, static_cast<int>(m_systems.size()), 1, updater);
+		}
 
 		btDiscreteDynamicsWorldMt::performDiscreteCollisionDetection();
 	}
@@ -147,30 +232,46 @@ namespace hdt
 	{
 		for (auto& i : m_systems) {
 			auto system = static_cast<SkyrimSystem*>(i.get());
-			if (btFuzzyZero(system->m_windFactor))  // skip any systems that aren't affected by wind
+			if (btFuzzyZero(system->m_windFactor))
 				continue;
 			for (auto& j : i->m_bones) {
 				auto body = &j->m_rig;
-				if (!body->isStaticOrKinematicObject() && (rand() % 5))  // apply randomly 80% of the time to desync wind across npcs
-				{
+				if (!body->isStaticOrKinematicObject() && (rand() % 5)) {
 					body->applyCentralForce(m_windSpeed * j->m_windFactor * system->m_windFactor);
 				}
 			}
 		}
 	}
 
+	// Perf test: Parallelize unconstrained motion prediction
+	// Todo: Uhh profile and see if this is just adding latency/overhead
 	void SkinnedMeshWorld::predictUnconstraintMotion(btScalar timeStep)
 	{
-		for (int i = 0; i < m_nonStaticRigidBodies.size(); i++) {
-			btRigidBody* body = m_nonStaticRigidBodies[i];
-			if (!body->isStaticOrKinematicObject()) {
-				// not realistic, just an approximate
-				body->applyDamping(timeStep);
-				body->predictIntegratedTransform(timeStep, body->getInterpolationWorldTransform());
-			} else {
-				body->predictIntegratedTransform(timeStep, body->getInterpolationWorldTransform());
+		BT_PROFILE("predictUnconstraintMotion");
+		if (m_nonStaticRigidBodies.size() == 0)
+			return;
+
+		struct Updater : public btIParallelForBody
+		{
+			btScalar timeStep;
+			btRigidBody** rigidBodies;
+
+			void forLoop(int iBegin, int iEnd) const BT_OVERRIDE
+			{
+				for (int i = iBegin; i < iEnd; ++i) {
+					btRigidBody* body = rigidBodies[i];
+					if (!body->isStaticOrKinematicObject()) {
+						body->applyDamping(timeStep);
+					}
+					body->predictIntegratedTransform(timeStep, body->getInterpolationWorldTransform());
+				}
 			}
-		}
+		};
+
+		Updater update;
+		update.timeStep = timeStep;
+		update.rigidBodies = &m_nonStaticRigidBodies[0];
+		btParallelFor(0, m_nonStaticRigidBodies.size(), 50, update);
 	}
 
 	void SkinnedMeshWorld::integrateTransforms(btScalar timeStep)
@@ -206,22 +307,85 @@ namespace hdt
 		btDiscreteDynamicsWorldMt::integrateTransforms(timeStep);
 	}
 
+	void SkinnedMeshWorld::logIslandDiagnostics()
+	{
+		static int frameCounter = 0;
+		static constexpr int LOG_INTERVAL = 300;
+		frameCounter++;
+		if (frameCounter % LOG_INTERVAL != 0)
+			return;
+
+		auto* im = getSimulationIslandManager();
+		if (!im)
+			return;
+
+		auto& unionFind = im->getUnionFind();
+		int numElements = unionFind.getNumElements();
+
+		// Count distinct island roots
+		std::unordered_set<int> islandIds;
+		int sleepingBodies = 0;
+		int activeBodies = 0;
+
+		for (int i = 0; i < m_collisionObjects.size(); ++i) {
+			auto* obj = m_collisionObjects[i];
+			int tag = obj->getIslandTag();
+			if (tag >= 0) {
+				islandIds.insert(unionFind.find(tag));
+				if (obj->isActive())
+					activeBodies++;
+				else
+					sleepingBodies++;
+			}
+		}
+
+		int numManifolds = m_dispatcher1 ? m_dispatcher1->getNumManifolds() : 0;
+		int numConstraints = static_cast<int>(m_constraints.size());
+		int numSystems = static_cast<int>(m_systems.size());
+
+		// Count bodies per island for distribution info
+		std::unordered_map<int, int> bodiesPerIsland;
+		for (int i = 0; i < m_collisionObjects.size(); ++i) {
+			int tag = m_collisionObjects[i]->getIslandTag();
+			if (tag >= 0)
+				bodiesPerIsland[unionFind.find(tag)]++;
+		}
+
+		int largestIsland = 0;
+		int smallestIsland = INT_MAX;
+		for (auto& [id, count] : bodiesPerIsland) {
+			largestIsland = std::max(largestIsland, count);
+			smallestIsland = std::min(smallestIsland, count);
+		}
+		if (bodiesPerIsland.empty())
+			smallestIsland = 0;
+
+		logger::info("[MeshWorld Diagnostics] Frame {}", frameCounter);
+		logger::info("  Systems: {}", numSystems);
+		logger::info("  Collision objects: {} (active: {}, sleeping: {})",
+			m_collisionObjects.size(), activeBodies, sleepingBodies);
+		logger::info("  Non-static rigid bodies: {}", m_nonStaticRigidBodies.size());
+		logger::info("  Constraints: {}", numConstraints);
+		logger::info("  Contact manifolds: {}", numManifolds);
+		logger::info("  Simulation islands: {}", islandIds.size());
+		logger::info("  Island sizes: smallest={}, largest={}", smallestIsland, largestIsland);
+	}
+
+	// Island-based constraint solving...
+	// btDiscreteDynamicsWorldMt::solveConstraints decomposes the world into independent
+	// simulation islands and dispatches each to a solver from the pool on separate threads.
 	void SkinnedMeshWorld::solveConstraints(btContactSolverInfo& solverInfo)
 	{
 		BT_PROFILE("solveConstraints");
 		if (!m_collisionObjects.size())
 			return;
 
-		m_solverMt->prepareSolve(getCollisionWorld()->getNumCollisionObjects(),
-			getCollisionWorld()->getDispatcher()->getNumManifolds());
+		// Diagnostics — logs island count periodically to verify parallel dispatch
+		logIslandDiagnostics();
 
-		btPersistentManifold** manifold = m_dispatcher1->getInternalManifoldPointer();
-		int maxNumManifolds = m_dispatcher1->getNumManifolds();
-		m_solverMt->solveGroup(&m_collisionObjects[0], m_collisionObjects.size(), manifold, maxNumManifolds,
-			&m_constraints[0], m_constraints.size(), solverInfo, m_debugDrawer,
-			m_dispatcher1);
+		btDiscreteDynamicsWorldMt::solveConstraints(solverInfo);
 
-		m_solverMt->allSolved(solverInfo, m_debugDrawer);
+		// the HDT manifolds are still recreated every frame, clear to prevent stale data.
 		static_cast<CollisionDispatcher*>(m_dispatcher1)->clearAllManifold();
 	}
 }

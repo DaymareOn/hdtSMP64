@@ -2,7 +2,6 @@
 
 #include "hdtSkinnedMeshSystem.h"
 
-#include <BulletDynamics/ConstraintSolver/btSequentialImpulseConstraintSolverMt.h>
 #include <BulletDynamics/Dynamics/btDiscreteDynamicsWorldMt.h>
 
 namespace hdt
@@ -45,6 +44,7 @@ namespace hdt
 		void integrateTransforms(btScalar timeStep) override;
 		void performDiscreteCollisionDetection() override;
 		void solveConstraints(btContactSolverInfo& solverInfo) override;
+		void logIslandDiagnostics();
 
 		std::vector<RE::BSTSmartPointer<SkinnedMeshSystem>> m_systems;
 
@@ -53,6 +53,5 @@ namespace hdt
 	private:
 		std::vector<SkinnedMeshBody*> _bodies;
 		std::vector<SkinnedMeshShape*> _shapes;
-		btSequentialImpulseConstraintSolverMt* m_solverMt;
 	};
 }
