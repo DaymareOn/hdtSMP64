@@ -8,7 +8,8 @@ namespace hdt
 	{
 		Aabb() { invalidate(); }
 
-		Aabb(__m128 mmin, __m128 mmax) : m_min(mmin), m_max(mmax)
+		Aabb(__m128 mmin, __m128 mmax) :
+			m_min(mmin), m_max(mmax)
 		{
 		}
 
@@ -30,8 +31,8 @@ namespace hdt
 
 		bool collideWith(const btVector3& rhs) const
 		{
-			auto flag0 = _mm_cmplt_ps(m_min, rhs.get128());
-			auto flag1 = _mm_cmplt_ps(rhs.get128(), m_max);
+			auto flag0 = _mm_cmple_ps(m_min, rhs.get128());
+			auto flag1 = _mm_cmple_ps(rhs.get128(), m_max);
 			auto flag = _mm_movemask_ps(_mm_and_ps(flag0, flag1));
 			return (flag & 0x7) == 7;
 		}
@@ -52,7 +53,11 @@ namespace hdt
 
 		bool collideWithSphere(const btVector3& p, float radius) const
 		{
-			return extended(radius).collideWith(p);
+			__m128 clamped = _mm_max_ps(m_min, _mm_min_ps(p.get128(), m_max));
+			__m128 diff = _mm_sub_ps(p.get128(), clamped);
+			__m128 dist2 = _mm_dp_ps(diff, diff, 0x71);
+			__m128 r2 = _mm_set_ss(radius * radius);
+			return _mm_comile_ss(dist2, r2);
 		}
 
 		void invalidate()
@@ -92,8 +97,8 @@ namespace hdt
 		{
 		}
 
-		BoundingSphere(const btVector3& center, float radius)
-			: m_centerRadius(center)
+		BoundingSphere(const btVector3& center, float radius) :
+			m_centerRadius(center)
 		{
 			m_centerRadius[3] = radius;
 		}
