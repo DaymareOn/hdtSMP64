@@ -161,23 +161,4 @@ namespace hdt
 
 		return res.depth < -FLT_EPSILON;
 	}
-
-	[[maybe_unused]] static bool linePlaneIntersection(btVector3& contact, const btVector3& p0, const btVector3& p1, const btVector3& normal, const btVector3& coord, float radius)
-	{
-		float d = normal.dot(coord);
-		auto dir = p1 - p0;
-		if (normal.dot(dir) < FLT_EPSILON)
-			return false;  // No intersection, the line is parallel to the plane
-
-		// Compute the X value for the directed line ray intersecting the plane
-		float e = radius / dir.length();
-		float x = (d - normal.dot(p0)) / normal.dot(dir);
-		if (x <= 0.f || x >= 1.f + e)
-			return false;
-
-		x = btClamped(x - e, 0.f, 1.f);
-		// output contact point
-		contact = p0 + dir * x;
-		return true;
-	}
 }
