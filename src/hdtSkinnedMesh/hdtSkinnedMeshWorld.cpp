@@ -82,7 +82,7 @@ namespace hdt
 
 		// Safety: validate constraints before adding.
 		// This shouldn't be needed, but exists just in case.
-		// Was added due to crashing with the batch solver, but didn't fix that either. 
+		// Was added due to crashing with the batch solver, but didn't fix that either.
 		// Exists purely as a means of debugging for now, but should probably be removed on official release
 		auto isBodyInWorld = [this](const btRigidBody& body) -> bool {
 			for (int k = 0; k < m_collisionObjects.size(); ++k) {
@@ -190,26 +190,10 @@ namespace hdt
 		return 0;
 	}
 
-	// Parallelize internalUpdate
-	// Todo: Verify this is even safe lol (mainly internalUpdate)
 	void SkinnedMeshWorld::performDiscreteCollisionDetection()
 	{
-		if (m_systems.size() > 0) {
-			struct SystemUpdater : public btIParallelForBody
-			{
-				RE::BSTSmartPointer<SkinnedMeshSystem>* systems;
-
-				void forLoop(int iBegin, int iEnd) const BT_OVERRIDE
-				{
-					for (int i = iBegin; i < iEnd; ++i)
-						systems[i]->internalUpdate();
-				}
-			};
-
-			SystemUpdater updater;
-			updater.systems = m_systems.data();
-			btParallelFor(0, static_cast<int>(m_systems.size()), 1, updater);
-		}
+		for (auto& system : m_systems)
+			system->internalUpdate();
 
 		btDiscreteDynamicsWorldMt::performDiscreteCollisionDetection();
 	}
