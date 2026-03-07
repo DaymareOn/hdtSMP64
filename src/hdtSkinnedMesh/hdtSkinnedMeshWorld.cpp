@@ -1,7 +1,6 @@
 #include "hdtSkinnedMeshWorld.h"
 #include "hdtBoneScaleConstraint.h"
 #include "hdtDispatcher.h"
-#include "hdtSimulationIslandManager.h"
 #include "hdtSkinnedMeshAlgorithm.h"
 #include "hdtSkyrimPhysicsWorld.h"
 #include "hdtSkyrimSystem.h"
