@@ -195,14 +195,14 @@ namespace Hooks
 				Xbyak::Label ret;
 
 				//
-				if (REL::Module::IsSE())
+				if (!REL::Module::IsAE())  // SE and VR have identical function structure; ESI is safe
 				{
 					mov(esi, ptr[rax + 0x58]);
 					cmp(esi, 9);
 					jl(ret);
 					mov(esi, 8);
 				}
-				else
+				else  // AE
 				{
 					mov(ebp, ptr[rax + 0x58]);
 					cmp(ebp, 9);
