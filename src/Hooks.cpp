@@ -198,20 +198,15 @@ namespace Hooks
 			{
 				Xbyak::Label ret;
 
-				if (REL::Module::IsSE())
-				{
-					mov(esi, ptr[rax + 0x58]);
-					cmp(esi, 9);
-					jl(ret);
-					mov(esi, 8);
-				}
-				else
-				{
-					mov(ebp, ptr[rax + 0x58]);
-					cmp(ebp, 9);
-					jl(ret);
-					mov(ebp, 8);
-				}
+				auto clamp_bone_count = [&](Xbyak::Reg32 reg) {
+					mov(reg, ptr[rax + 0x58]);  // skinData->boneCount
+					cmp(reg, 8);                // compare with limit
+					jle(ret);                   // jump if <= 8 (keep value)
+					mov(reg, 8);                // clamp to 8 if > 8
+				};
+
+				Xbyak::Reg32 boneReg = !REL::Module::IsAE() ? esi : ebp;
+				clamp_bone_count(boneReg);
 
 				//
 				L(ret);
