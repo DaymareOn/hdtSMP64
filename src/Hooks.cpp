@@ -188,13 +188,16 @@ namespace Hooks
 
 	void BSFaceGenNiNodeHooks::ApplyBoneLimitFix()
 	{
-		struct BoneLimitFix : Xbyak::CodeGenerator
+		REL::Relocation<uintptr_t> GeometrySkinningBoneFix { REL::VariantID(24330, 24836, 0x37ADD0), REL::VariantOffset(0x58, 0x75, 0x58) };
+
+		struct BoneLimitFix : 
+			public Xbyak::CodeGenerator
 		{
-			BoneLimitFix(uintptr_t a_returnAddr) : CodeGenerator()
+			BoneLimitFix(uintptr_t a_returnAddr) : 
+				Xbyak::CodeGenerator()
 			{
 				Xbyak::Label ret;
 
-				//
 				if (REL::Module::IsSE())
 				{
 					mov(esi, ptr[rax + 0x58]);
@@ -218,7 +221,7 @@ namespace Hooks
 		};
 
 		//
-		BoneLimitFix code(GeometrySkinningBoneFix.address() + 5);
+		BoneLimitFix code(GeometrySkinningBoneFix.address() + 7);
 
 		//
 		auto& localTrampoline = SKSE::GetTrampoline();
