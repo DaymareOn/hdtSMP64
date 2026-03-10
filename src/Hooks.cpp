@@ -379,6 +379,21 @@ namespace Hooks
 		return ret;
 	}
 
+	void BSFaceGenNiNodeHooks::SetBoneName_Hook(RE::BSFaceGenModelExtraData* a_fmd, std::uint32_t a_boneIdx, RE::BSFixedString* a_boneName)
+	{
+		// FMD.bones[] has exactly 8 slots (indices 0-7); any index >= 8 is out-of-bounds
+		if (a_boneIdx < 8) {
+			_SetBoneName(a_fmd, a_boneIdx, a_boneName);
+		}
+	}
+
+	void BSFaceGenNiNodeHooks::HookSetBoneName()
+	{
+		static REL::Relocation<uintptr_t> addr{ REL::RelocationID(26303, 26886) };
+		_SetBoneName = reinterpret_cast<SetBoneName_t*>(addr.address());
+		DetourAttach((PVOID*)&_SetBoneName, (PVOID)SetBoneName_Hook);
+	}
+
 	void Install()
 	{
 		logger::trace("Hooking...");
@@ -391,6 +406,7 @@ namespace Hooks
 		DetourTransactionBegin();
 		DetourUpdateThread(GetCurrentThread());
 		ActorEquipManagerHooks::Hook();
+		BSFaceGenNiNodeHooks::HookSetBoneName();
 		DetourTransactionCommit();
 
 		//
