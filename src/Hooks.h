@@ -42,7 +42,17 @@ namespace Hooks
 		static void SkinAllGeometry__Hook(RE::BSFaceGenNiNode* const, RE::NiNode*, bool a_unk);
 		static void SkinAllGeometry(RE::BSFaceGenNiNode* const, RE::NiNode*, bool a_unk);
 
+		// Detour on SetBoneName entry so any caller (known or unknown) cannot write beyond FMD.bones[7].
+		// Complements the loop-count cap in ApplyBoneLimitFix.
+		static void HookSetBoneName();
+		static void SetBoneName_Hook(RE::BSFaceGenModelExtraData*, std::uint32_t, RE::BSFixedString*);
+
 		static inline REL::Relocation<decltype(&BSFaceGenNiNodeHooks::SkinSingleGeometry__Hook)> _SkinSingleGeometry;
+	protected:
+		using SetBoneName_t = decltype(SetBoneName_Hook);
+	private:
+		// BSFaceGenModelExtraData::SetBoneName
+		static inline SetBoneName_t* _SetBoneName { nullptr };
 	};
 
 	class MainHooks
