@@ -10,7 +10,37 @@ namespace hdt
 		gDisableDeactivation = true;
 		setGravity(btVector3(0, 0, -9.8f * scaleSkyrim));
 
+		// https://github.com/bulletphysics/bullet3/blob/master/src/BulletDynamics/ConstraintSolver/btContactSolverInfo.h
+
 		getSolverInfo().m_friction = 0;
+
+		// This should be enabled by default, but just for clarity I put it here too
+		getSolverInfo().m_splitImpulse = true;
+
+		// Set a very low threshold so even micro-penetrations use Split Impulse
+		// Too low might cause weird visuals - default is -0.04f
+		getSolverInfo().m_splitImpulsePenetrationThreshold = -0.01f;
+
+		// Default ERP2 is 0.2
+		// From Bullet: error reduction for non-contact constraints
+		getSolverInfo().m_erp2 = 0.15f;
+
+		// constraint force mixing for contacts and non-contacts
+		// Adds "sponginess" to collisions to absorb the constant recalculations
+		// Default is 0
+		getSolverInfo().m_globalCfm = 0.001f;
+
+		// Ignore Bounciness (Restitution) on slow micro-collisions
+		// If objects are moving slower than this, they will not bounce at all.
+		// The default is 0.2f, but putting this here since it's very noteworthy!
+		getSolverInfo().m_restitutionVelocityThreshold = 0.2f;
+
+		// Default is = SOLVER_USE_WARMSTARTING | SOLVER_SIMD;
+		// But we don't even use warm starts since we delete the manifolds every frame
+		// SOLVER_SIMD nets a small performance uplift
+		// SOLVER_RANDMIZE_ORDER is also possible, but I clocked a pretty heavy performance hit. Maybe make it a config option
+		getSolverInfo().m_solverMode = SOLVER_SIMD;
+
 		m_averageInterval = m_timeTick;
 		m_accumulatedInterval = 0;
 	}

@@ -188,27 +188,25 @@ namespace Hooks
 
 	void BSFaceGenNiNodeHooks::ApplyBoneLimitFix()
 	{
-		struct BoneLimitFix : Xbyak::CodeGenerator
+		REL::Relocation<uintptr_t> GeometrySkinningBoneFix { REL::VariantID(24330, 24836, 0x37ADD0), REL::VariantOffset(0x58, 0x75, 0x58) };
+
+		struct BoneLimitFix : 
+			public Xbyak::CodeGenerator
 		{
-			BoneLimitFix(uintptr_t a_returnAddr) : CodeGenerator()
+			BoneLimitFix(uintptr_t a_returnAddr) : 
+				Xbyak::CodeGenerator()
 			{
 				Xbyak::Label ret;
 
-				//
-				if (REL::Module::IsSE())
-				{
-					mov(esi, ptr[rax + 0x58]);
-					cmp(esi, 9);
-					jl(ret);
-					mov(esi, 8);
-				}
-				else
-				{
-					mov(ebp, ptr[rax + 0x58]);
-					cmp(ebp, 9);
-					jl(ret);
-					mov(ebp, 8);
-				}
+				auto clamp_bone_count = [&](Xbyak::Reg32 reg) {
+					mov(reg, ptr[rax + 0x58]);  // skinData->boneCount
+					cmp(reg, 8);                // compare with limit
+					jle(ret);                   // jump if <= 8 (keep value)
+					mov(reg, 8);                // clamp to 8 if > 8
+				};
+
+				Xbyak::Reg32 boneReg = !REL::Module::IsAE() ? esi : ebp;
+				clamp_bone_count(boneReg);
 
 				//
 				L(ret);
@@ -218,7 +216,7 @@ namespace Hooks
 		};
 
 		//
-		BoneLimitFix code(GeometrySkinningBoneFix.address() + 5);
+		BoneLimitFix code(GeometrySkinningBoneFix.address() + 7);
 
 		//
 		auto& localTrampoline = SKSE::GetTrampoline();
@@ -381,6 +379,21 @@ namespace Hooks
 		return ret;
 	}
 
+	void BSFaceGenNiNodeHooks::SetBoneName_Hook(RE::BSFaceGenModelExtraData* a_fmd, std::uint32_t a_boneIdx, RE::BSFixedString* a_boneName)
+	{
+		// FMD.bones[] has exactly 8 slots (indices 0-7); any index >= 8 is out-of-bounds
+		if (a_boneIdx < 8) {
+			_SetBoneName(a_fmd, a_boneIdx, a_boneName);
+		}
+	}
+
+	void BSFaceGenNiNodeHooks::HookSetBoneName()
+	{
+		static REL::Relocation<uintptr_t> addr{ REL::RelocationID(26303, 26886) };
+		_SetBoneName = reinterpret_cast<SetBoneName_t*>(addr.address());
+		DetourAttach((PVOID*)&_SetBoneName, (PVOID)SetBoneName_Hook);
+	}
+
 	void Install()
 	{
 		logger::trace("Hooking...");
@@ -393,6 +406,7 @@ namespace Hooks
 		DetourTransactionBegin();
 		DetourUpdateThread(GetCurrentThread());
 		ActorEquipManagerHooks::Hook();
+		BSFaceGenNiNodeHooks::HookSetBoneName();
 		DetourTransactionCommit();
 
 		//
