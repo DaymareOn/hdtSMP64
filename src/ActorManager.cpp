@@ -1384,7 +1384,8 @@ namespace hdt
 					// nodes children of the head node, so that they move properly when there's no physics.
 					// This case never happens to a lurker skeleton, thus we don't need to test.
 					RE::NiNode* npcHeadNode = findNode(head.npcFaceGeomNode.get(), "NPC Head [Head]");
-					if (npcHeadNode) {
+					if (npcHeadNode) 
+					{
 
 						RE::NiTransform invTransform = npcHeadNode->local.Invert();
 						auto& children = head.npcFaceGeomNode->GetChildren();
