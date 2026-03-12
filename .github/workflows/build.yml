@@ -62,7 +62,19 @@ jobs:
         shell: bash
         run: |
           cd build/plugins
-          tar -a -c -f ../../${{ matrix.preset }}.zip *
+          # a: add to archive
+          # -tzip: ZIP container
+          # -mm=LZMA2: Uses the strongest compression algorithm
+          # -mx=9: Level 9 (Ultra)
+          # -mfb=256: Maximum number of fast bytes (finds more patterns)
+          # -mpass=15: Number of passes (more attempts to shrink size)
+          7z a -tzip -mm=LZMA2 -mx=9 -mfb=256 -mpass=15 ../../${{ matrix.preset }}.zip
+
+      - name: Verify ZIP Content
+        shell: bash
+        run: |
+          echo "Listing contents of ${{ matrix.preset }}.zip:"
+          7z l ${{ matrix.preset }}.zip
 
       # 7. Save the resulting binaries so you can download them
       - name: Upload Build Artifacts
