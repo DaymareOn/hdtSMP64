@@ -45,6 +45,7 @@ jobs:
           cmake --preset ${{ matrix.preset }}
           -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
           -DVCPKG_MANIFEST_MODE=ON
+          -DCompiledPluginsPath="${{ github.workspace }}/build/plugins"
         shell: pwsh
 
       # 4. Build the project
