@@ -48,18 +48,23 @@ jobs:
           -DCompiledPluginsPath="${{ github.workspace }}/build/plugins"
         shell: pwsh
 
-      # 4. Build the project
+      # 4: Create the CompiledPluginsPath folder structure
+      - name: Create the CompiledPluginsPath folder structure
+        run: mkdir -p "${{ github.workspace }}/build/plugins/SKSE/Plugins/"
+        shell: bash
+
+      # 5. Build the project
       - name: Build
         run: cmake --build build --config Release
 
-      # 5. Create the ZIP file immediately after building
+      # 6. Create the ZIP file immediately after building
       - name: Archive Binaries
         shell: bash
         run: |
-          cd build/Release
+          cd build/plugins
           tar -a -c -f ../../${{ matrix.preset }}.zip *
 
-      # 6. Save the resulting binaries so you can download them
+      # 7. Save the resulting binaries so you can download them
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
