@@ -82,6 +82,10 @@ endif()
 
 string(COMPARE EQUAL "${VCPKG_CRT_LINKAGE}" "dynamic" USE_MSVC_RUNTIME_LIBRARY_DLL)
 
+# Match the project's BT_USE_SSE_IN_API define so btVector3 layout is consistent
+string(APPEND VCPKG_CXX_FLAGS " /DBT_USE_SSE_IN_API")
+string(APPEND VCPKG_C_FLAGS " /DBT_USE_SSE_IN_API")
+
 vcpkg_cmake_configure(
     SOURCE_PATH "${SOURCE_PATH}"
     OPTIONS
