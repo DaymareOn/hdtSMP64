@@ -64,11 +64,9 @@ jobs:
           cd build/plugins
           # a: add to archive
           # -tzip: ZIP container
-          # -mm=LZMA2: Uses the strongest compression algorithm
+          # -mm=LZMA: Uses the strongest availablecompression algorithm; lzma2 isn't supported in ZIP
           # -mx=9: Level 9 (Ultra)
-          # -mfb=256: Maximum number of fast bytes (finds more patterns)
-          # -mpass=15: Number of passes (more attempts to shrink size)
-          7z a -tzip -mm=LZMA2 -mx=9 -mfb=256 -mpass=15 ../../${{ matrix.preset }}.zip
+          7z a -tzip -mm=LZMA -mx=9 ../../${{ matrix.preset }}.zip
 
       - name: Verify ZIP Content
         shell: bash
