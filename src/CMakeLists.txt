@@ -6,7 +6,6 @@ add_compile_definitions(_SILENCE_AMP_DEPRECATION_WARNINGS)
 set(SOURCE_DIR "${ROOT_DIR}/src")
 
 set(SOURCE_FILES
-	"${SOURCE_DIR}/hdtSkinnedMesh/hdtAabb.cpp"
 	"${SOURCE_DIR}/hdtSkinnedMesh/hdtAABB.h"
 	"${SOURCE_DIR}/hdtSkinnedMesh/hdtBone.h"
 	"${SOURCE_DIR}/hdtSkinnedMesh/hdtBoneScaleConstraint.cpp"

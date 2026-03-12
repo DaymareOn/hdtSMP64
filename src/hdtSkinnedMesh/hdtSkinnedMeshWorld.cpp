@@ -177,8 +177,13 @@ namespace hdt
 			internalSingleStepSimulation(fixedTimeStep);
 			remainingTimeStep -= fixedTimeStep;
 		}
+
 		// For the sake of the bullet library, we don't manage a step that would be lower than a 300Hz frame.
 		// Review this when (screens / Skyrim) will allow 300Hz+.
+		// Note: We are taking a final variable-sized step for the remaining time.
+		// Because Bullet's constraint solvers (ERP/CFM) are sensitive to delta-time,
+		// this variable tick can cause constraints to behave a bit differently
+		// (appearing more stiff or damping differently at various framerates).
 		constexpr auto minPossiblePeriod = 1.0f / 300.0f;
 		if (remainingTimeStep > minPossiblePeriod)
 			internalSingleStepSimulation(remainingTimeStep);
@@ -216,11 +221,12 @@ namespace hdt
 	{
 		for (auto& i : m_systems) {
 			auto system = static_cast<SkyrimSystem*>(i.get());
-			if (btFuzzyZero(system->m_windFactor))
+			if (btFuzzyZero(system->m_windFactor)) 
 				continue;
 			for (auto& j : i->m_bones) {
 				auto body = &j->m_rig;
-				if (!body->isStaticOrKinematicObject() && (rand() % 5)) {
+				if (!body->isStaticOrKinematicObject() 
+					&& (rand() % 5)) { // apply randomly 80% of the time to desync wind across npcs/bones
 					body->applyCentralForce(m_windSpeed * j->m_windFactor * system->m_windFactor);
 				}
 			}
