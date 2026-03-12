@@ -1,0 +1,77 @@
+name: Continuous hdtSMP64 Windows Build
+
+on:
+  push:
+    branches:
+      - testbuild
+      #- main
+      #- test
+  pull_request:
+    branches:
+      - testbuild
+      #- main
+      #- test
+
+jobs:
+  build:
+    runs-on: windows-2022
+    strategy:
+      # Use a matrix to run both presets at the same time
+      matrix:
+        preset: [vs2022-windows-nocuda-avx2, vs2022-windows-nocuda-avx512]
+
+    steps:
+      # 1. Checkout the repository
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          # This handles your 'git submodule update --init --recursive' automatically
+          submodules: recursive
+
+      # 2. Configure CMake using your specific preset
+      - name: Configure CMake
+        run: cmake --preset ${{ matrix.preset }}
+
+      # 3. Build the project
+      - name: Build
+        run: cmake --build build --config Release
+
+      # Create the ZIP file immediately after building
+      - name: Archive Binaries
+        shell: bash
+        run: |
+          cd build/Release
+          tar -a -c -f ../../${{ matrix.preset }}.zip *
+
+      # Save the resulting binaries so you can download them
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.preset }}
+          path: ${{ matrix.preset }}.zip
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Update 'Latest' Release
+        uses: softprops/action-gh-release@v2
+        with:
+          # This creates/updates a release named "Latest Continuous Build"
+          tag_name: latest
+          name: Latest Continuous Build
+          body: |
+            Automated build from the latest push.
+            Build Date: ${{ github.event.head_commit.timestamp }}
+            Commit: ${{ github.sha }}
+          files: |
+            vs2022-windows-nocuda-avx2/*.zip
+            vs2022-windows-nocuda-avx512/*.zip
+          # 'prerelease: true' flags it so users know it's an automated build
+          prerelease: true
