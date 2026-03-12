@@ -3,7 +3,6 @@
 
 namespace hdt
 {
-	static const _CRT_ALIGN(16) U8 interleaveBits[16] = {0, 1, 8, 9, 64, 65, 72, 73};
 
 	void ColliderTree::insertCollider(const std::vector<U32>& keys, const Collider& c)
 	{

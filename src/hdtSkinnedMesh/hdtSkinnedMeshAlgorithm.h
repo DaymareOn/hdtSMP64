@@ -1,14 +1,14 @@
 #pragma once
 
-#include "hdtSkinnedMeshShape.h"
 #include "hdtDispatcher.h"
+#include "hdtSkinnedMeshShape.h"
 #ifdef CUDA
-#include "hdtCudaInterface.h"
+#	include "hdtCudaInterface.h"
 
 // Define this to do actual collision checking on GPU. This is currently slow and has very inconsistent
 // framerate. If not defined, the GPU will still be used if available for vertex and bounding box
 // calculations, but collision will be done on the CPU.
-#define USE_GPU_COLLISION
+#	define USE_GPU_COLLISION
 #endif
 
 namespace hdt
@@ -25,7 +25,7 @@ namespace hdt
 		btScalar calculateTimeOfImpact([[maybe_unused]] btCollisionObject* body0, [[maybe_unused]] btCollisionObject* body1, [[maybe_unused]] const btDispatcherInfo& dispatchInfo, [[maybe_unused]] btManifoldResult* resultOut) override
 		{
 			return 1;
-		} // TOI cost too much
+		}  // TOI cost too much
 		void getAllContactManifolds([[maybe_unused]] btManifoldArray& manifoldArray) override
 		{
 		}
@@ -33,11 +33,11 @@ namespace hdt
 		struct CreateFunc : public btCollisionAlgorithmCreateFunc
 		{
 			btCollisionAlgorithm* CreateCollisionAlgorithm(btCollisionAlgorithmConstructionInfo& ci,
-			                                               [[maybe_unused]] const btCollisionObjectWrapper* body0Wrap,
-			                                               [[maybe_unused]] const btCollisionObjectWrapper* body1Wrap) override
+				[[maybe_unused]] const btCollisionObjectWrapper* body0Wrap,
+				[[maybe_unused]] const btCollisionObjectWrapper* body1Wrap) override
 			{
 				void* mem = ci.m_dispatcher1->allocateCollisionAlgorithm(sizeof(SkinnedMeshAlgorithm));
-				return new(mem) SkinnedMeshAlgorithm(ci);
+				return new (mem) SkinnedMeshAlgorithm(ci);
 			}
 		};
 
@@ -53,9 +53,9 @@ namespace hdt
 #endif
 
 		static void processCollision(SkinnedMeshBody* body0Wrap, SkinnedMeshBody* body1Wrap,
-		                             CollisionDispatcher* dispatcher);
-	protected:
+			CollisionDispatcher* dispatcher);
 
+	protected:
 		struct CollisionMerge
 		{
 			btVector3 normal;
@@ -73,24 +73,17 @@ namespace hdt
 
 		struct MergeBuffer
 		{
-			MergeBuffer()
-			{
-				mergeStride = mergeSize = 0;
-				buffer = nullptr;
-			}
+			MergeBuffer() :
+				mergeStride(0), mergeSize(0) {}
 
-			CollisionMerge* begin() const { return buffer; }
-			CollisionMerge* end() const { return buffer + mergeSize; }
+			MergeBuffer(int x, int y) :
+				mergeStride(y), mergeSize(x * y), buffer(std::make_unique<CollisionMerge[]>(x * y))
+			{}
 
-			void alloc(int x, int y)
-			{
-				mergeStride = y;
-				mergeSize = x * y;
-				buffer = new CollisionMerge[mergeSize];
-			}
+			~MergeBuffer() = default;
 
-			void release() { if (buffer) delete[] buffer; }
-
+			CollisionMerge* begin() const { return buffer.get(); }
+			CollisionMerge* end() const { return buffer.get() + mergeSize; }
 			CollisionMerge* get(int x, int y) { return &buffer[x * mergeStride + y]; }
 
 			void doMerge(SkinnedMeshShape* shape0, SkinnedMeshShape* shape1, CollisionResult* collisions, int count);
@@ -98,10 +91,7 @@ namespace hdt
 
 			int mergeStride;
 			int mergeSize;
-			CollisionMerge* buffer;
-#ifdef CUDA
-			std::mutex lock;
-#endif
+			std::unique_ptr<CollisionMerge[]> buffer;
 		};
 
 		template <class T0, class T1>

@@ -13,8 +13,8 @@ namespace hdt
 		virtual const char* cstr() const { return m_str.c_str(); }
 		virtual size_t size() const { return m_str.size(); }
 
-		inline size_t hash() const { return m_hash; }
-		inline const std::string str() const { return m_str; }
+		virtual size_t hash() const override { return m_hash; }
+		inline const std::string& str() const { return m_str; }
 
 		inline const uint32_t GetRefCount() const noexcept { return _refCount; }
 	protected:

@@ -22,14 +22,15 @@ namespace hdt
 				{
 					SkyrimPhysicsWorld::get()->getSolverInfo().m_numIterations = btClamped(reader.readInt(), 4, 128);
 				} 
-				else if (reader.GetLocalName() == "groupIterations") 
-				{
-					ConstraintGroup::MaxIterations = btClamped(reader.readInt(), 0, 4096);
-				} 
-				else if (reader.GetLocalName() == "groupEnableMLCP") 
-				{
-					ConstraintGroup::EnableMLCP = reader.readBool();
-				} 
+				// [3/12/2026] These haven't been used for many years due to switching to Bullet's built-in solvers. There's no inherient alternative
+				//else if (reader.GetLocalName() == "groupIterations") 
+				//{
+					//ConstraintGroup::MaxIterations = btClamped(reader.readInt(), 0, 4096);
+				//} 
+				//else if (reader.GetLocalName() == "groupEnableMLCP") 
+				//{
+					//ConstraintGroup::EnableMLCP = reader.readBool();
+				//} 
 				else if (reader.GetLocalName() == "erp") 
 				{
 					SkyrimPhysicsWorld::get()->getSolverInfo().m_erp = btClamped(reader.readFloat(), 0.01f, 1.0f);

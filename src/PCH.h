@@ -103,7 +103,7 @@ namespace std
 	{
 		size_t operator()(const hdt::IDStr& id) const noexcept 
 		{
-            return std::hash<std::string>()(id->cstr());
+			return id->hash();
         }
 	};
 
@@ -112,7 +112,7 @@ namespace std
 	{
 		size_t operator()(const hdt::IString& id) const noexcept
 		{
-			return std::hash<std::string>()(id.cstr());
+			return id.hash();
 		}
 	};
 }

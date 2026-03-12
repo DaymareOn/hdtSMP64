@@ -6,7 +6,6 @@ add_compile_definitions(_SILENCE_AMP_DEPRECATION_WARNINGS)
 set(SOURCE_DIR "${ROOT_DIR}/src")
 
 set(SOURCE_FILES
-	"${SOURCE_DIR}/hdtSkinnedMesh/hdtAabb.cpp"
 	"${SOURCE_DIR}/hdtSkinnedMesh/hdtAABB.h"
 	"${SOURCE_DIR}/hdtSkinnedMesh/hdtBone.h"
 	"${SOURCE_DIR}/hdtSkinnedMesh/hdtBoneScaleConstraint.cpp"
@@ -18,7 +17,6 @@ set(SOURCE_FILES
 	"${SOURCE_DIR}/hdtSkinnedMesh/hdtCollisionAlgorithm.h"
 	"${SOURCE_DIR}/hdtSkinnedMesh/hdtConeTwistConstraint.cpp"
 	"${SOURCE_DIR}/hdtSkinnedMesh/hdtConeTwistConstraint.h"
-	"${SOURCE_DIR}/hdtSkinnedMesh/hdtConstraintGroup.cpp"
 	"${SOURCE_DIR}/hdtSkinnedMesh/hdtConstraintGroup.h"
 	"${SOURCE_DIR}/hdtSkinnedMesh/hdtCudaInterface.cpp"
 	"${SOURCE_DIR}/hdtSkinnedMesh/hdtCudaInterface.h"
@@ -28,12 +26,6 @@ set(SOURCE_FILES
 	"${SOURCE_DIR}/hdtSkinnedMesh/hdtFrameTimer.h"
 	"${SOURCE_DIR}/hdtSkinnedMesh/hdtGeneric6DofConstraint.cpp"
 	"${SOURCE_DIR}/hdtSkinnedMesh/hdtGeneric6DofConstraint.h"
-	"${SOURCE_DIR}/hdtSkinnedMesh/hdtGroupConstraintSolver.cpp"
-	"${SOURCE_DIR}/hdtSkinnedMesh/hdtGroupConstraintSolver.h"
-	"${SOURCE_DIR}/hdtSkinnedMesh/hdtLCP.cpp"
-	"${SOURCE_DIR}/hdtSkinnedMesh/hdtLCP.h"
-	"${SOURCE_DIR}/hdtSkinnedMesh/hdtSimulationIslandManager.cpp"
-	"${SOURCE_DIR}/hdtSkinnedMesh/hdtSimulationIslandManager.h"
 	"${SOURCE_DIR}/hdtSkinnedMesh/hdtSkinnedMeshAlgorithm.cpp"
 	"${SOURCE_DIR}/hdtSkinnedMesh/hdtSkinnedMeshAlgorithm.h"
 	"${SOURCE_DIR}/hdtSkinnedMesh/hdtSkinnedMeshBody.cpp"

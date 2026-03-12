@@ -19,9 +19,13 @@ namespace hdt
 		CheckTriangle(const btVector3& p0, const btVector3& p1, const btVector3& p2, float margin, float prenetration);
 
 		btVector3 p0, p1, p2, normal;
+		btVector3 edge0, edge1, edge2;
 		float margin, prenetration;
+		float d00, d01, d11, invDenom;
 		bool valid;
 	};
+
+	btVector3 closestPointOnTriangle(const btVector3& p, const btVector3& a, const btVector3& b, const btVector3& c);
 
 	bool checkSphereSphere(const btVector3& a, const btVector3& b, float ra, float rb, CollisionResult& res);
 	bool checkSphereTriangle(const btVector3& s, float r, const CheckTriangle& tri, CollisionResult& res);

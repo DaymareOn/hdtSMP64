@@ -12,5 +12,6 @@ namespace hdt
 		// add
 		virtual const char* cstr() const = 0;
 		virtual size_t size() const = 0;
+		virtual size_t hash() const = 0;
 	};
 }
