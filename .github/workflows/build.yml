@@ -28,22 +28,37 @@ jobs:
           # This handles your 'git submodule update --init --recursive' automatically
           submodules: recursive
 
-      # 2. Configure CMake using your specific preset
-      - name: Configure CMake
-        run: cmake --preset ${{ matrix.preset }}
+      # 2. Cache vcpkg dependencies to save time
+      - name: Restore vcpkg and binary cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.VCPKG_INSTALLATION_ROOT }}
+            ~/.cache/vcpkg
+          key: vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}-${{ matrix.preset }}
+          restore-keys: |
+            vcpkg-${{ runner.os }}-
 
-      # 3. Build the project
+      # 3. Configuration CMake avec injection du toolchain vcpkg
+      - name: Configure CMake
+        run: >
+          cmake --preset ${{ matrix.preset }}
+          -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
+          -DVCPKG_MANIFEST_MODE=ON
+        shell: pwsh
+
+      # 4. Build the project
       - name: Build
         run: cmake --build build --config Release
 
-      # Create the ZIP file immediately after building
+      # 5. Create the ZIP file immediately after building
       - name: Archive Binaries
         shell: bash
         run: |
           cd build/Release
           tar -a -c -f ../../${{ matrix.preset }}.zip *
 
-      # Save the resulting binaries so you can download them
+      # 6. Save the resulting binaries so you can download them
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
