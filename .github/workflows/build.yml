@@ -12,10 +12,6 @@ on:
       - test
       - testbuild
 
-# This kills the warning and opts into the new Node 24 runtime immediately
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   build:
     runs-on: windows-2022
@@ -85,22 +81,10 @@ jobs:
           mkdir -p "$TARGET_DIR"
           
           # Copy scripts and docs, excluding git metadata
-          cp -r temp-validator/* "$TARGET_DIR/"        
+          cp temp-validator/FSMP* "$TARGET_DIR/"        
+          cp temp-validator/LICENSE "$TARGET_DIR/"        
+          cp skse/plugins/hdtSkinnedMeshConfigs/hdtSMP64.xsd "$TARGET_DIR/"        
           echo "Validator injected into $TARGET_DIR"
-
-      # 6. Create the ZIP file (now includes the validator)
-      - name: Archive Binaries
-        shell: bash
-        run: |
-          cd build/plugins
-          # The structure SKSE/Plugins/FSMP-Validator is now present here
-          7z a -tzip -mm=LZMA -mx=9 ../../${{ github.ref_name }}-${{ matrix.preset }}.zip .
-
-      - name: Verify ZIP Content
-        shell: bash
-        run: |
-          echo "Listing contents of ${{ github.ref_name }}-${{ matrix.preset }}.zip:"
-          7z l ${{ github.ref_name }}-${{ matrix.preset }}.zip | grep -E "hdtSMP64.dll|FSMP-Validator"
 
       # 6. Create the ZIP file immediately after building
       - name: Archive Binaries
@@ -109,14 +93,14 @@ jobs:
           cd build/plugins
           # a: add to archive
           # -tzip: ZIP container
-          # -mm=LZMA: Uses the strongest availablecompression algorithm; lzma2 isn't supported in ZIP
+          # -mm=LZMA: Uses the strongest available compression algorithm; lzma2 isn't supported in ZIP
           # -mx=9: Level 9 (Ultra)
           7z a -tzip -mm=LZMA -mx=9 ../../${{ github.ref_name }}-${{ matrix.preset }}.zip
 
       - name: Verify ZIP Content
         shell: bash
         run: |
-          echo "Listing contents of ${{ matrix.preset }}.zip:"
+          echo "Listing contents of ${{ github.ref_name }}-${{ matrix.preset }}.zip:"
           7z l ${{ github.ref_name }}-${{ matrix.preset }}.zip
 
       # 7. Save the resulting binaries so you can download them
