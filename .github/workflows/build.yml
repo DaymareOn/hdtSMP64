@@ -33,23 +33,31 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            ${{ github.workspace }}/build/vcpkg_installed
-            ${{ env.LOCALAPPDATA }}/vcpkg/archives
+            build/vcpkg_installed
+            ~\AppData\Local\vcpkg\archives
           # Adding the preset name to the key ensures AVX2 and AVX512 don't overwrite each other's cache
           key: vcpkg-${{ runner.os }}-${{ matrix.preset }}-${{ hashFiles('vcpkg.json') }}
           restore-keys: |
             vcpkg-${{ runner.os }}-${{ matrix.preset }}-
 
-      # 3. Configure CMake
-      - name: Configure CMake with vcpkg toolchain injection
-        run: >
-          cmake --preset ${{ matrix.preset }}
-          -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
-          -DVCPKG_MANIFEST_MODE=ON
-          -DCompiledPluginsPath="${{ github.workspace }}/build/plugins"
+      # 3. Configure CMake with vcpkg toolchain injection
+      - name: Configure CMake
         shell: pwsh
-        env:
-          VCPKG_DEFAULT_BINARY_CACHE: ${{ env.LOCALAPPDATA }}/vcpkg/archives
+        run: |
+          # 1. Ensure the binary cache directory exists so vcpkg doesn't complain
+          $BinaryCachePath = "$env:LOCALAPPDATA\vcpkg\archives"
+          if (!(Test-Path $BinaryCachePath)) {
+              Write-Host "Creating vcpkg binary cache directory at $BinaryCachePath"
+              New-Item -ItemType Directory -Force -Path $BinaryCachePath
+          }
+
+          # 2. Run the configuration
+          cmake --preset ${{ matrix.preset }} `
+            -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
+            -DVCPKG_MANIFEST_MODE=ON `
+            -DCompiledPluginsPath="${{ github.workspace }}/build/plugins" `
+            -X-VCPKG-BINARYSOURCE="clear;files,$BinaryCachePath,readwrite"
+
 
       # 4: Create the CompiledPluginsPath folder structure
       - name: Create the CompiledPluginsPath folder structure
