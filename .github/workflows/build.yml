@@ -64,7 +64,7 @@ jobs:
       - name: Build according to the preset
         run: cmake --build build --config Release
 
-        - name: Upload the build folder
+      - name: Upload the build folder
         uses: actions/upload-artifact@v4
         with:
           name: raw-${{ matrix.preset }}
