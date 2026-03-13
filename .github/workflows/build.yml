@@ -28,25 +28,28 @@ jobs:
           # This handles your 'git submodule update --init --recursive' automatically
           submodules: recursive
 
-      # 2. Cache vcpkg dependencies to save time
+      # 2. Restore vcpkg dependencies
       - name: Restore vcpkg and binary cache
         uses: actions/cache@v4
         with:
           path: |
-            ${{ env.VCPKG_INSTALLATION_ROOT }}
-            ~/.cache/vcpkg
-          key: vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}-${{ matrix.preset }}
+            ${{ github.workspace }}/build/vcpkg_installed
+            ${{ env.LOCALAPPDATA }}/vcpkg/archives
+          # Adding the preset name to the key ensures AVX2 and AVX512 don't overwrite each other's cache
+          key: vcpkg-${{ runner.os }}-${{ matrix.preset }}-${{ hashFiles('vcpkg.json') }}
           restore-keys: |
-            vcpkg-${{ runner.os }}-
+            vcpkg-${{ runner.os }}-${{ matrix.preset }}-
 
-      # 3. Configuration CMake avec injection du toolchain vcpkg
-      - name: Configure CMake
+      # 3. Configure CMake
+      - name: Configure CMake with vcpkg toolchain injection
         run: >
           cmake --preset ${{ matrix.preset }}
           -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
           -DVCPKG_MANIFEST_MODE=ON
           -DCompiledPluginsPath="${{ github.workspace }}/build/plugins"
         shell: pwsh
+        env:
+          VCPKG_DEFAULT_BINARY_CACHE: ${{ env.LOCALAPPDATA }}/vcpkg/archives
 
       # 4: Create the CompiledPluginsPath folder structure
       - name: Create the CompiledPluginsPath folder structure
