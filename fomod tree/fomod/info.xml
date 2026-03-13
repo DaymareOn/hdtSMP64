@@ -1,0 +1,27 @@
+<fomod> 
+	<Name>Faster HDT-SMP</Name> 
+	<Author>hydrogensaysHDT - aers - ousnius - Karonar1 - alandtse - DaydreamingDay - igloomod - SesamePaste - jg1 - antpillager - Acro - webspam - full_inu</Author> 
+	<Version>2.5.1</Version> 
+	<Website>https://www.nexusmods.com/skyrimspecialedition/mods/57339</Website> 
+	<Description>Hello everybody, this mod is an skse plugin allowing more advanced physics interactions to be applied to actors via configuration files.
+
+What's the difference with the HDT-SMP mod?
+- The versions presented here massively improve performance over HDT-SMP. This makes a huge difference as it allows for things like animated guard capes, clothes, hair, etc. without breaking your FPS every time you approach a city or a group of imperials/stormcloaks.
+- AE and VR versions are provided.
+- Physics configuration can be modified during the game with papyrus scripts.
+- Plugins applying other forces can be developed (magnetism, earthquakes, wind, star wars force, ...).
+
+You still need to install HDT-SMP clothes, capes, hair, ....
+
+Please endorse :)
+Please provide videos with lots of NPCs with animated clothes, capes, hair, etc. :)
+
+VR functionalities are added by alandtse.
+Papyrus functionalities are added by SesamePaste.
+Plugin functionalities are added by jg1.
+Non-hookean physics functionalities are added by webspam.
+Current active developers at the time of this writing, ordered by date of involvement in HDT-SMP: alandtse, DaydreamingDay, igloomod.</Description> 
+	<Groups>
+		<element>Animation</element>
+	</Groups> 
+</fomod> 
