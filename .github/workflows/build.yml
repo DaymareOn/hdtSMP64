@@ -73,6 +73,35 @@ jobs:
       - name: Build
         run: cmake --build build --config Release
 
+      # 6 Fetch FSMP-Validator and inject into the folder structure
+      - name: Fetch and Inject FSMP-Validator
+        shell: bash
+        run: |
+          echo "Cloning FSMP-Validator..."
+          git clone --depth 1 https://github.com/DaymareOn/FSMP-Validator.git temp-validator
+          
+          # Define the target directory inside your plugin structure
+          TARGET_DIR="build/plugins/SKSE/Plugins/hdtSkinnedMeshConfigs/FSMP-Validator"
+          mkdir -p "$TARGET_DIR"
+          
+          # Copy scripts and docs, excluding git metadata
+          cp -r temp-validator/* "$TARGET_DIR/"        
+          echo "Validator injected into $TARGET_DIR"
+
+      # 6. Create the ZIP file (now includes the validator)
+      - name: Archive Binaries
+        shell: bash
+        run: |
+          cd build/plugins
+          # The structure SKSE/Plugins/FSMP-Validator is now present here
+          7z a -tzip -mm=LZMA -mx=9 ../../${{ github.ref_name }}-${{ matrix.preset }}.zip .
+
+      - name: Verify ZIP Content
+        shell: bash
+        run: |
+          echo "Listing contents of ${{ github.ref_name }}-${{ matrix.preset }}.zip:"
+          7z l ${{ github.ref_name }}-${{ matrix.preset }}.zip | grep -E "hdtSMP64.dll|FSMP-Validator"
+
       # 6. Create the ZIP file immediately after building
       - name: Archive Binaries
         shell: bash
