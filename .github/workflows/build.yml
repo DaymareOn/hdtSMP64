@@ -83,7 +83,7 @@ jobs:
           # Copy scripts and docs, excluding git metadata
           cp temp-validator/FSMP* "$TARGET_DIR/"        
           cp temp-validator/LICENSE "$TARGET_DIR/"        
-          cp skse/plugins/hdtSkinnedMeshConfigs/hdtSMP64.xsd "$TARGET_DIR/"        
+          cp temp-validator/skse/plugins/hdtSkinnedMeshConfigs/hdtSMP64.xsd "$TARGET_DIR/"
           echo "Validator injected into $TARGET_DIR"
 
       # 6. Create the ZIP file immediately after building
