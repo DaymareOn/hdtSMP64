@@ -1,8 +1,8 @@
 #pragma once
 
-#include <ppltasks.h>
 #include "hdtBulletHelper.h"
 #include "hdtConstraintGroup.h"
+#include <ppltasks.h>
 
 namespace hdt
 {
@@ -12,13 +12,14 @@ namespace hdt
 	class SkinnedMeshWorld;
 	class BoneScaleConstraint;
 
-	class SkinnedMeshSystem : 
+	class SkinnedMeshSystem :
 		public RE::BSIntrusiveRefCounted
 	{
 		friend class hdt::SkinnedMeshWorld;
+
 	public:
 		virtual ~SkinnedMeshSystem() = default;
-		
+
 		virtual void resetTransformsToOriginal();
 		virtual void readTransform(float timeStep);
 		virtual void writeTransform();

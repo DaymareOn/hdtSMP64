@@ -1,8 +1,8 @@
 #pragma once
 
 #include "hdtConvertNi.h"
-#include "hdtSkyrimBone.h"
 #include "hdtSkinnedMesh/hdtSkinnedMeshBody.h"
+#include "hdtSkyrimBone.h"
 
 namespace hdt
 {

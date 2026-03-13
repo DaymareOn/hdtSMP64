@@ -34,13 +34,13 @@ __kernel void updateCollider(__global float4* vertices, __global Collider* colli
 	float3 p0 = vertices[colliders[idx].vertices[0]].s012;
 	float3 p1 = vertices[colliders[idx].vertices[1]].s012;
 	float3 p2 = vertices[colliders[idx].vertices[2]].s012;
-	
+
 	Aabb aabb;
 	aabb.aabbMin = aabb.aabbMax = p0;
 	aabbMerge(&aabb, p1);
 	aabbMerge(&aabb, p2);
 	aabbExpand(&aabb, margin);
-	
+
 	if(penetration > FLT_EPSILON || penetration < -FLT_EPSILON)
 	{
 		float3 normal = cross((p1-p0).s012, (p2-p0).s012);

@@ -1,12 +1,12 @@
 #pragma once
 
-#include "hdtBulletHelper.h"
 #include "hdtBoneScaleConstraint.h"
+#include "hdtBulletHelper.h"
 
 namespace hdt
 {
-	class StiffSpringConstraint : 
-		public BoneScaleConstraint, 
+	class StiffSpringConstraint :
+		public BoneScaleConstraint,
 		public btTypedConstraint
 	{
 	public:
@@ -14,10 +14,11 @@ namespace hdt
 		using btTypedConstraint::operator delete;
 		using btTypedConstraint::operator new[];
 		using btTypedConstraint::operator delete[];
+
 	public:
 		StiffSpringConstraint(SkinnedMeshBone* a, SkinnedMeshBone* b);
 		virtual ~StiffSpringConstraint() override = default;
-		
+
 		void scaleConstraint() override;
 
 		float m_minDistance;
@@ -27,7 +28,6 @@ namespace hdt
 		float m_equilibriumPoint;
 
 	protected:
-
 		float m_oldDiff;
 
 		///internal method used by the constraint solver, don't use them directly
@@ -35,10 +35,9 @@ namespace hdt
 		///internal method used by the constraint solver, don't use them directly
 		void getInfo2(btConstraintInfo2* info) override;
 
-		///override the default global value of a parameter (such as ERP or CFM), optionally provide the axis (0..5). 
+		///override the default global value of a parameter (such as ERP or CFM), optionally provide the axis (0..5).
 		///If no axis is provided, it uses the default axis for this constraint.
-		void setParam([[maybe_unused]] int num, [[maybe_unused]] btScalar value, [[maybe_unused]] int axis = -1) override
-		{
+		void setParam([[maybe_unused]] int num, [[maybe_unused]] btScalar value, [[maybe_unused]] int axis = -1) override {
 		};
 
 		///return the local value of parameter

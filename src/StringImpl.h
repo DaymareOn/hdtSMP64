@@ -9,7 +9,7 @@ namespace hdt
 	public:
 		StringImpl(size_t hash, std::string&& str);
 		virtual ~StringImpl();
-		
+
 		virtual const char* cstr() const { return m_str.c_str(); }
 		virtual size_t size() const { return m_str.size(); }
 
@@ -17,9 +17,10 @@ namespace hdt
 		inline const std::string str() const { return m_str; }
 
 		inline const uint32_t GetRefCount() const noexcept { return _refCount; }
+
 	protected:
-		size_t			m_hash;
-		std::string		m_str;
+		size_t m_hash;
+		std::string m_str;
 	};
 
 	class StringManager final
@@ -33,9 +34,10 @@ namespace hdt
 		public:
 			StringImpl* get(size_t hash, std::string&& str);
 			void clean();
+
 		protected:
 			std::vector<RE::BSTSmartPointer<StringImpl>> m_list;
-			std::mutex									 m_lock;
+			std::mutex m_lock;
 		};
 
 	public:
@@ -43,11 +45,13 @@ namespace hdt
 
 		//
 		StringImpl* get(const char* begin, const char* end);
+
 	private:
-		Bucket							m_buckets[BucketCount];
+		Bucket m_buckets[BucketCount];
 		RE::BSTSmartPointer<StringImpl> m_empty;
-		std::thread						m_gcThread;
-		std::atomic_bool				m_gcExit;
+		std::thread m_gcThread;
+		std::atomic_bool m_gcExit;
+
 	private:
 		StringManager();
 		~StringManager();

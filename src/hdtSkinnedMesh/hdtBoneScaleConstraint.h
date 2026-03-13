@@ -4,7 +4,7 @@
 
 namespace hdt
 {
-	class BoneScaleConstraint : 
+	class BoneScaleConstraint :
 		public RE::BSIntrusiveRefCounted
 	{
 	public:

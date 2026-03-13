@@ -1,16 +1,17 @@
 #include "hdtSkyrimBone.h"
-#include "hdtSkyrimPhysicsWorld.h"
 #include "hdtForceUpdateList.h"
+#include "hdtSkyrimPhysicsWorld.h"
 
 namespace hdt
 {
-	SkyrimBone::SkyrimBone(IDStr name, RE::NiNode* node, RE::NiNode* skeleton, btRigidBody::btRigidBodyConstructionInfo& ci) : 
-	SkinnedMeshBone(name, ci), m_node(node), m_skeleton(skeleton)
+	SkyrimBone::SkyrimBone(IDStr name, RE::NiNode* node, RE::NiNode* skeleton, btRigidBody::btRigidBodyConstructionInfo& ci) :
+		SkinnedMeshBone(name, ci), m_node(node), m_skeleton(skeleton)
 	{
 		if (ci.m_mass)
 			m_rig.setCollisionFlags(0);
-			
-		else m_rig.setCollisionFlags(btCollisionObject::CF_KINEMATIC_OBJECT);
+
+		else
+			m_rig.setCollisionFlags(btCollisionObject::CF_KINEMATIC_OBJECT);
 
 		m_depth = 0;
 		for (auto i = node; i; i = i->parent)
@@ -34,8 +35,7 @@ namespace hdt
 		auto current = m_rig.getWorldTransform();
 
 		auto factor = oldScale / newScale;
-		if (!m_rig.isStaticOrKinematicObject() && !btFuzzyZero(factor - 1))
-		{
+		if (!m_rig.isStaticOrKinematicObject() && !btFuzzyZero(factor - 1)) {
 			auto factor2 = factor * factor;
 			auto factor3 = factor2 * factor;
 			auto factor5 = factor3 * factor2;
@@ -46,17 +46,15 @@ namespace hdt
 		}
 
 		factor = newScale / oldScale;
-		if (!btFuzzyZero(factor - 1))
-		{
+		if (!btFuzzyZero(factor - 1)) {
 			m_localToRig.getOrigin() *= factor;
 			m_rigToLocal.getOrigin() *= factor;
 		}
 		m_rig.getCollisionShape()->setLocalScaling(setAll(newScale));
 
 		auto dest = m_currentTransform.asTransform() * m_localToRig;
-		
-		if (timeStep <= RESET_PHYSICS)
-		{
+
+		if (timeStep <= RESET_PHYSICS) {
 			m_origToSkeletonTransform = convertNi(m_skeleton->world).inverse() * convertNi(m_node->world);
 			m_origTransform = convertNi(m_node->local);
 			m_rig.setWorldTransform(dest);
@@ -74,9 +72,7 @@ namespace hdt
 			//det = m_rig.getInvInertiaTensorWorld().determinant();
 			//if (isnan(det) || isinf(det))
 			//	_WARNING("Invalid inertia tensor matrix!!");
-		}
-		else if (m_rig.isStaticOrKinematicObject())
-		{
+		} else if (m_rig.isStaticOrKinematicObject()) {
 			btVector3 linVel, angVel;
 			btTransformUtil::calculateVelocity(current, dest, timeStep, linVel, angVel);
 			m_rig.setLinearVelocity(linVel);
@@ -113,25 +109,20 @@ namespace hdt
 		m_node->world.translate = convertBt(transform.getOrigin());
 		m_node->world = m_node->world;
 
-		if (m_forceUpdateType == 1) 
-		{
+		if (m_forceUpdateType == 1) {
 			updateTransformUpDown(m_node, false);
-		}
-		else if (m_forceUpdateType == 2) 
-		{
+		} else if (m_forceUpdateType == 2) {
 			const auto& children = m_node->GetChildren();
-			for (uint16_t j = 0; j < children.size(); ++j) 
-			{
+			for (uint16_t j = 0; j < children.size(); ++j) {
 				const auto& m_weapon_node = children[j];
 				//Why when re-equipping things some nodes turn into nullptr?
-				//Equipment skeleton renamed weapon bones which were romoved when the equipment was disattahced.
-				if (!m_weapon_node)
-				{
+				//Equipment skeleton renamed weapon bones which were removed when the equipment was disattached.
+				if (!m_weapon_node) {
 					continue;
 				}
-				
+
 				m_weapon_node->world = m_node->world;
-				updateTransformUpDown(m_weapon_node.get(),false);
+				updateTransformUpDown(m_weapon_node.get(), false);
 			}
 		}
 
@@ -144,7 +135,6 @@ namespace hdt
 
 		//updateTransformUpDown(m_node->GetAsNiNode());
 	}
-
 
 	//void SkyrimBone::debugPrint(std::string name) {
 	//	if (this->m_name == name && SkyrimPhysicsWorld::get()->isSuspended() == false) {

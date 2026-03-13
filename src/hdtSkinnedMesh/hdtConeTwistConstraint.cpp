@@ -2,15 +2,15 @@
 
 namespace hdt
 {
-	ConeTwistConstraint::ConeTwistConstraint(SkinnedMeshBone* a, SkinnedMeshBone* b, const btTransform& frameInA, const btTransform& frameInB) : 
-		BoneScaleConstraint(a, b, static_cast<btConeTwistConstraint*>(this)), 
+	ConeTwistConstraint::ConeTwistConstraint(SkinnedMeshBone* a, SkinnedMeshBone* b, const btTransform& frameInA, const btTransform& frameInB) :
+		BoneScaleConstraint(a, b, static_cast<btConeTwistConstraint*>(this)),
 		btConeTwistConstraint(a->m_rig, b->m_rig, btTransform::getIdentity(), btTransform::getIdentity())
 	{
 		auto fa = a->m_rigToLocal * frameInA;
 		auto fb = b->m_rigToLocal * frameInB;
 		setFrames(fa, fb);
 
-		enableMotor(false); // motor temporary not support
+		enableMotor(false);  // motor temporary not support
 	}
 
 	void ConeTwistConstraint::scaleConstraint()

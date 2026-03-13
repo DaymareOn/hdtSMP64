@@ -102,28 +102,21 @@ namespace Xml
 		inline void Utf8Writer::WriteCharacter(
 			StringType& stringDestination, char32_t codePoint)
 		{
-			if (codePoint <= 0x7F)
-			{
+			if (codePoint <= 0x7F) {
 				stringDestination.push_back(static_cast<StringType::value_type>(codePoint));
-			}
-			else if (codePoint <= 0x7FF)
-			{
+			} else if (codePoint <= 0x7FF) {
 				stringDestination.push_back(static_cast<StringType::value_type>(
 					(codePoint >> 6) | 0xC0));
 				stringDestination.push_back(static_cast<StringType::value_type>(
 					(codePoint & 0x3F) | 0x80));
-			}
-			else if (codePoint <= 0xFFFF)
-			{
+			} else if (codePoint <= 0xFFFF) {
 				stringDestination.push_back(static_cast<StringType::value_type>(
 					(codePoint >> 12) | 0xE0));
 				stringDestination.push_back(static_cast<StringType::value_type>(
 					((codePoint >> 6) & 0x3F) | 0x80));
 				stringDestination.push_back(static_cast<StringType::value_type>(
 					(codePoint & 0x3F) | 0x80));
-			}
-			else if (codePoint <= 0x1FFFFF)
-			{
+			} else if (codePoint <= 0x1FFFFF) {
 				stringDestination.push_back(static_cast<StringType::value_type>(
 					(codePoint >> 18) | 0xF0));
 				stringDestination.push_back(static_cast<StringType::value_type>(
@@ -134,8 +127,7 @@ namespace Xml
 					(codePoint & 0x3F) | 0x80));
 			}
 			// Invalid character. Put this anyway.
-			else if (codePoint <= 0x3FFFFFF)
-			{
+			else if (codePoint <= 0x3FFFFFF) {
 				stringDestination.push_back(static_cast<StringType::value_type>(
 					(codePoint >> 24) | 0xF8));
 				stringDestination.push_back(static_cast<StringType::value_type>(
@@ -146,9 +138,7 @@ namespace Xml
 					((codePoint >> 6) & 0x3F) | 0x80));
 				stringDestination.push_back(static_cast<StringType::value_type>(
 					(codePoint & 0x3F) | 0x80));
-			}
-			else
-			{
+			} else {
 				stringDestination.push_back(static_cast<StringType::value_type>(
 					(codePoint >> 30) | 0xFC));
 				stringDestination.push_back(static_cast<StringType::value_type>(
@@ -167,17 +157,14 @@ namespace Xml
 		inline void Utf16Writer::WriteCharacter(
 			StringType& stringDestination, char32_t codePoint)
 		{
-			if ((codePoint <= 0xD7FF) || (codePoint >= 0xE000 && codePoint <= 0xFFFF))
-			{
+			if ((codePoint <= 0xD7FF) || (codePoint >= 0xE000 && codePoint <= 0xFFFF)) {
 				stringDestination.push_back(static_cast<StringType::value_type>(codePoint));
-			}
-			else if (codePoint >= 0x10000 && codePoint <= 0x10FFFF)
-			{
+			} else if (codePoint >= 0x10000 && codePoint <= 0x10FFFF) {
 				// We have surrogate pair.
 				codePoint -= 0x10000;
-				char32_t surr = (codePoint >> 10) + 0xD800; // Lead surrogate.
+				char32_t surr = (codePoint >> 10) + 0xD800;  // Lead surrogate.
 				stringDestination.push_back(static_cast<StringType::value_type>(surr));
-				surr = (codePoint & 0x3FF) + 0xDC00; // Trail surrogate.
+				surr = (codePoint & 0x3FF) + 0xDC00;  // Trail surrogate.
 				stringDestination.push_back(static_cast<StringType::value_type>(surr));
 			}
 		}
@@ -191,4 +178,3 @@ namespace Xml
 }
 
 #endif
-
