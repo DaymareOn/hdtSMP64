@@ -84,7 +84,7 @@ jobs:
         shell: bash
         run: |
           echo "Listing contents of ${{ matrix.preset }}.zip:"
-          7z l ${{ matrix.preset }}.zip
+          7z l ${{ github.ref_name }}-${{ matrix.preset }}.zip
 
       # 7. Save the resulting binaries so you can download them
       - name: Upload Build Artifacts
