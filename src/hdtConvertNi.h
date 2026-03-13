@@ -1,7 +1,7 @@
 #pragma once
 
-#include "hdtSkinnedMesh/hdtBulletHelper.h"
 #include "NetImmerseUtils.h"
+#include "hdtSkinnedMesh/hdtBulletHelper.h"
 
 namespace hdt
 {

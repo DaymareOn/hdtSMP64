@@ -1,8 +1,8 @@
 #pragma once
 #ifdef CUDA
 
-#include "hdtSkinnedMeshShape.h"
-#include "hdtDispatcher.h"
+#	include "hdtDispatcher.h"
+#	include "hdtSkinnedMeshShape.h"
 
 namespace hdt
 {
@@ -12,6 +12,7 @@ namespace hdt
 		friend class CudaPerVertexShape;
 		friend class CudaInterface;
 		friend class CudaMergeBuffer;
+
 	public:
 		CudaBody(SkinnedMeshBody* body);
 		void synchronize();
@@ -21,12 +22,13 @@ namespace hdt
 		class Imp;
 		std::shared_ptr<Imp> m_imp;
 	};
-	
+
 	class CudaPerTriangleShape
 	{
 		template <typename T>
 		friend class CudaCollisionPair;
 		friend class CudaInterface;
+
 	public:
 		class Imp;
 
@@ -43,6 +45,7 @@ namespace hdt
 		template <typename T>
 		friend class CudaCollisionPair;
 		friend class CudaInterface;
+
 	public:
 		class Imp;
 
@@ -58,6 +61,7 @@ namespace hdt
 	{
 		template <typename T>
 		friend class CudaCollisionPair;
+
 	public:
 		class Imp;
 
@@ -123,7 +127,6 @@ namespace hdt
 			std::shared_ptr<CudaPerTriangleShape> triangleShape);
 
 	private:
-
 		CudaInterface();
 		bool m_enabled;
 	};

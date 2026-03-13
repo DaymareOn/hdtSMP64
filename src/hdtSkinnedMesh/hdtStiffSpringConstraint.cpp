@@ -2,7 +2,7 @@
 
 namespace hdt
 {
-	StiffSpringConstraint::StiffSpringConstraint(SkinnedMeshBone* a, SkinnedMeshBone* b) : 
+	StiffSpringConstraint::StiffSpringConstraint(SkinnedMeshBone* a, SkinnedMeshBone* b) :
 		BoneScaleConstraint(a, b, this), btTypedConstraint(MAX_CONSTRAINT_TYPE, a->m_rig, b->m_rig)
 	{
 		auto distance = a->m_currentTransform.getOrigin().distance(b->m_currentTransform.getOrigin());
@@ -65,24 +65,18 @@ namespace hdt
 
 		int currentLimit;
 		float currentLimitError;
-		if (distance < m_minDistance)
-		{
+		if (distance < m_minDistance) {
 			currentLimit = 2;
 			currentLimitError = distance - m_minDistance;
-		}
-		else if (distance > m_maxDistance)
-		{
+		} else if (distance > m_maxDistance) {
 			currentLimit = 1;
 			currentLimitError = distance - m_maxDistance;
-		}
-		else
-		{
+		} else {
 			currentLimit = 0;
 			currentLimitError = 0;
 		}
 
-		if (!currentLimit)
-		{
+		if (!currentLimit) {
 			// get current position of constraint
 			auto delta = distance - m_equilibriumPoint;
 			auto vel = (delta - m_oldDiff) * info->fps;
@@ -96,32 +90,24 @@ namespace hdt
 			auto m_maxMotorForce = btFabs(force) / info->fps;
 
 			btScalar mot_fact = getMotorFactor(distance, m_minDistance, m_maxDistance, m_targetVelocity,
-			                                   info->fps * info->erp);
+				info->fps * info->erp);
 			info->m_constraintError[0] = mot_fact * m_targetVelocity * (m_rbA.getInvMass() + m_rbB.getInvMass());
 			info->m_lowerLimit[0] = -m_maxMotorForce;
 			info->m_upperLimit[0] = m_maxMotorForce;
 
 			m_oldDiff = delta;
-		}
-		else
-		{
+		} else {
 			btScalar k = info->fps * info->erp;
 			info->m_constraintError[0] = k * currentLimitError;
-			if (m_minDistance == m_maxDistance)
-			{
+			if (m_minDistance == m_maxDistance) {
 				// limited low and high simultaneously
 				info->m_lowerLimit[0] = -SIMD_INFINITY;
 				info->m_upperLimit[0] = SIMD_INFINITY;
-			}
-			else
-			{
-				if (currentLimit == 1)
-				{
+			} else {
+				if (currentLimit == 1) {
 					info->m_lowerLimit[0] = -SIMD_INFINITY;
 					info->m_upperLimit[0] = 0;
-				}
-				else
-				{
+				} else {
 					info->m_lowerLimit[0] = 0;
 					info->m_upperLimit[0] = SIMD_INFINITY;
 				}

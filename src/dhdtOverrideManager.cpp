@@ -5,13 +5,14 @@ using namespace hdt::Override;
 
 bool g_hasPapyrusExtension = false;
 
-OverrideManager* hdt::Override::OverrideManager::GetSingleton() 
+OverrideManager* hdt::Override::OverrideManager::GetSingleton()
 {
 	static OverrideManager g_overrideManager;
 	return &g_overrideManager;
 }
 
-bool checkPapyrusExtension() {
+bool checkPapyrusExtension()
+{
 	std::ofstream ifs("Data/Scripts/DynamicHDT.pex", std::ios::in | std::ios::_Nocreate);
 	if (!ifs || !ifs.is_open()) {
 		g_hasPapyrusExtension = false;
@@ -25,21 +26,22 @@ bool checkPapyrusExtension() {
 std::string hdt::Override::OverrideManager::queryOverrideData()
 {
 	std::string console_print("[DynamicHDT] -- Querying existing override data...\n");
-	
+
 	for (auto i : m_ActorPhysicsFileSwapList) {
 		console_print += "Actor formID: " + util::UInt32toString(i.first) + "\t" + std::to_string(i.second.size()) + "\n";
 		for (auto j : i.second) {
 			console_print += "\tOriginal file: " + j.first + "\n\t\t| Override: " + j.second + "\n";
 		}
 	}
-	
+
 	console_print += "[DynamicHDT] -- Query finished...\n";
 	return console_print;
 }
 
 bool hdt::Override::OverrideManager::registerOverride(uint32_t actor_formID, std::string old_file_path, std::string new_file_path)
 {
-	if (old_file_path.empty())return false;
+	if (old_file_path.empty())
+		return false;
 	for (auto& e : m_ActorPhysicsFileSwapList[actor_formID]) {
 		if (e.second == old_file_path) {
 			old_file_path = e.first;
@@ -64,52 +66,44 @@ std::string hdt::Override::OverrideManager::checkOverride(uint32_t actor_formID,
 std::stringstream hdt::Override::OverrideManager::Serialize()
 {
 	std::stringstream data_stream;
-	if (!checkPapyrusExtension())return data_stream;
+	if (!checkPapyrusExtension())
+		return data_stream;
 
-	for (auto& e : m_ActorPhysicsFileSwapList) 
-	{
+	for (auto& e : m_ActorPhysicsFileSwapList) {
 		char buff[16];
 		sprintf_s(buff, "%08X", e.first);
 		data_stream << std::hex << buff << " " << std::dec << e.second.size() << std::endl;
-		for (auto& e1 : e.second) 
-		{
-			if (e1.second.empty()) 
-			{
+		for (auto& e1 : e.second) {
+			if (e1.second.empty()) {
 				continue;
 			}
 
 			data_stream << e1.first << "\t" << e1.second << std::endl;
 		}
 	}
-	
+
 	return data_stream;
 }
 
 void hdt::Override::OverrideManager::Deserialize(std::stringstream& data_stream)
 {
-	if (!checkPapyrusExtension()) 
-	{
+	if (!checkPapyrusExtension()) {
 		return;
 	}
 
 	m_ActorPhysicsFileSwapList.clear();
-	try 
-	{
-		while (!data_stream.eof()) 
-		{
+	try {
+		while (!data_stream.eof()) {
 			uint32_t actor_formID, override_size = 0;
 			data_stream >> std::hex >> actor_formID >> override_size;
-			for (auto i = 0u; i < override_size; ++i) 
-			{
+			for (auto i = 0u; i < override_size; ++i) {
 				std::string orig_physics_file, override_physics_file;
 				data_stream >> orig_physics_file >> override_physics_file;
 				//this->registerOverride(actor_formID, orig_physics_file, override_physics_file);
 				hdt::papyrus::impl::SwapPhysicsFileImpl(actor_formID, orig_physics_file, override_physics_file, true, false);
 			}
 		}
-	}
-	catch (std::exception& e) {
-
+	} catch (std::exception& e) {
 		RE::ConsoleLog::GetSingleton()->Print("[DynamicHDT] ERROR! -- Failed parsing override data.");
 		RE::ConsoleLog::GetSingleton()->Print("[DynamicHDT] Error(): {}\nWhat():\n\t{}", typeid(e).name(), e.what());
 

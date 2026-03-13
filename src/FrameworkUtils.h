@@ -97,6 +97,7 @@ namespace hdt
 		{
 			return !(*this == a_rhs);
 		}
+
 	private:
 		RE::BSTSmartPointer<IString> _ptr{ nullptr };
 	};

@@ -101,78 +101,43 @@ set(SOURCE_FILES
 	"${SOURCE_DIR}/StringImpl.cpp"
 	"${SOURCE_DIR}/main.h"
 	"${SOURCE_DIR}/main.cpp"
-	"${SOURCE_DIR}/PCH.h"
-)
+	"${SOURCE_DIR}/PCH.h")
 source_group(TREE "${ROOT_DIR}" FILES ${SOURCE_FILES})
 
 set(VERSION_HEADER "${CMAKE_CURRENT_BINARY_DIR}/src/Plugin.h")
 
-configure_file(
-	"${ROOT_DIR}/cmake/Plugin.h.in"
-	"${VERSION_HEADER}"
-	@ONLY
-)
+configure_file("${ROOT_DIR}/cmake/Plugin.h.in" "${VERSION_HEADER}" @ONLY)
 
 source_group("src" FILES "${VERSION_HEADER}")
 
-configure_file(
-	"${ROOT_DIR}/cmake/version.rc.in"
-	"${CMAKE_CURRENT_BINARY_DIR}/version.rc"
-	@ONLY
-)
+configure_file("${ROOT_DIR}/cmake/version.rc.in" "${CMAKE_CURRENT_BINARY_DIR}/version.rc" @ONLY)
 
 find_path(DETOURS_INCLUDE_DIRS "detours/detours.h")
 find_library(DETOURS_LIBRARY detours REQUIRED)
 
-add_library(
-	"${PROJECT_NAME}"
-	SHARED
-	${SOURCE_FILES}
-	"${VERSION_HEADER}"
-	"${CMAKE_CURRENT_BINARY_DIR}/version.rc"
-	"${ROOT_DIR}/.clang-format"
-	"${ROOT_DIR}/.editorconfig"
-)
+add_library("${PROJECT_NAME}" SHARED ${SOURCE_FILES} "${VERSION_HEADER}" "${CMAKE_CURRENT_BINARY_DIR}/version.rc"
+									 "${ROOT_DIR}/.clang-format" "${ROOT_DIR}/.editorconfig")
 
-target_compile_features(
-	"${PROJECT_NAME}"
-	PRIVATE
-		cxx_std_20
-)
+target_compile_features("${PROJECT_NAME}" PRIVATE cxx_std_20)
 
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
 	target_compile_options(
 		"${PROJECT_NAME}"
-		PRIVATE
-			"/sdl"	# Enable Additional Security Checks
-			"/utf-8"	# Set Source and Executable character sets to UTF-8
-			"/Zi"	# Debug Information Format
+		PRIVATE "/sdl" # Enable Additional Security Checks
+				"/utf-8" # Set Source and Executable character sets to UTF-8
+				"/Zi" # Debug Information Format
+				"/permissive-" # Standards conformance
+				"/Zc:preprocessor" # Enable preprocessor conformance mode
+				"/bigobj" # Increase Number of Sections in .obj file
+				"$<$<CONFIG:DEBUG>:>"
+				"$<$<CONFIG:RELEASE>:/Zc:inline;/JMC-;/Ob3>")
 
-			"/permissive-"	# Standards conformance
-			"/Zc:preprocessor"	# Enable preprocessor conformance mode
-
-			"/bigobj"	# Increase Number of Sections in .obj file
-
-			"$<$<CONFIG:DEBUG>:>"
-			"$<$<CONFIG:RELEASE>:/Zc:inline;/JMC-;/Ob3>"
-	)
-
-	target_link_options(
-		"${PROJECT_NAME}"
-		PRIVATE
-			"$<$<CONFIG:DEBUG>:/INCREMENTAL;/OPT:NOREF;/OPT:NOICF>"
-			"$<$<CONFIG:RELEASE>:/INCREMENTAL:NO;/OPT:REF;/OPT:ICF;/DEBUG:FULL>"
-	)
+	target_link_options("${PROJECT_NAME}" PRIVATE "$<$<CONFIG:DEBUG>:/INCREMENTAL;/OPT:NOREF;/OPT:NOICF>"
+						"$<$<CONFIG:RELEASE>:/INCREMENTAL:NO;/OPT:REF;/OPT:ICF;/DEBUG:FULL>")
 endif()
 
-target_include_directories(
-	"${PROJECT_NAME}"
-	PRIVATE
-		"${CMAKE_CURRENT_BINARY_DIR}/src"
-		"${SOURCE_DIR}"
-		${DETOURS_LIBRARY}
-		${BULLET_INCLUDE_DIRS}
-)
+target_include_directories("${PROJECT_NAME}" PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/src" "${SOURCE_DIR}"
+													 ${DETOURS_LIBRARY} ${BULLET_INCLUDE_DIRS})
 
 set(SKSE_SUPPORT_XBYAK ON)
 
@@ -181,17 +146,9 @@ macro(find_dependency_path DEPENDENCY FILE)
 	# searches extern for dependencies and if not checks the environment variable
 	if(NOT ${DEPENDENCY} STREQUAL "")
 		# Check extern
-		message(
-			STATUS
-			"Searching for ${DEPENDENCY} using file ${FILE}"
-		)
-		find_path(PATH
-			${FILE}
-			PATHS
-			"../extern/${DEPENDENCY}"
-			"extern/${DEPENDENCY}"
-			"../external/${DEPENDENCY}"
-			"external/${DEPENDENCY}")
+		message(STATUS "Searching for ${DEPENDENCY} using file ${FILE}")
+		find_path(PATH ${FILE} PATHS "../extern/${DEPENDENCY}" "extern/${DEPENDENCY}" "../external/${DEPENDENCY}"
+									 "external/${DEPENDENCY}")
 
 		set("${DEPENDENCY}Path" "${PATH}")
 		message("${PATH}")
@@ -199,18 +156,12 @@ macro(find_dependency_path DEPENDENCY FILE)
 		message("${${DEPENDENCY}Path}")
 		if("${${DEPENDENCY}Path}" STREQUAL "PATH-NOTFOUND")
 			# Check path
-			message(
-				STATUS
-				"Getting environment variable for ${DEPENDENCY}Path: $ENV{${DEPENDENCY}Path}"
-			)
+			message(STATUS "Getting environment variable for ${DEPENDENCY}Path: $ENV{${DEPENDENCY}Path}")
 			set("${DEPENDENCY}Path" "$ENV{${DEPENDENCY}Path}")
 		endif()
 
-		if (NOT "${${DEPENDENCY}Path}" STREQUAL "")
-			message(
-				STATUS
-				"Found ${DEPENDENCY} in ${${DEPENDENCY}Path}; adding"
-			)
+		if(NOT "${${DEPENDENCY}Path}" STREQUAL "")
+			message(STATUS "Found ${DEPENDENCY} in ${${DEPENDENCY}Path}; adding")
 			add_subdirectory("${${DEPENDENCY}Path}" ${DEPENDENCY})
 		endif()
 	endif()
@@ -221,10 +172,7 @@ find_dependency_path(CommonLibSSE include/REL/Relocation.h)
 
 if(("${CommonLibSSEPath}" STREQUAL "CommonLibSSEPath-NOTFOUND") OR "${CommonLibSSEPath}" STREQUAL "")
 	# fallback to CommonLibSSEPath_NG from environment
-	message(
-		STATUS
-		"Found CommonLibSSE from CommonLibSSEPath_NG environment variable"
-	)
+	message(STATUS "Found CommonLibSSE from CommonLibSSEPath_NG environment variable")
 	add_subdirectory("$ENV{CommonLibSSEPath_NG}" CommonLibSSE EXCLUDE_FROM_ALL)
 endif()
 
@@ -234,42 +182,28 @@ find_package(xbyak REQUIRED CONFIG)
 
 include_directories(${BULLET_INCLUDE_DIRS})
 
-target_link_libraries(
-	"${PROJECT_NAME}"
-	PRIVATE
-		CommonLibSSE::CommonLibSSE
-		xbyak::xbyak
-		spdlog::spdlog
-		${DETOURS_LIBRARY}
-		${BULLET_LIBRARIES}
-)
+target_link_libraries("${PROJECT_NAME}" PRIVATE CommonLibSSE::CommonLibSSE xbyak::xbyak spdlog::spdlog
+												${DETOURS_LIBRARY} ${BULLET_LIBRARIES})
 
-target_precompile_headers(
-	"${PROJECT_NAME}"
-	PRIVATE
-		"${SOURCE_DIR}/PCH.h"
-)
+target_precompile_headers("${PROJECT_NAME}" PRIVATE "${SOURCE_DIR}/PCH.h")
 
 install(
-	FILES
-		"$<TARGET_FILE:${PROJECT_NAME}>"
+	FILES "$<TARGET_FILE:${PROJECT_NAME}>"
 	DESTINATION "SKSE/Plugins"
-	COMPONENT "main"
-)
+	COMPONENT "main")
 
 install(
-	FILES
-		"$<TARGET_PDB_FILE:${PROJECT_NAME}>"
+	FILES "$<TARGET_PDB_FILE:${PROJECT_NAME}>"
 	DESTINATION "/"
-	COMPONENT "pdbs"
-)
+	COMPONENT "pdbs")
 
 if("${COPY_OUTPUT}")
 	add_custom_command(
 		TARGET "${PROJECT_NAME}"
 		POST_BUILD
-		COMMAND "${CMAKE_COMMAND}" -E copy_if_different "$<TARGET_FILE:${PROJECT_NAME}>" "${CompiledPluginsPath}/SKSE/Plugins/"
-		COMMAND "${CMAKE_COMMAND}" -E copy_if_different "$<TARGET_PDB_FILE:${PROJECT_NAME}>" "${CompiledPluginsPath}/SKSE/Plugins/"
-		VERBATIM
-	)
+		COMMAND "${CMAKE_COMMAND}" -E copy_if_different "$<TARGET_FILE:${PROJECT_NAME}>"
+				"${CompiledPluginsPath}/SKSE/Plugins/"
+		COMMAND "${CMAKE_COMMAND}" -E copy_if_different "$<TARGET_PDB_FILE:${PROJECT_NAME}>"
+				"${CompiledPluginsPath}/SKSE/Plugins/"
+		VERBATIM)
 endif()

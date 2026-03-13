@@ -1,7 +1,7 @@
 #pragma once
 
-#include "XmlInspector/XmlInspector.hpp"
 #include "XmlInspector/CharactersReader.hpp"
+#include "XmlInspector/XmlInspector.hpp"
 
 #include "hdtSkinnedMesh/hdtBulletHelper.h"
 
@@ -13,7 +13,7 @@ namespace hdt
 		bool isEmptyStart;
 
 	public:
-		XMLReader(BYTE* data, size_t count) : 
+		XMLReader(BYTE* data, size_t count) :
 			Base(data, data + count)
 		{
 		}

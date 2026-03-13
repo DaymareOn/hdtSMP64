@@ -1,7 +1,7 @@
 #pragma once
 
-#include "hdtCollisionAlgorithm.h"
 #include "hdtCollider.h"
+#include "hdtCollisionAlgorithm.h"
 #include "hdtSkinnedMeshBody.h"
 
 namespace hdt
@@ -11,9 +11,9 @@ namespace hdt
 #ifdef CUDA
 	class CudaPerVertexShape;
 	class CudaPerTriangleShape;
-#endif // CUDA
+#endif  // CUDA
 
-	class SkinnedMeshShape : 
+	class SkinnedMeshShape :
 		public RE::BSIntrusiveRefCounted
 	{
 	public:
@@ -38,23 +38,23 @@ namespace hdt
 		virtual int getColliderBoneIndex(const Collider* c, int boneIdx) = 0;
 #ifndef CUDA
 		virtual btVector3 baryCoord(const Collider* c, const btVector3& p) = 0;
-		virtual float baryWeight(const btVector3 & w, int boneIdx) = 0;
-#endif // !CUDA
+		virtual float baryWeight(const btVector3& w, int boneIdx) = 0;
+#endif  // !CUDA
 
 		SkinnedMeshBody* m_owner;
 #ifdef CUDA
 		std::shared_ptr<Aabb[]> m_aabb;
 #else
 		vectorA16<Aabb> m_aabb;
-#endif // CUDA
+#endif  // CUDA
 		vectorA16<Collider> m_colliders;
 		ColliderTree m_tree;
-		float m_windEffect = 0.f; //effect from xml m_windEffect
+		float m_windEffect = 0.f;  //effect from xml m_windEffect
 
 #ifdef ENABLE_CL
-		cl::Buffer		m_aabbCL;
-		cl::Buffer		m_colliderCL;
-		cl::Event		m_eDoneCL;
+		cl::Buffer m_aabbCL;
+		cl::Buffer m_colliderCL;
+		cl::Event m_eDoneCL;
 		virtual void internalUpdateCL() = 0;
 #endif
 	};
@@ -64,7 +64,7 @@ namespace hdt
 	public:
 #ifdef CUDA
 		using CudaType = CudaPerVertexShape;
-#endif // CUDA
+#endif  // CUDA
 
 		PerVertexShape(SkinnedMeshBody* body);
 		virtual ~PerVertexShape();
@@ -86,8 +86,8 @@ namespace hdt
 
 #ifndef CUDA
 		btVector3 baryCoord([[maybe_unused]] const Collider* c, [[maybe_unused]] const btVector3& p) override { return btVector3(1, 1, 1); }
-		float baryWeight([[maybe_unused]] const btVector3 & w, [[maybe_unused]] int boneIdx) override { return 1; }
-#endif // !CUDA
+		float baryWeight([[maybe_unused]] const btVector3& w, [[maybe_unused]] int boneIdx) override { return 1; }
+#endif  // !CUDA
 		void finishBuild() override;
 		void markUsedVertices(bool* flags) override;
 		void remapVertices(UINT* map) override;
@@ -101,10 +101,10 @@ namespace hdt
 
 #ifdef CUDA
 		std::shared_ptr<CudaPerVertexShape> m_cudaObject;
-#endif // CUDA
+#endif  // CUDA
 
 #ifdef ENABLE_CL
-		static hdtCLKernel		m_kernel;
+		static hdtCLKernel m_kernel;
 		virtual void internalUpdateCL();
 #endif
 	};
@@ -144,7 +144,7 @@ namespace hdt
 				m_owner->m_vpos[c->vertices[2]].pos(),
 				p);
 		}
-		float baryWeight(const btVector3 & w, int boneIdx) override { return w[boneIdx / 4]; }
+		float baryWeight(const btVector3& w, int boneIdx) override { return w[boneIdx / 4]; }
 #endif
 		void finishBuild() override;
 		void markUsedVertices(bool* flags) override;
@@ -165,7 +165,7 @@ namespace hdt
 #endif
 
 #ifdef ENABLE_CL
-		static hdtCLKernel		m_kernel;
+		static hdtCLKernel m_kernel;
 		virtual void internalUpdateCL();
 #endif
 	};

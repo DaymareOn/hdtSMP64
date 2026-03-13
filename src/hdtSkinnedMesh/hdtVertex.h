@@ -11,7 +11,8 @@ namespace hdt
 			ZeroMemory(this, sizeof(*this));
 		}
 
-		Vertex(float x, float y, float z) : Vertex() { m_skinPos.setValue(x, y, z); }
+		Vertex(float x, float y, float z) :
+			Vertex() { m_skinPos.setValue(x, y, z); }
 
 		// skin info;
 		btVector3 m_skinPos;

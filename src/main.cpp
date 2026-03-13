@@ -1,12 +1,12 @@
-#include "Hooks.h"
-#include "Events.h"
 #include "ActorManager.h"
-#include "hdtSkyrimPhysicsWorld.h"
+#include "Events.h"
+#include "Hooks.h"
 #include "PluginInterfaceImpl.h"
+#include "WeatherManager.h"
+#include "config.h"
 #include "dhdtOverrideManager.h"
 #include "dhdtPapyrusFunctions.h"
-#include "config.h"
-#include "WeatherManager.h"
+#include "hdtSkyrimPhysicsWorld.h"
 
 void checkOldPlugins()
 {
@@ -14,33 +14,28 @@ void checkOldPlugins()
 	auto physics = GetModuleHandleA("hdtSSEPhysics");
 	auto hh = GetModuleHandleA("hdtSSEHighHeels");
 
-	if (physics) 
-	{
-		MessageBox(nullptr, TEXT("hdtSSEPhysics.dll is loaded. This is an older verson of HDT-SMP and conflicts with hdtSMP64.dll. Please remove it."), TEXT("hdtSMP64"), MB_OK);
+	if (physics) {
+		MessageBox(nullptr, TEXT("hdtSSEPhysics.dll is loaded. This is an older version of HDT-SMP and conflicts with hdtSMP64.dll. Please remove it."), TEXT("hdtSMP64"), MB_OK);
 	}
 
-	if (framework && !hh) 
-	{
+	if (framework && !hh) {
 		MessageBox(nullptr, TEXT("hdtSSEFramework.dll is loaded but hdtSSEHighHeels.dll is not being used. You no longer need hdtSSEFramework.dll with this version of SMP. Please remove it."), TEXT("hdtSMP64"), MB_OK);
 	}
 }
 
 RE::NiSourceTexturePtr* GetTextureFromIndex(RE::BSLightingShaderMaterial* material, std::uint32_t index)
 {
-	switch (index) 
-	{
+	switch (index) {
 	case RE::BSTextureSet::Texture::kDiffuse:
 		return std::addressof(material->diffuseTexture);
 	case RE::BSTextureSet::Texture::kNormal:
 		return std::addressof(material->normalTexture);
 	case RE::BSTextureSet::Texture::kEnvironmentMask:
 		{
-			if (material->GetFeature() == RE::BSShaderMaterial::Feature::kFaceGen) 
-			{
+			if (material->GetFeature() == RE::BSShaderMaterial::Feature::kFaceGen) {
 				return std::addressof(static_cast<RE::BSLightingShaderMaterialFacegen*>(static_cast<RE::BSLightingShaderMaterialBase*>(material))->subsurfaceTexture);
 			}
-			if (material->GetFeature() == RE::BSShaderMaterial::Feature::kGlowMap) 
-			{
+			if (material->GetFeature() == RE::BSShaderMaterial::Feature::kGlowMap) {
 				return std::addressof(static_cast<RE::BSLightingShaderMaterialFacegen*>(static_cast<RE::BSLightingShaderMaterialBase*>(material))->subsurfaceTexture);
 			}
 			return std::addressof(material->rimSoftLightingTexture);
@@ -48,12 +43,10 @@ RE::NiSourceTexturePtr* GetTextureFromIndex(RE::BSLightingShaderMaterial* materi
 		break;
 	case RE::BSTextureSet::Texture::kGlowMap:
 		{
-			if (material->GetFeature() == RE::BSShaderMaterial::Feature::kFaceGen) 
-			{
+			if (material->GetFeature() == RE::BSShaderMaterial::Feature::kFaceGen) {
 				return std::addressof(static_cast<RE::BSLightingShaderMaterialFacegen*>(static_cast<RE::BSLightingShaderMaterialBase*>(material))->detailTexture);
 			}
-			if (material->GetFeature() == RE::BSShaderMaterial::Feature::kParallax) 
-			{
+			if (material->GetFeature() == RE::BSShaderMaterial::Feature::kParallax) {
 				return std::addressof(static_cast<RE::BSLightingShaderMaterialParallax*>(static_cast<RE::BSLightingShaderMaterialBase*>(material))->heightTexture);
 			}
 			if (material->GetFeature() == RE::BSShaderMaterial::Feature::kParallax || material->GetFeature() == RE::BSShaderMaterial::Feature::kParallaxOcc) {
@@ -63,44 +56,36 @@ RE::NiSourceTexturePtr* GetTextureFromIndex(RE::BSLightingShaderMaterial* materi
 		break;
 	case RE::BSTextureSet::Texture::kHeight:
 		{
-			if (material->GetFeature() == RE::BSShaderMaterial::Feature::kEye) 
-			{
+			if (material->GetFeature() == RE::BSShaderMaterial::Feature::kEye) {
 				return std::addressof(static_cast<RE::BSLightingShaderMaterialEye*>(static_cast<RE::BSLightingShaderMaterialBase*>(material))->envTexture);
 			}
-			if (material->GetFeature() == RE::BSShaderMaterial::Feature::kEnvironmentMap) 
-			{
+			if (material->GetFeature() == RE::BSShaderMaterial::Feature::kEnvironmentMap) {
 				return std::addressof(static_cast<RE::BSLightingShaderMaterialEnvmap*>(static_cast<RE::BSLightingShaderMaterialBase*>(material))->envTexture);
 			}
-			if (material->GetFeature() == RE::BSShaderMaterial::Feature::kMultilayerParallax) 
-			{
+			if (material->GetFeature() == RE::BSShaderMaterial::Feature::kMultilayerParallax) {
 				return std::addressof(static_cast<RE::BSLightingShaderMaterialMultiLayerParallax*>(static_cast<RE::BSLightingShaderMaterialBase*>(material))->envTexture);
 			}
 		}
 		break;
 	case RE::BSTextureSet::Texture::kEnvironment:
 		{
-			if (material->GetFeature() == RE::BSShaderMaterial::Feature::kEye) 
-			{
+			if (material->GetFeature() == RE::BSShaderMaterial::Feature::kEye) {
 				return std::addressof(static_cast<RE::BSLightingShaderMaterialEye*>(static_cast<RE::BSLightingShaderMaterialBase*>(material))->envMaskTexture);
 			}
-			if (material->GetFeature() == RE::BSShaderMaterial::Feature::kEnvironmentMap) 
-			{
+			if (material->GetFeature() == RE::BSShaderMaterial::Feature::kEnvironmentMap) {
 				return std::addressof(static_cast<RE::BSLightingShaderMaterialEnvmap*>(static_cast<RE::BSLightingShaderMaterialBase*>(material))->envTexture);
 			}
-			if (material->GetFeature() == RE::BSShaderMaterial::Feature::kMultilayerParallax) 
-			{
+			if (material->GetFeature() == RE::BSShaderMaterial::Feature::kMultilayerParallax) {
 				return std::addressof(static_cast<RE::BSLightingShaderMaterialMultiLayerParallax*>(static_cast<RE::BSLightingShaderMaterialBase*>(material))->envMaskTexture);
 			}
 		}
 		break;
 	case RE::BSTextureSet::Texture::kMultilayer:
 		{
-			if (material->GetFeature() == RE::BSShaderMaterial::Feature::kFaceGen) 
-			{
+			if (material->GetFeature() == RE::BSShaderMaterial::Feature::kFaceGen) {
 				return std::addressof(static_cast<RE::BSLightingShaderMaterialFacegen*>(static_cast<RE::BSLightingShaderMaterialBase*>(material))->tintTexture);
 			}
-			if (material->GetFeature() == RE::BSShaderMaterial::Feature::kMultilayerParallax) 
-			{
+			if (material->GetFeature() == RE::BSShaderMaterial::Feature::kMultilayerParallax) {
 				return std::addressof(static_cast<RE::BSLightingShaderMaterialMultiLayerParallax*>(static_cast<RE::BSLightingShaderMaterialBase*>(material))->layerTexture);
 			}
 		}
@@ -115,127 +100,96 @@ RE::NiSourceTexturePtr* GetTextureFromIndex(RE::BSLightingShaderMaterial* materi
 
 void DumpNodeChildren(RE::NiAVObject* node)
 {
-	logger::info
-	(
+	logger::info(
 		"{} {} [{:.2f}, {:.2f}, {:.2f}]",
 		node->GetRTTI()->name,
 		node->name,
 		node->world.translate.x,
 		node->world.translate.y,
-		node->world.translate.z
-	);
+		node->world.translate.z);
 
-	if (node->extraDataSize > 0) 
-	{
-		for (uint16_t i = 0; i < node->extraDataSize; i++) 
-		{
-			logger::info
-			(
+	if (node->extraDataSize > 0) {
+		for (uint16_t i = 0; i < node->extraDataSize; i++) {
+			logger::info(
 				"{} {}",
 				node->extra[i]->GetRTTI()->name,
-				node->extra[i]->name
-			);
+				node->extra[i]->name);
 		}
 	}
 
 	RE::NiNode* niNode = node->AsNode();
 	auto& children = niNode->GetChildren();
-	if (niNode && children.size() > 0) 
-	{
-		for (uint16_t i = 0; i < children.size(); i++) 
-		{
+	if (niNode && children.size() > 0) {
+		for (uint16_t i = 0; i < children.size(); i++) {
 			RE::NiPointer<RE::NiAVObject> object = children[i];
-			if (object)
-			{
+			if (object) {
 				RE::NiNode* childNode = object->AsNode();
 				RE::BSGeometry* geometry = object->AsGeometry();
-				if (geometry) 
-				{
-					logger::info
-					(
+				if (geometry) {
+					logger::info(
 						"{} {} [{:.2f}, {:.2f}, {:.2f}] - Geometry",
 						object->GetRTTI()->name,
 						object->name,
 						geometry->world.translate.x,
 						geometry->world.translate.y,
-						geometry->world.translate.z
-					);
+						geometry->world.translate.z);
 
-					if (geometry->GetGeometryRuntimeData().skinInstance && geometry->GetGeometryRuntimeData().skinInstance->skinData) 
-					{
-						for (int i = 0; i < geometry->GetGeometryRuntimeData().skinInstance->skinData->bones; i++) 
-						{
+					if (geometry->GetGeometryRuntimeData().skinInstance && geometry->GetGeometryRuntimeData().skinInstance->skinData) {
+						for (int i = 0; i < geometry->GetGeometryRuntimeData().skinInstance->skinData->bones; i++) {
 							auto bone = geometry->GetGeometryRuntimeData().skinInstance->bones[i];
-							logger::info
-							(
+							logger::info(
 								"Bone {} - {} {} [{:.2f}, {:.2f}, {:.2f}]",
 								i,
 								bone->GetRTTI()->name,
 								bone->name,
 								bone->world.translate.x,
 								bone->world.translate.y,
-								bone->world.translate.z
-							);
+								bone->world.translate.z);
 						}
 					}
 
 					RE::BSShaderProperty* shaderProperty = geometry->GetGeometryRuntimeData().shaderProperty.get();
-					if (shaderProperty) 
-					{
+					if (shaderProperty) {
 						RE::BSLightingShaderProperty* lightingShader = netimmerse_cast<RE::BSLightingShaderProperty*>(shaderProperty);
-						if (lightingShader) 
-						{
+						if (lightingShader) {
 							RE::BSLightingShaderMaterial* material = static_cast<RE::BSLightingShaderMaterial*>(lightingShader->material);
 
-							for (int i = 0; i < RE::BSTextureSet::Textures::kTotal; ++i) 
-							{
+							for (int i = 0; i < RE::BSTextureSet::Textures::kTotal; ++i) {
 								RE::BSTextureSet::Textures::Texture textureID = static_cast<RE::BSTextureSet::Textures::Texture>(i);
 
 								const char* texturePath = material->textureSet->GetTexturePath(textureID);
-								if (!texturePath) 
-								{
+								if (!texturePath) {
 									continue;
 								}
 
 								const char* textureName = "";
 								RE::NiSourceTexturePtr* texture = GetTextureFromIndex(material, textureID);
-								if (texture && texture->get()) 
-								{
+								if (texture && texture->get()) {
 									textureName = texture->get()->name.c_str();
 								}
 
-								logger::info
-								(
+								logger::info(
 									"Texture {} - {} ({})",
 									i,
 									texturePath,
-									textureName
-								);
+									textureName);
 							}
 
-							logger::info
-							(
+							logger::info(
 								"Flags - {:08X}",
-								lightingShader->flags.underlying()
-							);
+								lightingShader->flags.underlying());
 						}
 					}
-				} 
-				else if (childNode) 
-				{
+				} else if (childNode) {
 					DumpNodeChildren(childNode);
-				} 
-				else 
-				{
-					logger::info
-					(
+				} else {
+					logger::info(
 						"{} {} [{:.2f}, {:.2f}, {:.2f}]",
 						object->GetRTTI()->name,
 						object->name,
 						object->world.translate.x,
 						object->world.translate.y,
-						object->world.translate.z
-					);
+						object->world.translate.z);
 				}
 			}
 		}
@@ -244,8 +198,7 @@ void DumpNodeChildren(RE::NiAVObject* node)
 
 void SMPDebug_PrintDetailed(bool includeItems)
 {
-	static std::map<hdt::ActorManager::SkeletonState, const char*> stateStrings = 
-	{
+	static std::map<hdt::ActorManager::SkeletonState, const char*> stateStrings = {
 		{ hdt::ActorManager::SkeletonState::e_InactiveNotInScene, "Not in scene" },
 		{ hdt::ActorManager::SkeletonState::e_InactiveUnseenByPlayer, "Unseen by player" },
 		{ hdt::ActorManager::SkeletonState::e_InactiveTooFar, "Deactivated for performance" },
@@ -258,71 +211,52 @@ void SMPDebug_PrintDetailed(bool includeItems)
 	std::iota(order.begin(), order.end(), 0);
 	std::sort(order.begin(), order.end(), [&](int a, int b) { return skeletons[a].state < skeletons[b].state; });
 
-	for (int i : order) 
-	{
+	for (int i : order) {
 		auto& skeleton = skeletons[i];
 
 		RE::TESObjectREFR* skelOwner = nullptr;
 		RE::TESFullName* ownerName = nullptr;
 
-		if (skeleton.skeleton->GetUserData()) 
-		{
+		if (skeleton.skeleton->GetUserData()) {
 			skelOwner = skeleton.skeleton->GetUserData();
-			if (skelOwner->GetBaseObject()) 
-			{
+			if (skelOwner->GetBaseObject()) {
 				ownerName = skyrim_cast<RE::TESFullName*>(skelOwner->GetBaseObject());
 			}
 		}
 
-		RE::ConsoleLog::GetSingleton()->Print
-		(
+		RE::ConsoleLog::GetSingleton()->Print(
 			"[HDT-SMP] %s skeleton - owner %s (refr formid %08x, base formid %08x) - %s",
 			skeleton.state > hdt::ActorManager::SkeletonState::e_SkeletonActive ? "active" : "inactive",
 			ownerName ? ownerName->GetFullName() : "unk_name",
 			skelOwner ? skelOwner->formID : 0x00000000,
 			skelOwner && skelOwner->GetBaseObject() ? skelOwner->GetBaseObject()->formID : 0x00000000,
-			stateStrings[skeleton.state]
-		);
+			stateStrings[skeleton.state]);
 
-		if (includeItems) 
-		{
-			for (auto armor : skeleton.getArmors()) 
-			{
-				RE::ConsoleLog::GetSingleton()->Print
-				(
+		if (includeItems) {
+			for (auto armor : skeleton.getArmors()) {
+				RE::ConsoleLog::GetSingleton()->Print(
 					"[HDT-SMP] -- tracked armor addon %s, %s",
 					armor.armorWorn->name,
-					armor.state() != hdt::ActorManager::ItemState::e_NoPhysics ? armor.state() == hdt::ActorManager::ItemState::e_Active ? "has active physics system" : "has inactive physics system" : "has no physics system"
-				);
+					armor.state() != hdt::ActorManager::ItemState::e_NoPhysics ? armor.state() == hdt::ActorManager::ItemState::e_Active ? "has active physics system" : "has inactive physics system" : "has no physics system");
 
-				if (armor.state() != hdt::ActorManager::ItemState::e_NoPhysics) 
-				{
-					for (auto mesh : armor.meshes()) 
-					{
-						RE::ConsoleLog::GetSingleton()->Print
-						(
+				if (armor.state() != hdt::ActorManager::ItemState::e_NoPhysics) {
+					for (auto mesh : armor.meshes()) {
+						RE::ConsoleLog::GetSingleton()->Print(
 							"[HDT-SMP] ---- has collision mesh %s",
-							mesh->m_name->cstr()
-						);
+							mesh->m_name->cstr());
 					}
 				}
 			}
 
-			if (skeleton.head.headNode) 
-			{
-				for (auto headPart : skeleton.head.headParts) 
-				{
-					RE::ConsoleLog::GetSingleton()->Print
-					(
+			if (skeleton.head.headNode) {
+				for (auto headPart : skeleton.head.headParts) {
+					RE::ConsoleLog::GetSingleton()->Print(
 						"[HDT-SMP] -- tracked headpart %s, %s",
 						headPart.headPart->name,
-						headPart.state() != hdt::ActorManager::ItemState::e_NoPhysics ? headPart.state() == hdt::ActorManager::ItemState::e_Active ? "has active physics system" : "has inactive physics system" : "has no physics system"
-					);
+						headPart.state() != hdt::ActorManager::ItemState::e_NoPhysics ? headPart.state() == hdt::ActorManager::ItemState::e_Active ? "has active physics system" : "has inactive physics system" : "has no physics system");
 
-					if (headPart.state() != hdt::ActorManager::ItemState::e_NoPhysics) 
-					{
-						for (auto mesh : headPart.meshes()) 
-						{
+					if (headPart.state() != hdt::ActorManager::ItemState::e_NoPhysics) {
+						for (auto mesh : headPart.meshes()) {
 							RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] ---- has collision mesh %s", mesh->m_name->cstr());
 						}
 					}
@@ -332,8 +266,7 @@ void SMPDebug_PrintDetailed(bool includeItems)
 	}
 }
 
-bool SMPDebug_Execute
-(
+bool SMPDebug_Execute(
 	const RE::SCRIPT_PARAMETER* a_paramInfo,
 	RE::SCRIPT_FUNCTION::ScriptData* a_scriptData,
 	RE::TESObjectREFR* a_thisObj,
@@ -341,21 +274,18 @@ bool SMPDebug_Execute
 	RE::Script* a_scriptObj,
 	RE::ScriptLocals* a_locals,
 	double& a_result,
-	uint32_t& a_opcodeOffsetPtr
-)
+	uint32_t& a_opcodeOffsetPtr)
 {
 	char buffer[MAX_PATH];
 	memset(buffer, 0, MAX_PATH);
 	char buffer2[MAX_PATH];
 	memset(buffer2, 0, MAX_PATH);
 
-	if (!RE::Script::ParseParameters(a_paramInfo, a_scriptData, a_opcodeOffsetPtr, a_thisObj, a_containingObj, a_scriptObj, a_locals, buffer, buffer2)) 
-	{
+	if (!RE::Script::ParseParameters(a_paramInfo, a_scriptData, a_opcodeOffsetPtr, a_thisObj, a_containingObj, a_scriptObj, a_locals, buffer, buffer2)) {
 		return false;
 	}
 
-	if (_strnicmp(buffer, "reset", MAX_PATH) == 0) 
-	{
+	if (_strnicmp(buffer, "reset", MAX_PATH) == 0) {
 		RE::ConsoleLog::GetSingleton()->Print("running full smp reset");
 		hdt::loadConfig();
 		hdt::SkyrimPhysicsWorld::get()->resetTransformsToOriginal();
@@ -365,56 +295,44 @@ bool SMPDebug_Execute
 		return true;
 	}
 #ifdef CUDA
-	if (_strnicmp(buffer, "gpu", MAX_PATH) == 0) 
-	{
+	if (_strnicmp(buffer, "gpu", MAX_PATH) == 0) {
 		CudaInterface::enableCuda = !CudaInterface::enableCuda;
-		if (CudaInterface::instance()->hasCuda()) 
-		{
+		if (CudaInterface::instance()->hasCuda()) {
 			RE::ConsoleLog::GetSingleton()->Print("CUDA collision enabled");
-		} 
-		else 
-		{
+		} else {
 			RE::ConsoleLog::GetSingleton()->Print("CUDA collision disabled");
 		}
 
 		return true;
 	}
-	if (_strnicmp(buffer, "timing", MAX_PATH) == 0) 
-	{
+	if (_strnicmp(buffer, "timing", MAX_PATH) == 0) {
 		FrameTimer::instance()->reset(200);
 		Console_Print("Started frame timing");
 		return true;
 	}
 #endif
-	if (_strnicmp(buffer, "dumptree", MAX_PATH) == 0) 
-	{
-		if (a_thisObj) 
-		{
+	if (_strnicmp(buffer, "dumptree", MAX_PATH) == 0) {
+		if (a_thisObj) {
 			RE::ConsoleLog::GetSingleton()->Print("dumping targeted reference's node tree");
 			DumpNodeChildren(a_thisObj->Get3D1(0));
-		} 
-		else 
-		{
+		} else {
 			RE::ConsoleLog::GetSingleton()->Print("error: you must target a reference to dump their node tree");
 		}
 
 		return true;
 	}
 
-	if (_strnicmp(buffer, "detail", MAX_PATH) == 0) 
-	{
+	if (_strnicmp(buffer, "detail", MAX_PATH) == 0) {
 		SMPDebug_PrintDetailed(true);
 		return true;
 	}
 
-	if (_strnicmp(buffer, "list", MAX_PATH) == 0) 
-	{
+	if (_strnicmp(buffer, "list", MAX_PATH) == 0) {
 		SMPDebug_PrintDetailed(false);
 		return true;
 	}
 
-	if (_strnicmp(buffer, "on", MAX_PATH) == 0) 
-	{
+	if (_strnicmp(buffer, "on", MAX_PATH) == 0) {
 		hdt::SkyrimPhysicsWorld::get()->disabled = false;
 		{
 			RE::ConsoleLog::GetSingleton()->Print("HDT-SMP enabled");
@@ -422,8 +340,7 @@ bool SMPDebug_Execute
 		return true;
 	}
 
-	if (_strnicmp(buffer, "off", MAX_PATH) == 0) 
-	{
+	if (_strnicmp(buffer, "off", MAX_PATH) == 0) {
 		hdt::SkyrimPhysicsWorld::get()->disabled = true;
 		{
 			RE::ConsoleLog::GetSingleton()->Print("HDT-SMP disabled");
@@ -431,8 +348,7 @@ bool SMPDebug_Execute
 		return true;
 	}
 
-	if (_strnicmp(buffer, "QueryOverride", MAX_PATH) == 0) 
-	{
+	if (_strnicmp(buffer, "QueryOverride", MAX_PATH) == 0) {
 		RE::ConsoleLog::GetSingleton()->Print(hdt::Override::OverrideManager::GetSingleton()->queryOverrideData().c_str());
 		return true;
 	}
@@ -446,31 +362,25 @@ bool SMPDebug_Execute
 	size_t activeHeadParts = 0;
 	size_t activeCollisionMeshes = 0;
 
-	for (auto skeleton : skeletons) 
-	{
+	for (auto skeleton : skeletons) {
 		if (skeleton.state > hdt::ActorManager::SkeletonState::e_SkeletonActive)
 			activeSkeletons++;
 
-		for (const auto armor : skeleton.getArmors()) 
-		{
+		for (const auto armor : skeleton.getArmors()) {
 			armors++;
 
-			if (armor.state() == hdt::ActorManager::ItemState::e_Active) 
-			{
+			if (armor.state() == hdt::ActorManager::ItemState::e_Active) {
 				activeArmors++;
 
 				activeCollisionMeshes += armor.meshes().size();
 			}
 		}
 
-		if (skeleton.head.headNode) 
-		{
-			for (const auto headpart : skeleton.head.headParts) 
-			{
+		if (skeleton.head.headNode) {
+			for (const auto headpart : skeleton.head.headParts) {
 				headParts++;
 
-				if (headpart.state() == hdt::ActorManager::ItemState::e_Active) 
-				{
+				if (headpart.state() == hdt::ActorManager::ItemState::e_Active) {
 					activeHeadParts++;
 
 					activeCollisionMeshes += headpart.meshes().size();
@@ -519,40 +429,36 @@ namespace
 
 void MessageHandler(SKSE::MessagingInterface::Message* a_msg)
 {
-	switch (a_msg->type) 
-	{
+	switch (a_msg->type) {
 	case SKSE::MessagingInterface::kInputLoaded:
 		Events::Register();
 		break;
 	case SKSE::MessagingInterface::kSaveGame:
 		{
 			auto data = hdt::Override::OverrideManager::GetSingleton()->Serialize();
-			if (!data.str().empty()) 
-			{
+			if (!data.str().empty()) {
 				std::string save_name = reinterpret_cast<char*>(a_msg->data);
 				std::ofstream ofs("Data/SKSE/Plugins/hdtOverrideSaves/" + save_name + ".dhdt", std::ios::out);
-				if (ofs && ofs.is_open())
-				{
+				if (ofs && ofs.is_open()) {
 					ofs << data.str();
 				}
 			}
 		}
 		break;
-		case SKSE::MessagingInterface::kPreLoadGame:
+	case SKSE::MessagingInterface::kPreLoadGame:
 		{
 			std::string save_name = reinterpret_cast<char*>(a_msg->data);
 			save_name = save_name.substr(0, save_name.find_last_of("."));
 
 			std::ifstream ifs("Data/SKSE/Plugins/hdtOverrideSaves/" + save_name + ".dhdt", std::ios::in);
-			if (ifs && ifs.is_open())
-			{
+			if (ifs && ifs.is_open()) {
 				std::stringstream data;
 				data << ifs.rdbuf();
 				hdt::Override::OverrideManager::GetSingleton()->Deserialize(data);
 			}
 		}
 		break;
-		case SKSE::MessagingInterface::kPostPostLoad:
+	case SKSE::MessagingInterface::kPostPostLoad:
 		{
 			hdt::g_pluginInterface.onPostPostLoad();
 			checkOldPlugins();
@@ -568,15 +474,13 @@ extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Query(const SKSE::QueryInterface* a
 	a_info->name = Plugin::NAME.data();
 	a_info->version = Plugin::VERSION.pack();
 
-	if (a_skse->IsEditor()) 
-	{
+	if (a_skse->IsEditor()) {
 		logger::critical("Loaded in editor, marking as incompatible"sv);
 		return false;
 	}
 
 	const auto ver = a_skse->RuntimeVersion();
-	if (REL::Module::IsSE() && ver < SKSE::RUNTIME_SSE_1_5_39 || REL::Module::IsVR() && ver < SKSE::RUNTIME_LATEST_VR) 
-	{
+	if (REL::Module::IsSE() && ver < SKSE::RUNTIME_SSE_1_5_39 || REL::Module::IsVR() && ver < SKSE::RUNTIME_LATEST_VR) {
 		logger::critical(FMT_STRING("Unsupported runtime version {}"), ver.string());
 		return false;
 	}
@@ -584,8 +488,7 @@ extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Query(const SKSE::QueryInterface* a
 	return true;
 }
 
-extern "C" DLLEXPORT constinit auto SKSEPlugin_Version = []() 
-{
+extern "C" DLLEXPORT constinit auto SKSEPlugin_Version = []() {
 	SKSE::PluginVersionData v;
 
 	v.PluginVersion(Plugin::VERSION);
@@ -602,13 +505,11 @@ extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* a_s
 #ifndef NDEBUG
 	auto start = std::chrono::high_resolution_clock::now();
 
-	while (!IsDebuggerPresent()) 
-	{
+	while (!IsDebuggerPresent()) {
 		std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
 		// break after 15 seconds of idle.
-		if (std::chrono::high_resolution_clock::now() - start > std::chrono::seconds(15))
-		{
+		if (std::chrono::high_resolution_clock::now() - start > std::chrono::seconds(15)) {
 			break;
 		}
 	}
@@ -622,17 +523,16 @@ extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* a_s
 	logger::info("{} v{}"sv, Plugin::NAME, Plugin::VERSION.string());
 
 	SKSE::Init(a_skse);
-	
+
 	const auto messaging = SKSE::GetMessagingInterface();
-	if (!messaging->RegisterListener("SKSE", MessageHandler)) 
-	{
+	if (!messaging->RegisterListener("SKSE", MessageHandler)) {
 		return false;
 	}
 
 	//
 	Events::Sources::FrameEventSource::GetSingleton()->AddEventSink(hdt::ActorManager::instance());
 	Events::Sources::FrameEventSource::GetSingleton()->AddEventSink(hdt::SkyrimPhysicsWorld::get());
-	
+
 	//
 	Events::Sources::FrameSyncEventSource::GetSingleton()->AddEventSink(hdt::SkyrimPhysicsWorld::get());
 
@@ -642,26 +542,25 @@ extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* a_s
 
 	//
 	Events::Sources::ArmorAttachEventSource::GetSingleton()->AddEventSink(hdt::ActorManager::instance());
-	
+
 	//
 	Events::Sources::ArmorDetachEventSource::GetSingleton()->AddEventSink(hdt::ActorManager::instance());
-	
+
 	//
 	Events::Sources::SkinSingleHeadGeometryEventSource::GetSingleton()->AddEventSink(hdt::ActorManager::instance());
-	
+
 	//
 	Events::Sources::SkinAllHeadGeometryEventSource::GetSingleton()->AddEventSink(hdt::ActorManager::instance());
-	
+
 	//
 	SKSE::GetCameraEventSource()->AddEventSink(hdt::SkyrimPhysicsWorld::get());
-	
+
 	//
 	hdt::g_pluginInterface.init(a_skse);
 
 	//
 	auto unusedCommand = RE::SCRIPT_FUNCTION::LocateConsoleCommand("ShowRenderPasses");
-	if (unusedCommand)
-	{
+	if (unusedCommand) {
 		static RE::SCRIPT_PARAMETER params[1];
 		params[0].paramType = RE::SCRIPT_PARAM_TYPE::kChar;
 		params[0].paramName = "String (optional)";
@@ -679,9 +578,8 @@ extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* a_s
 
 	//
 	hdt::papyrus::RegisterAllFunctions(SKSE::GetPapyrusInterface());
-	
-	if (hdt::SkyrimPhysicsWorld::get()->m_enableWind) 
-	{
+
+	if (hdt::SkyrimPhysicsWorld::get()->m_enableWind) {
 		logger::info("Wind enabled");
 		std::thread t(hdt::WeatherCheck);
 		t.detach();

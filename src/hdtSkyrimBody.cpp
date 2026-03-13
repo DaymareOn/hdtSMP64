@@ -9,7 +9,6 @@ namespace hdt
 		m_shared = SharedType::SHARED_PUBLIC;
 	}
 
-
 	SkyrimBody::~SkyrimBody()
 	{
 	}
@@ -20,8 +19,7 @@ namespace hdt
 		if (m_disabled || body->m_disabled)
 			return false;
 
-		switch (m_shared)
-		{
+		switch (m_shared) {
 		case SharedType::SHARED_PUBLIC:
 			break;
 		case SharedType::SHARED_INTERNAL:
@@ -45,7 +43,8 @@ namespace hdt
 
 	void SkyrimBody::internalUpdate()
 	{
-		if (m_disabled) return;
+		if (m_disabled)
+			return;
 		SkinnedMeshBody::internalUpdate();
 	}
 }

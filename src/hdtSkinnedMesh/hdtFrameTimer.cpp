@@ -24,8 +24,7 @@ namespace hdt
 
 	void FrameTimer::logEvent(FrameTimer::Events e)
 	{
-		if (!running())
-		{
+		if (!running()) {
 			return;
 		}
 
@@ -33,8 +32,7 @@ namespace hdt
 		QueryPerformanceCounter(&ticks);
 		m_timings[e] = ticks.QuadPart;
 
-		if (e == e_End)
-		{
+		if (e == e_End) {
 			QueryPerformanceFrequency(&ticks);
 			float ticks_per_us = static_cast<float>(ticks.QuadPart) / 1e6f;
 			float internalTime = (m_timings[e_Internal] - m_timings[e_Start]) / ticks_per_us;
@@ -42,8 +40,7 @@ namespace hdt
 			float collisionProcessTime = (m_timings[e_End] - m_timings[e_Launched]) / ticks_per_us;
 			float totalTime = (m_timings[e_End] - m_timings[e_Start]) / ticks_per_us;
 
-			if (cudaFrame())
-			{
+			if (cudaFrame()) {
 				m_sumsGPU[e_InternalUpdate] += internalTime;
 				m_sumsSquaredGPU[e_InternalUpdate] += internalTime * internalTime;
 				m_sumsGPU[e_CollisionLaunch] += collisionLaunchTime;
@@ -52,9 +49,7 @@ namespace hdt
 				m_sumsSquaredGPU[e_CollisionProcess] += collisionProcessTime * collisionProcessTime;
 				m_sumsGPU[e_Total] += totalTime;
 				m_sumsSquaredGPU[e_Total] += totalTime * totalTime;
-			}
-			else
-			{
+			} else {
 				m_sumsCPU[e_InternalUpdate] += internalTime;
 				m_sumsSquaredCPU[e_InternalUpdate] += internalTime * internalTime;
 				m_sumsCPU[e_CollisionLaunch] += collisionLaunchTime;
@@ -65,10 +60,9 @@ namespace hdt
 				m_sumsSquaredCPU[e_Total] += totalTime * totalTime;
 			}
 
-			if (--m_nFrames == 0)
-			{
+			if (--m_nFrames == 0) {
 				RE::ConsoleLog* log = RE::ConsoleLog::GetSingleton();
-				
+
 				log->Print("Timings over %d frames:", m_count);
 				log->Print("  CPU:");
 				float mean = m_sumsCPU[e_InternalUpdate] / m_count;
@@ -119,13 +113,10 @@ namespace hdt
 
 	void FrameTimer::addManifoldCount(int nManifolds)
 	{
-		if (cudaFrame())
-		{
+		if (cudaFrame()) {
 			m_nManifoldsGPU += nManifolds;
 			m_nManifolds2GPU += nManifolds * nManifolds;
-		}
-		else
-		{
+		} else {
 			m_nManifoldsCPU += nManifolds;
 			m_nManifolds2CPU += nManifolds * nManifolds;
 		}

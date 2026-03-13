@@ -3,9 +3,9 @@
 #include "hdtSkyrimSystem.h"
 
 //
-namespace hdt 
+namespace hdt
 {
-	namespace util 
+	namespace util
 	{
 		uint32_t splitArmorAddonFormID(std::string nodeName);
 		std::string UInt32toString(uint32_t formID);

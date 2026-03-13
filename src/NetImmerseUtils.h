@@ -7,19 +7,19 @@ namespace hdt
 		node->name = name;
 	}
 
-	static inline RE::NiNode* castNiNode(RE::NiAVObject* obj) 
-	{ 
-		return obj ? obj->AsNode() : nullptr; 
+	static inline RE::NiNode* castNiNode(RE::NiAVObject* obj)
+	{
+		return obj ? obj->AsNode() : nullptr;
 	}
 
-	inline RE::BSTriShape* castBSTriShape(RE::NiAVObject* obj) 
+	inline RE::BSTriShape* castBSTriShape(RE::NiAVObject* obj)
 	{
-		return obj ? obj->AsTriShape() : nullptr; 
+		return obj ? obj->AsTriShape() : nullptr;
 	}
 
 	static inline RE::BSDynamicTriShape* castBSDynamicTriShape(RE::NiAVObject* obj)
 	{
-		return obj ? obj->AsDynamicTriShape() : nullptr; 
+		return obj ? obj->AsDynamicTriShape() : nullptr;
 	}
 
 	static inline RE::NiAVObject* findObject(RE::NiAVObject* obj, const RE::BSFixedString& name)
@@ -36,8 +36,7 @@ namespace hdt
 	static inline std::string readAllFile(const char* path)
 	{
 		RE::BSResourceNiBinaryStream stream(path);
-		if (!stream.good())
-		{
+		if (!stream.good()) {
 			return "";
 		}
 
@@ -46,7 +45,7 @@ namespace hdt
 
 		//
 		size_t required = stream.stream->totalSize;
-		
+
 		//
 		file.resize(required);
 
@@ -60,8 +59,7 @@ namespace hdt
 	static inline std::string readAllFile2(const char* path)
 	{
 		std::ifstream stream(path, std::ios::binary);
-		if (!stream.is_open())
-		{
+		if (!stream.is_open()) {
 			return "";
 		}
 
@@ -76,13 +74,11 @@ namespace hdt
 
 	static inline void updateTransformUpDown(RE::NiAVObject* obj, bool dirty)
 	{
-		if (!obj)
-		{
+		if (!obj) {
 			return;
 		}
 
-		RE::NiUpdateData ctx =
-		{
+		RE::NiUpdateData ctx = {
 			0.f,
 			dirty ? RE::NiUpdateData::Flag::kDirty : RE::NiUpdateData::Flag::kNone
 		};
@@ -92,12 +88,9 @@ namespace hdt
 
 		//
 		RE::NiNode* node = castNiNode(obj);
-		if (node)
-		{
-			for (auto& child : node->GetChildren())
-			{
-				if (child)
-				{
+		if (node) {
+			for (auto& child : node->GetChildren()) {
+				if (child) {
 					updateTransformUpDown(child.get(), dirty);
 				}
 			}

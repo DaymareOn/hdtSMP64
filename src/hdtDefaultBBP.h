@@ -19,6 +19,7 @@ namespace hdt
 
 		static DefaultBBP* instance();
 		PhysicsFile_t scanBBP(RE::NiNode* scan);
+
 	private:
 		DefaultBBP();
 
