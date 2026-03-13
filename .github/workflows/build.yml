@@ -3,14 +3,14 @@ name: Continuous hdtSMP64 Windows Build
 on:
   push:
     branches:
+      - master
+      - test
       - testbuild
-      #- main
-      #- test
   pull_request:
     branches:
+      - master
+      - test
       - testbuild
-      #- main
-      #- test
 
 jobs:
   build:
@@ -36,9 +36,9 @@ jobs:
             build/vcpkg_installed
             ~\AppData\Local\vcpkg\archives
           # Adding the preset name to the key ensures AVX2 and AVX512 don't overwrite each other's cache
-          key: vcpkg-${{ runner.os }}-${{ matrix.preset }}-${{ hashFiles('vcpkg.json') }}
+          key: vcpkg-${{ runner.os }}-${{ github.ref_name }}-${{ matrix.preset }}-${{ hashFiles('vcpkg.json') }}
           restore-keys: |
-            vcpkg-${{ runner.os }}-${{ matrix.preset }}-
+            vcpkg-${{ runner.os }}-${{ github.ref_name }}-${{ matrix.preset }}-
 
       # 3. Configure CMake with vcpkg toolchain injection
       - name: Configure CMake
@@ -78,7 +78,7 @@ jobs:
           # -tzip: ZIP container
           # -mm=LZMA: Uses the strongest availablecompression algorithm; lzma2 isn't supported in ZIP
           # -mx=9: Level 9 (Ultra)
-          7z a -tzip -mm=LZMA -mx=9 ../../${{ matrix.preset }}.zip
+          7z a -tzip -mm=LZMA -mx=9 ../../${{ github.ref_name }}-${{ matrix.preset }}.zip
 
       - name: Verify ZIP Content
         shell: bash
@@ -90,8 +90,8 @@ jobs:
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.preset }}
-          path: ${{ matrix.preset }}.zip
+          name: ${{ github.ref_name }}-${{ matrix.preset }}
+          path: ${{ github.ref_name }}-${{ matrix.preset }}.zip
 
   release:
     needs: build
@@ -103,18 +103,16 @@ jobs:
       - name: Download Artifacts
         uses: actions/download-artifact@v4
 
-      - name: Update 'Latest' Release
+      - name: Update branch Release
         uses: softprops/action-gh-release@v2
         with:
-          # This creates/updates a release named "Latest Continuous Build"
-          tag_name: latest
-          name: Latest Continuous Build
+          # 8. This creates/updates a release named "Latest Build (branch name)"
+          tag_name: latest-${{ github.ref_name }}
+          name: Latest Build (${{ github.ref_name }})
           body: |
-            Automated build from the latest push.
+            Automated build for branch: ${{ github.ref_name }}
             Build Date: ${{ github.event.head_commit.timestamp }}
             Commit: ${{ github.sha }}
-          files: |
-            vs2022-windows-nocuda-avx2/*.zip
-            vs2022-windows-nocuda-avx512/*.zip
+          files: "**/*.zip"
           # 'prerelease: true' flags it so users know it's an automated build
           prerelease: true
