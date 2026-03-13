@@ -64,33 +64,11 @@ jobs:
       - name: Build according to the preset
         run: cmake --build build --config Release
 
-      - name: Fetch the FSMP Validator and inject into the folder structure
-        shell: bash
-        run: |
-          echo "Cloning FSMP-Validator..."
-          git clone --depth 1 https://github.com/DaymareOn/FSMP-Validator.git temp-validator
-          
-          # Define the target directory inside your plugin structure
-          TARGET_DIR="build/FSMPV"
-          mkdir -p "$TARGET_DIR"
-          
-          # Copy scripts and docs, excluding git metadata
-          cp temp-validator/FSMP* "$TARGET_DIR/"        
-          cp temp-validator/LICENSE "$TARGET_DIR/"        
-          cp temp-validator/skse/plugins/hdtSkinnedMeshConfigs/hdtSMP64.xsd "$TARGET_DIR/"
-          echo "Validator injected into $TARGET_DIR"
-
-      - name: Upload the build folder
+        - name: Upload the build folder
         uses: actions/upload-artifact@v4
         with:
           name: raw-${{ matrix.preset }}
           path: build/plugins/
-
-      - name: Upload the FSMP Validator
-        uses: actions/upload-artifact@v4
-        with:
-          name: FSMPV-shared
-          path: build/FSMPV/
 
   release:
     needs: build
@@ -107,23 +85,32 @@ jobs:
         with:
           path: tmp_artifacts
 
+      - name: Fetch the FSMP Validator
+        run: |
+          echo "Cloning FSMP-Validator..."
+          git clone --depth 1 https://github.com/DaymareOn/FSMP-Validator.git temp-validator
+          mkdir -p validator_files
+          cp temp-validator/FSMP* validator_files/
+          cp temp-validator/LICENSE validator_files/
+          cp temp-validator/skse/plugins/hdtSkinnedMeshConfigs/hdtSMP64.xsd validator_files/
+
       - name: Organize and 7zip
         run: |
           # 1. Create a clean structure for the final ZIP
-          mkdir -p final_package
+          mkdir -p final_package/FSMPV
           
-          # 3. Copy everything FROM inside fomod_tree to the ROOT of final_package
+          # 2. Copy everything FROM inside fomod_tree to the ROOT of final_package
           # Using '.' at the end of the source path copies the content, not the folder itself
           cp -r fomod_tree/. final_package/
 
-          # 2. Move files from the "raw" artifacts into the final structure
+          # 3. Move files from the "raw" artifacts into the final structure
           # Note: download-artifact creates folders named after the 'name' in upload-artifact
           cp -r tmp_artifacts/raw-* final_package/
           
-          # 3. Copy the Validator to the root level of the package
-          cp -r tmp_artifacts/FSMPV-shared/* final_package/FSMPV/
-
-          # 3. Create the unique ZIP
+          # 4. Copy the Validator to the root level of the package
+          cp -r validator_files/* final_package/FSMPV/
+          
+          # 5. Create the unique ZIP
           cd final_package
           # a: add to archive
           # -tzip: ZIP container
