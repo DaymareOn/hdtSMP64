@@ -16,32 +16,29 @@ jobs:
   build:
     runs-on: windows-2022
     strategy:
-      # Use a matrix to run both presets at the same time
+      # Use a matrix to run all presets at the same time
       matrix:
         preset: [vs2022-windows-nocuda-avx2, vs2022-windows-nocuda-avx512]
 
     steps:
-      # 1. Checkout the repository
-      - name: Checkout code
+      - name: Checkout the repository
         uses: actions/checkout@v4
         with:
-          # This handles your 'git submodule update --init --recursive' automatically
+          # This handles the 'git submodule update --init --recursive' automatically
           submodules: recursive
 
-      # 2. Restore vcpkg dependencies
-      - name: Restore vcpkg and binary cache
+      - name: Restore vcpkg dependencies and binary cache
         uses: actions/cache@v4
         with:
           path: |
             build/vcpkg_installed
             ~\AppData\Local\vcpkg\archives
-          # Adding the preset name to the key ensures AVX2 and AVX512 don't overwrite each other's cache
+          # Adding the preset name to the key ensures the presets don't overwrite each other's cache
           key: vcpkg-${{ runner.os }}-${{ github.ref_name }}-${{ matrix.preset }}-${{ hashFiles('vcpkg.json') }}
           restore-keys: |
             vcpkg-${{ runner.os }}-${{ github.ref_name }}-${{ matrix.preset }}-
 
-      # 3. Configure CMake with vcpkg toolchain injection
-      - name: Configure CMake
+      - name: Configure CMake with vcpkg toolchain injection
         shell: pwsh
         run: |
           # 1. Ensure the binary cache directory exists so vcpkg doesn't complain
@@ -60,24 +57,21 @@ jobs:
             -DVCPKG_MANIFEST_MODE=ON `
             -DCompiledPluginsPath="${{ github.workspace }}/build/plugins"
 
-      # 4: Create the CompiledPluginsPath folder structure
       - name: Create the CompiledPluginsPath folder structure
         run: mkdir -p "${{ github.workspace }}/build/plugins/SKSE/Plugins/"
         shell: bash
 
-      # 5. Build the project
-      - name: Build
+      - name: Build according to the preset
         run: cmake --build build --config Release
 
-      # 6 Fetch FSMP-Validator and inject into the folder structure
-      - name: Fetch and Inject FSMP-Validator
+      - name: Fetch the FSMP Validator and inject into the folder structure
         shell: bash
         run: |
           echo "Cloning FSMP-Validator..."
           git clone --depth 1 https://github.com/DaymareOn/FSMP-Validator.git temp-validator
           
           # Define the target directory inside your plugin structure
-          TARGET_DIR="build/plugins/SKSE/Plugins/hdtSkinnedMeshConfigs/FSMP-Validator"
+          TARGET_DIR="build/FSMPV"
           mkdir -p "$TARGET_DIR"
           
           # Copy scripts and docs, excluding git metadata
@@ -86,29 +80,17 @@ jobs:
           cp temp-validator/skse/plugins/hdtSkinnedMeshConfigs/hdtSMP64.xsd "$TARGET_DIR/"
           echo "Validator injected into $TARGET_DIR"
 
-      # 6. Create the ZIP file immediately after building
-      - name: Archive Binaries
-        shell: bash
-        run: |
-          cd build/plugins
-          # a: add to archive
-          # -tzip: ZIP container
-          # -mm=LZMA: Uses the strongest available compression algorithm; lzma2 isn't supported in ZIP
-          # -mx=9: Level 9 (Ultra)
-          7z a -tzip -mm=LZMA -mx=9 ../../${{ github.ref_name }}-${{ matrix.preset }}.zip
-
-      - name: Verify ZIP Content
-        shell: bash
-        run: |
-          echo "Listing contents of ${{ github.ref_name }}-${{ matrix.preset }}.zip:"
-          7z l ${{ github.ref_name }}-${{ matrix.preset }}.zip
-
-      # 7. Save the resulting binaries so you can download them
-      - name: Upload Build Artifacts
+      - name: Upload the build folder
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ github.ref_name }}-${{ matrix.preset }}
-          path: ${{ github.ref_name }}-${{ matrix.preset }}.zip
+          name: raw-${{ matrix.preset }}
+          path: build/plugins/
+
+      - name: Upload the FSMP Validator
+        uses: actions/upload-artifact@v4
+        with:
+          name: FSMPV-shared
+          path: build/FSMPV/
 
   release:
     needs: build
@@ -117,13 +99,49 @@ jobs:
       contents: write
     
     steps:
+      - name: Checkout the code to get the fomod_tree folder
+        uses: actions/checkout@v4
+
       - name: Download Artifacts
         uses: actions/download-artifact@v4
+        with:
+          path: tmp_artifacts
 
-      - name: Update branch Release
+      - name: Organize and 7zip
+        run: |
+          # 1. Create a clean structure for the final ZIP
+          mkdir -p final_package
+          
+          # 3. Copy everything FROM inside fomod_tree to the ROOT of final_package
+          # Using '.' at the end of the source path copies the content, not the folder itself
+          cp -r fomod_tree/. final_package/
+
+          # 2. Move files from the "raw" artifacts into the final structure
+          # Note: download-artifact creates folders named after the 'name' in upload-artifact
+          cp -r tmp_artifacts/raw-* final_package/
+          
+          # 3. Copy the Validator to the root level of the package
+          cp -r tmp_artifacts/FSMPV-shared/* final_package/FSMPV/
+
+          # 3. Create the unique ZIP
+          cd final_package
+          # a: add to archive
+          # -tzip: ZIP container
+          # -mm=LZMA: Uses the strongest available compression algorithm; lzma2 isn't supported in ZIP
+          # -mx=9: Level 9 (Ultra)
+          7z a -tzip -mm=LZMA -mx=9 ../FSMP-${{ github.ref_name }}.zip .
+          cd ..
+
+      - name: Verify the archive content
+        shell: bash
+        run: |
+          echo "Listing contents of FSMP-${{ github.ref_name }}.zip:"
+          7z l FSMP-${{ github.ref_name }}.zip
+
+      - name: Update the branch Release
         uses: softprops/action-gh-release@v2
         with:
-          # 8. This creates/updates a release named "Latest Build (branch name)"
+          # 10. This creates/updates a release named "Latest Build (branch name)"
           tag_name: latest-${{ github.ref_name }}
           name: Latest Build (${{ github.ref_name }})
           body: |
