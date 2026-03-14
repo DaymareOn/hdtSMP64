@@ -77,7 +77,7 @@ jobs:
       contents: write
     
     steps:
-      - name: Checkout the code to get the fomod_tree folder
+      - name: Checkout the code to get the "fomod tree" folder
         uses: actions/checkout@v4
 
       - name: Download Artifacts
@@ -99,9 +99,9 @@ jobs:
           # 1. Create a clean structure for the final ZIP
           mkdir -p final_package/FSMPV
           
-          # 2. Copy everything FROM inside fomod_tree to the ROOT of final_package
+          # 2. Copy everything FROM inside "fomod tree" to the ROOT of final_package
           # Using '.' at the end of the source path copies the content, not the folder itself
-          cp -r fomod_tree/. final_package/
+          cp -r "fomod tree/." final_package/
 
           # 3. Move files from the "raw" artifacts into the final structure
           # Note: download-artifact creates folders named after the 'name' in upload-artifact
