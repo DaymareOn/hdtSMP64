@@ -42,3 +42,12 @@ repos:
     hooks:
       - id: codespell
         args: [--ignore-words-list, "ue,nd,fo,hin,inout,numer,gool,fre,oord,accessort,toi,isse"]
+
+ci:
+    autofix_commit_msg: |
+        style: 🎨 apply pre-commit.ci formatting
+
+        Automated formatting by clang-format, prettier, and other hooks.
+        See https://pre-commit.ci for details.
+    autofix_prs: true
+    autoupdate_commit_msg: "build(deps): update pre-commit hooks"
