@@ -2,6 +2,39 @@
 
 namespace hdt
 {
+
+	// Returns true if obj looks like a valid NiObject safe to call virtuals on.
+	// VR's NiStream can leave bones[] slots as null or as raw char* pointers for
+	// unresolved bone references. A char* used as a pointer has its first 8 bytes
+	// interpreted as a vtable — those bytes are ASCII text, giving a non-canonical
+	// address (> 0x7FFFFFFFFFFF) that faults on access. We also guard against null
+	// vtable slots (stub objects from unknown NIF block types).
+	// NiObject vtable layout: [0]=~NiRefObject, [1]=DeleteThis, [2]=GetRTTI, [3]=AsNode
+	static constexpr uintptr_t kCanonicalUserSpaceMax = 0x00007FFFFFFFFFFFull;
+	static inline bool isValidNiObject(const RE::NiAVObject* obj)
+	{
+		if (!obj)
+			return false;
+		if (reinterpret_cast<uintptr_t>(obj) > kCanonicalUserSpaceMax)
+			return false;
+		auto vtbl = *reinterpret_cast<void* const* const*>(obj);
+		if (!vtbl || reinterpret_cast<uintptr_t>(vtbl) > kCanonicalUserSpaceMax)
+			return false;
+		return vtbl[3] != nullptr;  // slot 3 = AsNode
+	}
+
+	// Returns true if obj is a VR NiStream stub: passes isValidNiObject but has a
+	// null or non-canonical function pointer at vtable slot 43 (GetObjectByName, offset
+	// 0x158). VR creates these for SE-specific NIF block types it can't fully instantiate.
+	static inline bool isVRNiStreamStub(const RE::NiAVObject* obj)
+	{
+		if (!isValidNiObject(obj))
+			return false;
+		auto vtbl = *reinterpret_cast<const uintptr_t* const*>(obj);
+		auto slot43 = vtbl[0x158 / sizeof(uintptr_t)];
+		return slot43 == 0 || slot43 > kCanonicalUserSpaceMax;
+	}
+
 	static inline void setNiNodeName(RE::NiNode* node, const char* name)
 	{
 		node->name = name;
@@ -9,7 +42,12 @@ namespace hdt
 
 	static inline RE::NiNode* castNiNode(RE::NiAVObject* obj)
 	{
-		return obj ? obj->AsNode() : nullptr;
+		if (!isValidNiObject(obj)) {
+			if (obj)
+				logger::warn("castNiNode: skipping object at {:p} with invalid vtable (VR NiStream stub or unresolved bone ref)", static_cast<const void*>(obj));
+			return nullptr;
+		}
+		return obj->AsNode();
 	}
 
 	inline RE::BSTriShape* castBSTriShape(RE::NiAVObject* obj)

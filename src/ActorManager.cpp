@@ -703,8 +703,42 @@ namespace hdt
 		return "";
 	}
 
+	// Logs a warning once per NIF path when VR NiStream Type B stubs are found.
+	// Uses a static set to avoid duplicate warnings for the same NIF across frames.
+	static void logBrokenNifOnce(const char* nifPath, RE::NiAVObject* root)
+	{
+		if (!REL::Module::IsVR() || !nifPath || !root)
+			return;
+		static std::unordered_set<std::string> warned;
+		if (warned.count(nifPath))
+			return;
+		std::vector<RE::NiAVObject*> stack = { root };
+		while (!stack.empty()) {
+			auto obj = stack.back();
+			stack.pop_back();
+			if (!obj || !isValidNiObject(obj))
+				continue;
+			if (isVRNiStreamStub(obj)) {
+				warned.insert(nifPath);
+				logger::warn(
+					"[VR NiStream] NIF '{}' contains SE-format blocks VR cannot fully instantiate "
+					"(Type B stubs, broken vtable[43]). Run through Cathedral Assets Optimizer (CAO) for Skyrim VR.",
+					nifPath);
+				return;
+			}
+			auto node = obj->AsNode();
+			if (node)
+				for (auto& c : node->GetChildren())
+					if (c)
+						stack.push_back(c.get());
+		}
+	}
+
 	void ActorManager::Skeleton::addArmor(RE::NiNode* armorModel)
 	{
+		if (armorModel)
+			logBrokenNifOnce(armorModel->name.c_str(), armorModel);
+
 		IDType id = armors.size() ? armors.back().id + 1 : 0;
 		auto prefix = armorPrefix(id);
 		// FIXME we probably could simplify this by using findNode as surely we don't merge Armors with lurkers skeleton?
@@ -1125,7 +1159,7 @@ namespace hdt
 			}
 		} else {
 			logger::debug("No facegen extra model data available, loading original facegeometry.");
-			if (!head.npcFaceGeomNode) {
+			if (!head.npcFaceGeomNode && !head.npcFaceGeomNodeBroken) {
 				if (skeleton->GetUserData() && skeleton->GetUserData()->GetObjectReference()) {
 					auto skeletonNpc = skyrim_cast<RE::TESNPC*>(skeleton->GetUserData()->GetObjectReference());
 					if (skeletonNpc) {
@@ -1147,7 +1181,38 @@ namespace hdt
 									auto rootFadeNode = niStream->topObjects[0]->AsFadeNode();
 									if (rootFadeNode) {
 										logger::debug("NPC facegeometry root fadeNode found.");
-										head.npcFaceGeomNode = hdt::make_nismart(rootFadeNode);
+										logBrokenNifOnce(filePath, rootFadeNode);
+										// Detect VR NiStream isolation bug: unresolved bone refs left as raw pointers
+										bool brokenBoneRefs = false;
+										auto& faceCh = rootFadeNode->GetChildren();
+										for (std::uint32_t ci = 0; ci < faceCh.size() && !brokenBoneRefs; ++ci) {
+											auto faceChild = faceCh[ci].get();
+											if (!faceChild)
+												continue;
+											if (!isValidNiObject(faceChild)) {
+												brokenBoneRefs = true;
+												break;
+											}
+											auto faceGeo = faceChild->AsGeometry();
+											if (!faceGeo)
+												continue;
+											const auto& fgrd = faceGeo->GetGeometryRuntimeData();
+											if (!fgrd.skinInstance || !fgrd.skinInstance->skinData)
+												continue;
+											for (std::uint32_t bi = 0; bi < fgrd.skinInstance->skinData->bones && !brokenBoneRefs; ++bi) {
+												auto fBone = fgrd.skinInstance->bones[bi];
+												if (fBone && !isValidNiObject(fBone))
+													brokenBoneRefs = true;
+											}
+										}
+										if (brokenBoneRefs) {
+											logger::warn(
+												"processGeometry: NPC facegeometry '{}' has VR NiStream unresolved "
+												"bone refs. Skipping facegeometry-based bone lookup to avoid crashes.",
+												filePath);
+											head.npcFaceGeomNodeBroken = true;
+										} else
+											head.npcFaceGeomNode = hdt::make_nismart(rootFadeNode);
 									} else
 										logger::debug("NPC facegeometry root wasn't fadeNode as expected.");
 								}
@@ -1189,9 +1254,23 @@ namespace hdt
 
 			if (!*boneName.c_str()) {
 				if (origGeom) {
-					boneName = origGeom->GetGeometryRuntimeData().skinInstance->bones[boneIdx]->name;
+					const auto& rd = origGeom->GetGeometryRuntimeData();
+					if (rd.skinInstance && rd.skinInstance->skinData && boneIdx < rd.skinInstance->skinData->bones) {
+						auto bone = rd.skinInstance->bones[boneIdx];
+						if (isValidNiObject(bone))
+							boneName = bone->name;
+						else if (bone)
+							logger::warn("processGeometry: origGeom '{}' bone[{}] at {:p} is not a valid NiObject (VR NiStream unresolved bone ref)", geometry->name.c_str(), boneIdx, static_cast<void*>(bone));
+					}
 				} else if (origNiGeom) {
-					boneName = origNiGeom->GetRuntimeData().spSkinInstance->bones[boneIdx]->name;
+					const auto& spSkin = origNiGeom->GetRuntimeData().spSkinInstance;
+					if (spSkin && spSkin->skinData && boneIdx < spSkin->skinData->bones) {
+						auto bone = spSkin->bones[boneIdx];
+						if (isValidNiObject(bone))
+							boneName = bone->name;
+						else if (bone)
+							logger::warn("processGeometry: origNiGeom bone[{}] at {:p} is not a valid NiObject (VR NiStream unresolved bone ref)", boneIdx, static_cast<void*>(bone));
+					}
 				}
 			}
 
@@ -1212,7 +1291,10 @@ namespace hdt
 					// Facegen data doesn't have any tree structure to the skeleton. We need to make any new
 					// nodes children of the head node, so that they move properly when there's no physics.
 					// This case never happens to a lurker skeleton, thus we don't need to test.
-					RE::NiNode* npcHeadNode = findNode(head.npcFaceGeomNode.get(), "NPC Head [Head]");
+					// In VR, isolated NiStream nodes have broken vtable entries at higher slots;
+					// directly attaching originals to the live skeleton crashes the game update loop.
+					// doSkeletonMerge below uses cloneNodeTree (fresh valid copies), so skip direct attach in VR.
+					RE::NiNode* npcHeadNode = !REL::Module::IsVR() ? findNode(head.npcFaceGeomNode.get(), "NPC Head [Head]") : nullptr;
 					if (npcHeadNode) {
 						RE::NiTransform invTransform = npcHeadNode->local.Invert();
 						auto& children = head.npcFaceGeomNode->GetChildren();
@@ -1258,7 +1340,7 @@ namespace hdt
 
 		if (hasRenames) {
 			for (auto& entry : head.renameMap) {
-				if ((this->head.headParts.back().origPartRootNode && findObject(this->head.headParts.back().origPartRootNode.get(), entry.first->cstr())) || (this->head.npcFaceGeomNode && findObject(this->head.npcFaceGeomNode.get(), entry.first->cstr()))) {
+				if ((this->head.headParts.back().origPartRootNode && findObject(this->head.headParts.back().origPartRootNode.get(), entry.first->cstr())) || (!REL::Module::IsVR() && this->head.npcFaceGeomNode && findObject(this->head.npcFaceGeomNode.get(), entry.first->cstr()))) {
 					auto findNode = this->head.nodeUseCount.find(entry.first);
 					if (findNode != this->head.nodeUseCount.end()) {
 						findNode->second += 1;

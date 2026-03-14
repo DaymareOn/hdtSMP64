@@ -22,7 +22,8 @@ namespace Hooks
 
 			//
 			REL::Relocation<uintptr_t> BSFaceGenNiNode__vtbl{ RE::VTABLE_BSFaceGenNiNode[0] };
-			BSFaceGenNiNode__vtbl.write_vfunc(0x3E, SkinAllGeometry__Hook);
+			// VR adds SKYRIM_REL_VR_VIRTUAL FixSkinInstances at slot 0x3E, pushing SkinAllGeometry to 0x3F
+			BSFaceGenNiNode__vtbl.write_vfunc(REL::Module::IsVR() ? 0x3F : 0x3E, SkinAllGeometry__Hook);
 
 			//
 			_SkinSingleGeometry = trampoline.write_call<5>(SkinSingleGeometryCode1.address(), SkinSingleGeometry__Hook);
