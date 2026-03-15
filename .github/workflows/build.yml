@@ -101,9 +101,9 @@ jobs:
           mkdir -p mcm_files
           cp temp-mcm/FSMP* mcm_files/
           cp temp-mcm/LICENSE mcm_files/
-          cp temp-mcm/SKSE mcm_files/
-          cp temp-mcm/Scripts mcm_files/
-          cp temp-mcm/Source mcm_files/
+          cp -r temp-mcm/SKSE mcm_files/
+          cp -r temp-mcm/Scripts mcm_files/
+          cp -r temp-mcm/Source mcm_files/
 
       - name: Organize and 7zip
         run: |
