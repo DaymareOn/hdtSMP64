@@ -13,7 +13,25 @@ on:
       - testbuild
 
 jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+    # Make the version accessible to other jobs
+      new_version: ${{ steps.versioning.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Necessary for SemVer
+
+      - name: Determine semantic version
+        id: versioning
+        uses: codacy/git-versioner@v1
+        with:
+          format: "digit"
+
   build:
+    needs: prepare
     runs-on: windows-2022
     strategy:
       # Use a matrix to run all presets at the same time
@@ -24,8 +42,14 @@ jobs:
       - name: Checkout the repository
         uses: actions/checkout@v4
         with:
-          # This handles the 'git submodule update --init --recursive' automatically
-          submodules: recursive
+          submodules: recursive # This handles the 'git submodule update --init --recursive' automatically
+
+      - name: Inject version into CMake
+        shell: pwsh
+        run: |
+          $NewVer = "${{ needs.prepare.outputs.new_version }}"
+          Write-Host "Injecting version $NewVer into CMakeLists.txt"
+          (Get-Content CMakeLists.txt) -replace 'VERSION \d+\.\d+\.\d+', "VERSION $NewVer" | Set-Content CMakeLists.txt
 
       - name: Restore vcpkg dependencies and binary cache
         uses: actions/cache@v4
@@ -71,7 +95,7 @@ jobs:
           path: build/plugins/
 
   release:
-    needs: build
+    needs: [prepare, build]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -79,11 +103,12 @@ jobs:
     steps:
       - name: Checkout the code to get the "fomod tree" folder
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Update FOMOD Version
+      - name: Update FOMOD version
         run: |
-          # On utilise la variable GitHub ref_name ou SHA pour automatiser
-          VERSION_STRING="3.0.0-${{ github.ref_name }}-${{ github.sha }}"
+          VERSION_STRING="${{ needs.prepare.outputs.new_version }}-${{ github.ref_name }}-${{ github.sha }}"
           sed -i "s|<Version>.*</Version>|<Version>$VERSION_STRING</Version>|g" "fomod tree/fomod/info.xml"
 
       - name: Download Artifacts
@@ -137,25 +162,36 @@ jobs:
           # -tzip: ZIP container
           # -mm=LZMA: Uses the strongest available compression algorithm; lzma2 isn't supported in ZIP
           # -mx=9: Level 9 (Ultra)
-          7z a -tzip -mm=LZMA -mx=9 ../FSMP-${{ github.ref_name }}.zip .
+          7z a -tzip -mm=LZMA -mx=9 ../FSMP-${{ github.ref_name }}-${{ needs.prepare.outputs.new_version }}.zip .
           cd ..
 
       - name: Verify the archive content
         shell: bash
         run: |
-          echo "Listing contents of FSMP-${{ github.ref_name }}.zip:"
-          7z l FSMP-${{ github.ref_name }}.zip
+          echo "Listing contents of FSMP-${{ github.ref_name }}-${{ needs.prepare.outputs.new_version }}.zip:"
+          7z l FSMP-${{ github.ref_name }}-${{ needs.prepare.outputs.new_version }}.zip
 
-      - name: Update the branch Release
+
+      - name: Create GitHub Release and Git Tag
         uses: softprops/action-gh-release@v2
         with:
-          # 10. This creates/updates a release named "Latest Build (branch name)"
-          tag_name: latest-${{ github.ref_name }}
-          name: Latest Build (${{ github.ref_name }})
+          # This is where the version is saved into Git with a Tag
+          # If the branch isn't master, we append the branch name to the tag to avoid conflicts
+          tag_name: ${{ github.ref_name == 'master' && format('v{0}', needs.prepare.outputs.new_version) || format('v{0}-{1}', needs.prepare.outputs.new_version, github.ref_name) }}
+          name: FSMP v${{ needs.prepare.outputs.new_version }} (${{ github.ref_name }})
           body: |
-            Automated build for branch: ${{ github.ref_name }}
+            ## Release v${{ needs.prepare.outputs.new_version }}
             Build Date: ${{ github.event.head_commit.timestamp }}
             Commit: ${{ github.sha }}
-          files: "**/*.zip"
-          # 'prerelease: true' flags it so users know it's an automated build
-          prerelease: true
+            Automated Semantic Build.
+          files: "**.zip"
+          # prerelease is true for all branches except master
+          prerelease: ${{ github.ref_name != 'master' }}
+
+      - name: Cleanup old releases
+        uses: dev-drpradheep/delete-older-releases@v0.1.0
+        with:
+          keep_latest: 10
+          delete_tag_pattern: ${{ github.ref_name == 'master' && '^v[0-9.]+$' || github.ref_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
