@@ -50,10 +50,10 @@ jobs:
         with:
           tag_prefix: "v"
           version_format: "${major}.${minor}.${patch}"
-          fallback_version: "2.5.1"
           major_pattern: "/!:|BREAKING CHANGE:/"
           minor_pattern: "feat:"
-          patch_pattern: "fix:"
+          bump_each_commit: true
+          bump_each_commit_patch_pattern: "fix:"
 
   build:
     needs: prepare
@@ -222,7 +222,6 @@ jobs:
           echo "Listing contents of FSMP-${{ github.ref_name }}-${{ needs.prepare.outputs.new_version }}.zip:"
           7z l FSMP-${{ github.ref_name }}-${{ needs.prepare.outputs.new_version }}.zip
 
-
       - name: Create GitHub Release and Git Tag
         uses: softprops/action-gh-release@v2
         with:
@@ -238,11 +237,3 @@ jobs:
           files: "**.zip"
           # prerelease is true for all branches except master
           prerelease: ${{ github.ref_name != 'master' }}
-
-      - name: Cleanup old releases
-        uses: dev-drprasad/delete-older-releases@v0.3.4
-        with:
-          keep_latest: 10
-          delete_tag_pattern: ${{ github.ref_name == 'master' && '^v[0-9.]+$' || github.ref_name }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
