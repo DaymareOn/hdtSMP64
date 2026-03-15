@@ -24,15 +24,17 @@ namespace hdt
 	}
 
 	// Returns true if obj is a VR NiStream stub: passes isValidNiObject but has a
-	// null or non-canonical function pointer at vtable slot 43 (GetObjectByName, offset
-	// 0x158). VR creates these for SE-specific NIF block types it can't fully instantiate.
+	// null or non-canonical function pointer at vtable slot 0x2B (GetObjectByName in VR,
+	// offset 0x158). VR uses slot 0x2B because ApplyLocalTransformToWorld is inserted at
+	// slot 26, shifting all SKYRIM_REL_VR_VIRTUAL entries by +1 relative to SE's 0x2A.
+	// VR creates these stubs for SE-specific NIF block types it can't fully instantiate.
 	static inline bool isVRNiStreamStub(const RE::NiAVObject* obj)
 	{
 		if (!isValidNiObject(obj))
 			return false;
 		auto vtbl = *reinterpret_cast<const uintptr_t* const*>(obj);
-		auto slot43 = vtbl[0x158 / sizeof(uintptr_t)];
-		return slot43 == 0 || slot43 > kCanonicalUserSpaceMax;
+		auto slotGetObjectByName = vtbl[0x158 / sizeof(uintptr_t)];  // 0x158 = slot 0x2B (VR)
+		return slotGetObjectByName == 0 || slotGetObjectByName > kCanonicalUserSpaceMax;
 	}
 
 	static inline void setNiNodeName(RE::NiNode* node, const char* name)
