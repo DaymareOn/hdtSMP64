@@ -65,7 +65,7 @@ namespace Hooks
 		}
 	}
 
-	void BSFaceGenNiNodeHooks::SkinSingleGeometry__Hook(RE::BSFaceGenNiNode* const a_this, RE::NiNode* a_skeleton, RE::BSGeometry* a_triShape, bool a_unk)
+	void BSFaceGenNiNodeHooks::SkinSingleGeometry__Hook(RE::BSFaceGenNiNode* const a_this, RE::NiNode* a_skeleton, RE::BSGeometry* a_triShape, [[maybe_unused]] bool a_unk)
 	{
 		//
 		const char* name = "";
@@ -145,7 +145,7 @@ namespace Hooks
 		if (a_skeleton) {
 			const auto& children = a_this->GetChildren();
 			if (children.size() > 0) {
-				for (int i = 0; i < children.size(); i++) {
+				for (std::uint16_t i = 0; i < children.size(); i++) {
 					auto child = children[i];
 					if (child) {
 						auto triShape = child->AsTriShape();
@@ -286,7 +286,7 @@ namespace Hooks
 				RE::BSTriShape* triShape = object ? object->AsTriShape() : nullptr;
 				if (triShape) {
 					auto size = triShape->GetGeometryRuntimeData().skinInstance->skinData->bones;
-					for (int idx = 0; idx < size; idx++)  // all good here
+					for (uint32_t idx = 0; idx < size; idx++)  // all good here
 					{
 						auto bone = triShape->GetGeometryRuntimeData().skinInstance->bones[idx];
 						result.emplace_back(hdt::make_nismart(bone));
@@ -309,7 +309,7 @@ namespace Hooks
 				RE::BSTriShape* triShape = object ? object->AsTriShape() : nullptr;
 				if (triShape) {
 					auto size = triShape->GetGeometryRuntimeData().skinInstance->skinData->bones;
-					for (int idx = 0; idx < size; idx++) {
+					for (uint32_t idx = 0; idx < size; idx++) {
 						auto bone = triShape->GetGeometryRuntimeData().skinInstance->bones[idx];
 						if (bone == nullptr) {
 							if (backupBones.contains(NodeName)) {

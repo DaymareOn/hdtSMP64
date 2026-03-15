@@ -135,11 +135,11 @@ void DumpNodeChildren(RE::NiAVObject* node)
 						geometry->world.translate.z);
 
 					if (geometry->GetGeometryRuntimeData().skinInstance && geometry->GetGeometryRuntimeData().skinInstance->skinData) {
-						for (int i = 0; i < geometry->GetGeometryRuntimeData().skinInstance->skinData->bones; i++) {
-							auto bone = geometry->GetGeometryRuntimeData().skinInstance->bones[i];
+						for (uint32_t boneIdx = 0; boneIdx < geometry->GetGeometryRuntimeData().skinInstance->skinData->bones; boneIdx++) {
+							auto bone = geometry->GetGeometryRuntimeData().skinInstance->bones[boneIdx];
 							logger::info(
 								"Bone {} - {} {} [{:.2f}, {:.2f}, {:.2f}]",
-								i,
+								boneIdx,
 								bone->GetRTTI()->name,
 								bone->name,
 								bone->world.translate.x,
@@ -154,8 +154,8 @@ void DumpNodeChildren(RE::NiAVObject* node)
 						if (lightingShader) {
 							RE::BSLightingShaderMaterial* material = static_cast<RE::BSLightingShaderMaterial*>(lightingShader->material);
 
-							for (int i = 0; i < RE::BSTextureSet::Textures::kTotal; ++i) {
-								RE::BSTextureSet::Textures::Texture textureID = static_cast<RE::BSTextureSet::Textures::Texture>(i);
+							for (int texIdx = 0; texIdx < RE::BSTextureSet::Textures::kTotal; ++texIdx) {
+								RE::BSTextureSet::Textures::Texture textureID = static_cast<RE::BSTextureSet::Textures::Texture>(texIdx);
 
 								const char* texturePath = material->textureSet->GetTexturePath(textureID);
 								if (!texturePath) {
@@ -170,7 +170,7 @@ void DumpNodeChildren(RE::NiAVObject* node)
 
 								logger::info(
 									"Texture {} - {} ({})",
-									i,
+									texIdx,
 									texturePath,
 									textureName);
 							}
@@ -236,7 +236,7 @@ void SMPDebug_PrintDetailed(bool includeItems)
 			for (auto armor : skeleton.getArmors()) {
 				RE::ConsoleLog::GetSingleton()->Print(
 					"[HDT-SMP] -- tracked armor addon %s, %s",
-					armor.armorWorn->name,
+					armor.armorWorn->name.c_str(),
 					armor.state() != hdt::ActorManager::ItemState::e_NoPhysics ? armor.state() == hdt::ActorManager::ItemState::e_Active ? "has active physics system" : "has inactive physics system" : "has no physics system");
 
 				if (armor.state() != hdt::ActorManager::ItemState::e_NoPhysics) {
@@ -252,7 +252,7 @@ void SMPDebug_PrintDetailed(bool includeItems)
 				for (auto headPart : skeleton.head.headParts) {
 					RE::ConsoleLog::GetSingleton()->Print(
 						"[HDT-SMP] -- tracked headpart %s, %s",
-						headPart.headPart->name,
+						headPart.headPart->name.c_str(),
 						headPart.state() != hdt::ActorManager::ItemState::e_NoPhysics ? headPart.state() == hdt::ActorManager::ItemState::e_Active ? "has active physics system" : "has inactive physics system" : "has no physics system");
 
 					if (headPart.state() != hdt::ActorManager::ItemState::e_NoPhysics) {
@@ -273,7 +273,7 @@ bool SMPDebug_Execute(
 	RE::TESObjectREFR* a_containingObj,
 	RE::Script* a_scriptObj,
 	RE::ScriptLocals* a_locals,
-	double& a_result,
+	[[maybe_unused]] double& a_result,
 	uint32_t& a_opcodeOffsetPtr)
 {
 	char buffer[MAX_PATH];
