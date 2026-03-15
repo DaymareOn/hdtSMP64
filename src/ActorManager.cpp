@@ -709,7 +709,9 @@ namespace hdt
 	{
 		if (!REL::Module::IsVR() || !nifPath || !root)
 			return;
+		static std::mutex warnedMutex;
 		static std::unordered_set<std::string> warned;
+		std::lock_guard lock(warnedMutex);
 		if (warned.count(nifPath))
 			return;
 		std::vector<RE::NiAVObject*> stack = { root };
