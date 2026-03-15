@@ -667,7 +667,7 @@ namespace hdt
 
 		auto& children = root->GetChildren();
 		for (uint16_t i = 0; i < children.size(); ++i) {
-			auto child = castNiNode(children[i].get());
+			auto child = castNiNode(children[static_cast<std::uint16_t>(i)].get());
 			if (child) {
 				renameTree(child, prefix, map);
 			}
@@ -679,7 +679,7 @@ namespace hdt
 		auto& children = dst->GetChildren();
 
 		for (uint16_t i = children.size(); i-- > 0;) {
-			auto child = castNiNode(children[i].get());
+			auto child = castNiNode(children[static_cast<std::uint16_t>(i)].get());
 			if (!child)
 				continue;
 
@@ -1218,7 +1218,7 @@ namespace hdt
 						auto& children = head.npcFaceGeomNode->GetChildren();
 
 						for (int32_t i = static_cast<int32_t>(children.size()) - 1; i >= 0; --i) {
-							auto child = castNiNode(children[i].get());
+							auto child = castNiNode(children[static_cast<std::uint16_t>(i)].get());
 
 							if (child && !findNode(npc.get(), child->name)) {
 								// hold a reference so DetachChildAt2 doesn't destroy the node
