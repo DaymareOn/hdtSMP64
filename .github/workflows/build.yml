@@ -4,13 +4,33 @@ on:
   push:
     branches:
       - master
-      - test
+      - dev
       - testbuild
+  workflow_dispatch:
   pull_request:
     branches:
       - master
-      - test
+      - dev
       - testbuild
+    paths:
+      - "**.cpp"
+      - "**.h"
+      - "**.hpp"
+      - "CMakeLists.txt"
+      - "CMakePresets.json"
+      - "vcpkg.json"
+      - "vcpkg-configuration.json"
+      - ".gitmodules"
+      - "extern/**"
+      - "cmake/**"
+      - ".github/workflows/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   prepare:
@@ -39,15 +59,40 @@ jobs:
     needs: prepare
     runs-on: windows-2022
     strategy:
+      fail-fast: false
       # Use a matrix to run all presets at the same time
       matrix:
-        preset: [vs2022-windows-nocuda-avx2, vs2022-windows-nocuda-avx512]
+        include:
+          - preset: vs2022-windows-nocuda
+            cuda: false
+          - preset: vs2022-windows-nocuda-avx
+            cuda: false
+          - preset: vs2022-windows-nocuda-avx2
+            cuda: false
+          - preset: vs2022-windows-nocuda-avx512
+            cuda: false
+          - preset: vs2022-windows-cuda
+            cuda: true
+          - preset: vs2022-windows-cuda-avx
+            cuda: true
+          - preset: vs2022-windows-cuda-avx2
+            cuda: true
+          - preset: vs2022-windows-cuda-avx512
+            cuda: true
 
     steps:
       - name: Checkout the repository
         uses: actions/checkout@v4
         with:
           submodules: recursive # This handles the 'git submodule update --init --recursive' automatically
+
+      - name: Install CUDA Toolkit
+        if: matrix.cuda
+        uses: Jimver/cuda-toolkit@v0.2.30
+        with:
+          cuda: "12.6.3"
+          method: network
+          sub-packages: '["nvcc", "cudart"]'
 
       - name: Inject version into CMake
         shell: pwsh
@@ -63,7 +108,7 @@ jobs:
             build/vcpkg_installed
             ~\AppData\Local\vcpkg\archives
           # Adding the preset name to the key ensures the presets don't overwrite each other's cache
-          key: vcpkg-${{ runner.os }}-${{ github.ref_name }}-${{ matrix.preset }}-${{ hashFiles('vcpkg.json') }}
+          key: vcpkg-${{ runner.os }}-${{ github.ref_name }}-${{ matrix.preset }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/ports/**') }}
           restore-keys: |
             vcpkg-${{ runner.os }}-${{ github.ref_name }}-${{ matrix.preset }}-
 
@@ -101,6 +146,7 @@ jobs:
 
   release:
     needs: [prepare, build]
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: write
