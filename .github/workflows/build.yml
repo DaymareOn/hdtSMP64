@@ -80,6 +80,12 @@ jobs:
       - name: Checkout the code to get the "fomod tree" folder
         uses: actions/checkout@v4
 
+      - name: Update FOMOD Version
+        run: |
+          # On utilise la variable GitHub ref_name ou SHA pour automatiser
+          VERSION_STRING="3.0.0-${{ github.ref_name }}-${{ github.sha }}"
+          sed -i "s|<Version>.*</Version>|<Version>$VERSION_STRING</Version>|g" "fomod tree/fomod/info.xml"
+
       - name: Download Artifacts
         uses: actions/download-artifact@v4
         with:
