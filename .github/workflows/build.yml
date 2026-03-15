@@ -30,10 +30,10 @@ jobs:
         with:
           tag_prefix: "v"
           version_format: "${major}.${minor}.${patch}"
-          fallback_version: "2.5.1"
           major_pattern: "/!:|BREAKING CHANGE:/"
           minor_pattern: "feat:"
-          patch_pattern: "fix:"
+          bump_each_commit: true
+          bump_each_commit_patch_pattern: "fix:"
 
   build:
     needs: prepare
@@ -176,7 +176,6 @@ jobs:
           echo "Listing contents of FSMP-${{ github.ref_name }}-${{ needs.prepare.outputs.new_version }}.zip:"
           7z l FSMP-${{ github.ref_name }}-${{ needs.prepare.outputs.new_version }}.zip
 
-
       - name: Create GitHub Release and Git Tag
         uses: softprops/action-gh-release@v2
         with:
@@ -192,47 +191,3 @@ jobs:
           files: "**.zip"
           # prerelease is true for all branches except master
           prerelease: ${{ github.ref_name != 'master' }}
-
-      - name: Cleanup old releases
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const { data: releases } = await github.rest.repos.listReleases({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-            });
-
-            const isMasterBranch = !context.ref.includes('-');
-            const branchName = context.ref.replace('refs/heads/', ''); // Only works for branches other than master
-
-            const filteredReleases = releases.filter(r => {
-            return isMasterBranch 
-              ? /^v[0-9.]+$/.test(r.tag_name)
-              : r.tag_name.includes(branchName);
-            });
-
-            // We keep the last 10 and delete the others
-            const toDelete = filteredReleases.slice(10);
-            for (const release of toDelete) {
-              console.log(`Deleting release ${release.tag_name} (ID: ${release.id})`);
-
-              // 1. Delete the release
-              await github.rest.repos.deleteRelease({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                release_id: release.id,
-              });
-
-              // 2. Delete the associated tag
-              try {
-                await github.rest.git.deleteRef({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  ref: `tags/${release.tag_name}`,
-                });
-                console.log(`Successfully deleted tag ${release.tag_name}`);
-              } catch (e) {
-                console.log(`Could not delete tag ${release.tag_name} (maybe already gone)`);
-              }
-            }
