@@ -1182,7 +1182,47 @@ namespace hdt
 									if (rootFadeNode) {
 										logger::debug("NPC facegeometry root fadeNode found.");
 										logBrokenNifOnce(filePath, rootFadeNode);
-										// Detect VR NiStream isolation bug: unresolved bone refs left as raw pointers
+										// VR: NiSkinInstance::LinkObject fails to resolve internal bone refs,
+										// storing the bone name as a raw char* instead of a resolved NiNode*.
+										// Bone NiNodes are self-contained in the face geometry NIF, so resolve
+										// them now by name lookup against the loaded tree.
+										// Must run before NiStream_deconstructor while the tree is live.
+										if (REL::Module::IsVR()) {
+											auto& ch = rootFadeNode->GetChildren();
+											for (std::uint32_t ci = 0; ci < ch.size(); ++ci) {
+												auto faceChild = ch[ci].get();
+												if (!faceChild || !isValidNiObject(faceChild))
+													continue;
+												auto faceGeo = faceChild->AsGeometry();
+												if (!faceGeo)
+													continue;
+												const auto& grd = faceGeo->GetGeometryRuntimeData();
+												if (!grd.skinInstance || !grd.skinInstance->skinData)
+													continue;
+												std::uint32_t vrResolved = 0, vrFailed = 0;
+												for (std::uint32_t bi = 0; bi < grd.skinInstance->skinData->bones; ++bi) {
+													auto bone = grd.skinInstance->bones[bi];
+													if (!bone || isValidNiObject(bone))
+														continue;
+													// char* case: bone pointer is canonical but its bytes are not a valid vtable.
+													// Guard against truly non-canonical addresses before reading as a string.
+													if (reinterpret_cast<uintptr_t>(bone) > kCanonicalUserSpaceMax)
+														continue;
+													const char* name = reinterpret_cast<const char*>(bone);
+													auto result = findNode(rootFadeNode, RE::BSFixedString(name));
+													grd.skinInstance->bones[bi] = result;
+													if (result)
+														++vrResolved;
+													else {
+														++vrFailed;
+														logger::warn("VR bone fix '{}': bone[{}] '{}' not found in NIF tree.", faceGeo->name.c_str(), bi, name);
+													}
+												}
+												if (vrResolved || vrFailed)
+													logger::info("VR bone fix '{}': resolved {}/{} unresolved bone refs in '{}'.", faceGeo->name.c_str(), vrResolved, vrResolved + vrFailed, filePath);
+											}
+										}
+										// Detect remaining unresolvable bone refs (non-null, non-canonical pointers).
 										bool brokenBoneRefs = false;
 										auto& faceCh = rootFadeNode->GetChildren();
 										for (std::uint32_t ci = 0; ci < faceCh.size() && !brokenBoneRefs; ++ci) {
@@ -1207,8 +1247,8 @@ namespace hdt
 										}
 										if (brokenBoneRefs) {
 											logger::warn(
-												"processGeometry: NPC facegeometry '{}' has VR NiStream unresolved "
-												"bone refs. Skipping facegeometry-based bone lookup to avoid crashes.",
+												"processGeometry: NPC facegeometry '{}' has remaining unresolvable "
+												"bone refs after VR fix pass. Skipping facegeometry-based bone lookup to avoid crashes.",
 												filePath);
 											head.npcFaceGeomNodeBroken = true;
 										} else
@@ -1291,10 +1331,7 @@ namespace hdt
 					// Facegen data doesn't have any tree structure to the skeleton. We need to make any new
 					// nodes children of the head node, so that they move properly when there's no physics.
 					// This case never happens to a lurker skeleton, thus we don't need to test.
-					// In VR, isolated NiStream nodes have broken vtable entries at higher slots;
-					// directly attaching originals to the live skeleton crashes the game update loop.
-					// doSkeletonMerge below uses cloneNodeTree (fresh valid copies), so skip direct attach in VR.
-					RE::NiNode* npcHeadNode = !REL::Module::IsVR() ? findNode(head.npcFaceGeomNode.get(), "NPC Head [Head]") : nullptr;
+					RE::NiNode* npcHeadNode = findNode(head.npcFaceGeomNode.get(), "NPC Head [Head]");
 					if (npcHeadNode) {
 						RE::NiTransform invTransform = npcHeadNode->local.Invert();
 						auto& children = head.npcFaceGeomNode->GetChildren();
@@ -1340,7 +1377,7 @@ namespace hdt
 
 		if (hasRenames) {
 			for (auto& entry : head.renameMap) {
-				if ((this->head.headParts.back().origPartRootNode && findObject(this->head.headParts.back().origPartRootNode.get(), entry.first->cstr())) || (!REL::Module::IsVR() && this->head.npcFaceGeomNode && findObject(this->head.npcFaceGeomNode.get(), entry.first->cstr()))) {
+				if ((this->head.headParts.back().origPartRootNode && findObject(this->head.headParts.back().origPartRootNode.get(), entry.first->cstr())) || (this->head.npcFaceGeomNode && findObject(this->head.npcFaceGeomNode.get(), entry.first->cstr()))) {
 					auto findNode = this->head.nodeUseCount.find(entry.first);
 					if (findNode != this->head.nodeUseCount.end()) {
 						findNode->second += 1;
