@@ -26,9 +26,14 @@ jobs:
 
       - name: Determine semantic version
         id: versioning
-        uses: codacy/git-versioner@v1
+        uses: paulhatch/semantic-version@v5.4.0
         with:
-          format: "digit"
+          tag_prefix: "v"
+          version_format: "${major}.${minor}.${patch}"
+          fallback_version: "2.5.1"
+          major_pattern: "/!:|BREAKING CHANGE:/"
+          minor_pattern: "feat:"
+          patch_pattern: "fix:"
 
   build:
     needs: prepare
