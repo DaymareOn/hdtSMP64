@@ -79,6 +79,7 @@ namespace hdt
 			RE::BSTSmartPointer<IString> prefix;
 			RE::NiPointer<RE::BSFaceGenNiNode> headNode;
 			RE::NiPointer<RE::BSFadeNode> npcFaceGeomNode;
+			bool npcFaceGeomNodeBroken = false;  // true if isolated NiStream load produced broken VR bone refs
 			std::vector<HeadPart> headParts;
 			std::unordered_map<IDStr, IDStr> renameMap;
 			std::unordered_map<IDStr, uint8_t> nodeUseCount;
