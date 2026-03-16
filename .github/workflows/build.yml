@@ -150,7 +150,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    
+
     steps:
       - name: Checkout the code to get the "fomod tree" folder
         uses: actions/checkout@v4
@@ -191,7 +191,7 @@ jobs:
           # 1. Create a clean structure for the final ZIP
           mkdir -p final_package/FSMPV
           mkdir -p final_package/FSMPM
-          
+
           # 2. Copy everything FROM inside "fomod tree" to the ROOT of final_package
           # Using '.' at the end of the source path copies the content, not the folder itself
           cp -r "fomod tree/." final_package/
@@ -199,13 +199,13 @@ jobs:
           # 3. Move files from the "raw" artifacts into the final structure
           # Note: download-artifact creates folders named after the 'name' in upload-artifact
           cp -r tmp_artifacts/raw-* final_package/
-          
+
           # 4. Copy the Validator to the root level of the package
           cp -r validator_files/* final_package/FSMPV/
 
           # 5. Copy the MCM to the root level of the package
           cp -r mcm_files/* final_package/FSMPM/
-          
+
           # 6. Create the unique ZIP
           cd final_package
           # a: add to archive
