@@ -1,7 +1,7 @@
 <!-- Created with FOMOD Creation Tool 1.7.0.37 [http://www.nexusmods.com/fallout4/mods/6821] -->
 <config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://qconsulting.ca/gemm/ModConfig5.0.xsd">
 	<moduleName>Faster HDT-SMP</moduleName>
-	<moduleImage path="Faster HDT-SMP.png" />
+	<moduleImage path="FSMPLogo.jpg" />
 	<requiredInstallFiles>
 		<file source="LICENSE" destination="LICENSE" />
 		<file source="Readme.txt" destination="Readme.txt" />
