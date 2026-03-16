@@ -1,16 +1,28 @@
 name: Continuous FSMP mod build
-
 on:
   push:
     branches:
       - master
       - dev
       - testbuild
+    paths:
+      - "**.cpp"
+      - "**.h"
+      - "**.hpp"
+      - "CMakeLists.txt"
+      - "CMakePresets.json"
+      - "vcpkg.json"
+      - "vcpkg-configuration.json"
+      - ".gitmodules"
+      - "extern/**"
+      - "cmake/**"
+      - ".github/workflows/**"
   workflow_dispatch:
   pull_request:
     branches:
       - master
       - dev
+      - testbuild
     paths:
       - "**.cpp"
       - "**.h"
