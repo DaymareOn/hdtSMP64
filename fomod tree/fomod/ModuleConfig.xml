@@ -1,335 +1,106 @@
-<!-- Created with FOMOD Creation Tool 1.7.0.37 [http://www.nexusmods.com/fallout4/mods/6821] --> 
-<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://qconsulting.ca/gemm/ModConfig5.0.xsd"> 
-	<moduleName>Faster HDT-SMP</moduleName> 
-	<moduleImage path="Faster HDT-SMP.png" /> 
-	<requiredInstallFiles> 
-		<file source="Licence.txt" destination="Licence.txt" /> 
-		<file source="Readme.txt" destination="Readme.txt" /> 
-	</requiredInstallFiles> 
-	<installSteps order="Explicit"> 
-		<installStep name="Introduction"> 
-			<optionalFileGroups order="Explicit"> 
-				<group name="Introduction" type="SelectAll"> 
-					<plugins order="Explicit"> 
-						<plugin name="Introduction"> 
-							<description>Hello everybody, this mod is an skse plugin allowing more advanced physics interactions to be applied to actors via configuration files.
+<!-- Created with FOMOD Creation Tool 1.7.0.37 [http://www.nexusmods.com/fallout4/mods/6821] -->
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://qconsulting.ca/gemm/ModConfig5.0.xsd">
+	<moduleName>Faster HDT-SMP</moduleName>
+	<moduleImage path="Faster HDT-SMP.png" />
+	<requiredInstallFiles>
+		<file source="LICENSE" destination="LICENSE" />
+		<file source="Readme.txt" destination="Readme.txt" />
+	</requiredInstallFiles>
+	<installSteps order="Explicit">
+		<installStep name="Introduction">
+			<optionalFileGroups order="Explicit">
+				<group name="Introduction" type="SelectAll">
+					<plugins order="Explicit">
+						<plugin name="Introduction">
+						<description>Hello everybody, this mod allows physics on PC and NPC.
 
 What's the difference with the HDT-SMP mod?
-- The versions presented here massively improve performance over HDT-SMP. This makes a huge difference as it allows for things like animated guard capes, clothes, hair, etc. without breaking your FPS every time you approach a city or a group of imperials/stormcloaks.
-- AE and VR versions are provided.
-- Physics configuration can be modified during the game with papyrus scripts.
-- Plugins applying other forces can be developed (magnetism, earthquakes, wind, star wars force, ...).
+- Way faster
+- Way more functions
+- Way less bugs
+- For all versions of Skyrim
 
 You still need to install HDT-SMP clothes, capes, hair, ....
 
 Please endorse :)
 Please provide videos with lots of NPCs with animated clothes, capes, hair, etc. :)
 
-VR functionalities are added by alandtse.
-Papyrus functionalities are added by SesamePaste.
-Plugin functionalities are added by jg1.
-Non-hookean physics functionalities are added by webspam.
-Current active developers at the time of this writing, ordered by date of involvement in HDT-SMP: alandtse, DaydreamingDay, igloomod.</description> 
-							<image path="Faster HDT-SMP.png" /> 
+VR functionalities by alandtse.
+Papyrus functionalities by SesamePaste.
+Plugin functionalities by jg1.
+Non-hookean physics functionalities by webspam.
+Port to CommonLib by Kernel Panic.
+Engine optimizations by asdt123123.
+Current active developers at the time of this writing, ordered by date of involvement in HDT-SMP: alandtse, DaydreamingDay, Kernel Panic, asdt123123.</description>
+							<image path="FSMPLogo.jpg" />
 							<files></files>
-							<conditionFlags><flag name="uselessFlag"></flag></conditionFlags>
-							<typeDescriptor><type name="NotUsable" /></typeDescriptor>
-						</plugin> 
-					</plugins> 
-				</group> 
-			</optionalFileGroups> 
-		</installStep> 
-		<installStep name=""> 
-			<optionalFileGroups order="Explicit"> 
-				<group name="Skyrim version" type="SelectExactlyOne"> 
-					<plugins order="Explicit"> 
-						<plugin name="VR"> 
-							<description>You're using Skyrim VR.</description> 
-							<conditionFlags> 
-								<flag name="VR">On</flag> 
-							</conditionFlags> 
-							<typeDescriptor> 
-                                <dependencyType>
-                                    <defaultType name="NotUsable"/>
-                                    <patterns>
-                                        <pattern>
-                                            <dependencies>
-                                                <gameDependency version="1.4.16.0" />
-                                            </dependencies>
-                                            <type name="NotUsable" />
-                                        </pattern>
-                                        <pattern>
-                                            <dependencies>
-                                                <gameDependency version="1.4.15.0" />
-                                            </dependencies>
-                                            <type name="Required" />
-                                        </pattern>
-                                    </patterns>
-                                </dependencyType>
-							</typeDescriptor> 
-						</plugin> 
-						<plugin name="1.5.97"> 
-							<description>You're using Skyrim 1.5.97.
-To know your correct version, it's very easy: start Skyrim and in the System Menu, look at the bottom left to see your current skyrim and skse versions, like on the image currently shown.</description> 
-							<image path="SkyrimVersionRed2.jpg" /> 
-							<conditionFlags> 
-								<flag name="1597">On</flag> 
-							</conditionFlags> 
-							<typeDescriptor> 
-                                <dependencyType>
-                                    <defaultType name="NotUsable"/>
-                                    <patterns>
-                                        <pattern>
-                                            <dependencies>
-                                                <gameDependency version="1.5.98.0" />
-                                            </dependencies>
-                                            <type name="NotUsable" />
-                                        </pattern>
-                                        <pattern>
-                                            <dependencies>
-                                                <gameDependency version="1.5.97.0" />
-                                            </dependencies>
-                                            <type name="Required" />
-                                        </pattern>
-                                    </patterns>
-                                </dependencyType>
-							</typeDescriptor> 
-						</plugin> 
-						<plugin name="1.6.353 - Unsupported"> 
-							<description>You're using Skyrim Steam 1.6.353. It isn't supported anymore. The last version supporting it was 2.1.0.</description> 
-							<image path="SkyrimVersionRed2.jpg" /> 
-							<conditionFlags> 
-								<flag name="16353">On</flag> 
-							</conditionFlags> 
-							<typeDescriptor> 
-                                <dependencyType>
-                                    <defaultType name="NotUsable"/>
-                                    <patterns>
-                                        <pattern>
-                                            <dependencies>
-                                                <gameDependency version="1.6.354.0" />
-                                            </dependencies>
-                                            <type name="NotUsable" />
-                                        </pattern>
-                                        <pattern>
-                                            <dependencies>
-                                                <gameDependency version="1.6.353.0" />
-                                            </dependencies>
-                                            <type name="Required" />
-                                        </pattern>
-                                    </patterns>
-                                </dependencyType>
-							</typeDescriptor> 
-						</plugin> 
-						<plugin name="1.6.640"> 
-							<description>You're using Skyrim Steam 1.6.640.
-To know your correct version, it's very easy: start Skyrim and in the System Menu, look at the bottom left to see your current skyrim and skse versions, like on the image currently shown.</description> 
-							<image path="SkyrimVersionRed2.jpg" /> 
-							<conditionFlags> 
-								<flag name="16640">On</flag> 
-							</conditionFlags> 
-							<typeDescriptor> 
-                                <dependencyType>
-                                    <defaultType name="NotUsable"/>
-                                    <patterns>
-                                        <pattern>
-                                            <dependencies>
-                                                <gameDependency version="1.6.641.0" />
-                                            </dependencies>
-                                            <type name="NotUsable" />
-                                        </pattern>
-                                        <pattern>
-                                            <dependencies>
-                                                <gameDependency version="1.6.640.0" />
-                                            </dependencies>
-                                            <type name="Required" />
-                                        </pattern>
-                                    </patterns>
-                                </dependencyType>
-							</typeDescriptor> 
-						</plugin> 
-						<plugin name="1.6.659 - Unsupported"> 
-							<description>You're using Skyrim GOG 1.6.659. It isn't supported anymore. The last version supporting it was 2.2.1.</description> 
-							<image path="SkyrimVersionRed2.jpg" /> 
-							<conditionFlags> 
-								<flag name="16659">On</flag> 
-							</conditionFlags> 
-							<typeDescriptor> 
-                                <dependencyType>
-                                    <defaultType name="NotUsable"/>
-                                    <patterns>
-										<pattern>
-											<dependencies>
-												<gameDependency version="1.6.660.0" />
-											</dependencies>
-											<type name="NotUsable" />
-										</pattern>
-                                        <pattern>
-                                            <dependencies>
-                                                <gameDependency version="1.6.659.0" />
-                                            </dependencies>
-                                            <type name="Required" />
-                                        </pattern>
-                                    </patterns>
-                                </dependencyType>
-							</typeDescriptor> 
-						</plugin> 
-						<plugin name="1.6.1130 - Unsupported"> 
-							<description>You're using Skyrim Steam 1.6.1130. It isn't supported anymore. The last version supporting it was 2.1.3.</description> 
-							<image path="SkyrimVersionRed2.jpg" /> 
-							<conditionFlags> 
-								<flag name="161130">On</flag> 
-							</conditionFlags> 
-							<typeDescriptor> 
-                                <dependencyType>
-                                    <defaultType name="NotUsable"/>
-                                    <patterns>
-										<pattern>
-											<dependencies>
-												<gameDependency version="1.6.1131.0" />
-											</dependencies>
-											<type name="NotUsable" />
-										</pattern>
-                                        <pattern>
-                                            <dependencies>
-                                                <gameDependency version="1.6.1130.0" />
-                                            </dependencies>
-                                            <type name="Required" />
-                                        </pattern>
-                                    </patterns>
-                                </dependencyType>
-							</typeDescriptor> 
-						</plugin> 
-						<plugin name="1.6.1170"> 
-							<description>You're using Skyrim Steam 1.6.1170.
-To know your correct version, it's very easy: start Skyrim and in the System Menu, look at the bottom left to see your current skyrim and skse versions, like on the image currently shown.</description> 
-							<image path="SkyrimVersionRed2.jpg" /> 
-							<conditionFlags> 
-								<flag name="161170">On</flag> 
-							</conditionFlags> 
-							<typeDescriptor> 
-                                <dependencyType>
-                                    <defaultType name="NotUsable"/>
-                                    <patterns>
-										<pattern>
-											<dependencies>
-												<gameDependency version="1.6.1171.0" />
-											</dependencies>
-											<type name="NotUsable" />
-										</pattern>
-                                        <pattern>
-                                            <dependencies>
-                                                <gameDependency version="1.6.1170.0" />
-                                            </dependencies>
-                                            <type name="Required" />
-                                        </pattern>
-                                    </patterns>
-                                </dependencyType>
-							</typeDescriptor> 
-						</plugin> 
-						<plugin name="1.6.1179"> 
-							<description>You're using Skyrim GOG 1.6.1179.
-To know your correct version, it's very easy: start Skyrim and in the System Menu, look at the bottom left to see your current skyrim and skse versions, like on the image currently shown.</description> 
-							<image path="SkyrimVersionRed2.jpg" /> 
-							<conditionFlags> 
-								<flag name="161179">On</flag> 
-							</conditionFlags> 
-							<typeDescriptor> 
-                                <dependencyType>
-                                    <defaultType name="NotUsable"/>
-                                    <patterns>
-										<pattern>
-											<dependencies>
-												<gameDependency version="1.6.1180.0" />
-											</dependencies>
-											<type name="NotUsable" />
-										</pattern>
-                                        <pattern>
-                                            <dependencies>
-                                                <gameDependency version="1.6.1179.0" />
-                                            </dependencies>
-                                            <type name="Required" />
-                                        </pattern>
-                                    </patterns>
-                                </dependencyType>
-							</typeDescriptor> 
-						</plugin> 
-						<plugin name="Not yet supported"> 
-							<description>FSMP isn't yet ready for your Skyrim version.</description> 
-							<image path="SkyrimVersionRed2.jpg" /> 
-							<conditionFlags> 
-								<flag name="NotYet">On</flag> 
-							</conditionFlags> 
-							<typeDescriptor> 
-                                <dependencyType>
-                                    <defaultType name="NotUsable"/>
-                                    <patterns>
-                                        <pattern>
-                                            <dependencies>
-                                                <gameDependency version="1.6.1180.0" />
-                                            </dependencies>
-                                            <type name="Required" />
-                                        </pattern>
-                                    </patterns>
-                                </dependencyType>
-							</typeDescriptor> 
-						</plugin> 
-					</plugins> 
-				</group> 
-				<group name="CUDA or not" type="SelectExactlyOne"> 
-					<plugins order="Explicit"> 
-						<plugin name="CUDA"> 
+							<conditionFlags>
+								<flag name="uselessFlag" />
+							</conditionFlags>
+							<typeDescriptor>
+								<type name="NotUsable" />
+							</typeDescriptor>
+						</plugin>
+					</plugins>
+				</group>
+			</optionalFileGroups>
+		</installStep>
+		<installStep name="">
+			<optionalFileGroups order="Explicit">
+				<group name="CUDA or not" type="SelectExactlyOne">
+					<plugins order="Explicit">
+						<plugin name="CUDA">
 							<description>Q: What is CUDA?
 A: CUDA is a NVidia API enabling general purpose processing on the GPU. Useful when the GPU is powerful, the calculus are adapted for GPU, and the transfers between the CPU and GPU minimal.
 
-If you wish CUDA GPU acceleration, CUDA must be enabled in the configs.xml file (you can use FSMPM - The FSMP MCM for this).
+If you wish CUDA GPU acceleration, CUDA must be enabled in the MCM.
 CUDA GPU acceleration is not yet enough optimized, so it is often slower than having CUDA disabled.
 
 Moreover, it has been reported that the CUDA version of FSMP is not compatible with NVIDIA‘s Linux drivers.
-If you use Linux, it is recommended you install the NOT CUDA version (thanks Vainly for this info).</description> 
-							<conditionFlags> 
-								<flag name="CUDA">On</flag> 
-							</conditionFlags> 
-							<typeDescriptor> 
-								<type name="Optional"/> 
-							</typeDescriptor> 
-						</plugin> 
-						<plugin name="NOT CUDA (recommended)"> 
-							<description>Probably more stability and performance with this version rather than a CUDA version with the CUDA option disabled.</description> 
-							<conditionFlags> 
-								<flag name="CUDA">Off</flag> 
-							</conditionFlags> 
-							<typeDescriptor> 
-								<type name="Recommended"/> 
-							</typeDescriptor> 
-						</plugin> 
-					</plugins> 
-				</group> 
-				<group name="AVX" type="SelectExactlyOne"> 
-					<plugins order="Explicit"> 
-						<plugin name="No AVX"> 
+If you use Linux, it is recommended you install the NOT CUDA version (thanks Vainly for this info).</description>
+							<conditionFlags>
+								<flag name="CUDA">On</flag>
+							</conditionFlags>
+							<typeDescriptor>
+								<type name="Optional" />
+							</typeDescriptor>
+						</plugin>
+						<plugin name="NOT CUDA (recommended)">
+							<description>Probably more stability and performance with this version rather than a CUDA version with the CUDA option disabled.</description>
+							<conditionFlags>
+								<flag name="CUDA">Off</flag>
+							</conditionFlags>
+							<typeDescriptor>
+								<type name="Recommended" />
+							</typeDescriptor>
+						</plugin>
+					</plugins>
+				</group>
+				<group name="AVX" type="SelectExactlyOne">
+					<plugins order="Explicit">
+						<plugin name="No AVX">
 							<description>If your CPU doesn't support the AVX instruction set, select this.
 
 Q: What is AVX?
-A: Advanced_Vector_Extensions are extensions to the instruction sets for microprocessors from AMD and Intel. All Intel CPUs starting with Sandy Bridge in 2011 and AMD processors on their "Bulldozer" architecture and beyond offer this set of instructions.</description> 
-							<conditionFlags> 
-								<flag name="NOAVX">On</flag> 
-							</conditionFlags> 
-							<typeDescriptor> 
-								<type name="Optional"/> 
-							</typeDescriptor> 
-						</plugin> 
-						<plugin name="AVX (recommended)"> 
+A: Advanced_Vector_Extensions are extensions to the instruction sets for microprocessors from AMD and Intel. All Intel CPUs starting with Sandy Bridge in 2011 and AMD processors on their "Bulldozer" architecture and beyond offer this set of instructions.</description>
+							<conditionFlags>
+								<flag name="NOAVX">On</flag>
+							</conditionFlags>
+							<typeDescriptor>
+								<type name="Optional" />
+							</typeDescriptor>
+						</plugin>
+						<plugin name="AVX (recommended)">
 							<description>If your CPU supports the AVX instruction set, select this.
-Performance improvements over no AVX.</description> 
-							<conditionFlags> 
-								<flag name="AVX">On</flag> 
-							</conditionFlags> 
-							<typeDescriptor> 
-								<type name="Optional"/> 
-							</typeDescriptor> 
-						</plugin> 
-						<plugin name="AVX2"> 
+Performance improvements over no AVX.</description>
+							<conditionFlags>
+								<flag name="AVX">On</flag>
+							</conditionFlags>
+							<typeDescriptor>
+								<type name="Optional" />
+							</typeDescriptor>
+						</plugin>
+						<plugin name="AVX2">
 							<description>If your CPU supports the AVX2 instructions set, select this.
 
 Should bring performance improvements over AVX, but brings some synchronisation too, so may in some cases bring less performance than AVX.
@@ -340,15 +111,15 @@ idaan300 notes:
 
 AMD CPU's in comparison don't downclock themselves on AVX2 workloads (they only downclock based on current temperature) and thus perfomance can only be increased by using AVX2. Older Ryzen chips (before 3000) wont see any benefit to AVX2 instructions because they have to emulate it using standard AVX (the difference here is in instruction width, AVX2 has 256 bit wide registers and AVX 128 bit. Meaning AVX2 usualy can get double the amount of work done at the same time compared to standard AVX. Older zen chips emulate these wider registers but seeing as these are 128 bit it takes twice as long to execute them because the CPU can't fit the whole intended instruction in a given register thus negating any speed improvement AVX2 could add).
 
-It's not recommended running this on Intel chips or anything older than AMD's ryzen 3000 but of course feel free to try it out and see if it works for you."</description> 
-							<conditionFlags> 
-								<flag name="AVX2">On</flag> 
-							</conditionFlags> 
-							<typeDescriptor> 
-								<type name="Optional"/> 
-							</typeDescriptor> 
-						</plugin> 
-						<plugin name="AVX512"> 
+It's not recommended running this on Intel chips or anything older than AMD's ryzen 3000 but of course feel free to try it out and see if it works for you."</description>
+							<conditionFlags>
+								<flag name="AVX2">On</flag>
+							</conditionFlags>
+							<typeDescriptor>
+								<type name="Optional" />
+							</typeDescriptor>
+						</plugin>
+						<plugin name="AVX512">
 							<description>NOT SUPPORTED ON INTEL CPU!!!
 Do NOT come with a bug report concerning AVX512 if this bug doesn't happen with the AVX2 build, except if you come with the solution too.
 
@@ -360,646 +131,122 @@ when disabling all the efficiency cores which do not contain the silicon for AVX
 If your CPU supports the AVX512 instructions set, select this.
 
 Should bring performance improvements over AVX2 and AVX, but brings some synchronisation too, so may in some cases bring less performance than AVX/AVX2.
-Test and choose for yourself :)</description> 
-							<conditionFlags> 
-								<flag name="AVX512">On</flag> 
-							</conditionFlags> 
-							<typeDescriptor> 
-								<type name="Optional"/> 
-							</typeDescriptor> 
-						</plugin> 
-					</plugins> 
-				</group> 
-				<group name="Configuration" type="SelectExactlyOne"> 
-					<plugins order="Explicit"> 
-						<plugin name="Install FSMPM - The FSMP MCM (recommended)">
-							<description>Adds a configuration menu for FSMP
-Uses an esl slot. You might not want to use an esl slot if you're on VR.
-In that case, choose one of the options below.
-							</description>
-							<files> 
-								<folder source="FSMPM\Scripts" destination="Scripts" priority="1" /> 
-								<folder source="FSMPM\SKSE" destination="SKSE" priority="1" /> 
-								<folder source="FSMPM\Source" destination="Source" priority="1" />
-								<file source="FSMPM\FSMPM - The FSMP MCM.esp" destination=".\FSMPM - The FSMP MCM.esp" priority="1"/>
-							</files> 
+Test and choose for yourself :)</description>
+							<conditionFlags>
+								<flag name="AVX512">On</flag>
+							</conditionFlags>
 							<typeDescriptor>
-								<type name="Recommended" />
+								<type name="Optional" />
 							</typeDescriptor>
 						</plugin>
-						<plugin name="No MCM - Extreme performance (recommended)"> 
-							<description>This is a configs.xml file optimized for performance over physics simulation quality.
-
-You will see physics slowdowns under 60 fps.
-Max wind distance is 2000.
-Maximum 3 ms each frame are allocated to FSMP.
-5 skeletons max are calculated at the same time.
-Uses the RealTime clock instead of the WorldTime clock.
-When you have at the same time smp hair and smp wig, now, only the wig is physically calculated.
-Some more settings are defined into the file.
-
-You can of course adapt it to your liking :)
-
-It is fully commented, propositions of improvements are welcome.
-
-NB from full_inu: if you wish to adapt the numIterations value, the lowest value 4 was found to cause glitches with collision bodies and provide an overall visible drop of quality of cloth physics.</description> 
-							<files> 
-								<file source="configs\configs-performance.xml" destination="SKSE\Plugins\hdtSkinnedMeshConfigs\configs.xml" priority="1" /> 
-							</files> 
-							<typeDescriptor> 
-								<type name="Optional"/> 
-							</typeDescriptor> 
-						</plugin> 
-						<plugin name="No MCM - Reasonable configuration"> 
-							<description>This is a reasonable configs.xml file balancing performance and quality.
-
-You will see physics slowdowns under 30 fps.
-Max wind distance is 3000.
-Maximum 5 ms each frame are allocated to FSMP.
-10 skeletons max are calculated at the same time.
-Uses the RealTime clock instead of the WorldTime clock.
-When you have at the same time smp hair and smp wig, now, only the wig is physically calculated.
-Some more settings are defined into the file.
-
-You can of course adapt it to your liking :)
-
-It is fully commented, propositions of improvements are welcome.
-
-NB from full_inu: if you wish to adapt the numIterations value, the lowest value 4 was found to cause glitches with collision bodies and provide an overall visible drop of quality of cloth physics.</description> 
-							<files> 
-								<file source="configs\configs-reasonable.xml" destination="SKSE\Plugins\hdtSkinnedMeshConfigs\configs.xml" priority="1" /> 
-							</files> 
-							<typeDescriptor> 
-								<type name="Optional"/> 
-							</typeDescriptor> 
-						</plugin> 
-						<plugin name="No MCM - Maximum compatibility"> 
-							<description>This is a configs.xml file optimized for maximum compatibility.
-
-================================
-You should use this config file when testing for bugs.
-================================
-
-You will see physics slowdowns under 20 fps.
-Max wind distance is 4000.
-Maximum 5 ms each frame are allocated to FSMP.
-20 skeletons max are calculated at the same time.
-Uses the RealTime clock instead of the WorldTime clock.
-When you have at the same time smp hair and smp wig, both are physically calculated.
-Log level Verbose.
-Some more settings are defined into the file.
-
-You can of course adapt it to your liking :)
-
-It is fully commented, propositions of improvements are welcome.</description> 
-							<files> 
-								<file source="configs\configs-compatibility.xml" destination="SKSE\Plugins\hdtSkinnedMeshConfigs\configs.xml" priority="1" /> 
-							</files> 
-							<typeDescriptor> 
-								<type name="Optional"/> 
-							</typeDescriptor> 
-						</plugin> 
-						<plugin name="No MCM - Extreme quality"> 
-							<description>THIS WILL DESTROY YOUR FPS!!
-
-This is a configs.xml file optimized for physics simulation quality.
-
-The physics is calculated twice as often (min-fps = 120).
-You will see physics slowdowns under 30 fps.
-Max wind distance is 4000.
-Maximum 10 ms each frame are allocated to FSMP.
-60 skeletons max are calculated at the same time.
-Uses the RealTime clock instead of the WorldTime clock.
-When you have at the same time smp hair and smp wig, both are physically calculated.
-Some more settings are defined into the file.
-
-You can of course adapt it to your liking :)
-
-It is fully commented, propositions of improvements are welcome.</description> 
-							<files>
-								<file source="configs\configs-quality.xml" destination="SKSE\Plugins\hdtSkinnedMeshConfigs\configs.xml" priority="1" /> 
-							</files> 
-							<typeDescriptor> 
-								<type name="Optional"/> 
-							</typeDescriptor> 
-						</plugin> 
-					</plugins> 
-				</group> 
-			</optionalFileGroups> 
-		</installStep> 
-		<installStep name="User guide and validator">
-			<optionalFileGroups>
-				<group name="FSMPU - The FSMP User guide" type="SelectAll">
-					<plugins order="Explicit"> 
-						<plugin name="FSMPU - The FSMP User Guide.pdf"> 
-							<description>FSMPU - The FSMP User Guide will be installed in data\FSMPU - The FSMP User Guide.pdf.
-
-At the time I write these lines, FSMP has had 1,302,981 unique downloads since the 21st October 2021, which should mean as many unique users in soon 3 years.
-
-Thank you 😊!
-
-However, this has brought some very specific challenges, for example how to maintain a useful and up-to-date knowledge base in a thriving and diverse community.
-This User guide aims to try and solve some of these challenges.
-I hope to update it each time I see a way to save my time and your time.</description>
-							<files>
-								<folder source="FSMPU" destination="" priority="2" />
-							</files>
-							<typeDescriptor><type name="Optional" /></typeDescriptor>
-						</plugin>
-					 </plugins>
-				</group>
-				<group name="FSMPV - The FSMP Validator" type="SelectAll">
-					<plugins order="Explicit"> 
-						<plugin name="hdtSMP64.xsd"> 
-							<description>The hdtSMP64.xsd file, which is the FSMP Validator, will be installed in data\SKSE\Plugins\hdtSkinnedMeshConfigs\.
-
-This allows you to check the validity of your HDT-SMP XML bodies and outfits physics files while writing them.
-It's NOT for the configs.xml file.
-If you have problems with the physics of a specific mod using FSMP, the first step is to check the validity of its xml physics files.
-								
-It is maintained to be consistent with Faster HDT-SMP. It may still be consistent with the original HDT-SMP before FSMP 2.0.
-								
-Which setup?
-								
-You can use Visual Studio,
-or you can use Visual Studio Code, with this free plugin from the marketplace: https://marketplace.visualstudio.com/items?itemName=redhat.vscode-xml
-As the files in this mod aren't used by Skyrim, you can put them outside your mod folder if you wish.
-								
-How to use this validator?
-In your xml file, set the initial system tag like this, with the correct path to where you have put the .xsd provided in this mod.
- system xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="FSMP-Validator" xsi:schemaLocation="FSMP-Validator ./hdtSMP64.xsd"
- You can set the whole path to hdtSMP64.xsd if you want, just remember to replace each space by "%20".
-								
-What is implemented?
-- All the tags and attributes supported in Faster HDT-SMP
-- Checks if you're using the right tags and attributes with the right spelling
-- Checks if you're using the right data types
-- Checks if a mandatory tag or attribute is provided
-- Checks that names are unique when it's mandatory
-- Checks that templates and extends refer to a declared name
-- Provide documentation on numerous tags and attributes
-								
-What is not yet implemented?
-- Checks that system is the root tag
-- Comments for each tag and attribute</description>
-							<files>
-								<folder source="FSMPV\SKSE" destination="SKSE" priority="2" /> 
-							</files>
-							<typeDescriptor><type name="Optional" /></typeDescriptor>
-						</plugin>
-					 </plugins>
+					</plugins>
 				</group>
 			</optionalFileGroups>
 		</installStep>
-		<installStep name="Thanks"> 
-			<optionalFileGroups order="Explicit"> 
-				<group name="" type="SelectAll"> 
-					<plugins order="Explicit"> 
-						<plugin name="Thanks"> 
+		<installStep name="Thanks">
+			<optionalFileGroups order="Explicit">
+				<group name="" type="SelectAll">
+					<plugins order="Explicit">
+						<plugin name="Thanks">
 							<description>Now, some last presents :)
 
-- The discord server to discuss with the Faster HDT-SMP community: https://discord.gg/tvWRzcKPV3
-
-Here are some recommended mods:
-
-- SMP-NPC crash fix, https://www.nexusmods.com/skyrimspecialedition/mods/91616
-Fixes a random crash when loading NPCs with SMP hair.
-Thanks to jg1 :)
-
-- CC Bone Colossus Skeleton Fix, https://www.nexusmods.com/skyrimspecialedition/mods/63167
-To solve the infamous colossus bone bug
-Thanks to Yanjding :)
-
-- Clean up the physics outfit - Collision reset, https://www.nexusmods.com/skyrimspecialedition/mods/86845
-Physics outfits are essential elements that add life to Skyrim. However, one inconvenience is that physics can break after dynamic movement. So this mod was born to solve it immersively.
-Thanks to skypia :)
-
-- Dynamic HDT - Papyrus Script Extension for Faster HDT-SMP, https://www.nexusmods.com/skyrimspecialedition/mods/63017
-To be able to change the physics configuration at runtime, through papyrus
-Thanks to SesamePaste :)
-
-- HDT-SMP Force Fields, https://www.nexusmods.com/skyrimspecialedition/mods/79899
-Allows spells and effects to interact with HDT-SMP. Fireballs will not only send cheese wedges flying, but also mess up your hair. Immersion!
-Thanks to jg1 :)
-
-- SMP Wind, https://www.nexusmods.com/skyrimspecialedition/mods/76776
-Another implementation of wind.
-Thanks to jg1 :)
+- The Discord server to discuss with the Faster HDT-SMP community: https://discord.gg/tvWRzcKPV3
+- The FSMP Wiki: https://github.com/DaymareOn/hdtSMP64/wiki
+- The Validator for your xml: https://raw.githubusercontent.com/DaymareOn/FSMP-Validator/refs/heads/main/skse/plugins/hdtSkinnedMeshConfigs/hdtSMP64.xsd
+- The code: https://github.com/DaymareOn/hdtSMP64/tree/master
 
 Finally, credits and thanks to hydrogensaysHDT, aers, ousnius, Karonar1, alandtse, DaydreamingDay, igloomod, SesamePaste, jg1, antpillager, Acro, webspam and full_inu :)
-Built from branch: https://github.com/DaymareOn/hdtSMP64/tree/test</description> 
-							<files></files>
-							<typeDescriptor> 
-								<type name="Optional"/> 
-							</typeDescriptor> 
-						</plugin> 
-					</plugins> 
-				</group> 
-			</optionalFileGroups> 
-		</installStep> 
-	</installSteps> 
-	<conditionalFileInstalls> 
-		<patterns> 
-			<pattern> 
-				<dependencies operator="And"> 
-					<flagDependency flag="CUDA" value="On"/> 
-					<flagDependency flag="AVX" value="On"/> 
-					<flagDependency flag="1597" value="On"/> 
-				</dependencies> 
-				<files> 
-					<folder source="SE_CUDA_AVX\SKSE" destination="SKSE" priority="0" /> 
-				</files> 
-			</pattern> 
-			<pattern> 
-				<dependencies operator="And"> 
-					<flagDependency flag="CUDA" value="On"/> 
-					<flagDependency flag="NOAVX" value="On"/> 
-					<flagDependency flag="1597" value="On"/> 
-				</dependencies> 
-				<files> 
-					<folder source="SE_CUDA_NoAVX\SKSE" destination="SKSE" priority="0" /> 
-				</files> 
-			</pattern> 
-			<pattern> 
-				<dependencies operator="And"> 
-					<flagDependency flag="CUDA" value="On"/> 
-					<flagDependency flag="AVX2" value="On"/> 
-					<flagDependency flag="1597" value="On"/> 
-				</dependencies> 
-				<files> 
-					<folder source="SE_CUDA_AVX2\SKSE" destination="SKSE" priority="0" /> 
-				</files> 
-			</pattern> 
-			<pattern> 
-				<dependencies operator="And"> 
-					<flagDependency flag="CUDA" value="On"/> 
-					<flagDependency flag="AVX512" value="On"/> 
-					<flagDependency flag="1597" value="On"/> 
-				</dependencies> 
-				<files> 
-					<folder source="SE_CUDA_AVX512\SKSE" destination="SKSE" priority="0" /> 
-				</files> 
-			</pattern> 
-			<pattern> 
-				<dependencies operator="And"> 
-					<flagDependency flag="CUDA" value="Off"/> 
-					<flagDependency flag="NOAVX" value="On"/> 
-					<flagDependency flag="1597" value="On"/> 
-				</dependencies> 
-				<files> 
-					<folder source="SE_NOCUDA_NoAVX\SKSE" destination="SKSE" priority="0" /> 
-				</files> 
-			</pattern> 
-			<pattern> 
-				<dependencies operator="And"> 
-					<flagDependency flag="CUDA" value="Off"/> 
-					<flagDependency flag="AVX" value="On"/> 
-					<flagDependency flag="1597" value="On"/> 
-				</dependencies> 
-				<files> 
-					<folder source="SE_NOCUDA_AVX\SKSE" destination="SKSE" priority="0" /> 
-				</files> 
-			</pattern> 
-			<pattern> 
-				<dependencies operator="And"> 
-					<flagDependency flag="CUDA" value="Off"/> 
-					<flagDependency flag="AVX2" value="On"/> 
-					<flagDependency flag="1597" value="On"/> 
-				</dependencies> 
-				<files> 
-					<folder source="SE_NOCUDA_AVX2\SKSE" destination="SKSE" priority="0" /> 
-				</files> 
-			</pattern> 
-			<pattern> 
-				<dependencies operator="And"> 
-					<flagDependency flag="CUDA" value="Off"/> 
-					<flagDependency flag="AVX512" value="On"/> 
-					<flagDependency flag="1597" value="On"/> 
-				</dependencies> 
-				<files> 
-					<folder source="SE_NOCUDA_AVX512\SKSE" destination="SKSE" priority="0" /> 
-				</files> 
-			</pattern> 
-			<pattern> 
-				<dependencies operator="And"> 
-					<flagDependency flag="CUDA" value="Off"/> 
-					<flagDependency flag="NOAVX" value="On"/> 
-					<flagDependency flag="VR" value="On"/> 
-				</dependencies> 
-				<files> 
-					<folder source="VR_NOCUDA_NoAVX\SKSE" destination="SKSE" priority="0" /> 
-				</files> 
-			</pattern> 
-			<pattern> 
-				<dependencies operator="And"> 
-					<flagDependency flag="CUDA" value="Off"/> 
-					<flagDependency flag="AVX" value="On"/> 
-					<flagDependency flag="VR" value="On"/> 
-				</dependencies> 
-				<files> 
-					<folder source="VR_NOCUDA_AVX\SKSE" destination="SKSE" priority="0" /> 
-				</files> 
-			</pattern> 
-			<pattern> 
-				<dependencies operator="And"> 
-					<flagDependency flag="AVX2" value="On"/> 
-					<flagDependency flag="CUDA" value="Off"/> 
-					<flagDependency flag="VR" value="On"/> 
-				</dependencies> 
-				<files> 
-					<folder source="VR_NOCUDA_AVX2\SKSE" destination="SKSE" priority="0" /> 
-				</files> 
-			</pattern> 
-			<pattern> 
-				<dependencies operator="And"> 
-					<flagDependency flag="CUDA" value="Off"/> 
-					<flagDependency flag="AVX512" value="On"/> 
-					<flagDependency flag="VR" value="On"/> 
-				</dependencies> 
-				<files> 
-					<folder source="VR_NOCUDA_AVX512\SKSE" destination="SKSE" priority="0" /> 
-				</files> 
-			</pattern> 
-			<pattern> 
-				<dependencies operator="And"> 
-					<flagDependency flag="CUDA" value="On"/> 
-					<flagDependency flag="NOAVX" value="On"/> 
-					<flagDependency flag="VR" value="On"/> 
-				</dependencies> 
-				<files> 
-					<folder source="VR_CUDA_NoAVX\SKSE" destination="SKSE" priority="0" /> 
-				</files> 
-			</pattern> 
-			<pattern> 
-				<dependencies operator="And"> 
-					<flagDependency flag="CUDA" value="On"/> 
-					<flagDependency flag="AVX" value="On"/> 
-					<flagDependency flag="VR" value="On"/> 
-				</dependencies> 
-				<files> 
-					<folder source="VR_CUDA_AVX\SKSE" destination="SKSE" priority="0" /> 
-				</files> 
-			</pattern> 
-			<pattern> 
-				<dependencies operator="And"> 
-					<flagDependency flag="CUDA" value="On"/> 
-					<flagDependency flag="AVX2" value="On"/> 
-					<flagDependency flag="VR" value="On"/> 
-				</dependencies> 
-				<files> 
-					<folder source="VR_CUDA_AVX2\SKSE" destination="SKSE" priority="0" /> 
-				</files> 
-			</pattern> 
-			<pattern> 
-				<dependencies operator="And"> 
-					<flagDependency flag="CUDA" value="On"/> 
-					<flagDependency flag="AVX512" value="On"/> 
-					<flagDependency flag="VR" value="On"/> 
-				</dependencies> 
-				<files> 
-					<folder source="VR_CUDA_AVX512\SKSE" destination="SKSE" priority="0" /> 
-				</files> 
-			</pattern> 
-			<pattern> 
-				<dependencies operator="And"> 
-					<flagDependency flag="CUDA" value="On"/> 
-					<flagDependency flag="NOAVX" value="On"/> 
-					<flagDependency flag="16640" value="On"/> 
-				</dependencies> 
-				<files> 
-					<folder source="V1_6_640_CUDA_NoAVX\SKSE" destination="SKSE" priority="0" /> 
-				</files> 
-			</pattern> 
-			<pattern> 
-				<dependencies operator="And"> 
-					<flagDependency flag="CUDA" value="On"/> 
-					<flagDependency flag="AVX" value="On"/> 
-					<flagDependency flag="16640" value="On"/> 
-				</dependencies> 
-				<files> 
-					<folder source="V1_6_640_CUDA_AVX\SKSE" destination="SKSE" priority="0" /> 
-				</files> 
-			</pattern> 
-			<pattern> 
-				<dependencies operator="And"> 
-					<flagDependency flag="CUDA" value="On"/> 
-					<flagDependency flag="AVX2" value="On"/> 
-					<flagDependency flag="16640" value="On"/> 
-				</dependencies> 
-				<files> 
-					<folder source="V1_6_640_CUDA_AVX2\SKSE" destination="SKSE" priority="0" /> 
-				</files> 
-			</pattern> 
-			<pattern> 
-				<dependencies operator="And"> 
-					<flagDependency flag="CUDA" value="On"/> 
-					<flagDependency flag="AVX512" value="On"/> 
-					<flagDependency flag="16640" value="On"/> 
-				</dependencies> 
-				<files> 
-					<folder source="V1_6_640_CUDA_AVX512\SKSE" destination="SKSE" priority="0" /> 
-				</files> 
-			</pattern> 
-			<pattern> 
-				<dependencies operator="And"> 
-					<flagDependency flag="CUDA" value="Off"/> 
-					<flagDependency flag="NOAVX" value="On"/> 
-					<flagDependency flag="16640" value="On"/> 
-				</dependencies> 
-				<files> 
-					<folder source="V1_6_640_NOCUDA_NoAVX\SKSE" destination="SKSE" priority="0" /> 
-				</files> 
-			</pattern> 
-			<pattern> 
-				<dependencies operator="And"> 
-					<flagDependency flag="CUDA" value="Off"/> 
-					<flagDependency flag="AVX" value="On"/> 
-					<flagDependency flag="16640" value="On"/> 
-				</dependencies> 
-				<files> 
-					<folder source="V1_6_640_NOCUDA_AVX\SKSE" destination="SKSE" priority="0" /> 
-				</files> 
-			</pattern> 
-			<pattern> 
-				<dependencies operator="And"> 
-					<flagDependency flag="CUDA" value="Off"/> 
-					<flagDependency flag="AVX2" value="On"/> 
-					<flagDependency flag="16640" value="On"/> 
-				</dependencies> 
-				<files> 
-					<folder source="V1_6_640_NOCUDA_AVX2\SKSE" destination="SKSE" priority="0" /> 
-				</files> 
-			</pattern> 
-			<pattern> 
-				<dependencies operator="And"> 
-					<flagDependency flag="CUDA" value="Off"/> 
-					<flagDependency flag="AVX512" value="On"/> 
-					<flagDependency flag="16640" value="On"/> 
-				</dependencies> 
-				<files> 
-					<folder source="V1_6_640_NOCUDA_AVX512\SKSE" destination="SKSE" priority="0" /> 
-				</files> 
-			</pattern> 
-			<pattern> 
-				<dependencies operator="And"> 
-					<flagDependency flag="CUDA" value="On"/> 
-					<flagDependency flag="NOAVX" value="On"/> 
-					<flagDependency flag="161179" value="On"/> 
-				</dependencies> 
-				<files> 
-					<folder source="V1_6_1179_CUDA_NoAVX\SKSE" destination="SKSE" priority="0" /> 
-				</files> 
-			</pattern> 
-			<pattern> 
-				<dependencies operator="And"> 
-					<flagDependency flag="CUDA" value="On"/> 
-					<flagDependency flag="AVX" value="On"/> 
-					<flagDependency flag="161179" value="On"/> 
-				</dependencies> 
-				<files> 
-					<folder source="V1_6_1179_CUDA_AVX\SKSE" destination="SKSE" priority="0" /> 
-				</files> 
-			</pattern> 
-			<pattern> 
-				<dependencies operator="And"> 
-					<flagDependency flag="CUDA" value="On"/> 
-					<flagDependency flag="AVX2" value="On"/> 
-					<flagDependency flag="161179" value="On"/> 
-				</dependencies> 
-				<files> 
-					<folder source="V1_6_1179_CUDA_AVX2\SKSE" destination="SKSE" priority="0" /> 
-				</files> 
-			</pattern> 
-			<pattern> 
-				<dependencies operator="And"> 
-					<flagDependency flag="CUDA" value="On"/> 
-					<flagDependency flag="AVX512" value="On"/> 
-					<flagDependency flag="161179" value="On"/> 
-				</dependencies> 
-				<files> 
-					<folder source="V1_6_1179_CUDA_AVX512\SKSE" destination="SKSE" priority="0" /> 
-				</files> 
-			</pattern> 
-			<pattern> 
-				<dependencies operator="And"> 
-					<flagDependency flag="CUDA" value="Off"/> 
-					<flagDependency flag="NOAVX" value="On"/> 
-					<flagDependency flag="161179" value="On"/> 
-				</dependencies> 
-				<files> 
-					<folder source="V1_6_1179_NOCUDA_NoAVX\SKSE" destination="SKSE" priority="0" /> 
-				</files> 
-			</pattern> 
-			<pattern> 
-				<dependencies operator="And"> 
-					<flagDependency flag="CUDA" value="Off"/> 
-					<flagDependency flag="AVX" value="On"/> 
-					<flagDependency flag="161179" value="On"/> 
-				</dependencies> 
-				<files> 
-					<folder source="V1_6_1179_NOCUDA_AVX\SKSE" destination="SKSE" priority="0" /> 
-				</files> 
-			</pattern> 
-			<pattern> 
-				<dependencies operator="And"> 
-					<flagDependency flag="CUDA" value="Off"/> 
-					<flagDependency flag="AVX2" value="On"/> 
-					<flagDependency flag="161179" value="On"/> 
-				</dependencies> 
-				<files> 
-					<folder source="V1_6_1179_NOCUDA_AVX2\SKSE" destination="SKSE" priority="0" /> 
-				</files> 
-			</pattern> 
-			<pattern> 
-				<dependencies operator="And"> 
-					<flagDependency flag="CUDA" value="Off"/> 
-					<flagDependency flag="AVX512" value="On"/> 
-					<flagDependency flag="161179" value="On"/> 
-				</dependencies> 
-				<files> 
-					<folder source="V1_6_1179_NOCUDA_AVX512\SKSE" destination="SKSE" priority="0" /> 
-				</files> 
-			</pattern> 
-			<pattern> 
-				<dependencies operator="And"> 
-					<flagDependency flag="CUDA" value="On"/> 
-					<flagDependency flag="NOAVX" value="On"/> 
-					<flagDependency flag="161170" value="On"/> 
-				</dependencies> 
-				<files> 
-					<folder source="V1_6_1170_CUDA_NoAVX\SKSE" destination="SKSE" priority="0" /> 
-				</files> 
-			</pattern> 
-			<pattern> 
-				<dependencies operator="And"> 
-					<flagDependency flag="CUDA" value="On"/> 
-					<flagDependency flag="AVX" value="On"/> 
-					<flagDependency flag="161170" value="On"/> 
-				</dependencies> 
-				<files> 
-					<folder source="V1_6_1170_CUDA_AVX\SKSE" destination="SKSE" priority="0" /> 
-				</files> 
-			</pattern> 
-			<pattern> 
-				<dependencies operator="And"> 
-					<flagDependency flag="CUDA" value="On"/> 
-					<flagDependency flag="AVX2" value="On"/> 
-					<flagDependency flag="161170" value="On"/> 
-				</dependencies> 
-				<files> 
-					<folder source="V1_6_1170_CUDA_AVX2\SKSE" destination="SKSE" priority="0" /> 
-				</files> 
-			</pattern> 
-			<pattern> 
-				<dependencies operator="And"> 
-					<flagDependency flag="CUDA" value="On"/> 
-					<flagDependency flag="AVX512" value="On"/> 
-					<flagDependency flag="161170" value="On"/> 
-				</dependencies> 
-				<files> 
-					<folder source="V1_6_1170_CUDA_AVX512\SKSE" destination="SKSE" priority="0" /> 
-				</files> 
-			</pattern> 
-			<pattern> 
-				<dependencies operator="And"> 
-					<flagDependency flag="CUDA" value="Off"/> 
-					<flagDependency flag="NOAVX" value="On"/> 
-					<flagDependency flag="161170" value="On"/> 
-				</dependencies> 
-				<files> 
-					<folder source="V1_6_1170_NOCUDA_NoAVX\SKSE" destination="SKSE" priority="0" /> 
-				</files> 
-			</pattern> 
-			<pattern> 
-				<dependencies operator="And"> 
-					<flagDependency flag="CUDA" value="Off"/> 
-					<flagDependency flag="AVX" value="On"/> 
-					<flagDependency flag="161170" value="On"/> 
-				</dependencies> 
-				<files> 
-					<folder source="V1_6_1170_NOCUDA_AVX\SKSE" destination="SKSE" priority="0" /> 
-				</files> 
-			</pattern> 
-			<pattern> 
-				<dependencies operator="And"> 
-					<flagDependency flag="CUDA" value="Off"/> 
-					<flagDependency flag="AVX2" value="On"/> 
-					<flagDependency flag="161170" value="On"/> 
-				</dependencies> 
-				<files> 
-					<folder source="V1_6_1170_NOCUDA_AVX2\SKSE" destination="SKSE" priority="0" /> 
-				</files> 
-			</pattern> 
-			<pattern> 
-				<dependencies operator="And"> 
-					<flagDependency flag="CUDA" value="Off"/> 
-					<flagDependency flag="AVX512" value="On"/> 
-					<flagDependency flag="161170" value="On"/> 
-				</dependencies> 
-				<files> 
-					<folder source="V1_6_1170_NOCUDA_AVX512\SKSE" destination="SKSE" priority="0" /> 
-				</files> 
-			</pattern> 
-		</patterns> 
-	</conditionalFileInstalls> 
+</description>
+							<files>
+								<folder source="FSMPM\Scripts" destination="Scripts" priority="1" />
+								<folder source="FSMPM\SKSE" destination="SKSE" priority="1" />
+								<folder source="FSMPM\Source" destination="Source" priority="1" />
+								<file source="FSMPM\FSMPM - The FSMP MCM.esp"
+									destination=".\FSMPM - The FSMP MCM.esp" priority="1" />
+							</files>
+							<typeDescriptor>
+								<type name="Required" />
+							</typeDescriptor>
+						</plugin>
+					</plugins>
+				</group>
+			</optionalFileGroups>
+		</installStep>
+	</installSteps>
+	<conditionalFileInstalls>
+		<patterns>
+			<pattern>
+				<dependencies operator="And">
+					<flagDependency flag="CUDA" value="On" />
+					<flagDependency flag="AVX" value="On" />
+				</dependencies>
+				<files>
+					<folder source="raw-vs2022-windows-cuda-avx\SKSE" destination="SKSE" priority="0" />
+				</files>
+			</pattern>
+			<pattern>
+				<dependencies operator="And">
+					<flagDependency flag="CUDA" value="On" />
+					<flagDependency flag="NOAVX" value="On" />
+				</dependencies>
+				<files>
+					<folder source="raw-vs2022-windows-cuda\SKSE" destination="SKSE" priority="0" />
+				</files>
+			</pattern>
+			<pattern>
+				<dependencies operator="And">
+					<flagDependency flag="CUDA" value="On" />
+					<flagDependency flag="AVX2" value="On" />
+				</dependencies>
+				<files>
+					<folder source="raw-vs2022-windows-cuda-avx2\SKSE" destination="SKSE" priority="0" />
+				</files>
+			</pattern>
+			<pattern>
+				<dependencies operator="And">
+					<flagDependency flag="CUDA" value="On" />
+					<flagDependency flag="AVX512" value="On" />
+				</dependencies>
+				<files>
+					<folder source="raw-vs2022-windows-cuda-avx512\SKSE" destination="SKSE" priority="0" />
+				</files>
+			</pattern>
+			<pattern>
+				<dependencies operator="And">
+					<flagDependency flag="CUDA" value="Off" />
+					<flagDependency flag="NOAVX" value="On" />
+				</dependencies>
+				<files>
+					<folder source="raw-vs2022-windows-nocuda\SKSE" destination="SKSE" priority="0" />
+				</files>
+			</pattern>
+			<pattern>
+				<dependencies operator="And">
+					<flagDependency flag="CUDA" value="Off" />
+					<flagDependency flag="AVX" value="On" />
+				</dependencies>
+				<files>
+					<folder source="raw-vs2022-windows-nocuda-avx\SKSE" destination="SKSE" priority="0" />
+				</files>
+			</pattern>
+			<pattern>
+				<dependencies operator="And">
+					<flagDependency flag="CUDA" value="Off" />
+					<flagDependency flag="AVX2" value="On" />
+				</dependencies>
+				<files>
+					<folder source="raw-vs2022-windows-nocuda-avx2\SKSE" destination="SKSE" priority="0" />
+				</files>
+			</pattern>
+			<pattern>
+				<dependencies operator="And">
+					<flagDependency flag="CUDA" value="Off" />
+					<flagDependency flag="AVX512" value="On" />
+				</dependencies>
+				<files>
+					<folder source="raw-vs2022-windows-nocuda-avx512\SKSE" destination="SKSE" priority="0" />
+				</files>
+			</pattern>
+		</patterns>
+	</conditionalFileInstalls>
 </config>
