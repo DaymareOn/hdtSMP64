@@ -1,6 +1,6 @@
 #pragma once
 
-namespace hdt 
+namespace hdt
 {
 	float magnitude(RE::NiPoint3 p);
 	size_t randomGenerator(size_t min, size_t max);

@@ -1,9 +1,9 @@
 #pragma once
 
+#include "hdtAABB.h"
 #include "hdtBulletHelper.h"
 #include "hdtSkinnedMeshBone.h"
 #include "hdtVertex.h"
-#include "hdtAABB.h"
 
 #include <BulletCollision/Gimpact/btBoxCollision.h>
 
@@ -14,8 +14,8 @@ namespace hdt
 	class CudaBody;
 #endif
 
-	class SkinnedMeshBody : 
-		public btCollisionObject, 
+	class SkinnedMeshBody :
+		public btCollisionObject,
 		public RE::BSIntrusiveRefCounted
 	{
 	public:
@@ -23,13 +23,15 @@ namespace hdt
 		using btCollisionObject::operator delete;
 		using btCollisionObject::operator new[];
 		using btCollisionObject::operator delete[];
+
 	public:
 		SkinnedMeshBody();
 		virtual ~SkinnedMeshBody();
 
-		struct CollisionShape : public btCollisionShape // a shape only used for markout
+		struct CollisionShape : public btCollisionShape  // a shape only used for markout
 		{
-			CollisionShape() : m_aabb(_mm_setzero_ps(), _mm_setzero_ps()) { m_shapeType = CUSTOM_CONCAVE_SHAPE_TYPE; }
+			CollisionShape() :
+				m_aabb(_mm_setzero_ps(), _mm_setzero_ps()) { m_shapeType = CUSTOM_CONCAVE_SHAPE_TYPE; }
 
 			Aabb m_aabb;
 
@@ -114,8 +116,7 @@ namespace hdt
 
 		bool canCollideWith(const SkinnedMeshBone* bone) const
 		{
-			if (m_canCollideWithBones.size())
-			{
+			if (m_canCollideWithBones.size()) {
 				return std::find(m_canCollideWithBones.begin(), m_canCollideWithBones.end(), bone) != m_canCollideWithBones.end();
 			}
 			return std::find(m_noCollideWithBones.begin(), m_noCollideWithBones.end(), bone) == m_noCollideWithBones.end();

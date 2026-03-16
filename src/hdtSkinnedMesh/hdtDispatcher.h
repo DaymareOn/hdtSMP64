@@ -1,7 +1,7 @@
 #pragma once
 
-#include "hdtBulletHelper.h"
 #include "BulletCollision/CollisionDispatch/btCollisionDispatcherMt.h"
+#include "hdtBulletHelper.h"
 #include <ppl.h>
 #include <ppltasks.h>
 #include <vector>
@@ -13,9 +13,9 @@ namespace hdt
 	class CollisionDispatcher : public btCollisionDispatcherMt
 	{
 	public:
-
-		CollisionDispatcher(btCollisionConfiguration* collisionConfiguration) : btCollisionDispatcherMt(
-			collisionConfiguration)
+		CollisionDispatcher(btCollisionConfiguration* collisionConfiguration) :
+			btCollisionDispatcherMt(
+				collisionConfiguration)
 		{
 		}
 
@@ -34,7 +34,7 @@ namespace hdt
 
 		bool needsCollision(const btCollisionObject* body0, const btCollisionObject* body1) override;
 		void dispatchAllCollisionPairs(btOverlappingPairCache* pairCache, const btDispatcherInfo& dispatchInfo,
-		                               btDispatcher* dispatcher) override;
+			btDispatcher* dispatcher) override;
 
 		int getNumManifolds() const override;
 		btPersistentManifold** getInternalManifoldPointer() override;

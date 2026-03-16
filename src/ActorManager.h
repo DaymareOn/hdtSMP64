@@ -1,23 +1,24 @@
 #pragma once
 
-#include "NetImmerseUtils.h"
 #include "FrameworkUtils.h"
+#include "NetImmerseUtils.h"
 
-#include "hdtSkyrimSystem.h"
 #include "DynamicHDT.h"
 #include "Events.h"
+#include "hdtSkyrimSystem.h"
 
 namespace hdt
 {
-	class ActorManager : 
-		public RE::BSTEventSink<Events::ArmorAttachEvent>, 
-		public RE::BSTEventSink<Events::ArmorDetachEvent>, 
-		public RE::BSTEventSink<Events::SkinSingleHeadGeometryEvent>, 
-		public RE::BSTEventSink<Events::SkinAllHeadGeometryEvent>, 
-		public RE::BSTEventSink<Events::FrameEvent>, 
+	class ActorManager :
+		public RE::BSTEventSink<Events::ArmorAttachEvent>,
+		public RE::BSTEventSink<Events::ArmorDetachEvent>,
+		public RE::BSTEventSink<Events::SkinSingleHeadGeometryEvent>,
+		public RE::BSTEventSink<Events::SkinAllHeadGeometryEvent>,
+		public RE::BSTEventSink<Events::FrameEvent>,
 		public RE::BSTEventSink<Events::ShutdownEvent>
 	{
 		using IDType = uint32_t;
+
 	public:
 		enum class ItemState
 		{
@@ -59,7 +60,7 @@ namespace hdt
 			void updateActive(bool active);
 
 			// Update windfactor for all armors attached to skeleton.
-			// a_windFactor is a percentage [0,1] with 0 being no wind efect to 1 being full wind effect.
+			// a_windFactor is a percentage [0,1] with 0 being no wind effect to 1 being full wind effect.
 			void setWindFactor(float a_windFactor);
 
 			RE::BSTSmartPointer<SkyrimSystem> m_physics;
@@ -78,11 +79,12 @@ namespace hdt
 			RE::BSTSmartPointer<IString> prefix;
 			RE::NiPointer<RE::BSFaceGenNiNode> headNode;
 			RE::NiPointer<RE::BSFadeNode> npcFaceGeomNode;
+			bool npcFaceGeomNodeBroken = false;  // true if isolated NiStream load produced broken VR bone refs
 			std::vector<HeadPart> headParts;
 			std::unordered_map<IDStr, IDStr> renameMap;
 			std::unordered_map<IDStr, uint8_t> nodeUseCount;
 			bool isFullSkinning;
-			bool isActive = true; // false when hidden by a wig
+			bool isActive = true;  // false when hidden by a wig
 		};
 
 		struct Armor : public PhysicsItem
@@ -129,7 +131,7 @@ namespace hdt
 			std::optional<RE::NiPoint3> position() const;
 
 			// @brief Update windfactor for skeleton
-			// @param a_windFactor is a percentage [0,1] with 0 being no wind efect to 1 being full wind effect.
+			// @param a_windFactor is a percentage [0,1] with 0 being no wind effect to 1 being full wind effect.
 			void updateWindFactor(float a_windFactor);
 			// @brief Get windfactor for skeleton
 			float getWindFactor();
@@ -224,13 +226,13 @@ namespace hdt
 		RE::BSEventNotifyControl ProcessEvent(const Events::SkinAllHeadGeometryEvent*, RE::BSTEventSource<Events::SkinAllHeadGeometryEvent>*) override;
 
 		bool skeletonNeedsParts(RE::NiNode* skeleton);
-		std::vector<Skeleton>& getSkeletons();//Altered by Dynamic HDT
+		std::vector<Skeleton>& getSkeletons();  //Altered by Dynamic HDT
 
 		bool m_skinNPCFaceParts = true;
 		bool m_disableSMPHairWhenWigEquipped = false;
-		bool m_autoAdjustMaxSkeletons = true; // Whether to dynamically change the maxActive skeletons to maintain min_fps
-		int m_maxActiveSkeletons = 20; // The maximum active skeletons; hard limit
-		float m_minCullingDistance = 500; // The distance from the camera under which we never cull the skeletons.
+		bool m_autoAdjustMaxSkeletons = true;  // Whether to dynamically change the maxActive skeletons to maintain min_fps
+		int m_maxActiveSkeletons = 20;         // The maximum active skeletons; hard limit
+		float m_minCullingDistance = 500;      // The distance from the camera under which we never cull the skeletons.
 
 		// @brief Depending on this setting, we avoid to calculate the physics of the PC when it is in 1st person view.
 		bool m_disable1stPersonViewPhysics = false;

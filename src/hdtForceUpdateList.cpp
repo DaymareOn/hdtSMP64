@@ -8,19 +8,14 @@ hdt::ForceUpdateList* hdt::ForceUpdateList::GetSingleton()
 
 int hdt::ForceUpdateList::isAmong(std::string node_name)
 {
-	if (node_name.find("MOV") == std::string::npos) 
-	{
-		if (m_list.nodes.find(node_name) != m_list.nodes.end())
-		{
+	if (node_name.find("MOV") == std::string::npos) {
+		if (m_list.nodes.find(node_name) != m_list.nodes.end()) {
 			return 1;
 		}
-	}
-	else 
-	{
-		if (m_list.nodes_mov.find(node_name) != m_list.nodes_mov.end())
-		{
+	} else {
+		if (m_list.nodes_mov.find(node_name) != m_list.nodes_mov.end()) {
 			return 2;
-		}	
+		}
 	}
 	return 0;
 }
@@ -32,8 +27,7 @@ int hdt::ForceUpdateList::isAmong(hdt::IDStr node_name)
 
 hdt::ForceUpdateList::ForceUpdateList()
 {
-	m_list.nodes = 
-	{
+	m_list.nodes = {
 		"WeaponAxe",
 		"WeaponMace",
 		"WeaponSword",
@@ -50,55 +44,54 @@ hdt::ForceUpdateList::ForceUpdateList()
 		"WeaponStaffLeft"
 	};
 
-	m_list.nodes_mov = 
-	{
-	  "MOV WeaponAxeDefault",
-	  "MOV WeaponAxeLeftDefault",
-	  "MOV WeaponAxeReverse",
-	  "MOV WeaponAxeLeftReverse",
-	  "MOV WeaponAxeOnBack",
-	  "MOV WeaponAxeLeftOnBack",
-	  "MOV WeaponMaceDefault",
-	  "MOV WeaponMaceLeftDefault",
-	  "MOV WeaponSwordDefault",
-	  "MOV WeaponSwordLeftDefault",
-	  "MOV WeaponSwordOnBack",
-	  "MOV WeaponSwordLeftOnBack",
-	  "MOV WeaponSwordSWP",
-	  "MOV WeaponSwordLeftSWP",
-	  "MOV WeaponSwordFSM",
-	  "MOV WeaponSwordLeftFSM",
-	  "MOV WeaponSwordLeftHip",
-	  "MOV WeaponSwordLeftLeftHip",
-	  "MOV WeaponSwordNMD",
-	  "MOV WeaponSwordLeftNMD",
-	  "MOV WeaponDaggerDefault",
-	  "MOV WeaponDaggerLeftDefault",
-	  "MOV WeaponDaggerBackHip",
-	  "MOV WeaponDaggerLeftBackHip",
-	  "MOV WeaponDaggerAnkle",
-	  "MOV WeaponDaggerLeftAnkle",
-	  "MOV WeaponBackDefault",
-	  "MOV WeaponBackSWP",
-	  "MOV WeaponBackFSM",
-	  "MOV WeaponBackAxeMaceDefault",
-	  "MOV WeaponBackAxeMaceSWP",
-	  "MOV WeaponBackAxeMaceFSM",
-	  "MOV WeaponStaffDefault",
-	  "MOV WeaponStaffLeftDefault",
-	  "MOV WeaponBowDefault",
-	  "MOV WeaponBowChesko",
-	  "MOV WeaponBowBetter",
-	  "MOV WeaponBowFSM",
-	  "MOV WeaponCrossbowDefault",
-	  "MOV WeaponCrossbowChesko",
-	  "MOV QUIVERDefault",
-	  "MOV QUIVERChesko",
-	  "MOV QUIVERLeftHipBolt",
-	  "MOV BOLTDefault",
-	  "MOV BOLTChesko",
-	  "MOV BOLTLeftHipBolt",
-	  "MOV BOLTABQ",
-	  "MOV ShieldBackDefault"
+	m_list.nodes_mov = {
+		"MOV WeaponAxeDefault",
+		"MOV WeaponAxeLeftDefault",
+		"MOV WeaponAxeReverse",
+		"MOV WeaponAxeLeftReverse",
+		"MOV WeaponAxeOnBack",
+		"MOV WeaponAxeLeftOnBack",
+		"MOV WeaponMaceDefault",
+		"MOV WeaponMaceLeftDefault",
+		"MOV WeaponSwordDefault",
+		"MOV WeaponSwordLeftDefault",
+		"MOV WeaponSwordOnBack",
+		"MOV WeaponSwordLeftOnBack",
+		"MOV WeaponSwordSWP",
+		"MOV WeaponSwordLeftSWP",
+		"MOV WeaponSwordFSM",
+		"MOV WeaponSwordLeftFSM",
+		"MOV WeaponSwordLeftHip",
+		"MOV WeaponSwordLeftLeftHip",
+		"MOV WeaponSwordNMD",
+		"MOV WeaponSwordLeftNMD",
+		"MOV WeaponDaggerDefault",
+		"MOV WeaponDaggerLeftDefault",
+		"MOV WeaponDaggerBackHip",
+		"MOV WeaponDaggerLeftBackHip",
+		"MOV WeaponDaggerAnkle",
+		"MOV WeaponDaggerLeftAnkle",
+		"MOV WeaponBackDefault",
+		"MOV WeaponBackSWP",
+		"MOV WeaponBackFSM",
+		"MOV WeaponBackAxeMaceDefault",
+		"MOV WeaponBackAxeMaceSWP",
+		"MOV WeaponBackAxeMaceFSM",
+		"MOV WeaponStaffDefault",
+		"MOV WeaponStaffLeftDefault",
+		"MOV WeaponBowDefault",
+		"MOV WeaponBowChesko",
+		"MOV WeaponBowBetter",
+		"MOV WeaponBowFSM",
+		"MOV WeaponCrossbowDefault",
+		"MOV WeaponCrossbowChesko",
+		"MOV QUIVERDefault",
+		"MOV QUIVERChesko",
+		"MOV QUIVERLeftHipBolt",
+		"MOV BOLTDefault",
+		"MOV BOLTChesko",
+		"MOV BOLTLeftHipBolt",
+		"MOV BOLTABQ",
+		"MOV ShieldBackDefault"
 	};
 }

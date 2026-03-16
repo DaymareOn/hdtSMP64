@@ -5,13 +5,13 @@
 
 extern bool g_hasPapyrusExtension;
 
-namespace hdt 
+namespace hdt
 {
-	namespace Override 
+	namespace Override
 	{
 
 		//The formID of the armoraddon in ArmorAttachEvent cannot be acquired, which makes it impossible to check override by the formID upon attaching armoraddon.
-		class OverrideManager:public Serializer<void>
+		class OverrideManager : public Serializer<void>
 		{
 		public:
 			~OverrideManager() {};

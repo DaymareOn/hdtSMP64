@@ -12,33 +12,33 @@
 #endif
 #pragma warning(pop)
 
-#include "IString.h"
 #include "FrameworkUtils.h"
+#include "IString.h"
 
 //
-#include <vector>
-#include <atomic>
-#include <mutex>
-#include <functional>
-#include <string>
-#include <stdexcept>
 #include <algorithm>
-#include <random>
-#include <fstream>
-#include <d3d11.h>
-#include <clocale>
-#include <ppl.h>
-#include <unordered_map>
-#include <unordered_set>
-#include <set>
-#include <sstream>
-#include <iostream>
-#include <optional>
-#include <cinttypes>
 #include <amp.h>
 #include <amp_graphics.h>
 #include <amp_math.h>
 #include <amp_short_vectors.h>
+#include <atomic>
+#include <cinttypes>
+#include <clocale>
+#include <d3d11.h>
+#include <fstream>
+#include <functional>
+#include <iostream>
+#include <mutex>
+#include <optional>
+#include <ppl.h>
+#include <random>
+#include <set>
+#include <sstream>
+#include <stdexcept>
+#include <string>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
 
 using namespace std::literals;
 
@@ -101,10 +101,10 @@ namespace std
 	template <>
 	struct hash<hdt::IDStr>
 	{
-		size_t operator()(const hdt::IDStr& id) const noexcept 
+		size_t operator()(const hdt::IDStr& id) const noexcept
 		{
-            return std::hash<std::string>()(id->cstr());
-        }
+			return std::hash<std::string>()(id->cstr());
+		}
 	};
 
 	template <>

@@ -25,15 +25,15 @@
 
 #include "CharactersReader.hpp"
 #include "CharactersWriter.hpp"
-#include <string>
-#include <ios>
-#include <streambuf>
-#include <istream>
-#include <fstream>
 #include <cstdint>
-#include <memory>
 #include <deque>
+#include <fstream>
+#include <ios>
+#include <istream>
+#include <memory>
 #include <stdexcept>
+#include <streambuf>
+#include <string>
 
 /**
 	@file XmlInspector.hpp
@@ -105,7 +105,7 @@ namespace Xml
 		DocumentType,
 
 		/**
-			@brief White space between markup. 
+			@brief White space between markup.
 		*/
 		Whitespace
 	};
@@ -384,9 +384,8 @@ namespace Xml
 		template <
 			typename TInputIterator,
 			typename TCharacterType,
-			typename TTraits = std::char_traits<TCharacterType> >
-		class BasicIteratorsBuf
-			: public std::basic_streambuf<TCharacterType, TTraits>
+			typename TTraits = std::char_traits<TCharacterType>>
+		class BasicIteratorsBuf : public std::basic_streambuf<TCharacterType, TTraits>
 		{
 		public:
 			typedef TInputIterator IteratorType;
@@ -397,6 +396,7 @@ namespace Xml
 			typedef typename traits_type::int_type int_type;
 			typedef typename traits_type::pos_type pos_type;
 			typedef typename traits_type::off_type off_type;
+
 		protected:
 			IteratorType curIter;
 			IteratorType endIter;
@@ -406,35 +406,34 @@ namespace Xml
 			virtual int_type uflow();
 
 			virtual std::streamsize showmanyc();
+
 		public:
-			BasicIteratorsBuf(IteratorType first, IteratorType last)
-				: StreambufType(), curIter(first), endIter(last)
+			BasicIteratorsBuf(IteratorType first, IteratorType last) :
+				StreambufType(), curIter(first), endIter(last)
 			{
-			
 			}
 
 			virtual ~BasicIteratorsBuf()
 			{
-			
 			}
 		};
 
 		template <typename TStringType>
 		class NamespaceDeclaration
 		{
-		public:	
+		public:
 			typedef TStringType StringType;
 			typedef std::uint_least64_t SizeType;
 
 			StringType Prefix;
 			StringType Uri;
-			SizeType TagIndex; // Counting from 0.
+			SizeType TagIndex;  // Counting from 0.
 		};
 
 		template <typename TStringType>
 		class UnclosedTag
 		{
-		public:	
+		public:
 			typedef TStringType StringType;
 			typedef std::uint_least64_t SizeType;
 
@@ -531,6 +530,7 @@ namespace Xml
 				This type should be enough to store any file size or memory buffer size.
 		*/
 		typedef std::uint_least64_t SizeType;
+
 	private:
 		typedef typename StringType::size_type StringSizeType;
 		typedef Details::UnclosedTag<StringType> UnclosedTagType;
@@ -581,12 +581,12 @@ namespace Xml
 		static const unsigned char ToLower[256];
 
 		// Source types.
-		static const int SourceNone = 0; // Inspector() constructor.
-		static const int SourcePath = 1; // Inspector(const char*) or Inspector(const std::string&) constructor.
-		static const int SourceStream = 2; // Inspector(std::istream*) constructor.
-		static const int SourceIterators = 3; // Inspector(InputIterator first, InputIterator last) constructor.
-		static const int SourceReader = 4; // Inspector(Encoding::CharactersReader*) constructor.
-		
+		static const int SourceNone = 0;       // Inspector() constructor.
+		static const int SourcePath = 1;       // Inspector(const char*) or Inspector(const std::string&) constructor.
+		static const int SourceStream = 2;     // Inspector(std::istream*) constructor.
+		static const int SourceIterators = 3;  // Inspector(InputIterator first, InputIterator last) constructor.
+		static const int SourceReader = 4;     // Inspector(Encoding::CharactersReader*) constructor.
+
 		static const StringSizeType NameReserve = 31;
 		static const StringSizeType ValueReserve = 63;
 		static const StringSizeType LocalNameReserve = 15;
@@ -765,10 +765,11 @@ namespace Xml
 		void InitStrings();
 
 		// Copy constructor is inaccessible for this class.
-		Inspector(const Inspector&) { };
+		Inspector(const Inspector&) {};
 
 		// Assignment operator is inaccessible for this class.
 		Inspector& operator=(const Inspector&) { return *this; };
+
 	public:
 		/**
 			@brief Initializes a new instance of the Inspector class.
@@ -1037,29 +1038,25 @@ namespace Xml
 	}
 
 	template <typename TCharactersWriter>
-	const unsigned char Inspector<TCharactersWriter>::LowerXml[3] =
-	{
+	const unsigned char Inspector<TCharactersWriter>::LowerXml[3] = {
 		// "xml"
 		0x78, 0x6D, 0x6C
 	};
 
 	template <typename TCharactersWriter>
-	const unsigned char Inspector<TCharactersWriter>::UpperXml[3] =
-	{
+	const unsigned char Inspector<TCharactersWriter>::UpperXml[3] = {
 		// "XML"
 		0x58, 0x4D, 0x4C
 	};
 
 	template <typename TCharactersWriter>
-	const unsigned char Inspector<TCharactersWriter>::Xmlns[5] =
-	{
+	const unsigned char Inspector<TCharactersWriter>::Xmlns[5] = {
 		// "xmlns"
 		0x78, 0x6D, 0x6C, 0x6E, 0x73
 	};
 
 	template <typename TCharactersWriter>
-	const unsigned char Inspector<TCharactersWriter>::XmlUri[36] =
-	{
+	const unsigned char Inspector<TCharactersWriter>::XmlUri[36] = {
 		// "http://www.w3.org/XML/1998/namespace"
 		0x68, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x77, 0x77, 0x77, 0x2E, 0x77,
 		0x33, 0x2E, 0x6F, 0x72, 0x67, 0x2F, 0x58, 0x4D, 0x4C, 0x2F, 0x31, 0x39,
@@ -1067,100 +1064,86 @@ namespace Xml
 	};
 
 	template <typename TCharactersWriter>
-	const unsigned char Inspector<TCharactersWriter>::XmlnsUri[29] =
-	{
+	const unsigned char Inspector<TCharactersWriter>::XmlnsUri[29] = {
 		// "http://www.w3.org/2000/xmlns/"
 		0x68, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x77, 0x77, 0x77, 0x2E, 0x77, 0x33, 0x2E, 0x6F,
 		0x72, 0x67, 0x2F, 0x32, 0x30, 0x30, 0x30, 0x2F, 0x78, 0x6D, 0x6C, 0x6E, 0x73, 0x2F
 	};
 
 	template <typename TCharactersWriter>
-	const unsigned char Inspector<TCharactersWriter>::XmlDeclarationVersion[7] =
-	{
+	const unsigned char Inspector<TCharactersWriter>::XmlDeclarationVersion[7] = {
 		// "version"
 		0x76, 0x65, 0x72, 0x73, 0x69, 0x6F, 0x6E
 	};
 
 	template <typename TCharactersWriter>
-	const unsigned char Inspector<TCharactersWriter>::XmlDeclarationEncoding[8] =
-	{
+	const unsigned char Inspector<TCharactersWriter>::XmlDeclarationEncoding[8] = {
 		// "encoding"
 		0x65, 0x6E, 0x63, 0x6F, 0x64, 0x69, 0x6E, 0x67
 	};
 
 	template <typename TCharactersWriter>
-	const unsigned char Inspector<TCharactersWriter>::XmlDeclarationStandalone[10] =
-	{
+	const unsigned char Inspector<TCharactersWriter>::XmlDeclarationStandalone[10] = {
 		// "standalone"
 		0x73, 0x74, 0x61, 0x6E, 0x64, 0x61, 0x6C, 0x6F, 0x6E, 0x65
 	};
 
 	template <typename TCharactersWriter>
-	const unsigned char Inspector<TCharactersWriter>::Yes[3] =
-	{
+	const unsigned char Inspector<TCharactersWriter>::Yes[3] = {
 		// "yes"
 		0x79, 0x65, 0x73
 	};
 
 	template <typename TCharactersWriter>
-	const unsigned char Inspector<TCharactersWriter>::No[2] =
-	{
+	const unsigned char Inspector<TCharactersWriter>::No[2] = {
 		// "no"
 		0x6E, 0x6F
 	};
 
 	template <typename TCharactersWriter>
-	const unsigned char Inspector<TCharactersWriter>::CDATA[5] =
-	{
+	const unsigned char Inspector<TCharactersWriter>::CDATA[5] = {
 		// "CDATA"
 		0x43, 0x44, 0x41, 0x54, 0x41
 	};
 
 	template <typename TCharactersWriter>
-	const unsigned char Inspector<TCharactersWriter>::DOCTYPE[7] =
-	{
+	const unsigned char Inspector<TCharactersWriter>::DOCTYPE[7] = {
 		// "DOCTYPE"
 		0x44, 0x4F, 0x43, 0x54, 0x59, 0x50, 0x45
 	};
 
 	template <typename TCharactersWriter>
-	const unsigned char Inspector<TCharactersWriter>::LtEntityName[2] =
-	{
+	const unsigned char Inspector<TCharactersWriter>::LtEntityName[2] = {
 		// "lt"
 		0x6C, 0x74
 	};
 
 	template <typename TCharactersWriter>
-	const unsigned char Inspector<TCharactersWriter>::GtEntityName[2] =
-	{
+	const unsigned char Inspector<TCharactersWriter>::GtEntityName[2] = {
 		// "gt"
 		0x67, 0x74
 	};
 
 	template <typename TCharactersWriter>
-	const unsigned char Inspector<TCharactersWriter>::AmpEntityName[3] =
-	{
+	const unsigned char Inspector<TCharactersWriter>::AmpEntityName[3] = {
 		// "amp"
 		0x61, 0x6D, 0x70
 	};
 
 	template <typename TCharactersWriter>
-	const unsigned char Inspector<TCharactersWriter>::AposEntityName[4] =
-	{
+	const unsigned char Inspector<TCharactersWriter>::AposEntityName[4] = {
 		// "apos"
 		0x61, 0x70, 0x6F, 0x73
 	};
 
 	template <typename TCharactersWriter>
-	const unsigned char Inspector<TCharactersWriter>::QuotEntityName[4] =
-	{
+	const unsigned char Inspector<TCharactersWriter>::QuotEntityName[4] = {
 		// "quot"
 		0x71, 0x75, 0x6F, 0x74
 	};
 
 	template <typename TCharactersWriter>
-	const unsigned char Inspector<TCharactersWriter>::ToLower[256] =
-	{
+	const unsigned char Inspector<TCharactersWriter>::ToLower[256] = {
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x09, 0x0A, 0x00, 0x00, 0x0D, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2A, 0x2B, 0x2C, 0x2D, 0x2E, 0x2F,
@@ -1180,8 +1163,8 @@ namespace Xml
 	};
 
 	template <typename TCharactersWriter>
-	inline Inspector<TCharactersWriter>::Inspector()
-		: row(0),
+	inline Inspector<TCharactersWriter>::Inspector() :
+		row(0),
 		column(0),
 		currentRow(0),
 		currentColumn(0),
@@ -1223,52 +1206,8 @@ namespace Xml
 	}
 
 	template <typename TCharactersWriter>
-	inline Inspector<TCharactersWriter>::Inspector(const char* filePath)
-		: row(0),
-		column(0),
-		currentRow(0),
-		currentColumn(0),
-		node(Inspected::None),
-		err(ErrorCode::None),
-		errMsg(nullptr),
-		fPath(),
-		fileStream(),
-		inputStreamPtr(nullptr),
-		reader(nullptr),
-		sourceType(SourceNone),
-		afterBom(false),
-		bom(Details::Bom::None),
-		name(),
-		value(),
-		localName(),
-		prefix(),
-		namespaceUri(),
-		entityName(),
-		comparingName(),
-		entityNameCharCount(0),
-		currentCharacter(0),
-		bufferedCharacter(0),
-		foundElement(false),
-		foundDOCTYPE(false),
-		eof(false),
-		lowerXmlString(),
-		xmlnsString(),
-		xmlUriString(),
-		xmlnsUriString(),
-		attributes(),
-		attributesSize(0),
-		unclosedTags(),
-		unclosedTagsSize(0),
-		namespaces(),
-		namespacesSize(0)
-	{
-		InitStrings();
-		Reset(filePath);
-	}
-
-	template <typename TCharactersWriter>
-	inline Inspector<TCharactersWriter>::Inspector(const std::string& filePath)
-		: row(0),
+	inline Inspector<TCharactersWriter>::Inspector(const char* filePath) :
+		row(0),
 		column(0),
 		currentRow(0),
 		currentColumn(0),
@@ -1311,8 +1250,52 @@ namespace Xml
 	}
 
 	template <typename TCharactersWriter>
-	inline Inspector<TCharactersWriter>::Inspector(std::istream* inputStream)
-		: row(0),
+	inline Inspector<TCharactersWriter>::Inspector(const std::string& filePath) :
+		row(0),
+		column(0),
+		currentRow(0),
+		currentColumn(0),
+		node(Inspected::None),
+		err(ErrorCode::None),
+		errMsg(nullptr),
+		fPath(),
+		fileStream(),
+		inputStreamPtr(nullptr),
+		reader(nullptr),
+		sourceType(SourceNone),
+		afterBom(false),
+		bom(Details::Bom::None),
+		name(),
+		value(),
+		localName(),
+		prefix(),
+		namespaceUri(),
+		entityName(),
+		comparingName(),
+		entityNameCharCount(0),
+		currentCharacter(0),
+		bufferedCharacter(0),
+		foundElement(false),
+		foundDOCTYPE(false),
+		eof(false),
+		lowerXmlString(),
+		xmlnsString(),
+		xmlUriString(),
+		xmlnsUriString(),
+		attributes(),
+		attributesSize(0),
+		unclosedTags(),
+		unclosedTagsSize(0),
+		namespaces(),
+		namespacesSize(0)
+	{
+		InitStrings();
+		Reset(filePath);
+	}
+
+	template <typename TCharactersWriter>
+	inline Inspector<TCharactersWriter>::Inspector(std::istream* inputStream) :
+		row(0),
 		column(0),
 		currentRow(0),
 		currentColumn(0),
@@ -1357,8 +1340,8 @@ namespace Xml
 	template <typename TCharactersWriter>
 	template <typename TInputIterator>
 	inline Inspector<TCharactersWriter>::Inspector(
-		TInputIterator first, TInputIterator last)
-		: row(0),
+		TInputIterator first, TInputIterator last) :
+		row(0),
 		column(0),
 		currentRow(0),
 		currentColumn(0),
@@ -1401,8 +1384,8 @@ namespace Xml
 	}
 
 	template <typename TCharactersWriter>
-	inline Inspector<TCharactersWriter>::Inspector(Encoding::CharactersReader* reader)
-		: row(0),
+	inline Inspector<TCharactersWriter>::Inspector(Encoding::CharactersReader* reader) :
+		row(0),
 		column(0),
 		currentRow(0),
 		currentColumn(0),
@@ -1454,95 +1437,97 @@ namespace Xml
 	inline void Inspector<TCharactersWriter>::SetError(ErrorCode errorCode)
 	{
 		err = errorCode;
-		if (errorCode != ErrorCode::None)
-		{
-			switch (errorCode)
-			{
-				case ErrorCode::StreamError:
-					errMsg = "Stream error has occurred.";
-					return;
-				case ErrorCode::InvalidByteSequence:
-					errMsg = "Invalid byte sequence.";
-					return;
-				case ErrorCode::UnknownEncoding:
-					errMsg = "Unknown encoding.";
-					return;
-				case ErrorCode::EncodingConfusion:
-					errMsg = "Encoding confusion.";
-					return;
-				case ErrorCode::EncodingDeclarationRequired:
-					errMsg = "Encoding declaration must precede content that is not "
-						"a legal UTF-8 or UTF-16.";
-					return;
-				case ErrorCode::InvalidSyntax:
-					errMsg = "Invalid syntax.";
-					return;
-				case ErrorCode::InvalidXmlDeclarationLocation:
-					errMsg = "Invalid location of XML declaration.";
-					return;
-				case ErrorCode::CDataSectionOutside:
-					errMsg = "CDATA section is outside a root element.";
-					return;
-				case ErrorCode::ElementOutside:
-					errMsg = "Element is outside a root element.";
-					return;
-				case ErrorCode::InvalidDocumentTypeDeclarationLocation:
-					errMsg = "Invalid location of document type declaration.";
-					return;
-				case ErrorCode::DoubleDocumentTypeDeclaration:
-					errMsg = "There should be exactly one document type declaration.";
-					return;
-				case ErrorCode::InvalidTagName:
-					errMsg = "Invalid tag name.";
-					return;
-				case ErrorCode::InvalidAttributeName:
-					errMsg = "Invalid attribute name.";
-					return;
-				case ErrorCode::UnclosedToken:
-					errMsg = "Unclosed token.";
-					return;
-				case ErrorCode::InvalidReferenceSyntax:
-					errMsg = "Invalid syntax of reference.";
-					return;
-				case ErrorCode::InvalidCharacterReference:
-					errMsg = "Code point in character reference doesn\'t match "
-						"the valid character in ISO/IEC 10646 character set.";
-					return;
-				case ErrorCode::UnexpectedEndTag:
-					errMsg = "Unexpected end tag.";
-					return;
-				case ErrorCode::UnclosedTag:
-					errMsg = "Unclosed tag.";
-					return;
-				case ErrorCode::NoElement:
-					errMsg = "Cannot find an element.";
-					return;
-				case ErrorCode::DoubleAttributeName:
-					errMsg = "An attribute name must not appear more than "
-						"once in the same start-tag or empty-element tag.";
-					return;
-				case ErrorCode::PrefixWithoutAssignedNamespace:
-					errMsg = "Name prefix must bound to the namespace URI.";
-					return;
-				case ErrorCode::PrefixWithEmptyNamespace:
-					errMsg = "Namespace declaration with prefix cannot have an empty value.";
-					return;
-				case ErrorCode::XmlnsDeclared:
-					errMsg = "Reserved xmlns prefix cannot be declared or set to an empty value.";
-					return;
-				case ErrorCode::PrefixBoundToReservedNamespace:
-					errMsg = "Prefix is bound to reserved namespace.";
-					return;
-				case ErrorCode::ReservedNamespaceAsDefault:
-					errMsg = "Reserved namespace cannot be declared as a default namespace.";
-					return;
-				case ErrorCode::InvalidXmlPrefixDeclaration:
-					errMsg = "Prefix \'xml\' is reserved for use by XML and has a fixed "
-						"namespace URI http://www.w3.org/XML/1998/namespace.";
-					return;
-				default:
-					errMsg = "XML error has occurred.";
-					return;
+		if (errorCode != ErrorCode::None) {
+			switch (errorCode) {
+			case ErrorCode::StreamError:
+				errMsg = "Stream error has occurred.";
+				return;
+			case ErrorCode::InvalidByteSequence:
+				errMsg = "Invalid byte sequence.";
+				return;
+			case ErrorCode::UnknownEncoding:
+				errMsg = "Unknown encoding.";
+				return;
+			case ErrorCode::EncodingConfusion:
+				errMsg = "Encoding confusion.";
+				return;
+			case ErrorCode::EncodingDeclarationRequired:
+				errMsg =
+					"Encoding declaration must precede content that is not "
+					"a legal UTF-8 or UTF-16.";
+				return;
+			case ErrorCode::InvalidSyntax:
+				errMsg = "Invalid syntax.";
+				return;
+			case ErrorCode::InvalidXmlDeclarationLocation:
+				errMsg = "Invalid location of XML declaration.";
+				return;
+			case ErrorCode::CDataSectionOutside:
+				errMsg = "CDATA section is outside a root element.";
+				return;
+			case ErrorCode::ElementOutside:
+				errMsg = "Element is outside a root element.";
+				return;
+			case ErrorCode::InvalidDocumentTypeDeclarationLocation:
+				errMsg = "Invalid location of document type declaration.";
+				return;
+			case ErrorCode::DoubleDocumentTypeDeclaration:
+				errMsg = "There should be exactly one document type declaration.";
+				return;
+			case ErrorCode::InvalidTagName:
+				errMsg = "Invalid tag name.";
+				return;
+			case ErrorCode::InvalidAttributeName:
+				errMsg = "Invalid attribute name.";
+				return;
+			case ErrorCode::UnclosedToken:
+				errMsg = "Unclosed token.";
+				return;
+			case ErrorCode::InvalidReferenceSyntax:
+				errMsg = "Invalid syntax of reference.";
+				return;
+			case ErrorCode::InvalidCharacterReference:
+				errMsg =
+					"Code point in character reference doesn\'t match "
+					"the valid character in ISO/IEC 10646 character set.";
+				return;
+			case ErrorCode::UnexpectedEndTag:
+				errMsg = "Unexpected end tag.";
+				return;
+			case ErrorCode::UnclosedTag:
+				errMsg = "Unclosed tag.";
+				return;
+			case ErrorCode::NoElement:
+				errMsg = "Cannot find an element.";
+				return;
+			case ErrorCode::DoubleAttributeName:
+				errMsg =
+					"An attribute name must not appear more than "
+					"once in the same start-tag or empty-element tag.";
+				return;
+			case ErrorCode::PrefixWithoutAssignedNamespace:
+				errMsg = "Name prefix must bound to the namespace URI.";
+				return;
+			case ErrorCode::PrefixWithEmptyNamespace:
+				errMsg = "Namespace declaration with prefix cannot have an empty value.";
+				return;
+			case ErrorCode::XmlnsDeclared:
+				errMsg = "Reserved xmlns prefix cannot be declared or set to an empty value.";
+				return;
+			case ErrorCode::PrefixBoundToReservedNamespace:
+				errMsg = "Prefix is bound to reserved namespace.";
+				return;
+			case ErrorCode::ReservedNamespaceAsDefault:
+				errMsg = "Reserved namespace cannot be declared as a default namespace.";
+				return;
+			case ErrorCode::InvalidXmlPrefixDeclaration:
+				errMsg =
+					"Prefix \'xml\' is reserved for use by XML and has a fixed "
+					"namespace URI http://www.w3.org/XML/1998/namespace.";
+				return;
+			default:
+				errMsg = "XML error has occurred.";
+				return;
 			}
 		}
 		errMsg = nullptr;
@@ -1551,25 +1536,19 @@ namespace Xml
 	template <typename TCharactersWriter>
 	inline void Inspector<TCharactersWriter>::ParseBom()
 	{
-		if (sourceType == SourcePath)
-		{
+		if (sourceType == SourcePath) {
 			fileStream.open(fPath.c_str(), std::ifstream::binary);
-			if (!fileStream.is_open())
-			{
+			if (!fileStream.is_open()) {
 				fileStream.clear();
 				SetError(ErrorCode::StreamError);
 				return;
 			}
 
 			Details::Bom tempBom = Details::ReadBom(&fileStream);
-			if (tempBom == Details::Bom::None || tempBom == Details::Bom::Utf8)
-			{
-				try
-				{
+			if (tempBom == Details::Bom::None || tempBom == Details::Bom::Utf8) {
+				try {
 					reader = new Encoding::Utf8StreamReader(&fileStream);
-				}
-				catch (...)
-				{
+				} catch (...) {
 					fileStream.close();
 					fileStream.clear();
 					throw;
@@ -1581,16 +1560,14 @@ namespace Xml
 				return;
 			}
 
-			if (tempBom == Details::Bom::StreamError)
-			{
+			if (tempBom == Details::Bom::StreamError) {
 				fileStream.close();
 				fileStream.clear();
 				SetError(ErrorCode::StreamError);
 				return;
 			}
 
-			if (tempBom == Details::Bom::Invalid)
-			{
+			if (tempBom == Details::Bom::Invalid) {
 				fileStream.close();
 				fileStream.clear();
 				SetError(ErrorCode::InvalidByteSequence);
@@ -1598,14 +1575,10 @@ namespace Xml
 				return;
 			}
 
-			if (tempBom == Details::Bom::Utf16BE)
-			{
-				try
-				{
+			if (tempBom == Details::Bom::Utf16BE) {
+				try {
 					reader = new Encoding::Utf16BEStreamReader(&fileStream);
-				}
-				catch (...)
-				{
+				} catch (...) {
 					fileStream.close();
 					fileStream.clear();
 					throw;
@@ -1613,15 +1586,10 @@ namespace Xml
 				err = ErrorCode::None;
 				afterBom = true;
 				bom = tempBom;
-			}
-			else if (tempBom == Details::Bom::Utf16LE)
-			{
-				try
-				{
+			} else if (tempBom == Details::Bom::Utf16LE) {
+				try {
 					reader = new Encoding::Utf16LEStreamReader(&fileStream);
-				}
-				catch (...)
-				{
+				} catch (...) {
 					fileStream.close();
 					fileStream.clear();
 					throw;
@@ -1629,15 +1597,10 @@ namespace Xml
 				err = ErrorCode::None;
 				afterBom = true;
 				bom = tempBom;
-			}
-			else if (tempBom == Details::Bom::Utf32BE)
-			{
-				try
-				{
+			} else if (tempBom == Details::Bom::Utf32BE) {
+				try {
 					reader = new Encoding::Utf32BEStreamReader(&fileStream);
-				}
-				catch (...)
-				{
+				} catch (...) {
 					fileStream.close();
 					fileStream.clear();
 					throw;
@@ -1645,15 +1608,10 @@ namespace Xml
 				err = ErrorCode::None;
 				afterBom = true;
 				bom = tempBom;
-			}
-			else if (tempBom == Details::Bom::Utf32LE)
-			{
-				try
-				{
+			} else if (tempBom == Details::Bom::Utf32LE) {
+				try {
 					reader = new Encoding::Utf32LEStreamReader(&fileStream);
-				}
-				catch (...)
-				{
+				} catch (...) {
 					fileStream.close();
 					fileStream.clear();
 					throw;
@@ -1662,12 +1620,9 @@ namespace Xml
 				afterBom = true;
 				bom = tempBom;
 			}
-		}
-		else if (sourceType == SourceStream || sourceType == SourceIterators)
-		{
+		} else if (sourceType == SourceStream || sourceType == SourceIterators) {
 			Details::Bom tempBom = Details::ReadBom(inputStreamPtr);
-			if (tempBom == Details::Bom::None || tempBom == Details::Bom::Utf8)
-			{
+			if (tempBom == Details::Bom::None || tempBom == Details::Bom::Utf8) {
 				reader = new Encoding::Utf8StreamReader(inputStreamPtr);
 				err = ErrorCode::None;
 				afterBom = true;
@@ -1676,55 +1631,42 @@ namespace Xml
 				return;
 			}
 
-			if (tempBom == Details::Bom::StreamError)
-			{
+			if (tempBom == Details::Bom::StreamError) {
 				SetError(ErrorCode::StreamError);
 				return;
 			}
 
-			if (tempBom == Details::Bom::Invalid)
-			{
+			if (tempBom == Details::Bom::Invalid) {
 				SetError(ErrorCode::InvalidByteSequence);
 				eof = ((inputStreamPtr->rdstate() & std::istream::eofbit) != 0);
 				return;
 			}
 
-			if (tempBom == Details::Bom::Utf16BE)
-			{
+			if (tempBom == Details::Bom::Utf16BE) {
 				reader = new Encoding::Utf16BEStreamReader(inputStreamPtr);
 				err = ErrorCode::None;
 				afterBom = true;
 				bom = tempBom;
-			}
-			else if (tempBom == Details::Bom::Utf16LE)
-			{
+			} else if (tempBom == Details::Bom::Utf16LE) {
 				reader = new Encoding::Utf16LEStreamReader(inputStreamPtr);
 				err = ErrorCode::None;
 				afterBom = true;
 				bom = tempBom;
-			}
-			else if (tempBom == Details::Bom::Utf32BE)
-			{
+			} else if (tempBom == Details::Bom::Utf32BE) {
 				reader = new Encoding::Utf32BEStreamReader(inputStreamPtr);
 				err = ErrorCode::None;
 				afterBom = true;
 				bom = tempBom;
-			}
-			else if (tempBom == Details::Bom::Utf32LE)
-			{
+			} else if (tempBom == Details::Bom::Utf32LE) {
 				reader = new Encoding::Utf32LEStreamReader(inputStreamPtr);
 				err = ErrorCode::None;
 				afterBom = true;
 				bom = tempBom;
 			}
-		}
-		else if (sourceType == SourceReader)
-		{
+		} else if (sourceType == SourceReader) {
 			err = ErrorCode::None;
 			afterBom = true;
-		}
-		else
-		{
+		} else {
 			SetError(ErrorCode::StreamError);
 		}
 	}
@@ -1738,8 +1680,7 @@ namespace Xml
 		SizeType tempRow = currentRow;
 		SizeType tempColumn = currentColumn;
 
-		if (unclosedTagsSize == 0 && foundElement)
-		{
+		if (unclosedTagsSize == 0 && foundElement) {
 			tempRow = row;
 			tempColumn = column;
 			Reset();
@@ -1752,16 +1693,14 @@ namespace Xml
 		PrepareNode();
 
 		// Element name.
-		do
-		{
+		do {
 			CharactersWriterType::WriteCharacter(name, currentCharacter);
 			CharactersWriterType::WriteCharacter(localName, currentCharacter);
 
 			if (NextCharBad(true))
 				return false;
 
-			if (currentCharacter == Colon)
-			{
+			if (currentCharacter == Colon) {
 				// Prefixed name.
 				prefix = name;
 				localName.clear();
@@ -1771,8 +1710,7 @@ namespace Xml
 					return false;
 
 				if (currentCharacter == Colon ||
-					!Encoding::CharactersReader::IsNameStartChar(currentCharacter))
-				{
+					!Encoding::CharactersReader::IsNameStartChar(currentCharacter)) {
 					Reset();
 					SetError(ErrorCode::InvalidTagName);
 					row = tempRow;
@@ -1780,35 +1718,29 @@ namespace Xml
 					return false;
 				}
 
-				do
-				{
+				do {
 					CharactersWriterType::WriteCharacter(name, currentCharacter);
 					CharactersWriterType::WriteCharacter(localName, currentCharacter);
 
 					if (NextCharBad(true))
 						return false;
 
-					if (currentCharacter == Colon)
-					{
+					if (currentCharacter == Colon) {
 						Reset();
 						SetError(ErrorCode::InvalidTagName);
 						row = tempRow;
 						column = tempColumn;
 						return false;
 					}
-				}
-				while (Encoding::CharactersReader::IsNameChar(currentCharacter));
+				} while (Encoding::CharactersReader::IsNameChar(currentCharacter));
 				break;
 			}
-		}
-		while (Encoding::CharactersReader::IsNameChar(currentCharacter));
+		} while (Encoding::CharactersReader::IsNameChar(currentCharacter));
 
-		if (currentCharacter == GreaterThan)
-		{
+		if (currentCharacter == GreaterThan) {
 			node = Inspected::StartTag;
 			bool noErrors = NamespacesStuff();
-			if (noErrors)
-			{
+			if (noErrors) {
 				UnclosedTagType& ref = NewUnclosedTag();
 				ref.Name = name;
 				ref.LocalName = localName;
@@ -1822,13 +1754,11 @@ namespace Xml
 			return false;
 		}
 
-		if (currentCharacter == Slash)
-		{
+		if (currentCharacter == Slash) {
 			// <tagName/
 			if (NextCharBad(true))
 				return false;
-			if (currentCharacter != GreaterThan)
-			{
+			if (currentCharacter != GreaterThan) {
 				tempRow = currentRow;
 				tempColumn = currentColumn;
 				Reset();
@@ -1840,38 +1770,31 @@ namespace Xml
 
 			node = Inspected::EmptyElementTag;
 			bool noErrors = NamespacesStuff();
-			if (noErrors)
-			{
+			if (noErrors) {
 				foundElement = true;
 				return true;
 			}
 			return false;
 		}
 
-		if (IsWhiteSpace(currentCharacter))
-		{
+		if (IsWhiteSpace(currentCharacter)) {
 			// Ignore white spaces.
-			do
-			{
+			do {
 				if (NextCharBad(true))
 					return false;
-			}
-			while (IsWhiteSpace(currentCharacter));
+			} while (IsWhiteSpace(currentCharacter));
 
 			if (currentCharacter != Colon &&
-				Encoding::CharactersReader::IsNameStartChar(currentCharacter))
-			{
+				Encoding::CharactersReader::IsNameStartChar(currentCharacter)) {
 				// Attributes.
 				return ParseAttributes();
 			}
 
-			if (currentCharacter == Slash)
-			{
+			if (currentCharacter == Slash) {
 				// <tagName /
 				if (NextCharBad(true))
 					return false;
-				if (currentCharacter != GreaterThan)
-				{
+				if (currentCharacter != GreaterThan) {
 					tempRow = currentRow;
 					tempColumn = currentColumn;
 					Reset();
@@ -1883,21 +1806,18 @@ namespace Xml
 
 				node = Inspected::EmptyElementTag;
 				bool noErrors = NamespacesStuff();
-				if (noErrors)
-				{
+				if (noErrors) {
 					foundElement = true;
 					return true;
 				}
 				return false;
 			}
 
-			if (currentCharacter == GreaterThan)
-			{
+			if (currentCharacter == GreaterThan) {
 				// <tagName >
 				node = Inspected::StartTag;
 				bool noErrors = NamespacesStuff();
-				if (noErrors)
-				{
+				if (noErrors) {
 					UnclosedTagType& ref = NewUnclosedTag();
 					ref.Name = name;
 					ref.LocalName = localName;
@@ -1911,8 +1831,7 @@ namespace Xml
 				return false;
 			}
 
-			if (Encoding::CharactersReader::IsNameChar(currentCharacter))
-			{
+			if (Encoding::CharactersReader::IsNameChar(currentCharacter)) {
 				// For example <tagName 123attr="value">
 				// 1 is not allowed as a first character name.
 				tempRow = currentRow;
@@ -1944,7 +1863,6 @@ namespace Xml
 		return false;
 	}
 
-	
 	template <typename TCharactersWriter>
 	inline bool Inspector<TCharactersWriter>::ParseAttributes()
 	{
@@ -1956,14 +1874,14 @@ namespace Xml
 		SizeType tempColumn;
 		bool white = true;
 
-		do // {...} while (Encoding::CharactersReader::IsNameStartChar(currentCharacter));
+		do  // {...} while (Encoding::CharactersReader::IsNameStartChar(currentCharacter));
 		{
 			AttributeType& attr = NewAttribute();
 			attr.Row = currentRow;
 			attr.Column = currentColumn;
 
 			// attribute.Name, attribute.LocalName, attribute.Prefix.
-			do // {...} while (Encoding::CharactersReader::IsNameChar(currentCharacter));
+			do  // {...} while (Encoding::CharactersReader::IsNameChar(currentCharacter));
 			{
 				CharactersWriterType::WriteCharacter(attr.Name, currentCharacter);
 				CharactersWriterType::WriteCharacter(attr.LocalName, currentCharacter);
@@ -1971,8 +1889,7 @@ namespace Xml
 				if (NextCharBad(true))
 					return false;
 
-				if (currentCharacter == Colon)
-				{
+				if (currentCharacter == Colon) {
 					// Prefixed name.
 					attr.Prefix = attr.Name;
 					attr.LocalName.clear();
@@ -1982,8 +1899,7 @@ namespace Xml
 						return false;
 
 					if (currentCharacter == Colon ||
-						!Encoding::CharactersReader::IsNameStartChar(currentCharacter))
-					{
+						!Encoding::CharactersReader::IsNameStartChar(currentCharacter)) {
 						Reset();
 						SetError(ErrorCode::InvalidAttributeName);
 						row = attr.Row;
@@ -1991,7 +1907,7 @@ namespace Xml
 						return false;
 					}
 
-					do // {...} while (Encoding::CharactersReader::IsNameChar(currentCharacter));
+					do  // {...} while (Encoding::CharactersReader::IsNameChar(currentCharacter));
 					{
 						CharactersWriterType::WriteCharacter(attr.Name, currentCharacter);
 						CharactersWriterType::WriteCharacter(attr.LocalName, currentCharacter);
@@ -1999,41 +1915,31 @@ namespace Xml
 						if (NextCharBad(true))
 							return false;
 
-						if (currentCharacter == Colon)
-						{
+						if (currentCharacter == Colon) {
 							Reset();
 							SetError(ErrorCode::InvalidAttributeName);
 							row = attr.Row;
 							column = attr.Column;
 							return false;
 						}
-					}
-					while (Encoding::CharactersReader::IsNameChar(currentCharacter));
+					} while (Encoding::CharactersReader::IsNameChar(currentCharacter));
 					break;
 				}
-			}
-			while (Encoding::CharactersReader::IsNameChar(currentCharacter));
+			} while (Encoding::CharactersReader::IsNameChar(currentCharacter));
 
-			if (IsWhiteSpace(currentCharacter))
-			{
+			if (IsWhiteSpace(currentCharacter)) {
 				// Ignore white spaces.
-				do
-				{
+				do {
 					if (NextCharBad(true))
 						return false;
-				}
-				while (IsWhiteSpace(currentCharacter));
+				} while (IsWhiteSpace(currentCharacter));
 				white = true;
-			}
-			else
-			{
+			} else {
 				white = false;
 			}
 
-			if (currentCharacter != Equals)
-			{
-				if (white)
-				{
+			if (currentCharacter != Equals) {
+				if (white) {
 					tempRow = currentRow;
 					tempColumn = currentColumn;
 					Reset();
@@ -2054,26 +1960,20 @@ namespace Xml
 				return false;
 
 			// Ignore white spaces.
-			while (IsWhiteSpace(currentCharacter))
-			{
+			while (IsWhiteSpace(currentCharacter)) {
 				if (NextCharBad(true))
 					return false;
 			}
 
 			char32_t quoteChar = currentCharacter;
 
-			if (quoteChar == DoubleQuote)
-			{
+			if (quoteChar == DoubleQuote) {
 				// attrname="
 				attr.Delimiter = QuotationMark::DoubleQuote;
-			}
-			else if (quoteChar == SingleQuote)
-			{
+			} else if (quoteChar == SingleQuote) {
 				// attrname='
 				attr.Delimiter = QuotationMark::SingleQuote;
-			}
-			else
-			{
+			} else {
 				tempRow = currentRow;
 				tempColumn = currentColumn;
 				Reset();
@@ -2087,10 +1987,8 @@ namespace Xml
 				return false;
 
 			// attr.Value
-			while (currentCharacter != quoteChar)
-			{
-				if (currentCharacter == LessThan)
-				{
+			while (currentCharacter != quoteChar) {
+				if (currentCharacter == LessThan) {
 					tempRow = currentRow;
 					tempColumn = currentColumn;
 					Reset();
@@ -2100,13 +1998,11 @@ namespace Xml
 					return false;
 				}
 
-				if (currentCharacter == Ampersand)
-				{
+				if (currentCharacter == Ampersand) {
 					if (NextCharBad(true))
 						return false;
 
-					if (currentCharacter == Hash)
-					{
+					if (currentCharacter == Hash) {
 						// "&#"
 
 						char32_t codePoint;
@@ -2119,19 +2015,14 @@ namespace Xml
 						CharactersWriterType::WriteCharacter(attr.Value, codePoint);
 						if (NextCharBad(true))
 							return false;
-						continue; // while (currentCharacter != quoteChar) {...}
-					}
-					else if (currentCharacter != Colon &&
-						Encoding::CharactersReader::IsNameStartChar(currentCharacter))
-					{
+						continue;  // while (currentCharacter != quoteChar) {...}
+					} else if (currentCharacter != Colon &&
+							   Encoding::CharactersReader::IsNameStartChar(currentCharacter)) {
 						int resultParsing = ParseEntityReference(true);
-						if (resultParsing == -1)
-						{
+						if (resultParsing == -1) {
 							// Error.
 							return false;
-						}
-						else if (resultParsing == 0)
-						{
+						} else if (resultParsing == 0) {
 							// Unknown entity reference.
 							CharactersWriterType::WriteCharacter(attr.Value, Ampersand);
 							attr.Value.append(entityName);
@@ -2139,19 +2030,16 @@ namespace Xml
 							CharactersWriterType::WriteCharacter(attr.Value, Semicolon);
 							if (NextCharBad(true))
 								return false;
-							continue; // while (currentCharacter != quoteChar) {...}
-						}
-						else // resultParsing == 1.
+							continue;  // while (currentCharacter != quoteChar) {...}
+						} else         // resultParsing == 1.
 						{
 							// Predefined entity reference.
 							CharactersWriterType::WriteCharacter(attr.Value, currentCharacter);
 							if (NextCharBad(true))
 								return false;
-							continue; // while (currentCharacter != quoteChar) {...}
+							continue;  // while (currentCharacter != quoteChar) {...}
 						}
-					}
-					else
-					{
+					} else {
 						tempRow = currentRow;
 						tempColumn = currentColumn - 1;
 						Reset();
@@ -2169,7 +2057,7 @@ namespace Xml
 
 				if (NextCharBad(true))
 					return false;
-			} // while (currentCharacter != quoteChar) {...}
+			}  // while (currentCharacter != quoteChar) {...}
 
 			// attrname="value"
 
@@ -2179,41 +2067,32 @@ namespace Xml
 			if (NextCharBad(true))
 				return false;
 
-			if (IsWhiteSpace(currentCharacter))
-			{
+			if (IsWhiteSpace(currentCharacter)) {
 				// Ignore white spaces.
-				do
-				{
+				do {
 					if (NextCharBad(true))
 						return false;
-				}
-				while (IsWhiteSpace(currentCharacter));
+				} while (IsWhiteSpace(currentCharacter));
 				white = true;
 
-				if (currentCharacter == Colon)
-				{
+				if (currentCharacter == Colon) {
 					Reset();
 					SetError(ErrorCode::InvalidAttributeName);
 					row = attr.Row;
 					column = attr.Column;
 					return false;
 				}
-			}
-			else
-			{
+			} else {
 				white = false;
 				break;
 			}
-		}
-		while (Encoding::CharactersReader::IsNameStartChar(currentCharacter));
+		} while (Encoding::CharactersReader::IsNameStartChar(currentCharacter));
 
-		if (currentCharacter == GreaterThan)
-		{
+		if (currentCharacter == GreaterThan) {
 			// attrname="value">
 			node = Inspected::StartTag;
 			bool noErrors = NamespacesStuff();
-			if (noErrors)
-			{
+			if (noErrors) {
 				UnclosedTagType& ref = NewUnclosedTag();
 				ref.Name = name;
 				ref.LocalName = localName;
@@ -2225,14 +2104,11 @@ namespace Xml
 				return true;
 			}
 			return false;
-		}
-		else if (currentCharacter == Slash)
-		{
+		} else if (currentCharacter == Slash) {
 			// attrname="value"/
 			if (NextCharBad(true))
 				return false;
-			if (currentCharacter != GreaterThan)
-			{
+			if (currentCharacter != GreaterThan) {
 				tempRow = currentRow;
 				tempColumn = currentColumn;
 				Reset();
@@ -2244,13 +2120,11 @@ namespace Xml
 
 			node = Inspected::EmptyElementTag;
 			bool noErrors = NamespacesStuff();
-			if (noErrors)
-			{
+			if (noErrors) {
 				// Namespaces associated with this tag are no longer needed.
 				SizeType indicesToRemove = static_cast<SizeType>(unclosedTagsSize);
 				NamespacesSizeType newNamespacesSize = 0;
-				while (newNamespacesSize < namespacesSize)
-				{
+				while (newNamespacesSize < namespacesSize) {
 					if (namespaces[newNamespacesSize].TagIndex == indicesToRemove)
 						break;
 					++newNamespacesSize;
@@ -2260,11 +2134,9 @@ namespace Xml
 				return true;
 			}
 			return false;
-		}
-		else // Some error.
+		} else  // Some error.
 		{
-			if (white && Encoding::CharactersReader::IsNameChar(currentCharacter))
-			{
+			if (white && Encoding::CharactersReader::IsNameChar(currentCharacter)) {
 				// After white space, cannot be a start character of attribute name,
 				// but can be a part of this name. Something like:
 				// <tag 123attrName="value">. "1" is not allowed as the start character.
@@ -2297,25 +2169,19 @@ namespace Xml
 		SizeType tempRow = currentRow;
 		SizeType tempColumn = currentColumn;
 
-		if (currentCharacter == Colon)
-		{
+		if (currentCharacter == Colon) {
 			Reset();
 			SetError(ErrorCode::InvalidTagName);
 			row = tempRow;
 			column = tempColumn;
 			return false;
-		}
-		else if (!Encoding::CharactersReader::IsNameStartChar(currentCharacter))
-		{
-			if (Encoding::CharactersReader::IsNameChar(currentCharacter))
-			{
+		} else if (!Encoding::CharactersReader::IsNameStartChar(currentCharacter)) {
+			if (Encoding::CharactersReader::IsNameChar(currentCharacter)) {
 				// Not allowed as start character of the name,
 				// but allowed as a part of this name.
 				Reset();
 				SetError(ErrorCode::InvalidTagName);
-			}
-			else
-			{
+			} else {
 				// Some weird character.
 				Reset();
 				SetError(ErrorCode::InvalidSyntax);
@@ -2328,16 +2194,14 @@ namespace Xml
 		PrepareNode();
 
 		// End element name.
-		do
-		{
+		do {
 			CharactersWriterType::WriteCharacter(name, currentCharacter);
 			CharactersWriterType::WriteCharacter(localName, currentCharacter);
 
 			if (NextCharBad(true))
 				return false;
 
-			if (currentCharacter == Colon)
-			{
+			if (currentCharacter == Colon) {
 				// Prefixed name.
 				prefix = name;
 				localName.clear();
@@ -2347,8 +2211,7 @@ namespace Xml
 					return false;
 
 				if (currentCharacter == Colon ||
-					!Encoding::CharactersReader::IsNameStartChar(currentCharacter))
-				{
+					!Encoding::CharactersReader::IsNameStartChar(currentCharacter)) {
 					Reset();
 					SetError(ErrorCode::InvalidTagName);
 					row = tempRow;
@@ -2356,41 +2219,33 @@ namespace Xml
 					return false;
 				}
 
-				do
-				{
+				do {
 					CharactersWriterType::WriteCharacter(name, currentCharacter);
 					CharactersWriterType::WriteCharacter(localName, currentCharacter);
 
 					if (NextCharBad(true))
 						return false;
 
-					if (currentCharacter == Colon)
-					{
+					if (currentCharacter == Colon) {
 						Reset();
 						SetError(ErrorCode::InvalidTagName);
 						row = tempRow;
 						column = tempColumn;
 						return false;
 					}
-				}
-				while (Encoding::CharactersReader::IsNameChar(currentCharacter));
+				} while (Encoding::CharactersReader::IsNameChar(currentCharacter));
 				break;
 			}
-		}
-		while (Encoding::CharactersReader::IsNameChar(currentCharacter));
+		} while (Encoding::CharactersReader::IsNameChar(currentCharacter));
 
-		if (IsWhiteSpace(currentCharacter))
-		{
+		if (IsWhiteSpace(currentCharacter)) {
 			// Ignore white spaces.
-			do
-			{
+			do {
 				if (NextCharBad(true))
 					return false;
-			}
-			while (IsWhiteSpace(currentCharacter));
+			} while (IsWhiteSpace(currentCharacter));
 
-			if (currentCharacter != GreaterThan)
-			{
+			if (currentCharacter != GreaterThan) {
 				tempRow = currentRow;
 				tempColumn = currentColumn;
 				Reset();
@@ -2399,9 +2254,7 @@ namespace Xml
 				column = tempColumn;
 				return false;
 			}
-		}
-		else if (currentCharacter != GreaterThan)
-		{
+		} else if (currentCharacter != GreaterThan) {
 			Reset();
 			SetError(ErrorCode::InvalidTagName);
 			row = tempRow;
@@ -2410,8 +2263,7 @@ namespace Xml
 		}
 
 		if (unclosedTagsSize == 0 ||
-			unclosedTags[unclosedTagsSize - 1].Name != name)
-		{
+			unclosedTags[unclosedTagsSize - 1].Name != name) {
 			tempRow = row;
 			tempColumn = column;
 			Reset();
@@ -2428,8 +2280,7 @@ namespace Xml
 		// Namespaces associated with this tag are no longer needed.
 		SizeType indicesToRemove = static_cast<SizeType>(unclosedTagsSize);
 		NamespacesSizeType newNamespacesSize = 0;
-		while (newNamespacesSize < namespacesSize)
-		{
+		while (newNamespacesSize < namespacesSize) {
 			if (namespaces[newNamespacesSize].TagIndex == indicesToRemove)
 				break;
 			++newNamespacesSize;
@@ -2449,18 +2300,13 @@ namespace Xml
 
 		PrepareNode();
 
-		if (IsWhiteSpace(currentCharacter))
-		{
-			do
-			{
+		if (IsWhiteSpace(currentCharacter)) {
+			do {
 				CharactersWriterType::WriteCharacter(value, currentCharacter);
-				
-				if (NextCharBad(false))
-				{
-					if (eof)
-					{
-						if (unclosedTagsSize != 0)
-						{
+
+				if (NextCharBad(false)) {
+					if (eof) {
+						if (unclosedTagsSize != 0) {
 							UnclosedTagType& ref = unclosedTags[unclosedTagsSize - 1];
 							Reset();
 							SetError(ErrorCode::UnclosedTag);
@@ -2475,18 +2321,15 @@ namespace Xml
 					}
 					return false;
 				}
-			}
-			while (IsWhiteSpace(currentCharacter));
+			} while (IsWhiteSpace(currentCharacter));
 
-			if (currentCharacter == LessThan)
-			{
+			if (currentCharacter == LessThan) {
 				node = Inspected::Whitespace;
 				return true;
 			}
 		}
 
-		if (unclosedTagsSize == 0)
-		{
+		if (unclosedTagsSize == 0) {
 			tempRow = currentRow;
 			tempColumn = currentColumn;
 			Reset();
@@ -2497,14 +2340,10 @@ namespace Xml
 		}
 
 		bool onlyWhite = true;
-		do
-		{
-			if (currentCharacter == Ampersand)
-			{
-				if (NextCharBad(false))
-				{
-					if (eof)
-					{
+		do {
+			if (currentCharacter == Ampersand) {
+				if (NextCharBad(false)) {
+					if (eof) {
 						UnclosedTagType& ref = unclosedTags[unclosedTagsSize - 1];
 						Reset();
 						SetError(ErrorCode::UnclosedTag);
@@ -2515,8 +2354,7 @@ namespace Xml
 					return false;
 				}
 
-				if (currentCharacter == Hash)
-				{
+				if (currentCharacter == Hash) {
 					// "&#"
 
 					char32_t codePoint;
@@ -2529,10 +2367,8 @@ namespace Xml
 					if (!Encoding::CharactersReader::IsWhiteSpace(codePoint))
 						onlyWhite = false;
 					CharactersWriterType::WriteCharacter(value, codePoint);
-					if (NextCharBad(false))
-					{
-						if (eof)
-						{
+					if (NextCharBad(false)) {
+						if (eof) {
 							UnclosedTagType& ref = unclosedTags[unclosedTagsSize - 1];
 							Reset();
 							SetError(ErrorCode::UnclosedTag);
@@ -2543,29 +2379,21 @@ namespace Xml
 						return false;
 					}
 					continue;
-				}
-				else if (currentCharacter != Colon &&
-					Encoding::CharactersReader::IsNameStartChar(currentCharacter))
-				{
+				} else if (currentCharacter != Colon &&
+						   Encoding::CharactersReader::IsNameStartChar(currentCharacter)) {
 					int resultParsing = ParseEntityReference(false);
-					if (resultParsing == -1)
-					{
+					if (resultParsing == -1) {
 						// Error.
 						return false;
-					}
-					else if (resultParsing == 0)
-					{
+					} else if (resultParsing == 0) {
 						// Unknown entity reference.
-						if (value.empty())
-						{
+						if (value.empty()) {
 							name = entityName;
 							localName = entityName;
 							entityName.clear();
 							node = Inspected::EntityReference;
 							return true;
-						}
-						else
-						{
+						} else {
 							// entityName field is set,
 							// but first I must return some text.
 							if (onlyWhite)
@@ -2574,16 +2402,13 @@ namespace Xml
 								node = Inspected::Text;
 							return true;
 						}
-					}
-					else // resultParsing == 1.
+					} else  // resultParsing == 1.
 					{
 						// Predefined entity reference.
 						onlyWhite = false;
 						CharactersWriterType::WriteCharacter(value, currentCharacter);
-						if (NextCharBad(false))
-						{
-							if (eof)
-							{
+						if (NextCharBad(false)) {
+							if (eof) {
 								UnclosedTagType& ref = unclosedTags[unclosedTagsSize - 1];
 								Reset();
 								SetError(ErrorCode::UnclosedTag);
@@ -2595,9 +2420,7 @@ namespace Xml
 						}
 						continue;
 					}
-				}
-				else
-				{
+				} else {
 					tempRow = currentRow;
 					tempColumn = currentColumn - 1;
 					Reset();
@@ -2608,20 +2431,16 @@ namespace Xml
 				}
 			}
 
-			if (currentCharacter == RightSquareBracket)
-			{
+			if (currentCharacter == RightSquareBracket) {
 				// "]]>" is not allowed here.
 				SizeType bracketCount = 0;
 				onlyWhite = false;
-				do
-				{
+				do {
 					++bracketCount;
 					CharactersWriterType::WriteCharacter(value, currentCharacter);
 
-					if (NextCharBad(false))
-					{
-						if (eof)
-						{
+					if (NextCharBad(false)) {
+						if (eof) {
 							UnclosedTagType& ref = unclosedTags[unclosedTagsSize - 1];
 							Reset();
 							SetError(ErrorCode::UnclosedTag);
@@ -2631,11 +2450,9 @@ namespace Xml
 						}
 						return false;
 					}
-				}
-				while (currentCharacter == RightSquareBracket);
+				} while (currentCharacter == RightSquareBracket);
 
-				if (currentCharacter == GreaterThan && bracketCount > 1)
-				{
+				if (currentCharacter == GreaterThan && bracketCount > 1) {
 					tempRow = currentRow;
 					tempColumn = currentColumn - 2;
 					Reset();
@@ -2650,10 +2467,8 @@ namespace Xml
 			if (!IsWhiteSpace(currentCharacter))
 				onlyWhite = false;
 			CharactersWriterType::WriteCharacter(value, currentCharacter);
-			if (NextCharBad(false))
-			{
-				if (eof)
-				{
+			if (NextCharBad(false)) {
+				if (eof) {
 					UnclosedTagType& ref = unclosedTags[unclosedTagsSize - 1];
 					Reset();
 					SetError(ErrorCode::UnclosedTag);
@@ -2663,8 +2478,7 @@ namespace Xml
 				}
 				return false;
 			}
-		}
-		while (currentCharacter != LessThan);
+		} while (currentCharacter != LessThan);
 
 		if (!onlyWhite)
 			node = Inspected::Text;
@@ -2689,41 +2503,35 @@ namespace Xml
 		if (NextCharBad(true))
 			return false;
 		if (currentCharacter == LowerXml[0] ||
-			currentCharacter == UpperXml[0])
-		{
+			currentCharacter == UpperXml[0]) {
 			// '<?' ('X' | 'x')
 			CharactersWriterType::WriteCharacter(name, currentCharacter);
 			if (NextCharBad(true))
 				return false;
 			if (currentCharacter == LowerXml[1] ||
-				currentCharacter == UpperXml[1])
-			{
+				currentCharacter == UpperXml[1]) {
 				// '<?' ('X' | 'x') ('M' | 'm')
 				CharactersWriterType::WriteCharacter(name, currentCharacter);
 				if (NextCharBad(true))
 					return false;
 				if (currentCharacter == LowerXml[2] ||
-					currentCharacter == UpperXml[2])
-				{
+					currentCharacter == UpperXml[2]) {
 					// '<?' ('X' | 'x') ('M' | 'm') ('L' | 'l')
 					CharactersWriterType::WriteCharacter(name, currentCharacter);
 					if (NextCharBad(true))
 						return false;
 
-					if (name == lowerXmlString)
-					{
+					if (name == lowerXmlString) {
 						// '<?xml' Char
-						if (IsWhiteSpace(currentCharacter))
-						{
+						if (IsWhiteSpace(currentCharacter)) {
 							// '<?xml '
 							localName = name;
-							return ParseXmlDeclaration();	
+							return ParseXmlDeclaration();
 						}
 					}
 
 					if (currentCharacter == Colon ||
-						!Encoding::CharactersReader::IsNameChar(currentCharacter))
-					{
+						!Encoding::CharactersReader::IsNameChar(currentCharacter)) {
 						tempRow = currentRow;
 						tempColumn = currentColumn;
 						Reset();
@@ -2734,10 +2542,8 @@ namespace Xml
 					}
 				}
 			}
-		}
-		else if (currentCharacter == Colon ||
-			!Encoding::CharactersReader::IsNameStartChar(currentCharacter))
-		{
+		} else if (currentCharacter == Colon ||
+				   !Encoding::CharactersReader::IsNameStartChar(currentCharacter)) {
 			tempRow = currentRow;
 			tempColumn = currentColumn;
 			Reset();
@@ -2745,9 +2551,7 @@ namespace Xml
 			row = tempRow;
 			column = tempColumn;
 			return false;
-		}
-		else
-		{
+		} else {
 			// '<?' (NameStartChar - ':')
 			CharactersWriterType::WriteCharacter(name, currentCharacter);
 			if (NextCharBad(true))
@@ -2755,8 +2559,7 @@ namespace Xml
 		}
 
 		while (currentCharacter != Colon &&
-			Encoding::CharactersReader::IsNameChar(currentCharacter))
-		{
+			   Encoding::CharactersReader::IsNameChar(currentCharacter)) {
 			CharactersWriterType::WriteCharacter(name, currentCharacter);
 			if (NextCharBad(true))
 				return false;
@@ -2775,8 +2578,7 @@ namespace Xml
 		SizeType tempRow;
 		SizeType tempColumn;
 
-		if (row != 1 || column != 1)
-		{
+		if (row != 1 || column != 1) {
 			tempRow = row;
 			tempColumn = column;
 			Reset();
@@ -2787,21 +2589,17 @@ namespace Xml
 		}
 
 		// Ignore white spaces.
-		do
-		{
+		do {
 			if (NextCharBad(true))
 				return false;
-		}
-		while (IsWhiteSpace(currentCharacter));
+		} while (IsWhiteSpace(currentCharacter));
 
 		AttributeType& versionAttr = NewAttribute();
 		versionAttr.Row = currentRow;
 		versionAttr.Column = currentColumn;
 
-		for (std::size_t i = 0; i < 7; ++i)
-		{
-			if (currentCharacter != XmlDeclarationVersion[i])
-			{
+		for (std::size_t i = 0; i < 7; ++i) {
+			if (currentCharacter != XmlDeclarationVersion[i]) {
 				tempRow = currentRow;
 				tempColumn = currentColumn;
 				Reset();
@@ -2817,15 +2615,13 @@ namespace Xml
 		}
 
 		// '<?xml version' Char
-		
-		while (IsWhiteSpace(currentCharacter))
-		{
+
+		while (IsWhiteSpace(currentCharacter)) {
 			if (NextCharBad(true))
 				return false;
 		}
 
-		if (currentCharacter != Equals)
-		{
+		if (currentCharacter != Equals) {
 			tempRow = currentRow;
 			tempColumn = currentColumn;
 			Reset();
@@ -2840,26 +2636,20 @@ namespace Xml
 		if (NextCharBad(true))
 			return false;
 
-		while (IsWhiteSpace(currentCharacter))
-		{
+		while (IsWhiteSpace(currentCharacter)) {
 			if (NextCharBad(true))
 				return false;
 		}
 
 		char32_t quoteChar = currentCharacter;
 
-		if (quoteChar == DoubleQuote)
-		{
+		if (quoteChar == DoubleQuote) {
 			// <?xml version="
 			versionAttr.Delimiter = QuotationMark::DoubleQuote;
-		}
-		else if (quoteChar == SingleQuote)
-		{
+		} else if (quoteChar == SingleQuote) {
 			// <?xml version='
 			versionAttr.Delimiter = QuotationMark::SingleQuote;
-		}
-		else
-		{
+		} else {
 			tempRow = currentRow;
 			tempColumn = currentColumn;
 			Reset();
@@ -2875,8 +2665,7 @@ namespace Xml
 		// Now should be:
 		// '1.' [0-9]+
 
-		if (Encoding::CharactersReader::GetHexDigitValue(currentCharacter) != 1)
-		{
+		if (Encoding::CharactersReader::GetHexDigitValue(currentCharacter) != 1) {
 			tempRow = currentRow;
 			tempColumn = currentColumn;
 			Reset();
@@ -2892,8 +2681,7 @@ namespace Xml
 		if (NextCharBad(true))
 			return false;
 
-		if (currentCharacter != Dot)
-		{
+		if (currentCharacter != Dot) {
 			tempRow = currentRow;
 			tempColumn = currentColumn;
 			Reset();
@@ -2911,8 +2699,7 @@ namespace Xml
 
 		int digit = Encoding::CharactersReader::GetHexDigitValue(currentCharacter);
 
-		if (digit < 0 || digit > 9)
-		{
+		if (digit < 0 || digit > 9) {
 			// After a dot should be at least one digit.
 			tempRow = currentRow;
 			tempColumn = currentColumn;
@@ -2923,17 +2710,14 @@ namespace Xml
 			return false;
 		}
 
-		do
-		{
+		do {
 			CharactersWriterType::WriteCharacter(versionAttr.Value, currentCharacter);
 			if (NextCharBad(true))
 				return false;
 			digit = Encoding::CharactersReader::GetHexDigitValue(currentCharacter);
-		}
-		while (digit >= 0 && digit <= 9);
+		} while (digit >= 0 && digit <= 9);
 
-		if (currentCharacter != quoteChar)
-		{
+		if (currentCharacter != quoteChar) {
 			tempRow = currentRow;
 			tempColumn = currentColumn;
 			Reset();
@@ -2948,23 +2732,18 @@ namespace Xml
 		if (NextCharBad(true))
 			return false;
 
-		if (IsWhiteSpace(currentCharacter))
-		{
-			do
-			{
+		if (IsWhiteSpace(currentCharacter)) {
+			do {
 				if (NextCharBad(true))
 					return false;
-			}
-			while (IsWhiteSpace(currentCharacter));
+			} while (IsWhiteSpace(currentCharacter));
 
-			if (currentCharacter == Question)
-			{
+			if (currentCharacter == Question) {
 				// <?xml version="1.x"   ?
 				if (NextCharBad(true))
 					return false;
 
-				if (currentCharacter != GreaterThan)
-				{
+				if (currentCharacter != GreaterThan) {
 					tempRow = currentRow;
 					tempColumn = currentColumn;
 					Reset();
@@ -2979,8 +2758,7 @@ namespace Xml
 					bom != Details::Bom::None &&
 					bom != Details::Bom::Utf8 &&
 					bom != Details::Bom::Utf16BE &&
-					bom != Details::Bom::Utf16LE)
-				{
+					bom != Details::Bom::Utf16LE) {
 					Reset();
 					SetError(ErrorCode::EncodingDeclarationRequired);
 					row = 1;
@@ -2991,11 +2769,9 @@ namespace Xml
 				node = Inspected::XmlDeclaration;
 				return true;
 			}
-		}
-		else // IsWhiteSpace(currentCharacter) == false
+		} else  // IsWhiteSpace(currentCharacter) == false
 		{
-			if (currentCharacter != Question)
-			{
+			if (currentCharacter != Question) {
 				tempRow = currentRow;
 				tempColumn = currentColumn;
 				Reset();
@@ -3009,8 +2785,7 @@ namespace Xml
 			if (NextCharBad(true))
 				return false;
 
-			if (currentCharacter != GreaterThan)
-			{
+			if (currentCharacter != GreaterThan) {
 				tempRow = currentRow;
 				tempColumn = currentColumn;
 				Reset();
@@ -3025,8 +2800,7 @@ namespace Xml
 				bom != Details::Bom::None &&
 				bom != Details::Bom::Utf8 &&
 				bom != Details::Bom::Utf16BE &&
-				bom != Details::Bom::Utf16LE)
-			{
+				bom != Details::Bom::Utf16LE) {
 				Reset();
 				SetError(ErrorCode::EncodingDeclarationRequired);
 				row = 1;
@@ -3039,19 +2813,16 @@ namespace Xml
 		}
 
 		// Now should be an encoding or standalone attribute.
-		if (currentCharacter == XmlDeclarationEncoding[0])
-		{
+		if (currentCharacter == XmlDeclarationEncoding[0]) {
 			// encoding
 			AttributeType& encodingAttr = NewAttribute();
 			encodingAttr.Row = currentRow;
 			encodingAttr.Column = currentColumn;
-			comparingName.clear(); // Could be not empty after call of Reset method.
+			comparingName.clear();  // Could be not empty after call of Reset method.
 			comparingName.reserve(NameReserve);
 
-			for (std::size_t i = 0; i < 8; ++i)
-			{
-				if (currentCharacter != XmlDeclarationEncoding[i])
-				{
+			for (std::size_t i = 0; i < 8; ++i) {
+				if (currentCharacter != XmlDeclarationEncoding[i]) {
 					tempRow = currentRow;
 					tempColumn = currentColumn;
 					Reset();
@@ -3067,15 +2838,13 @@ namespace Xml
 			}
 
 			// '<?xml version="1.x" encoding' Char
-			
-			while (IsWhiteSpace(currentCharacter))
-			{
+
+			while (IsWhiteSpace(currentCharacter)) {
 				if (NextCharBad(true))
 					return false;
 			}
 
-			if (currentCharacter != Equals)
-			{
+			if (currentCharacter != Equals) {
 				tempRow = currentRow;
 				tempColumn = currentColumn;
 				Reset();
@@ -3090,26 +2859,20 @@ namespace Xml
 			if (NextCharBad(true))
 				return false;
 
-			while (IsWhiteSpace(currentCharacter))
-			{
+			while (IsWhiteSpace(currentCharacter)) {
 				if (NextCharBad(true))
 					return false;
 			}
 
 			quoteChar = currentCharacter;
 
-			if (quoteChar == DoubleQuote)
-			{
+			if (quoteChar == DoubleQuote) {
 				// <?xml version="1.x" encoding="
 				encodingAttr.Delimiter = QuotationMark::DoubleQuote;
-			}
-			else if (quoteChar == SingleQuote)
-			{
+			} else if (quoteChar == SingleQuote) {
 				// <?xml version="1.x" encoding='
 				encodingAttr.Delimiter = QuotationMark::SingleQuote;
-			}
-			else
-			{
+			} else {
 				tempRow = currentRow;
 				tempColumn = currentColumn;
 				Reset();
@@ -3122,8 +2885,7 @@ namespace Xml
 			if (NextCharBad(true))
 				return false;
 
-			if (!Encoding::CharactersReader::IsEncNameStartChar(currentCharacter))
-			{
+			if (!Encoding::CharactersReader::IsEncNameStartChar(currentCharacter)) {
 				tempRow = currentRow;
 				tempColumn = currentColumn;
 				Reset();
@@ -3133,17 +2895,14 @@ namespace Xml
 				return false;
 			}
 
-			do
-			{
+			do {
 				CharactersWriterType::WriteCharacter(encodingAttr.Value, currentCharacter);
 				comparingName.push_back(currentCharacter);
 				if (NextCharBad(true))
 					return false;
-			}
-			while (Encoding::CharactersReader::IsEncNameChar(currentCharacter));
+			} while (Encoding::CharactersReader::IsEncNameChar(currentCharacter));
 
-			if (currentCharacter != quoteChar)
-			{
+			if (currentCharacter != quoteChar) {
 				tempRow = currentRow;
 				tempColumn = currentColumn;
 				Reset();
@@ -3158,24 +2917,19 @@ namespace Xml
 				return false;
 			if (NextCharBad(true))
 				return false;
-			
-			if (IsWhiteSpace(currentCharacter))
-			{
-				do
-				{
+
+			if (IsWhiteSpace(currentCharacter)) {
+				do {
 					if (NextCharBad(true))
 						return false;
-				}
-				while (IsWhiteSpace(currentCharacter));
+				} while (IsWhiteSpace(currentCharacter));
 
-				if (currentCharacter == Question)
-				{
+				if (currentCharacter == Question) {
 					// '<?xml' VersionInfo EncodingDecl S '?'
 					if (NextCharBad(true))
 						return false;
 
-					if (currentCharacter != GreaterThan)
-					{
+					if (currentCharacter != GreaterThan) {
 						tempRow = currentRow;
 						tempColumn = currentColumn;
 						Reset();
@@ -3189,11 +2943,9 @@ namespace Xml
 					node = Inspected::XmlDeclaration;
 					return true;
 				}
-			}
-			else // IsWhiteSpace(currentCharacter) == false
+			} else  // IsWhiteSpace(currentCharacter) == false
 			{
-				if (currentCharacter != Question)
-				{
+				if (currentCharacter != Question) {
 					tempRow = currentRow;
 					tempColumn = currentColumn;
 					Reset();
@@ -3206,8 +2958,7 @@ namespace Xml
 				if (NextCharBad(true))
 					return false;
 
-				if (currentCharacter != GreaterThan)
-				{
+				if (currentCharacter != GreaterThan) {
 					tempRow = currentRow;
 					tempColumn = currentColumn;
 					Reset();
@@ -3221,15 +2972,12 @@ namespace Xml
 				node = Inspected::XmlDeclaration;
 				return true;
 			}
-		}
-		else
-		{
+		} else {
 			if (sourceType != SourceReader &&
 				bom != Details::Bom::None &&
 				bom != Details::Bom::Utf8 &&
 				bom != Details::Bom::Utf16BE &&
-				bom != Details::Bom::Utf16LE)
-			{
+				bom != Details::Bom::Utf16LE) {
 				Reset();
 				SetError(ErrorCode::EncodingDeclarationRequired);
 				row = 1;
@@ -3243,10 +2991,8 @@ namespace Xml
 		standaloneAttr.Row = currentRow;
 		standaloneAttr.Column = currentColumn;
 
-		for (std::size_t i = 0; i < 10; ++i)
-		{
-			if (currentCharacter != XmlDeclarationStandalone[i])
-			{
+		for (std::size_t i = 0; i < 10; ++i) {
+			if (currentCharacter != XmlDeclarationStandalone[i]) {
 				tempRow = currentRow;
 				tempColumn = currentColumn;
 				Reset();
@@ -3262,15 +3008,13 @@ namespace Xml
 		}
 
 		// '<?xml' VersionInfo EncodingDecl S 'standalone' Char
-		
-		while (IsWhiteSpace(currentCharacter))
-		{
+
+		while (IsWhiteSpace(currentCharacter)) {
 			if (NextCharBad(true))
 				return false;
 		}
 
-		if (currentCharacter != Equals)
-		{
+		if (currentCharacter != Equals) {
 			tempRow = currentRow;
 			tempColumn = currentColumn;
 			Reset();
@@ -3285,26 +3029,20 @@ namespace Xml
 		if (NextCharBad(true))
 			return false;
 
-		while (IsWhiteSpace(currentCharacter))
-		{
+		while (IsWhiteSpace(currentCharacter)) {
 			if (NextCharBad(true))
 				return false;
 		}
 
 		quoteChar = currentCharacter;
 
-		if (quoteChar == DoubleQuote)
-		{
+		if (quoteChar == DoubleQuote) {
 			// '<?xml' VersionInfo EncodingDecl S 'standalone' Eq '"'
 			standaloneAttr.Delimiter = QuotationMark::DoubleQuote;
-		}
-		else if (quoteChar == SingleQuote)
-		{
+		} else if (quoteChar == SingleQuote) {
 			// '<?xml' VersionInfo EncodingDecl S 'standalone' Eq "'"
 			standaloneAttr.Delimiter = QuotationMark::SingleQuote;
-		}
-		else
-		{
+		} else {
 			tempRow = currentRow;
 			tempColumn = currentColumn;
 			Reset();
@@ -3317,33 +3055,27 @@ namespace Xml
 		if (NextCharBad(true))
 			return false;
 
-		if (currentCharacter == Yes[0])
-		{
+		if (currentCharacter == Yes[0]) {
 			CharactersWriterType::WriteCharacter(standaloneAttr.Value, currentCharacter);
 			if (NextCharBad(true))
 				return false;
-			if (currentCharacter == Yes[1])
-			{
+			if (currentCharacter == Yes[1]) {
 				CharactersWriterType::WriteCharacter(standaloneAttr.Value, currentCharacter);
 				if (NextCharBad(true))
 					return false;
-				if (currentCharacter == Yes[2])
-				{
+				if (currentCharacter == Yes[2]) {
 					CharactersWriterType::WriteCharacter(standaloneAttr.Value, currentCharacter);
 					if (NextCharBad(true))
 						return false;
-					if (currentCharacter == quoteChar)
-					{
+					if (currentCharacter == quoteChar) {
 						// '<?xml' VersionInfo EncodingDecl SDDecl
 						if (NextCharBad(true))
 							return false;
-						while (IsWhiteSpace(currentCharacter))
-						{
+						while (IsWhiteSpace(currentCharacter)) {
 							if (NextCharBad(true))
 								return false;
 						}
-						if (currentCharacter != Question)
-						{
+						if (currentCharacter != Question) {
 							tempRow = currentRow;
 							tempColumn = currentColumn;
 							Reset();
@@ -3354,8 +3086,7 @@ namespace Xml
 						}
 						if (NextCharBad(true))
 							return false;
-						if (currentCharacter != GreaterThan)
-						{
+						if (currentCharacter != GreaterThan) {
 							tempRow = currentRow;
 							tempColumn = currentColumn;
 							Reset();
@@ -3371,29 +3102,23 @@ namespace Xml
 					}
 				}
 			}
-		}
-		else if (currentCharacter == No[0])
-		{
+		} else if (currentCharacter == No[0]) {
 			CharactersWriterType::WriteCharacter(standaloneAttr.Value, currentCharacter);
 			if (NextCharBad(true))
 				return false;
-			if (currentCharacter == No[1])
-			{
+			if (currentCharacter == No[1]) {
 				CharactersWriterType::WriteCharacter(standaloneAttr.Value, currentCharacter);
 				if (NextCharBad(true))
 					return false;
-				if (currentCharacter == quoteChar)
-				{
+				if (currentCharacter == quoteChar) {
 					// '<?xml' VersionInfo EncodingDecl SDDecl
 					if (NextCharBad(true))
 						return false;
-					while (IsWhiteSpace(currentCharacter))
-					{
+					while (IsWhiteSpace(currentCharacter)) {
 						if (NextCharBad(true))
 							return false;
 					}
-					if (currentCharacter != Question)
-					{
+					if (currentCharacter != Question) {
 						tempRow = currentRow;
 						tempColumn = currentColumn;
 						Reset();
@@ -3404,8 +3129,7 @@ namespace Xml
 					}
 					if (NextCharBad(true))
 						return false;
-					if (currentCharacter != GreaterThan)
-					{
+					if (currentCharacter != GreaterThan) {
 						tempRow = currentRow;
 						tempColumn = currentColumn;
 						Reset();
@@ -3441,13 +3165,11 @@ namespace Xml
 		SizeType tempRow;
 		SizeType tempColumn;
 
-		if (currentCharacter == Question)
-		{
+		if (currentCharacter == Question) {
 			// '<?' PITarget '?'
 			if (NextCharBad(true))
 				return false;
-			if (currentCharacter != GreaterThan)
-			{
+			if (currentCharacter != GreaterThan) {
 				tempRow = currentRow;
 				tempColumn = currentColumn;
 				Reset();
@@ -3463,8 +3185,7 @@ namespace Xml
 			return true;
 		}
 
-		if (!IsWhiteSpace(currentCharacter))
-		{
+		if (!IsWhiteSpace(currentCharacter)) {
 			tempRow = currentRow;
 			tempColumn = currentColumn;
 			Reset();
@@ -3477,34 +3198,27 @@ namespace Xml
 		localName = name;
 
 		// Ignore white spaces.
-		do
-		{
+		do {
 			if (NextCharBad(true))
 				return false;
-		}
-		while (IsWhiteSpace(currentCharacter));
+		} while (IsWhiteSpace(currentCharacter));
 
-		do // {...} while (true);
+		do  // {...} while (true);
 		{
-			if (currentCharacter == Question)
-			{
+			if (currentCharacter == Question) {
 				if (NextCharBad(true))
 					return false;
-				if (currentCharacter == GreaterThan)
-				{
+				if (currentCharacter == GreaterThan) {
 					node = Inspected::ProcessingInstruction;
 					return true;
 				}
 				CharactersWriterType::WriteCharacter(value, Question);
-			}
-			else
-			{
+			} else {
 				CharactersWriterType::WriteCharacter(value, currentCharacter);
 				if (NextCharBad(true))
 					return false;
 			}
-		}
-		while (true);
+		} while (true);
 
 		// Should never happen.
 		return false;
@@ -3522,14 +3236,12 @@ namespace Xml
 		if (NextCharBad(true))
 			return false;
 
-		if (currentCharacter == Minus)
-		{
+		if (currentCharacter == Minus) {
 			// <!-
 			// Looks like a comment.
 			if (NextCharBad(true))
 				return false;
-			if (currentCharacter != Minus)
-			{
+			if (currentCharacter != Minus) {
 				tempRow = currentRow;
 				tempColumn = currentColumn;
 				Reset();
@@ -3542,16 +3254,13 @@ namespace Xml
 			return ParseComment();
 		}
 
-		if (currentCharacter == LeftSquareBracket)
-		{
+		if (currentCharacter == LeftSquareBracket) {
 			// <![
 			// Looks like CDATA section.
-			for (std::size_t i = 0; i < 5; ++i)
-			{
+			for (std::size_t i = 0; i < 5; ++i) {
 				if (NextCharBad(true))
 					return false;
-				if (currentCharacter != CDATA[i])
-				{
+				if (currentCharacter != CDATA[i]) {
 					tempRow = currentRow;
 					tempColumn = currentColumn;
 					Reset();
@@ -3564,8 +3273,7 @@ namespace Xml
 			// <![CDATA
 			if (NextCharBad(true))
 				return false;
-			if (currentCharacter != LeftSquareBracket)
-			{
+			if (currentCharacter != LeftSquareBracket) {
 				tempRow = currentRow;
 				tempColumn = currentColumn;
 				Reset();
@@ -3580,10 +3288,8 @@ namespace Xml
 
 		// <!currentCharacter
 		// Should be DOCTYPE declaration.
-		for (std::size_t i = 0; i < 7; ++i)
-		{
-			if (currentCharacter != DOCTYPE[i])
-			{
+		for (std::size_t i = 0; i < 7; ++i) {
+			if (currentCharacter != DOCTYPE[i]) {
 				tempRow = currentRow;
 				tempColumn = currentColumn;
 				Reset();
@@ -3609,37 +3315,29 @@ namespace Xml
 		PrepareNode();
 
 		bool doubleMinus = false;
-		do
-		{
+		do {
 			if (NextCharBad(true))
 				return false;
-			if (currentCharacter == Minus)
-			{
+			if (currentCharacter == Minus) {
 				// <!-- -
 				if (NextCharBad(true))
 					return false;
-				if (currentCharacter == Minus)
-				{
+				if (currentCharacter == Minus) {
 					// <!-- --
 					if (NextCharBad(true))
 						return false;
 					doubleMinus = true;
-				}
-				else
-				{
+				} else {
 					CharactersWriterType::WriteCharacter(value, Minus);
 					CharactersWriterType::WriteCharacter(value, currentCharacter);
 				}
-			}
-			else // Not minus.
+			} else  // Not minus.
 			{
 				CharactersWriterType::WriteCharacter(value, currentCharacter);
 			}
-		}
-		while (!doubleMinus);
+		} while (!doubleMinus);
 
-		if (currentCharacter != GreaterThan)
-		{
+		if (currentCharacter != GreaterThan) {
 			tempRow = currentRow;
 			tempColumn = currentColumn - 2;
 			Reset();
@@ -3659,8 +3357,7 @@ namespace Xml
 		// currentCharacter == LeftSquareBracket.
 		// <![CDATA[
 
-		if (unclosedTagsSize == 0)
-		{
+		if (unclosedTagsSize == 0) {
 			SizeType tempRow = row;
 			SizeType tempColumn = column;
 			Reset();
@@ -3672,44 +3369,34 @@ namespace Xml
 
 		PrepareNode();
 
-		do
-		{
+		do {
 			if (NextCharBad(true))
 				return false;
-			if (currentCharacter == RightSquareBracket)
-			{
+			if (currentCharacter == RightSquareBracket) {
 				// <![CDATA[ text ]
 				SizeType bracketCount = 0;
-				do
-				{
+				do {
 					++bracketCount;
 					if (NextCharBad(true))
 						return false;
-				}
-				while (currentCharacter == RightSquareBracket);
+				} while (currentCharacter == RightSquareBracket);
 
-				if (currentCharacter == GreaterThan && bracketCount >= 2)
-				{
+				if (currentCharacter == GreaterThan && bracketCount >= 2) {
 					// <![CDATA[ text ]]>
 					bracketCount -= 2;
 					for (SizeType i = 0; i < bracketCount; ++i)
 						CharactersWriterType::WriteCharacter(value, RightSquareBracket);
 					node = Inspected::CDATA;
 					return true;
-				}
-				else
-				{
+				} else {
 					for (SizeType i = 0; i < bracketCount; ++i)
 						CharactersWriterType::WriteCharacter(value, RightSquareBracket);
 					CharactersWriterType::WriteCharacter(value, currentCharacter);
 				}
-			}
-			else
-			{
+			} else {
 				CharactersWriterType::WriteCharacter(value, currentCharacter);
 			}
-		}
-		while (true);
+		} while (true);
 
 		// Should never happen.
 		return false;
@@ -3723,8 +3410,7 @@ namespace Xml
 		SizeType tempRow;
 		SizeType tempColumn;
 
-		if (!IsWhiteSpace(currentCharacter))
-		{
+		if (!IsWhiteSpace(currentCharacter)) {
 			tempRow = currentRow;
 			tempColumn = currentColumn;
 			Reset();
@@ -3734,8 +3420,7 @@ namespace Xml
 			return false;
 		}
 
-		if (foundElement)
-		{
+		if (foundElement) {
 			tempRow = row;
 			tempColumn = column;
 			Reset();
@@ -3745,8 +3430,7 @@ namespace Xml
 			return false;
 		}
 
-		if (foundDOCTYPE)
-		{
+		if (foundDOCTYPE) {
 			tempRow = row;
 			tempColumn = column;
 			Reset();
@@ -3760,17 +3444,14 @@ namespace Xml
 		PrepareNode();
 
 		// Ignore white spaces.
-		do
-		{
+		do {
 			if (NextCharBad(true))
 				return false;
-		}
-		while (IsWhiteSpace(currentCharacter));
+		} while (IsWhiteSpace(currentCharacter));
 
 		// <!DOCTYPE   currentCharacter
 		if (currentCharacter == Colon ||
-			!Encoding::CharactersReader::IsNameStartChar(currentCharacter))
-		{
+			!Encoding::CharactersReader::IsNameStartChar(currentCharacter)) {
 			tempRow = currentRow;
 			tempColumn = currentColumn;
 			Reset();
@@ -3781,16 +3462,14 @@ namespace Xml
 		}
 
 		// QName
-		do
-		{
+		do {
 			CharactersWriterType::WriteCharacter(name, currentCharacter);
 			CharactersWriterType::WriteCharacter(localName, currentCharacter);
 
 			if (NextCharBad(true))
 				return false;
 
-			if (currentCharacter == Colon)
-			{
+			if (currentCharacter == Colon) {
 				// Prefixed name.
 				prefix = name;
 				localName.clear();
@@ -3800,8 +3479,7 @@ namespace Xml
 					return false;
 
 				if (currentCharacter == Colon ||
-					!Encoding::CharactersReader::IsNameStartChar(currentCharacter))
-				{
+					!Encoding::CharactersReader::IsNameStartChar(currentCharacter)) {
 					tempRow = currentRow;
 					tempColumn = currentColumn;
 					Reset();
@@ -3811,16 +3489,14 @@ namespace Xml
 					return false;
 				}
 
-				do
-				{
+				do {
 					CharactersWriterType::WriteCharacter(name, currentCharacter);
 					CharactersWriterType::WriteCharacter(localName, currentCharacter);
 
 					if (NextCharBad(true))
 						return false;
 
-					if (currentCharacter == Colon)
-					{
+					if (currentCharacter == Colon) {
 						tempRow = currentRow;
 						tempColumn = currentColumn;
 						Reset();
@@ -3829,40 +3505,30 @@ namespace Xml
 						column = tempColumn;
 						return false;
 					}
-				}
-				while (Encoding::CharactersReader::IsNameChar(currentCharacter));
+				} while (Encoding::CharactersReader::IsNameChar(currentCharacter));
 				break;
 			}
-		}
-		while (Encoding::CharactersReader::IsNameChar(currentCharacter));
+		} while (Encoding::CharactersReader::IsNameChar(currentCharacter));
 
 		// <!DOCTYPE QNAMEcurrentCharacter
 
-		if (currentCharacter == GreaterThan)
-		{
+		if (currentCharacter == GreaterThan) {
 			// <!DOCTYPE QName>
 			node = Inspected::DocumentType;
 			return true;
-		}
-		else if (IsWhiteSpace(currentCharacter))
-		{
+		} else if (IsWhiteSpace(currentCharacter)) {
 			// Ignore white spaces.
-			do
-			{
+			do {
 				if (NextCharBad(true))
 					return false;
-			}
-			while (IsWhiteSpace(currentCharacter));
+			} while (IsWhiteSpace(currentCharacter));
 
-			if (currentCharacter == GreaterThan)
-			{
+			if (currentCharacter == GreaterThan) {
 				// <!DOCTYPE QName  >
 				node = Inspected::DocumentType;
 				return true;
 			}
-		}
-		else if (currentCharacter != LeftSquareBracket)
-		{
+		} else if (currentCharacter != LeftSquareBracket) {
 			tempRow = currentRow;
 			tempColumn = currentColumn;
 			Reset();
@@ -3872,43 +3538,35 @@ namespace Xml
 			return false;
 		}
 
-		do
-		{
+		do {
 			CharactersWriterType::WriteCharacter(value, currentCharacter);
-			if (currentCharacter == LeftSquareBracket)
-			{
+			if (currentCharacter == LeftSquareBracket) {
 				// <!DOCTYPE QName [
-				do
-				{
+				do {
 					if (NextCharBad(true))
 						return false;
-					while (currentCharacter == RightSquareBracket)
-					{
+					while (currentCharacter == RightSquareBracket) {
 						CharactersWriterType::WriteCharacter(value, currentCharacter);
 						if (NextCharBad(true))
 							return false;
-						while (IsWhiteSpace(currentCharacter))
-						{
+						while (IsWhiteSpace(currentCharacter)) {
 							CharactersWriterType::WriteCharacter(value, currentCharacter);
 							if (NextCharBad(true))
 								return false;
 						}
-						if (currentCharacter == GreaterThan)
-						{
+						if (currentCharacter == GreaterThan) {
 							// <!DOCTYPE QName [...] >
 							node = Inspected::DocumentType;
 							return true;
 						}
 					}
 					CharactersWriterType::WriteCharacter(value, currentCharacter);
-				}
-				while (true);
+				} while (true);
 			}
 
 			if (NextCharBad(true))
 				return false;
-		}
-		while (currentCharacter != GreaterThan);
+		} while (currentCharacter != GreaterThan);
 
 		node = Inspected::DocumentType;
 		return true;
@@ -3931,17 +3589,13 @@ namespace Xml
 		// Collect namespaces from attributes.
 		typedef typename std::deque<AttributeType>::iterator AttrIter;
 		AttrIter attrEnd = attributes.begin() + attributesSize;
-		for (AttrIter attr = attributes.begin(); attr != attrEnd; ++attr)
-		{
-			if (attr->Prefix.empty())
-			{
-				if (attr->LocalName == xmlnsString)
-				{
+		for (AttrIter attr = attributes.begin(); attr != attrEnd; ++attr) {
+			if (attr->Prefix.empty()) {
+				if (attr->LocalName == xmlnsString) {
 					// Default namespace.
 					// <mytag xmlns=...
 					if (attr->Value == xmlUriString ||
-						attr->Value == xmlnsUriString)
-					{
+						attr->Value == xmlnsUriString) {
 						// <mytag xmlns="http://www.w3.org/XML/1998/namespace"...
 						// or
 						// <mytag xmlns="http://www.w3.org/2000/xmlns/"...
@@ -3956,34 +3610,26 @@ namespace Xml
 					ref.Uri = attr->Value;
 					ref.TagIndex = static_cast<SizeType>(unclosedTagsSize);
 				}
-			}
-			else if (attr->Prefix == xmlnsString)
-			{
-				if (attr->LocalName == xmlnsString)
-				{
+			} else if (attr->Prefix == xmlnsString) {
+				if (attr->LocalName == xmlnsString) {
 					// <mytag xmlns:xmlns=...
 					Reset();
 					SetError(ErrorCode::XmlnsDeclared);
 					row = attr->Row;
 					column = attr->Column;
 					return false;
-				}
-				else if (attr->LocalName == lowerXmlString)
-				{
+				} else if (attr->LocalName == lowerXmlString) {
 					// <mytag xmlns:xml=...
 
-					if (attr->Value != xmlUriString)
-					{
+					if (attr->Value != xmlUriString) {
 						Reset();
 						SetError(ErrorCode::InvalidXmlPrefixDeclaration);
 						row = attr->Row;
 						column = attr->Column;
 						return false;
 					}
-				}
-				else if (attr->Value == xmlUriString ||
-					attr->Value == xmlnsUriString)
-				{
+				} else if (attr->Value == xmlUriString ||
+						   attr->Value == xmlnsUriString) {
 					// <mytag xmlns:newprefix="http://www.w3.org/XML/1998/namespace"...
 					// or
 					// <mytag xmlns:newprefix="http://www.w3.org/2000/xmlns/"...
@@ -3992,18 +3638,14 @@ namespace Xml
 					row = attr->Row;
 					column = attr->Column;
 					return false;
-				}
-				else if (attr->Value.empty())
-				{
+				} else if (attr->Value.empty()) {
 					// <mytag xmlns:newprefix=""...
 					Reset();
 					SetError(ErrorCode::PrefixWithEmptyNamespace);
 					row = attr->Row;
 					column = attr->Column;
 					return false;
-				}
-				else
-				{
+				} else {
 					NamespaceDeclarationType& ref = NewNamespace();
 					ref.Prefix = attr->LocalName;
 					ref.Uri = attr->Value;
@@ -4017,40 +3659,28 @@ namespace Xml
 		NamespaceIter namespaceLast = namespaces.begin();
 		if (namespacesSize != 0)
 			namespaceLast += (namespacesSize - 1);
-		for (AttrIter attr = attributes.begin(); attr != attrEnd; ++attr)
-		{
-			if (!attr->Prefix.empty())
-			{
-				if (attr->Prefix == xmlnsString)
-				{
+		for (AttrIter attr = attributes.begin(); attr != attrEnd; ++attr) {
+			if (!attr->Prefix.empty()) {
+				if (attr->Prefix == xmlnsString) {
 					attr->NamespaceUri = xmlnsUriString;
-				}
-				else if (attr->Prefix == lowerXmlString)
-				{
+				} else if (attr->Prefix == lowerXmlString) {
 					attr->NamespaceUri = xmlUriString;
-				}
-				else
-				{
+				} else {
 					bool found = false;
 					NamespaceIter n = namespaceLast;
-					for ( ; n != namespaces.begin(); --n)
-					{
-						if (attr->Prefix == n->Prefix)
-						{
+					for (; n != namespaces.begin(); --n) {
+						if (attr->Prefix == n->Prefix) {
 							found = true;
 							break;
 						}
 					}
-					if (!found && (namespacesSize == 0 || attr->Prefix != n->Prefix))
-					{
+					if (!found && (namespacesSize == 0 || attr->Prefix != n->Prefix)) {
 						Reset();
 						SetError(ErrorCode::PrefixWithoutAssignedNamespace);
 						row = attr->Row;
 						column = attr->Column;
 						return false;
-					}
-					else
-					{
+					} else {
 						attr->NamespaceUri = n->Uri;
 					}
 				}
@@ -4058,10 +3688,8 @@ namespace Xml
 		}
 
 		// Assign URI to element.
-		if (!prefix.empty())
-		{
-			if (prefix == xmlnsString)
-			{
+		if (!prefix.empty()) {
+			if (prefix == xmlnsString) {
 				// row and column => '<'
 				SizeType tempRow = row;
 				SizeType tempColumn = column + 1;
@@ -4070,25 +3698,18 @@ namespace Xml
 				row = tempRow;
 				column = tempColumn;
 				return false;
-			}
-			else if (prefix == lowerXmlString)
-			{
+			} else if (prefix == lowerXmlString) {
 				namespaceUri = xmlUriString;
-			}
-			else
-			{
+			} else {
 				bool found = false;
 				NamespaceIter n = namespaceLast;
-				for ( ; n != namespaces.begin(); --n)
-				{
-					if (prefix == n->Prefix)
-					{
+				for (; n != namespaces.begin(); --n) {
+					if (prefix == n->Prefix) {
 						found = true;
 						break;
 					}
 				}
-				if (!found && (namespacesSize == 0 || prefix != n->Prefix))
-				{
+				if (!found && (namespacesSize == 0 || prefix != n->Prefix)) {
 					// row and column => '<'
 					SizeType tempRow = row;
 					SizeType tempColumn = column + 1;
@@ -4097,22 +3718,17 @@ namespace Xml
 					row = tempRow;
 					column = tempColumn;
 					return false;
-				}
-				else
-				{
+				} else {
 					namespaceUri = n->Uri;
 				}
 			}
-		}
-		else // prefix.empty() == true.
+		} else  // prefix.empty() == true.
 		{
 			// Find default namespace.
 			bool found = false;
 			NamespaceIter n = namespaceLast;
-			for ( ; n != namespaces.begin(); --n)
-			{
-				if (n->Prefix.empty())
-				{
+			for (; n != namespaces.begin(); --n) {
+				if (n->Prefix.empty()) {
 					found = true;
 					break;
 				}
@@ -4124,18 +3740,13 @@ namespace Xml
 		// Ensure no double attribute name like:
 		// <a x:local="first" y:local="second">
 		// where x and y prefixes are bound to the same namespace URI.
-		if (attributesSize > 1)
-		{
+		if (attributesSize > 1) {
 			AttrIter attrEndMinus1 = attributes.begin() + (attributesSize - 1);
-			for (AttrIter attr = attributes.begin(); attr != attrEndMinus1; ++attr)
-			{
-				if (!attr->Prefix.empty())
-				{
-					for (AttrIter next = attr + 1; next != attrEnd; ++next)
-					{
+			for (AttrIter attr = attributes.begin(); attr != attrEndMinus1; ++attr) {
+				if (!attr->Prefix.empty()) {
+					for (AttrIter next = attr + 1; next != attrEnd; ++next) {
 						if (attr->LocalName == next->LocalName &&
-							attr->NamespaceUri == next->NamespaceUri)
-						{
+							attr->NamespaceUri == next->NamespaceUri) {
 							Reset();
 							SetError(ErrorCode::DoubleAttributeName);
 							row = next->Row;
@@ -4154,14 +3765,12 @@ namespace Xml
 	inline bool Inspector<TCharactersWriter>::ParseCharacterReference(char32_t& result, bool insideTag)
 	{
 		// currentCharacter == Hash.
-		
+
 		SizeType tempRow = currentRow;
 		SizeType tempColumn = currentColumn - 1;
 
-		if (NextCharBad(insideTag))
-		{
-			if (!insideTag && eof)
-			{
+		if (NextCharBad(insideTag)) {
+			if (!insideTag && eof) {
 				UnclosedTagType& ref = unclosedTags[unclosedTagsSize - 1];
 				Reset();
 				SetError(ErrorCode::UnclosedTag);
@@ -4178,14 +3787,11 @@ namespace Xml
 		int digit = 0;
 		int radix = 10;
 
-		if (currentCharacter == X)
-		{
+		if (currentCharacter == X) {
 			// Hexadecimal representation of the character's code point.
 			radix = 16;
-			if (NextCharBad(insideTag))
-			{
-				if (!insideTag && eof)
-				{
+			if (NextCharBad(insideTag)) {
+				if (!insideTag && eof) {
 					UnclosedTagType& ref = unclosedTags[unclosedTagsSize - 1];
 					Reset();
 					SetError(ErrorCode::UnclosedTag);
@@ -4201,13 +3807,10 @@ namespace Xml
 
 		// Ignore leading zeros.
 		bool leadingZeros = false;
-		while (digit == 0)
-		{
+		while (digit == 0) {
 			leadingZeros = true;
-			if (NextCharBad(insideTag))
-			{
-				if (!insideTag && eof)
-				{
+			if (NextCharBad(insideTag)) {
+				if (!insideTag && eof) {
 					UnclosedTagType& ref = unclosedTags[unclosedTagsSize - 1];
 					Reset();
 					SetError(ErrorCode::UnclosedTag);
@@ -4220,13 +3823,10 @@ namespace Xml
 			digit = Encoding::CharactersReader::GetHexDigitValue(currentCharacter);
 		}
 
-		while (digitCount < BufferSize && digit >= 0 && digit < radix)
-		{
+		while (digitCount < BufferSize && digit >= 0 && digit < radix) {
 			buffer[digitCount++] = static_cast<unsigned char>(digit);
-			if (NextCharBad(insideTag))
-			{
-				if (!insideTag && eof)
-				{
+			if (NextCharBad(insideTag)) {
+				if (!insideTag && eof) {
 					UnclosedTagType& ref = unclosedTags[unclosedTagsSize - 1];
 					Reset();
 					SetError(ErrorCode::UnclosedTag);
@@ -4240,21 +3840,16 @@ namespace Xml
 		}
 
 		// Now should be a semicolon.
-		if (currentCharacter == Semicolon)
-		{
+		if (currentCharacter == Semicolon) {
 			// &#x0; is invalid code point in character reference.
 			// &#x; is invalid syntax of reference.
-			if (digitCount == 0)
-			{
-				if (leadingZeros)
-				{
+			if (digitCount == 0) {
+				if (leadingZeros) {
 					Reset();
 					SetError(ErrorCode::InvalidCharacterReference);
 					row = tempRow;
 					column = tempColumn;
-				}
-				else
-				{
+				} else {
 					Reset();
 					SetError(ErrorCode::InvalidReferenceSyntax);
 					row = tempRow;
@@ -4268,25 +3863,19 @@ namespace Xml
 			for (int i = 0; i < digitCount; ++i)
 				result = result * radix + static_cast<char32_t>(buffer[i]);
 
-			if (!Encoding::CharactersReader::IsChar(result))
-			{
+			if (!Encoding::CharactersReader::IsChar(result)) {
 				Reset();
 				SetError(ErrorCode::InvalidCharacterReference);
 				row = tempRow;
 				column = tempColumn;
 				return false;
 			}
-		}
-		else if (digit >= 0 && digit < radix)
-		{
+		} else if (digit >= 0 && digit < radix) {
 			// To many digits, but we must check the syntax to set appropriate error.
 
-			do
-			{
-				if (NextCharBad(insideTag))
-				{
-					if (!insideTag && eof)
-					{
+			do {
+				if (NextCharBad(insideTag)) {
+					if (!insideTag && eof) {
 						UnclosedTagType& ref = unclosedTags[unclosedTagsSize - 1];
 						Reset();
 						SetError(ErrorCode::UnclosedTag);
@@ -4297,19 +3886,15 @@ namespace Xml
 					return false;
 				}
 				digit = Encoding::CharactersReader::GetHexDigitValue(currentCharacter);
-			}
-			while (digit >= 0 && digit < radix);
+			} while (digit >= 0 && digit < radix);
 
-			if (currentCharacter == Semicolon)
-			{
+			if (currentCharacter == Semicolon) {
 				// just invalid code point.
 				Reset();
 				SetError(ErrorCode::InvalidCharacterReference);
 				row = tempRow;
 				column = tempColumn;
-			}
-			else
-			{
+			} else {
 				// Invalid syntax of character reference, not just invalid code point.
 				Reset();
 				SetError(ErrorCode::InvalidReferenceSyntax);
@@ -4317,9 +3902,7 @@ namespace Xml
 				column = tempColumn;
 			}
 			return false;
-		}
-		else
-		{
+		} else {
 			// Not allowed character.
 			Reset();
 			SetError(ErrorCode::InvalidReferenceSyntax);
@@ -4337,22 +3920,19 @@ namespace Xml
 		// IsNameStartChar(currentCharacter) == true
 		// &&
 		// currentCharacter != colon.
-		
+
 		SizeType tempRow = currentRow;
 		SizeType tempColumn = currentColumn - 1;
 
 		entityName.reserve(NameReserve);
 		entityNameCharCount = 0;
 
-		if (currentCharacter == LtEntityName[0])
-		{
+		if (currentCharacter == LtEntityName[0]) {
 			// "&l"
 			CharactersWriterType::WriteCharacter(entityName, currentCharacter);
 			++entityNameCharCount;
-			if (NextCharBad(insideTag))
-			{
-				if (!insideTag && eof)
-				{
+			if (NextCharBad(insideTag)) {
+				if (!insideTag && eof) {
 					UnclosedTagType& ref = unclosedTags[unclosedTagsSize - 1];
 					Reset();
 					SetError(ErrorCode::UnclosedTag);
@@ -4363,15 +3943,12 @@ namespace Xml
 				return -1;
 			}
 
-			if (currentCharacter == LtEntityName[1])
-			{
+			if (currentCharacter == LtEntityName[1]) {
 				// "&lt"
 				CharactersWriterType::WriteCharacter(entityName, currentCharacter);
 				++entityNameCharCount;
-				if (NextCharBad(insideTag))
-				{
-					if (!insideTag && eof)
-					{
+				if (NextCharBad(insideTag)) {
+					if (!insideTag && eof) {
 						UnclosedTagType& ref = unclosedTags[unclosedTagsSize - 1];
 						Reset();
 						SetError(ErrorCode::UnclosedTag);
@@ -4382,38 +3959,30 @@ namespace Xml
 					return -1;
 				}
 
-				if (currentCharacter == Semicolon)
-				{
+				if (currentCharacter == Semicolon) {
 					// "&lt;"
 					currentCharacter = LessThan;
 					entityName.clear();
 					return 1;
 				}
 			}
-			
-			if (currentCharacter == Semicolon)
-			{
+
+			if (currentCharacter == Semicolon) {
 				return 0;
-			}
-			else if (!Encoding::CharactersReader::IsNameChar(currentCharacter) ||
-				currentCharacter == Colon)
-			{
+			} else if (!Encoding::CharactersReader::IsNameChar(currentCharacter) ||
+					   currentCharacter == Colon) {
 				Reset();
 				SetError(ErrorCode::InvalidReferenceSyntax);
 				row = tempRow;
 				column = tempColumn;
 				return -1;
 			}
-		}
-		else if (currentCharacter == GtEntityName[0])
-		{
+		} else if (currentCharacter == GtEntityName[0]) {
 			// "&g"
 			CharactersWriterType::WriteCharacter(entityName, currentCharacter);
 			++entityNameCharCount;
-			if (NextCharBad(insideTag))
-			{
-				if (!insideTag && eof)
-				{
+			if (NextCharBad(insideTag)) {
+				if (!insideTag && eof) {
 					UnclosedTagType& ref = unclosedTags[unclosedTagsSize - 1];
 					Reset();
 					SetError(ErrorCode::UnclosedTag);
@@ -4424,15 +3993,12 @@ namespace Xml
 				return -1;
 			}
 
-			if (currentCharacter == GtEntityName[1])
-			{
+			if (currentCharacter == GtEntityName[1]) {
 				// "&gt"
 				CharactersWriterType::WriteCharacter(entityName, currentCharacter);
 				++entityNameCharCount;
-				if (NextCharBad(insideTag))
-				{
-					if (!insideTag && eof)
-					{
+				if (NextCharBad(insideTag)) {
+					if (!insideTag && eof) {
 						UnclosedTagType& ref = unclosedTags[unclosedTagsSize - 1];
 						Reset();
 						SetError(ErrorCode::UnclosedTag);
@@ -4443,38 +4009,30 @@ namespace Xml
 					return -1;
 				}
 
-				if (currentCharacter == Semicolon)
-				{
+				if (currentCharacter == Semicolon) {
 					// "&gt;"
 					currentCharacter = GreaterThan;
 					entityName.clear();
 					return 1;
 				}
 			}
-			
-			if (currentCharacter == Semicolon)
-			{
+
+			if (currentCharacter == Semicolon) {
 				return 0;
-			}
-			else if (!Encoding::CharactersReader::IsNameChar(currentCharacter) ||
-				currentCharacter == Colon)
-			{
+			} else if (!Encoding::CharactersReader::IsNameChar(currentCharacter) ||
+					   currentCharacter == Colon) {
 				Reset();
 				SetError(ErrorCode::InvalidReferenceSyntax);
 				row = tempRow;
 				column = tempColumn;
 				return -1;
 			}
-		}
-		else if (currentCharacter == AmpEntityName[0])
-		{
+		} else if (currentCharacter == AmpEntityName[0]) {
 			// "&a"
 			CharactersWriterType::WriteCharacter(entityName, currentCharacter);
 			++entityNameCharCount;
-			if (NextCharBad(insideTag))
-			{
-				if (!insideTag && eof)
-				{
+			if (NextCharBad(insideTag)) {
+				if (!insideTag && eof) {
 					UnclosedTagType& ref = unclosedTags[unclosedTagsSize - 1];
 					Reset();
 					SetError(ErrorCode::UnclosedTag);
@@ -4485,15 +4043,12 @@ namespace Xml
 				return -1;
 			}
 
-			if (currentCharacter == AmpEntityName[1])
-			{
+			if (currentCharacter == AmpEntityName[1]) {
 				// "&am"
 				CharactersWriterType::WriteCharacter(entityName, currentCharacter);
 				++entityNameCharCount;
-				if (NextCharBad(insideTag))
-				{
-					if (!insideTag && eof)
-					{
+				if (NextCharBad(insideTag)) {
+					if (!insideTag && eof) {
 						UnclosedTagType& ref = unclosedTags[unclosedTagsSize - 1];
 						Reset();
 						SetError(ErrorCode::UnclosedTag);
@@ -4504,15 +4059,12 @@ namespace Xml
 					return -1;
 				}
 
-				if (currentCharacter == AmpEntityName[2])
-				{
+				if (currentCharacter == AmpEntityName[2]) {
 					// "&amp"
 					CharactersWriterType::WriteCharacter(entityName, currentCharacter);
 					++entityNameCharCount;
-					if (NextCharBad(insideTag))
-					{
-						if (!insideTag && eof)
-						{
+					if (NextCharBad(insideTag)) {
+						if (!insideTag && eof) {
 							UnclosedTagType& ref = unclosedTags[unclosedTagsSize - 1];
 							Reset();
 							SetError(ErrorCode::UnclosedTag);
@@ -4523,24 +4075,19 @@ namespace Xml
 						return -1;
 					}
 
-					if (currentCharacter == Semicolon)
-					{
+					if (currentCharacter == Semicolon) {
 						// "&amp;"
 						currentCharacter = Ampersand;
 						entityName.clear();
 						return 1;
 					}
 				}
-			}
-			else if (currentCharacter == AposEntityName[1])
-			{
+			} else if (currentCharacter == AposEntityName[1]) {
 				// "&ap"
 				CharactersWriterType::WriteCharacter(entityName, currentCharacter);
 				++entityNameCharCount;
-				if (NextCharBad(insideTag))
-				{
-					if (!insideTag && eof)
-					{
+				if (NextCharBad(insideTag)) {
+					if (!insideTag && eof) {
 						UnclosedTagType& ref = unclosedTags[unclosedTagsSize - 1];
 						Reset();
 						SetError(ErrorCode::UnclosedTag);
@@ -4551,15 +4098,12 @@ namespace Xml
 					return -1;
 				}
 
-				if (currentCharacter == AposEntityName[2])
-				{
+				if (currentCharacter == AposEntityName[2]) {
 					// "&apo"
 					CharactersWriterType::WriteCharacter(entityName, currentCharacter);
 					++entityNameCharCount;
-					if (NextCharBad(insideTag))
-					{
-						if (!insideTag && eof)
-						{
+					if (NextCharBad(insideTag)) {
+						if (!insideTag && eof) {
 							UnclosedTagType& ref = unclosedTags[unclosedTagsSize - 1];
 							Reset();
 							SetError(ErrorCode::UnclosedTag);
@@ -4570,15 +4114,12 @@ namespace Xml
 						return -1;
 					}
 
-					if (currentCharacter == AposEntityName[3])
-					{
+					if (currentCharacter == AposEntityName[3]) {
 						// "&apos"
 						CharactersWriterType::WriteCharacter(entityName, currentCharacter);
 						++entityNameCharCount;
-						if (NextCharBad(insideTag))
-						{
-							if (!insideTag && eof)
-							{
+						if (NextCharBad(insideTag)) {
+							if (!insideTag && eof) {
 								UnclosedTagType& ref = unclosedTags[unclosedTagsSize - 1];
 								Reset();
 								SetError(ErrorCode::UnclosedTag);
@@ -4589,8 +4130,7 @@ namespace Xml
 							return -1;
 						}
 
-						if (currentCharacter == Semicolon)
-						{
+						if (currentCharacter == Semicolon) {
 							// "&apos;"
 							currentCharacter = SingleQuote;
 							entityName.clear();
@@ -4600,32 +4140,24 @@ namespace Xml
 				}
 			}
 
-			if (currentCharacter == Semicolon)
-			{
+			if (currentCharacter == Semicolon) {
 				return 0;
-			}
-			else if (!Encoding::CharactersReader::IsNameChar(currentCharacter) ||
-				currentCharacter == Colon)
-			{
+			} else if (!Encoding::CharactersReader::IsNameChar(currentCharacter) ||
+					   currentCharacter == Colon) {
 				Reset();
 				SetError(ErrorCode::InvalidReferenceSyntax);
 				row = tempRow;
 				column = tempColumn;
 				return -1;
 			}
-		}
-		else if (currentCharacter == QuotEntityName[0])
-		{
+		} else if (currentCharacter == QuotEntityName[0]) {
 			// "&q"
 			CharactersWriterType::WriteCharacter(entityName, currentCharacter);
 			++entityNameCharCount;
 			std::size_t i;
-			for (i = 1; i < 4; ++i)
-			{
-				if (NextCharBad(insideTag))
-				{
-					if (!insideTag && eof)
-					{
+			for (i = 1; i < 4; ++i) {
+				if (NextCharBad(insideTag)) {
+					if (!insideTag && eof) {
 						UnclosedTagType& ref = unclosedTags[unclosedTagsSize - 1];
 						Reset();
 						SetError(ErrorCode::UnclosedTag);
@@ -4643,12 +4175,9 @@ namespace Xml
 				++entityNameCharCount;
 			}
 
-			if (i == 4)
-			{
-				if (NextCharBad(insideTag))
-				{
-					if (!insideTag && eof)
-					{
+			if (i == 4) {
+				if (NextCharBad(insideTag)) {
+					if (!insideTag && eof) {
 						UnclosedTagType& ref = unclosedTags[unclosedTagsSize - 1];
 						Reset();
 						SetError(ErrorCode::UnclosedTag);
@@ -4660,23 +4189,17 @@ namespace Xml
 				}
 			}
 
-			if (currentCharacter == Semicolon)
-			{
-				if (i == 4)
-				{
+			if (currentCharacter == Semicolon) {
+				if (i == 4) {
 					// "&quot;"
 					currentCharacter = DoubleQuote;
 					entityName.clear();
 					return 1;
-				}
-				else
-				{
+				} else {
 					return 0;
 				}
-			}
-			else if (!Encoding::CharactersReader::IsNameChar(currentCharacter) ||
-				currentCharacter == Colon)
-			{
+			} else if (!Encoding::CharactersReader::IsNameChar(currentCharacter) ||
+					   currentCharacter == Colon) {
 				Reset();
 				SetError(ErrorCode::InvalidReferenceSyntax);
 				row = tempRow;
@@ -4685,14 +4208,11 @@ namespace Xml
 			}
 		}
 
-		do
-		{
+		do {
 			CharactersWriterType::WriteCharacter(entityName, currentCharacter);
 			++entityNameCharCount;
-			if (NextCharBad(insideTag))
-			{
-				if (!insideTag && eof)
-				{
+			if (NextCharBad(insideTag)) {
+				if (!insideTag && eof) {
 					UnclosedTagType& ref = unclosedTags[unclosedTagsSize - 1];
 					Reset();
 					SetError(ErrorCode::UnclosedTag);
@@ -4703,19 +4223,16 @@ namespace Xml
 				return -1;
 			}
 
-			if (currentCharacter == Colon)
-			{
+			if (currentCharacter == Colon) {
 				Reset();
 				SetError(ErrorCode::InvalidReferenceSyntax);
 				row = tempRow;
 				column = tempColumn;
 				return -1;
 			}
-		}
-		while (Encoding::CharactersReader::IsNameChar(currentCharacter));
+		} while (Encoding::CharactersReader::IsNameChar(currentCharacter));
 
-		if (currentCharacter != Semicolon)
-		{
+		if (currentCharacter != Semicolon) {
 			Reset();
 			SetError(ErrorCode::InvalidReferenceSyntax);
 			row = tempRow;
@@ -4729,14 +4246,11 @@ namespace Xml
 	template <typename TCharactersWriter>
 	inline bool Inspector<TCharactersWriter>::AttributeUniqueness()
 	{
-		if (attributesSize > 1)
-		{
+		if (attributesSize > 1) {
 			const AttributesSizeType lastIndex = attributesSize - 1;
 			const AttributeType& last = attributes[lastIndex];
-			for (AttributesSizeType i = 0; i < lastIndex; ++i)
-			{
-				if (last.Name == attributes[i].Name)
-				{
+			for (AttributesSizeType i = 0; i < lastIndex; ++i) {
+				if (last.Name == attributes[i].Name) {
 					Reset();
 					SetError(ErrorCode::DoubleAttributeName);
 					row = last.Row;
@@ -4757,48 +4271,32 @@ namespace Xml
 		SizeType tempRow;
 		SizeType tempColumn;
 
-		if (IsUtf8Charset())
-		{
+		if (IsUtf8Charset()) {
 			if (bom == Details::Bom::Utf8 ||
 				bom == Details::Bom::None)
 				return true;
-		}
-		else if (IsUtf16Charset())
-		{
+		} else if (IsUtf16Charset()) {
 			if (bom == Details::Bom::Utf16BE ||
 				bom == Details::Bom::Utf16LE)
 				return true;
-		}
-		else if (IsUtf32Charset())
-		{
+		} else if (IsUtf32Charset()) {
 			if (bom == Details::Bom::Utf32BE ||
 				bom == Details::Bom::Utf32LE)
 				return true;
-		}
-		else if (IsUtf16BECharset())
-		{
+		} else if (IsUtf16BECharset()) {
 			if (bom == Details::Bom::Utf16BE)
 				return true;
-		}
-		else if (IsUtf16LECharset())
-		{
+		} else if (IsUtf16LECharset()) {
 			if (bom == Details::Bom::Utf16LE)
 				return true;
-		}
-		else if (IsUtf32BECharset())
-		{
+		} else if (IsUtf32BECharset()) {
 			if (bom == Details::Bom::Utf32BE)
 				return true;
-		}
-		else if (IsUtf32LECharset())
-		{
+		} else if (IsUtf32LECharset()) {
 			if (bom == Details::Bom::Utf32LE)
 				return true;
-		}
-		else if (IsISO_8859_1_Charset())
-		{
-			if (bom == Details::Bom::None)
-			{
+		} else if (IsISO_8859_1_Charset()) {
+			if (bom == Details::Bom::None) {
 				Encoding::CharactersReader* newReader;
 				if (sourceType == SourcePath)
 					newReader = new Encoding::ISO_8859_1_StreamReader(&fileStream);
@@ -4808,11 +4306,8 @@ namespace Xml
 				reader = newReader;
 				return true;
 			}
-		}
-		else if (IsISO_8859_2_Charset())
-		{
-			if (bom == Details::Bom::None)
-			{
+		} else if (IsISO_8859_2_Charset()) {
+			if (bom == Details::Bom::None) {
 				Encoding::CharactersReader* newReader;
 				if (sourceType == SourcePath)
 					newReader = new Encoding::ISO_8859_2_StreamReader(&fileStream);
@@ -4822,11 +4317,8 @@ namespace Xml
 				reader = newReader;
 				return true;
 			}
-		}
-		else if (IsWindows874Charset())
-		{
-			if (bom == Details::Bom::None)
-			{
+		} else if (IsWindows874Charset()) {
+			if (bom == Details::Bom::None) {
 				Encoding::CharactersReader* newReader;
 				if (sourceType == SourcePath)
 					newReader = new Encoding::Windows874StreamReader(&fileStream);
@@ -4836,11 +4328,8 @@ namespace Xml
 				reader = newReader;
 				return true;
 			}
-		}
-		else if (IsWindows1250Charset())
-		{
-			if (bom == Details::Bom::None)
-			{
+		} else if (IsWindows1250Charset()) {
+			if (bom == Details::Bom::None) {
 				Encoding::CharactersReader* newReader;
 				if (sourceType == SourcePath)
 					newReader = new Encoding::Windows1250StreamReader(&fileStream);
@@ -4850,11 +4339,8 @@ namespace Xml
 				reader = newReader;
 				return true;
 			}
-		}
-		else if (IsWindows1251Charset())
-		{
-			if (bom == Details::Bom::None)
-			{
+		} else if (IsWindows1251Charset()) {
+			if (bom == Details::Bom::None) {
 				Encoding::CharactersReader* newReader;
 				if (sourceType == SourcePath)
 					newReader = new Encoding::Windows1251StreamReader(&fileStream);
@@ -4864,11 +4350,8 @@ namespace Xml
 				reader = newReader;
 				return true;
 			}
-		}
-		else if (IsWindows1252Charset())
-		{
-			if (bom == Details::Bom::None)
-			{
+		} else if (IsWindows1252Charset()) {
+			if (bom == Details::Bom::None) {
 				Encoding::CharactersReader* newReader;
 				if (sourceType == SourcePath)
 					newReader = new Encoding::Windows1252StreamReader(&fileStream);
@@ -4878,11 +4361,8 @@ namespace Xml
 				reader = newReader;
 				return true;
 			}
-		}
-		else if (IsWindows1253Charset())
-		{
-			if (bom == Details::Bom::None)
-			{
+		} else if (IsWindows1253Charset()) {
+			if (bom == Details::Bom::None) {
 				Encoding::CharactersReader* newReader;
 				if (sourceType == SourcePath)
 					newReader = new Encoding::Windows1253StreamReader(&fileStream);
@@ -4892,11 +4372,8 @@ namespace Xml
 				reader = newReader;
 				return true;
 			}
-		}
-		else if (IsWindows1254Charset())
-		{
-			if (bom == Details::Bom::None)
-			{
+		} else if (IsWindows1254Charset()) {
+			if (bom == Details::Bom::None) {
 				Encoding::CharactersReader* newReader;
 				if (sourceType == SourcePath)
 					newReader = new Encoding::Windows1254StreamReader(&fileStream);
@@ -4906,11 +4383,8 @@ namespace Xml
 				reader = newReader;
 				return true;
 			}
-		}
-		else if (IsWindows1255Charset())
-		{
-			if (bom == Details::Bom::None)
-			{
+		} else if (IsWindows1255Charset()) {
+			if (bom == Details::Bom::None) {
 				Encoding::CharactersReader* newReader;
 				if (sourceType == SourcePath)
 					newReader = new Encoding::Windows1255StreamReader(&fileStream);
@@ -4920,11 +4394,8 @@ namespace Xml
 				reader = newReader;
 				return true;
 			}
-		}
-		else if (IsWindows1256Charset())
-		{
-			if (bom == Details::Bom::None)
-			{
+		} else if (IsWindows1256Charset()) {
+			if (bom == Details::Bom::None) {
 				Encoding::CharactersReader* newReader;
 				if (sourceType == SourcePath)
 					newReader = new Encoding::Windows1256StreamReader(&fileStream);
@@ -4934,11 +4405,8 @@ namespace Xml
 				reader = newReader;
 				return true;
 			}
-		}
-		else if (IsWindows1257Charset())
-		{
-			if (bom == Details::Bom::None)
-			{
+		} else if (IsWindows1257Charset()) {
+			if (bom == Details::Bom::None) {
 				Encoding::CharactersReader* newReader;
 				if (sourceType == SourcePath)
 					newReader = new Encoding::Windows1257StreamReader(&fileStream);
@@ -4948,11 +4416,8 @@ namespace Xml
 				reader = newReader;
 				return true;
 			}
-		}
-		else if (IsWindows1258Charset())
-		{
-			if (bom == Details::Bom::None)
-			{
+		} else if (IsWindows1258Charset()) {
+			if (bom == Details::Bom::None) {
 				Encoding::CharactersReader* newReader;
 				if (sourceType == SourcePath)
 					newReader = new Encoding::Windows1258StreamReader(&fileStream);
@@ -4962,11 +4427,8 @@ namespace Xml
 				reader = newReader;
 				return true;
 			}
-		}
-		else if (IsISO_8859_3_Charset())
-		{
-			if (bom == Details::Bom::None)
-			{
+		} else if (IsISO_8859_3_Charset()) {
+			if (bom == Details::Bom::None) {
 				Encoding::CharactersReader* newReader;
 				if (sourceType == SourcePath)
 					newReader = new Encoding::ISO_8859_3_StreamReader(&fileStream);
@@ -4976,11 +4438,8 @@ namespace Xml
 				reader = newReader;
 				return true;
 			}
-		}
-		else if (IsISO_8859_4_Charset())
-		{
-			if (bom == Details::Bom::None)
-			{
+		} else if (IsISO_8859_4_Charset()) {
+			if (bom == Details::Bom::None) {
 				Encoding::CharactersReader* newReader;
 				if (sourceType == SourcePath)
 					newReader = new Encoding::ISO_8859_4_StreamReader(&fileStream);
@@ -4990,11 +4449,8 @@ namespace Xml
 				reader = newReader;
 				return true;
 			}
-		}
-		else if (IsISO_8859_5_Charset())
-		{
-			if (bom == Details::Bom::None)
-			{
+		} else if (IsISO_8859_5_Charset()) {
+			if (bom == Details::Bom::None) {
 				Encoding::CharactersReader* newReader;
 				if (sourceType == SourcePath)
 					newReader = new Encoding::ISO_8859_5_StreamReader(&fileStream);
@@ -5004,11 +4460,8 @@ namespace Xml
 				reader = newReader;
 				return true;
 			}
-		}
-		else if (IsISO_8859_6_Charset())
-		{
-			if (bom == Details::Bom::None)
-			{
+		} else if (IsISO_8859_6_Charset()) {
+			if (bom == Details::Bom::None) {
 				Encoding::CharactersReader* newReader;
 				if (sourceType == SourcePath)
 					newReader = new Encoding::ISO_8859_6_StreamReader(&fileStream);
@@ -5018,11 +4471,8 @@ namespace Xml
 				reader = newReader;
 				return true;
 			}
-		}
-		else if (IsISO_8859_7_Charset())
-		{
-			if (bom == Details::Bom::None)
-			{
+		} else if (IsISO_8859_7_Charset()) {
+			if (bom == Details::Bom::None) {
 				Encoding::CharactersReader* newReader;
 				if (sourceType == SourcePath)
 					newReader = new Encoding::ISO_8859_7_StreamReader(&fileStream);
@@ -5032,11 +4482,8 @@ namespace Xml
 				reader = newReader;
 				return true;
 			}
-		}
-		else if (IsISO_8859_8_Charset())
-		{
-			if (bom == Details::Bom::None)
-			{
+		} else if (IsISO_8859_8_Charset()) {
+			if (bom == Details::Bom::None) {
 				Encoding::CharactersReader* newReader;
 				if (sourceType == SourcePath)
 					newReader = new Encoding::ISO_8859_8_StreamReader(&fileStream);
@@ -5046,11 +4493,8 @@ namespace Xml
 				reader = newReader;
 				return true;
 			}
-		}
-		else if (IsISO_8859_9_Charset())
-		{
-			if (bom == Details::Bom::None)
-			{
+		} else if (IsISO_8859_9_Charset()) {
+			if (bom == Details::Bom::None) {
 				Encoding::CharactersReader* newReader;
 				if (sourceType == SourcePath)
 					newReader = new Encoding::ISO_8859_9_StreamReader(&fileStream);
@@ -5060,11 +4504,8 @@ namespace Xml
 				reader = newReader;
 				return true;
 			}
-		}
-		else if (IsISO_8859_10_Charset())
-		{
-			if (bom == Details::Bom::None)
-			{
+		} else if (IsISO_8859_10_Charset()) {
+			if (bom == Details::Bom::None) {
 				Encoding::CharactersReader* newReader;
 				if (sourceType == SourcePath)
 					newReader = new Encoding::ISO_8859_10_StreamReader(&fileStream);
@@ -5074,11 +4515,8 @@ namespace Xml
 				reader = newReader;
 				return true;
 			}
-		}
-		else if (IsISO_8859_13_Charset())
-		{
-			if (bom == Details::Bom::None)
-			{
+		} else if (IsISO_8859_13_Charset()) {
+			if (bom == Details::Bom::None) {
 				Encoding::CharactersReader* newReader;
 				if (sourceType == SourcePath)
 					newReader = new Encoding::ISO_8859_13_StreamReader(&fileStream);
@@ -5088,11 +4526,8 @@ namespace Xml
 				reader = newReader;
 				return true;
 			}
-		}
-		else if (IsISO_8859_14_Charset())
-		{
-			if (bom == Details::Bom::None)
-			{
+		} else if (IsISO_8859_14_Charset()) {
+			if (bom == Details::Bom::None) {
 				Encoding::CharactersReader* newReader;
 				if (sourceType == SourcePath)
 					newReader = new Encoding::ISO_8859_14_StreamReader(&fileStream);
@@ -5102,11 +4537,8 @@ namespace Xml
 				reader = newReader;
 				return true;
 			}
-		}
-		else if (IsISO_8859_15_Charset())
-		{
-			if (bom == Details::Bom::None)
-			{
+		} else if (IsISO_8859_15_Charset()) {
+			if (bom == Details::Bom::None) {
 				Encoding::CharactersReader* newReader;
 				if (sourceType == SourcePath)
 					newReader = new Encoding::ISO_8859_15_StreamReader(&fileStream);
@@ -5116,11 +4548,8 @@ namespace Xml
 				reader = newReader;
 				return true;
 			}
-		}
-		else if (IsISO_8859_16_Charset())
-		{
-			if (bom == Details::Bom::None)
-			{
+		} else if (IsISO_8859_16_Charset()) {
+			if (bom == Details::Bom::None) {
 				Encoding::CharactersReader* newReader;
 				if (sourceType == SourcePath)
 					newReader = new Encoding::ISO_8859_16_StreamReader(&fileStream);
@@ -5130,11 +4559,8 @@ namespace Xml
 				reader = newReader;
 				return true;
 			}
-		}
-		else if (IsTIS620Charset())
-		{
-			if (bom == Details::Bom::None)
-			{
+		} else if (IsTIS620Charset()) {
+			if (bom == Details::Bom::None) {
 				Encoding::CharactersReader* newReader;
 				if (sourceType == SourcePath)
 					newReader = new Encoding::TIS620StreamReader(&fileStream);
@@ -5144,9 +4570,7 @@ namespace Xml
 				reader = newReader;
 				return true;
 			}
-		}
-		else
-		{
+		} else {
 			tempRow = encoding.Row;
 			tempColumn = encoding.Column;
 			Reset();
@@ -5155,7 +4579,7 @@ namespace Xml
 			column = tempColumn;
 			return false;
 		}
-		
+
 		tempRow = encoding.Row;
 		tempColumn = encoding.Column;
 		Reset();
@@ -5169,11 +4593,9 @@ namespace Xml
 	inline bool Inspector<TCharactersWriter>::IsUtf8Charset()
 	{
 		// UTF-8
-		static const unsigned char c1[5] =
-			{ 0x55, 0x54, 0x46, 0x2D, 0x38 };
+		static const unsigned char c1[5] = { 0x55, 0x54, 0x46, 0x2D, 0x38 };
 		// csUTF8
-		static const unsigned char c2[6] =
-			{ 0x63, 0x73, 0x55, 0x54, 0x46, 0x38 };
+		static const unsigned char c2[6] = { 0x63, 0x73, 0x55, 0x54, 0x46, 0x38 };
 		return (
 			CharsetEqual(c1, 5) ||
 			CharsetEqual(c2, 6));
@@ -5188,11 +4610,9 @@ namespace Xml
 	inline bool Inspector<TCharactersWriter>::IsUtf16Charset()
 	{
 		// UTF-16
-		static const unsigned char c1[6] =
-			{ 0x55, 0x54, 0x46, 0x2D, 0x31, 0x36 };
+		static const unsigned char c1[6] = { 0x55, 0x54, 0x46, 0x2D, 0x31, 0x36 };
 		// csUTF16
-		static const unsigned char c2[7] =
-			{ 0x63, 0x73, 0x55, 0x54, 0x46, 0x31, 0x36 };
+		static const unsigned char c2[7] = { 0x63, 0x73, 0x55, 0x54, 0x46, 0x31, 0x36 };
 		return (
 			CharsetEqual(c1, 6) ||
 			CharsetEqual(c2, 7));
@@ -5207,11 +4627,9 @@ namespace Xml
 	inline bool Inspector<TCharactersWriter>::IsUtf16BECharset()
 	{
 		// UTF-16BE
-		static const unsigned char c1[8] =
-			{ 0x55, 0x54, 0x46, 0x2D, 0x31, 0x36, 0x42, 0x45 };
+		static const unsigned char c1[8] = { 0x55, 0x54, 0x46, 0x2D, 0x31, 0x36, 0x42, 0x45 };
 		// csUTF16BE
-		static const unsigned char c2[9] =
-			{ 0x63, 0x73, 0x55, 0x54, 0x46, 0x31, 0x36, 0x42, 0x45 };
+		static const unsigned char c2[9] = { 0x63, 0x73, 0x55, 0x54, 0x46, 0x31, 0x36, 0x42, 0x45 };
 		return (
 			CharsetEqual(c1, 8) ||
 			CharsetEqual(c2, 9));
@@ -5226,11 +4644,9 @@ namespace Xml
 	inline bool Inspector<TCharactersWriter>::IsUtf16LECharset()
 	{
 		// UTF-16LE
-		static const unsigned char c1[8] =
-			{ 0x55, 0x54, 0x46, 0x2D, 0x31, 0x36, 0x4C, 0x45 };
+		static const unsigned char c1[8] = { 0x55, 0x54, 0x46, 0x2D, 0x31, 0x36, 0x4C, 0x45 };
 		// csUTF16LE
-		static const unsigned char c2[9] =
-			{ 0x63, 0x73, 0x55, 0x54, 0x46, 0x31, 0x36, 0x4C, 0x45 };
+		static const unsigned char c2[9] = { 0x63, 0x73, 0x55, 0x54, 0x46, 0x31, 0x36, 0x4C, 0x45 };
 		return (
 			CharsetEqual(c1, 8) ||
 			CharsetEqual(c2, 9));
@@ -5245,11 +4661,9 @@ namespace Xml
 	inline bool Inspector<TCharactersWriter>::IsUtf32Charset()
 	{
 		// UTF-32
-		static const unsigned char c1[6] =
-			{ 0x55, 0x54, 0x46, 0x2D, 0x33, 0x32 };
+		static const unsigned char c1[6] = { 0x55, 0x54, 0x46, 0x2D, 0x33, 0x32 };
 		// csUTF32
-		static const unsigned char c2[7] =
-			{ 0x63, 0x73, 0x55, 0x54, 0x46, 0x33, 0x32 };
+		static const unsigned char c2[7] = { 0x63, 0x73, 0x55, 0x54, 0x46, 0x33, 0x32 };
 		return (
 			CharsetEqual(c1, 6) ||
 			CharsetEqual(c2, 7));
@@ -5264,11 +4678,9 @@ namespace Xml
 	inline bool Inspector<TCharactersWriter>::IsUtf32BECharset()
 	{
 		// UTF-32BE
-		static const unsigned char c1[8] =
-			{ 0x55, 0x54, 0x46, 0x2D, 0x33, 0x32, 0x42, 0x45 };
+		static const unsigned char c1[8] = { 0x55, 0x54, 0x46, 0x2D, 0x33, 0x32, 0x42, 0x45 };
 		// csUTF32BE
-		static const unsigned char c2[9] =
-			{ 0x63, 0x73, 0x55, 0x54, 0x46, 0x33, 0x32, 0x42, 0x45 };
+		static const unsigned char c2[9] = { 0x63, 0x73, 0x55, 0x54, 0x46, 0x33, 0x32, 0x42, 0x45 };
 		return (
 			CharsetEqual(c1, 8) ||
 			CharsetEqual(c2, 9));
@@ -5283,11 +4695,9 @@ namespace Xml
 	inline bool Inspector<TCharactersWriter>::IsUtf32LECharset()
 	{
 		// UTF-32LE
-		static const unsigned char c1[8] =
-			{ 0x55, 0x54, 0x46, 0x2D, 0x33, 0x32, 0x4C, 0x45 };
+		static const unsigned char c1[8] = { 0x55, 0x54, 0x46, 0x2D, 0x33, 0x32, 0x4C, 0x45 };
 		// csUTF32LE
-		static const unsigned char c2[9] =
-			{ 0x63, 0x73, 0x55, 0x54, 0x46, 0x33, 0x32, 0x4C, 0x45 };
+		static const unsigned char c2[9] = { 0x63, 0x73, 0x55, 0x54, 0x46, 0x33, 0x32, 0x4C, 0x45 };
 		return (
 			CharsetEqual(c1, 8) ||
 			CharsetEqual(c2, 9));
@@ -5302,29 +4712,21 @@ namespace Xml
 	inline bool Inspector<TCharactersWriter>::IsISO_8859_1_Charset()
 	{
 		// ISO-8859-1
-		static const unsigned char c1[10] =
-			{ 0x49, 0x53, 0x4F, 0x2D, 0x38, 0x38, 0x35, 0x39, 0x2D, 0x31 };
+		static const unsigned char c1[10] = { 0x49, 0x53, 0x4F, 0x2D, 0x38, 0x38, 0x35, 0x39, 0x2D, 0x31 };
 		// iso-ir-100
-		static const unsigned char c2[10] =
-			{ 0x69, 0x73, 0x6F, 0x2D, 0x69, 0x72, 0x2D, 0x31, 0x30, 0x30 };
+		static const unsigned char c2[10] = { 0x69, 0x73, 0x6F, 0x2D, 0x69, 0x72, 0x2D, 0x31, 0x30, 0x30 };
 		// ISO_8859-1
-		static const unsigned char c3[10] =
-			{ 0x49, 0x53, 0x4F, 0x5F, 0x38, 0x38, 0x35, 0x39, 0x2D, 0x31 };
+		static const unsigned char c3[10] = { 0x49, 0x53, 0x4F, 0x5F, 0x38, 0x38, 0x35, 0x39, 0x2D, 0x31 };
 		// latin1
-		static const unsigned char c4[6] =
-			{ 0x6C, 0x61, 0x74, 0x69, 0x6E, 0x31 };
+		static const unsigned char c4[6] = { 0x6C, 0x61, 0x74, 0x69, 0x6E, 0x31 };
 		// l1
-		static const unsigned char c5[2] =
-			{ 0x6C, 0x31 };
+		static const unsigned char c5[2] = { 0x6C, 0x31 };
 		// IBM819
-		static const unsigned char c6[6] =
-			{ 0x49, 0x42, 0x4D, 0x38, 0x31, 0x39 };
+		static const unsigned char c6[6] = { 0x49, 0x42, 0x4D, 0x38, 0x31, 0x39 };
 		// CP819
-		static const unsigned char c7[5] =
-			{ 0x43, 0x50, 0x38, 0x31, 0x39 };
+		static const unsigned char c7[5] = { 0x43, 0x50, 0x38, 0x31, 0x39 };
 		// csISOLatin1
-		static const unsigned char c8[11] =
-			{ 0x63, 0x73, 0x49, 0x53, 0x4F, 0x4C, 0x61, 0x74, 0x69, 0x6E, 0x31 };
+		static const unsigned char c8[11] = { 0x63, 0x73, 0x49, 0x53, 0x4F, 0x4C, 0x61, 0x74, 0x69, 0x6E, 0x31 };
 		return (
 			CharsetEqual(c1, 10) ||
 			CharsetEqual(c2, 10) ||
@@ -5351,23 +4753,17 @@ namespace Xml
 	inline bool Inspector<TCharactersWriter>::IsISO_8859_2_Charset()
 	{
 		// ISO-8859-2
-		static const unsigned char c1[10] =
-			{ 0x49, 0x53, 0x4F, 0x2D, 0x38, 0x38, 0x35, 0x39, 0x2D, 0x32 };
+		static const unsigned char c1[10] = { 0x49, 0x53, 0x4F, 0x2D, 0x38, 0x38, 0x35, 0x39, 0x2D, 0x32 };
 		// iso-ir-101
-		static const unsigned char c2[10] =
-			{ 0x69, 0x73, 0x6F, 0x2D, 0x69, 0x72, 0x2D, 0x31, 0x30, 0x31 };
+		static const unsigned char c2[10] = { 0x69, 0x73, 0x6F, 0x2D, 0x69, 0x72, 0x2D, 0x31, 0x30, 0x31 };
 		// ISO_8859-2
-		static const unsigned char c3[10] =
-			{ 0x49, 0x53, 0x4F, 0x5F, 0x38, 0x38, 0x35, 0x39, 0x2D, 0x32 };
+		static const unsigned char c3[10] = { 0x49, 0x53, 0x4F, 0x5F, 0x38, 0x38, 0x35, 0x39, 0x2D, 0x32 };
 		// latin2
-		static const unsigned char c4[6] =
-			{ 0x6C, 0x61, 0x74, 0x69, 0x6E, 0x32 };
+		static const unsigned char c4[6] = { 0x6C, 0x61, 0x74, 0x69, 0x6E, 0x32 };
 		// l2
-		static const unsigned char c5[2] =
-			{ 0x6C, 0x32 };
+		static const unsigned char c5[2] = { 0x6C, 0x32 };
 		// csISOLatin2
-		static const unsigned char c6[11] =
-			{ 0x63, 0x73, 0x49, 0x53, 0x4F, 0x4C, 0x61, 0x74, 0x69, 0x6E, 0x32 };
+		static const unsigned char c6[11] = { 0x63, 0x73, 0x49, 0x53, 0x4F, 0x4C, 0x61, 0x74, 0x69, 0x6E, 0x32 };
 		return (
 			CharsetEqual(c1, 10) ||
 			CharsetEqual(c2, 10) ||
@@ -5390,23 +4786,17 @@ namespace Xml
 	inline bool Inspector<TCharactersWriter>::IsISO_8859_3_Charset()
 	{
 		// ISO-8859-3
-		static const unsigned char c1[10] =
-			{ 0x49, 0x53, 0x4F, 0x2D, 0x38, 0x38, 0x35, 0x39, 0x2D, 0x33 };
+		static const unsigned char c1[10] = { 0x49, 0x53, 0x4F, 0x2D, 0x38, 0x38, 0x35, 0x39, 0x2D, 0x33 };
 		// iso-ir-109
-		static const unsigned char c2[10] =
-			{ 0x69, 0x73, 0x6F, 0x2D, 0x69, 0x72, 0x2D, 0x31, 0x30, 0x39 };
+		static const unsigned char c2[10] = { 0x69, 0x73, 0x6F, 0x2D, 0x69, 0x72, 0x2D, 0x31, 0x30, 0x39 };
 		// ISO_8859-3
-		static const unsigned char c3[10] =
-			{ 0x49, 0x53, 0x4F, 0x5F, 0x38, 0x38, 0x35, 0x39, 0x2D, 0x33 };
+		static const unsigned char c3[10] = { 0x49, 0x53, 0x4F, 0x5F, 0x38, 0x38, 0x35, 0x39, 0x2D, 0x33 };
 		// latin3
-		static const unsigned char c4[6] =
-			{ 0x6C, 0x61, 0x74, 0x69, 0x6E, 0x33 };
+		static const unsigned char c4[6] = { 0x6C, 0x61, 0x74, 0x69, 0x6E, 0x33 };
 		// l3
-		static const unsigned char c5[2] =
-			{ 0x6C, 0x33 };
+		static const unsigned char c5[2] = { 0x6C, 0x33 };
 		// csISOLatin3
-		static const unsigned char c6[11] =
-			{ 0x63, 0x73, 0x49, 0x53, 0x4F, 0x4C, 0x61, 0x74, 0x69, 0x6E, 0x33 };
+		static const unsigned char c6[11] = { 0x63, 0x73, 0x49, 0x53, 0x4F, 0x4C, 0x61, 0x74, 0x69, 0x6E, 0x33 };
 		return (
 			CharsetEqual(c1, 10) ||
 			CharsetEqual(c2, 10) ||
@@ -5429,23 +4819,17 @@ namespace Xml
 	inline bool Inspector<TCharactersWriter>::IsISO_8859_4_Charset()
 	{
 		// ISO-8859-4
-		static const unsigned char c1[10] =
-			{ 0x49, 0x53, 0x4F, 0x2D, 0x38, 0x38, 0x35, 0x39, 0x2D, 0x34 };
+		static const unsigned char c1[10] = { 0x49, 0x53, 0x4F, 0x2D, 0x38, 0x38, 0x35, 0x39, 0x2D, 0x34 };
 		// iso-ir-110
-		static const unsigned char c2[10] =
-			{ 0x69, 0x73, 0x6F, 0x2D, 0x69, 0x72, 0x2D, 0x31, 0x31, 0x30 };
+		static const unsigned char c2[10] = { 0x69, 0x73, 0x6F, 0x2D, 0x69, 0x72, 0x2D, 0x31, 0x31, 0x30 };
 		// ISO_8859-4
-		static const unsigned char c3[10] =
-			{ 0x49, 0x53, 0x4F, 0x5F, 0x38, 0x38, 0x35, 0x39, 0x2D, 0x34 };
+		static const unsigned char c3[10] = { 0x49, 0x53, 0x4F, 0x5F, 0x38, 0x38, 0x35, 0x39, 0x2D, 0x34 };
 		// latin4
-		static const unsigned char c4[6] =
-			{ 0x6C, 0x61, 0x74, 0x69, 0x6E, 0x34 };
+		static const unsigned char c4[6] = { 0x6C, 0x61, 0x74, 0x69, 0x6E, 0x34 };
 		// l4
-		static const unsigned char c5[2] =
-			{ 0x6C, 0x34 };
+		static const unsigned char c5[2] = { 0x6C, 0x34 };
 		// csISOLatin4
-		static const unsigned char c6[11] =
-			{ 0x63, 0x73, 0x49, 0x53, 0x4F, 0x4C, 0x61, 0x74, 0x69, 0x6E, 0x34 };
+		static const unsigned char c6[11] = { 0x63, 0x73, 0x49, 0x53, 0x4F, 0x4C, 0x61, 0x74, 0x69, 0x6E, 0x34 };
 		return (
 			CharsetEqual(c1, 10) ||
 			CharsetEqual(c2, 10) ||
@@ -5463,25 +4847,20 @@ namespace Xml
 			CharsetEqual(U"csISOLatin4"));
 		*/
 	}
-	
+
 	template <typename TCharactersWriter>
 	inline bool Inspector<TCharactersWriter>::IsISO_8859_5_Charset()
 	{
 		// ISO-8859-5
-		static const unsigned char c1[10] =
-			{ 0x49, 0x53, 0x4F, 0x2D, 0x38, 0x38, 0x35, 0x39, 0x2D, 0x35 };
+		static const unsigned char c1[10] = { 0x49, 0x53, 0x4F, 0x2D, 0x38, 0x38, 0x35, 0x39, 0x2D, 0x35 };
 		// iso-ir-144
-		static const unsigned char c2[10] =
-			{ 0x69, 0x73, 0x6F, 0x2D, 0x69, 0x72, 0x2D, 0x31, 0x34, 0x34 };
+		static const unsigned char c2[10] = { 0x69, 0x73, 0x6F, 0x2D, 0x69, 0x72, 0x2D, 0x31, 0x34, 0x34 };
 		// ISO_8859-5
-		static const unsigned char c3[10] =
-			{ 0x49, 0x53, 0x4F, 0x5F, 0x38, 0x38, 0x35, 0x39, 0x2D, 0x35 };
+		static const unsigned char c3[10] = { 0x49, 0x53, 0x4F, 0x5F, 0x38, 0x38, 0x35, 0x39, 0x2D, 0x35 };
 		// cyrillic
-		static const unsigned char c4[8] =
-			{ 0x63, 0x79, 0x72, 0x69, 0x6C, 0x6C, 0x69, 0x63 };
+		static const unsigned char c4[8] = { 0x63, 0x79, 0x72, 0x69, 0x6C, 0x6C, 0x69, 0x63 };
 		// csISOLatinCyrillic
-		static const unsigned char c5[18] =
-		{
+		static const unsigned char c5[18] = {
 			0x63, 0x73, 0x49, 0x53, 0x4F, 0x4C, 0x61, 0x74, 0x69,
 			0x6E, 0x43, 0x79, 0x72, 0x69, 0x6C, 0x6C, 0x69, 0x63
 		};
@@ -5505,26 +4884,19 @@ namespace Xml
 	inline bool Inspector<TCharactersWriter>::IsISO_8859_6_Charset()
 	{
 		// ISO-8859-6
-		static const unsigned char c1[10] =
-			{ 0x49, 0x53, 0x4F, 0x2D, 0x38, 0x38, 0x35, 0x39, 0x2D, 0x36 };
+		static const unsigned char c1[10] = { 0x49, 0x53, 0x4F, 0x2D, 0x38, 0x38, 0x35, 0x39, 0x2D, 0x36 };
 		// iso-ir-127
-		static const unsigned char c2[10] =
-			{ 0x69, 0x73, 0x6F, 0x2D, 0x69, 0x72, 0x2D, 0x31, 0x32, 0x37 };
+		static const unsigned char c2[10] = { 0x69, 0x73, 0x6F, 0x2D, 0x69, 0x72, 0x2D, 0x31, 0x32, 0x37 };
 		// ISO_8859-6
-		static const unsigned char c3[10] =
-			{ 0x49, 0x53, 0x4F, 0x5F, 0x38, 0x38, 0x35, 0x39, 0x2D, 0x36 };
+		static const unsigned char c3[10] = { 0x49, 0x53, 0x4F, 0x5F, 0x38, 0x38, 0x35, 0x39, 0x2D, 0x36 };
 		// ECMA-114
-		static const unsigned char c4[8] =
-			{ 0x45, 0x43, 0x4D, 0x41, 0x2D, 0x31, 0x31, 0x34 };
+		static const unsigned char c4[8] = { 0x45, 0x43, 0x4D, 0x41, 0x2D, 0x31, 0x31, 0x34 };
 		// ASMO-708
-		static const unsigned char c5[8] =
-			{ 0x41, 0x53, 0x4D, 0x4F, 0x2D, 0x37, 0x30, 0x38 };
+		static const unsigned char c5[8] = { 0x41, 0x53, 0x4D, 0x4F, 0x2D, 0x37, 0x30, 0x38 };
 		// arabic
-		static const unsigned char c6[6] =
-			{ 0x61, 0x72, 0x61, 0x62, 0x69, 0x63 };
+		static const unsigned char c6[6] = { 0x61, 0x72, 0x61, 0x62, 0x69, 0x63 };
 		// csISOLatinArabic
-		static const unsigned char c7[16] =
-			{ 0x63, 0x73, 0x49, 0x53, 0x4F, 0x4C, 0x61, 0x74, 0x69, 0x6E, 0x41, 0x72, 0x61, 0x62, 0x69, 0x63 };
+		static const unsigned char c7[16] = { 0x63, 0x73, 0x49, 0x53, 0x4F, 0x4C, 0x61, 0x74, 0x69, 0x6E, 0x41, 0x72, 0x61, 0x62, 0x69, 0x63 };
 		return (
 			CharsetEqual(c1, 10) ||
 			CharsetEqual(c2, 10) ||
@@ -5549,29 +4921,21 @@ namespace Xml
 	inline bool Inspector<TCharactersWriter>::IsISO_8859_7_Charset()
 	{
 		// ISO-8859-7
-		static const unsigned char c1[10] =
-			{ 0x49, 0x53, 0x4F, 0x2D, 0x38, 0x38, 0x35, 0x39, 0x2D, 0x37 };
+		static const unsigned char c1[10] = { 0x49, 0x53, 0x4F, 0x2D, 0x38, 0x38, 0x35, 0x39, 0x2D, 0x37 };
 		// iso-ir-126
-		static const unsigned char c2[10] =
-			{ 0x69, 0x73, 0x6F, 0x2D, 0x69, 0x72, 0x2D, 0x31, 0x32, 0x36 };
+		static const unsigned char c2[10] = { 0x69, 0x73, 0x6F, 0x2D, 0x69, 0x72, 0x2D, 0x31, 0x32, 0x36 };
 		// ISO_8859-7
-		static const unsigned char c3[10] =
-			{ 0x49, 0x53, 0x4F, 0x5F, 0x38, 0x38, 0x35, 0x39, 0x2D, 0x37 };
+		static const unsigned char c3[10] = { 0x49, 0x53, 0x4F, 0x5F, 0x38, 0x38, 0x35, 0x39, 0x2D, 0x37 };
 		// ELOT_928
-		static const unsigned char c4[8] =
-			{ 0x45, 0x4C, 0x4F, 0x54, 0x5F, 0x39, 0x32, 0x38 };
+		static const unsigned char c4[8] = { 0x45, 0x4C, 0x4F, 0x54, 0x5F, 0x39, 0x32, 0x38 };
 		// ECMA-118
-		static const unsigned char c5[8] =
-			{ 0x45, 0x43, 0x4D, 0x41, 0x2D, 0x31, 0x31, 0x38 };
+		static const unsigned char c5[8] = { 0x45, 0x43, 0x4D, 0x41, 0x2D, 0x31, 0x31, 0x38 };
 		// greek
-		static const unsigned char c6[5] =
-			{ 0x67, 0x72, 0x65, 0x65, 0x6B };
+		static const unsigned char c6[5] = { 0x67, 0x72, 0x65, 0x65, 0x6B };
 		// greek8
-		static const unsigned char c7[6] =
-			{ 0x67, 0x72, 0x65, 0x65, 0x6B, 0x38 };
+		static const unsigned char c7[6] = { 0x67, 0x72, 0x65, 0x65, 0x6B, 0x38 };
 		// csISOLatinGreek
-		static const unsigned char c8[15] =
-			{ 0x63, 0x73, 0x49, 0x53, 0x4F, 0x4C, 0x61, 0x74, 0x69, 0x6E, 0x47, 0x72, 0x65, 0x65, 0x6B };
+		static const unsigned char c8[15] = { 0x63, 0x73, 0x49, 0x53, 0x4F, 0x4C, 0x61, 0x74, 0x69, 0x6E, 0x47, 0x72, 0x65, 0x65, 0x6B };
 		return (
 			CharsetEqual(c1, 10) ||
 			CharsetEqual(c2, 10) ||
@@ -5598,20 +4962,15 @@ namespace Xml
 	inline bool Inspector<TCharactersWriter>::IsISO_8859_8_Charset()
 	{
 		// ISO-8859-8
-		static const unsigned char c1[10] =
-			{ 0x49, 0x53, 0x4F, 0x2D, 0x38, 0x38, 0x35, 0x39, 0x2D, 0x38 };
+		static const unsigned char c1[10] = { 0x49, 0x53, 0x4F, 0x2D, 0x38, 0x38, 0x35, 0x39, 0x2D, 0x38 };
 		// iso-ir-138
-		static const unsigned char c2[10] =
-			{ 0x69, 0x73, 0x6F, 0x2D, 0x69, 0x72, 0x2D, 0x31, 0x33, 0x38 };
+		static const unsigned char c2[10] = { 0x69, 0x73, 0x6F, 0x2D, 0x69, 0x72, 0x2D, 0x31, 0x33, 0x38 };
 		// ISO_8859-8
-		static const unsigned char c3[10] =
-			{ 0x49, 0x53, 0x4F, 0x5F, 0x38, 0x38, 0x35, 0x39, 0x2D, 0x38 };
+		static const unsigned char c3[10] = { 0x49, 0x53, 0x4F, 0x5F, 0x38, 0x38, 0x35, 0x39, 0x2D, 0x38 };
 		// hebrew
-		static const unsigned char c4[6] =
-			{ 0x68, 0x65, 0x62, 0x72, 0x65, 0x77 };
+		static const unsigned char c4[6] = { 0x68, 0x65, 0x62, 0x72, 0x65, 0x77 };
 		// csISOLatinHebrew
-		static const unsigned char c5[16] =
-			{ 0x63, 0x73, 0x49, 0x53, 0x4F, 0x4C, 0x61, 0x74, 0x69, 0x6E, 0x48, 0x65, 0x62, 0x72, 0x65, 0x77 };
+		static const unsigned char c5[16] = { 0x63, 0x73, 0x49, 0x53, 0x4F, 0x4C, 0x61, 0x74, 0x69, 0x6E, 0x48, 0x65, 0x62, 0x72, 0x65, 0x77 };
 		return (
 			CharsetEqual(c1, 10) ||
 			CharsetEqual(c2, 10) ||
@@ -5632,23 +4991,17 @@ namespace Xml
 	inline bool Inspector<TCharactersWriter>::IsISO_8859_9_Charset()
 	{
 		// ISO-8859-9
-		static const unsigned char c1[10] =
-			{ 0x49, 0x53, 0x4F, 0x2D, 0x38, 0x38, 0x35, 0x39, 0x2D, 0x39 };
+		static const unsigned char c1[10] = { 0x49, 0x53, 0x4F, 0x2D, 0x38, 0x38, 0x35, 0x39, 0x2D, 0x39 };
 		// iso-ir-148
-		static const unsigned char c2[10] =
-			{ 0x69, 0x73, 0x6F, 0x2D, 0x69, 0x72, 0x2D, 0x31, 0x34, 0x38 };
+		static const unsigned char c2[10] = { 0x69, 0x73, 0x6F, 0x2D, 0x69, 0x72, 0x2D, 0x31, 0x34, 0x38 };
 		// ISO_8859-9
-		static const unsigned char c3[10] =
-			{ 0x49, 0x53, 0x4F, 0x5F, 0x38, 0x38, 0x35, 0x39, 0x2D, 0x39 };
+		static const unsigned char c3[10] = { 0x49, 0x53, 0x4F, 0x5F, 0x38, 0x38, 0x35, 0x39, 0x2D, 0x39 };
 		// latin5
-		static const unsigned char c4[6] =
-			{ 0x6C, 0x61, 0x74, 0x69, 0x6E, 0x35 };
+		static const unsigned char c4[6] = { 0x6C, 0x61, 0x74, 0x69, 0x6E, 0x35 };
 		// l5
-		static const unsigned char c5[2] =
-			{ 0x6C, 0x35 };
+		static const unsigned char c5[2] = { 0x6C, 0x35 };
 		// csISOLatin5
-		static const unsigned char c6[11] =
-			{ 0x63, 0x73, 0x49, 0x53, 0x4F, 0x4C, 0x61, 0x74, 0x69, 0x6E, 0x35 };
+		static const unsigned char c6[11] = { 0x63, 0x73, 0x49, 0x53, 0x4F, 0x4C, 0x61, 0x74, 0x69, 0x6E, 0x35 };
 		return (
 			CharsetEqual(c1, 10) ||
 			CharsetEqual(c2, 10) ||
@@ -5671,23 +5024,17 @@ namespace Xml
 	inline bool Inspector<TCharactersWriter>::IsISO_8859_10_Charset()
 	{
 		// ISO-8859-10
-		static const unsigned char c1[11] =
-			{ 0x49, 0x53, 0x4F, 0x2D, 0x38, 0x38, 0x35, 0x39, 0x2D, 0x31, 0x30 };
+		static const unsigned char c1[11] = { 0x49, 0x53, 0x4F, 0x2D, 0x38, 0x38, 0x35, 0x39, 0x2D, 0x31, 0x30 };
 		// iso-ir-157
-		static const unsigned char c2[10] =
-			{ 0x69, 0x73, 0x6F, 0x2D, 0x69, 0x72, 0x2D, 0x31, 0x35, 0x37 };
+		static const unsigned char c2[10] = { 0x69, 0x73, 0x6F, 0x2D, 0x69, 0x72, 0x2D, 0x31, 0x35, 0x37 };
 		// l6
-		static const unsigned char c3[2] =
-			{ 0x6C, 0x36 };
+		static const unsigned char c3[2] = { 0x6C, 0x36 };
 		// ISO_8859-10
-		static const unsigned char c4[11] =
-			{ 0x49, 0x53, 0x4F, 0x5F, 0x38, 0x38, 0x35, 0x39, 0x2D, 0x31, 0x30 };
+		static const unsigned char c4[11] = { 0x49, 0x53, 0x4F, 0x5F, 0x38, 0x38, 0x35, 0x39, 0x2D, 0x31, 0x30 };
 		// csISOLatin6
-		static const unsigned char c5[11] =
-			{ 0x63, 0x73, 0x49, 0x53, 0x4F, 0x4C, 0x61, 0x74, 0x69, 0x6E, 0x36 };
+		static const unsigned char c5[11] = { 0x63, 0x73, 0x49, 0x53, 0x4F, 0x4C, 0x61, 0x74, 0x69, 0x6E, 0x36 };
 		// latin6
-		static const unsigned char c6[6] =
-			{ 0x6C, 0x61, 0x74, 0x69, 0x6E, 0x36 };
+		static const unsigned char c6[6] = { 0x6C, 0x61, 0x74, 0x69, 0x6E, 0x36 };
 		return (
 			CharsetEqual(c1, 11) ||
 			CharsetEqual(c2, 10) ||
@@ -5710,11 +5057,9 @@ namespace Xml
 	inline bool Inspector<TCharactersWriter>::IsISO_8859_13_Charset()
 	{
 		// ISO-8859-13
-		static const unsigned char c1[11] =
-			{ 0x49, 0x53, 0x4F, 0x2D, 0x38, 0x38, 0x35, 0x39, 0x2D, 0x31, 0x33 };
+		static const unsigned char c1[11] = { 0x49, 0x53, 0x4F, 0x2D, 0x38, 0x38, 0x35, 0x39, 0x2D, 0x31, 0x33 };
 		// csISO885913
-		static const unsigned char c2[11] =
-			{ 0x63, 0x73, 0x49, 0x53, 0x4F, 0x38, 0x38, 0x35, 0x39, 0x31, 0x33 };
+		static const unsigned char c2[11] = { 0x63, 0x73, 0x49, 0x53, 0x4F, 0x38, 0x38, 0x35, 0x39, 0x31, 0x33 };
 		return (
 			CharsetEqual(c1, 11) ||
 			CharsetEqual(c2, 11));
@@ -5729,26 +5074,19 @@ namespace Xml
 	inline bool Inspector<TCharactersWriter>::IsISO_8859_14_Charset()
 	{
 		// ISO-8859-14
-		static const unsigned char c1[11] =
-			{ 0x49, 0x53, 0x4F, 0x2D, 0x38, 0x38, 0x35, 0x39, 0x2D, 0x31, 0x34 };
+		static const unsigned char c1[11] = { 0x49, 0x53, 0x4F, 0x2D, 0x38, 0x38, 0x35, 0x39, 0x2D, 0x31, 0x34 };
 		// iso-ir-199
-		static const unsigned char c2[10] =
-			{ 0x69, 0x73, 0x6F, 0x2D, 0x69, 0x72, 0x2D, 0x31, 0x39, 0x39 };
+		static const unsigned char c2[10] = { 0x69, 0x73, 0x6F, 0x2D, 0x69, 0x72, 0x2D, 0x31, 0x39, 0x39 };
 		// ISO_8859-14
-		static const unsigned char c3[11] =
-			{ 0x49, 0x53, 0x4F, 0x5F, 0x38, 0x38, 0x35, 0x39, 0x2D, 0x31, 0x34 };
+		static const unsigned char c3[11] = { 0x49, 0x53, 0x4F, 0x5F, 0x38, 0x38, 0x35, 0x39, 0x2D, 0x31, 0x34 };
 		// latin8
-		static const unsigned char c4[6] =
-			{ 0x6C, 0x61, 0x74, 0x69, 0x6E, 0x38 };
+		static const unsigned char c4[6] = { 0x6C, 0x61, 0x74, 0x69, 0x6E, 0x38 };
 		// iso-celtic
-		static const unsigned char c5[10] =
-			{ 0x69, 0x73, 0x6F, 0x2D, 0x63, 0x65, 0x6C, 0x74, 0x69, 0x63 };
+		static const unsigned char c5[10] = { 0x69, 0x73, 0x6F, 0x2D, 0x63, 0x65, 0x6C, 0x74, 0x69, 0x63 };
 		// l8
-		static const unsigned char c6[2] =
-			{ 0x6C, 0x38 };
+		static const unsigned char c6[2] = { 0x6C, 0x38 };
 		// csISO885914
-		static const unsigned char c7[11] =
-			{ 0x63, 0x73, 0x49, 0x53, 0x4F, 0x38, 0x38, 0x35, 0x39, 0x31, 0x34 };
+		static const unsigned char c7[11] = { 0x63, 0x73, 0x49, 0x53, 0x4F, 0x38, 0x38, 0x35, 0x39, 0x31, 0x34 };
 		return (
 			CharsetEqual(c1, 11) ||
 			CharsetEqual(c2, 10) ||
@@ -5773,17 +5111,13 @@ namespace Xml
 	inline bool Inspector<TCharactersWriter>::IsISO_8859_15_Charset()
 	{
 		// ISO-8859-15
-		static const unsigned char c1[11] =
-			{ 0x49, 0x53, 0x4F, 0x2D, 0x38, 0x38, 0x35, 0x39, 0x2D, 0x31, 0x35 };
+		static const unsigned char c1[11] = { 0x49, 0x53, 0x4F, 0x2D, 0x38, 0x38, 0x35, 0x39, 0x2D, 0x31, 0x35 };
 		// ISO_8859-15
-		static const unsigned char c2[11] =
-			{ 0x49, 0x53, 0x4F, 0x5F, 0x38, 0x38, 0x35, 0x39, 0x2D, 0x31, 0x35 };
+		static const unsigned char c2[11] = { 0x49, 0x53, 0x4F, 0x5F, 0x38, 0x38, 0x35, 0x39, 0x2D, 0x31, 0x35 };
 		// Latin-9
-		static const unsigned char c3[7] =
-			{ 0x4C, 0x61, 0x74, 0x69, 0x6E, 0x2D, 0x39 };
+		static const unsigned char c3[7] = { 0x4C, 0x61, 0x74, 0x69, 0x6E, 0x2D, 0x39 };
 		// csISO885915
-		static const unsigned char c4[11] =
-			{ 0x63, 0x73, 0x49, 0x53, 0x4F, 0x38, 0x38, 0x35, 0x39, 0x31, 0x35 };
+		static const unsigned char c4[11] = { 0x63, 0x73, 0x49, 0x53, 0x4F, 0x38, 0x38, 0x35, 0x39, 0x31, 0x35 };
 		return (
 			CharsetEqual(c1, 11) ||
 			CharsetEqual(c2, 11) ||
@@ -5802,23 +5136,17 @@ namespace Xml
 	inline bool Inspector<TCharactersWriter>::IsISO_8859_16_Charset()
 	{
 		// ISO-8859-16
-		static const unsigned char c1[11] =
-			{ 0x49, 0x53, 0x4F, 0x2D, 0x38, 0x38, 0x35, 0x39, 0x2D, 0x31, 0x36 };
+		static const unsigned char c1[11] = { 0x49, 0x53, 0x4F, 0x2D, 0x38, 0x38, 0x35, 0x39, 0x2D, 0x31, 0x36 };
 		// iso-ir-226
-		static const unsigned char c2[10] =
-			{ 0x69, 0x73, 0x6F, 0x2D, 0x69, 0x72, 0x2D, 0x32, 0x32, 0x36 };
+		static const unsigned char c2[10] = { 0x69, 0x73, 0x6F, 0x2D, 0x69, 0x72, 0x2D, 0x32, 0x32, 0x36 };
 		// ISO_8859-16
-		static const unsigned char c3[11] =
-			{ 0x49, 0x53, 0x4F, 0x5F, 0x38, 0x38, 0x35, 0x39, 0x2D, 0x31, 0x36 };
+		static const unsigned char c3[11] = { 0x49, 0x53, 0x4F, 0x5F, 0x38, 0x38, 0x35, 0x39, 0x2D, 0x31, 0x36 };
 		// latin10
-		static const unsigned char c4[7] =
-			{ 0x6C, 0x61, 0x74, 0x69, 0x6E, 0x31, 0x30 };
+		static const unsigned char c4[7] = { 0x6C, 0x61, 0x74, 0x69, 0x6E, 0x31, 0x30 };
 		// l10
-		static const unsigned char c5[3] =
-			{ 0x6C, 0x31, 0x30 };
+		static const unsigned char c5[3] = { 0x6C, 0x31, 0x30 };
 		// csISO885916
-		static const unsigned char c6[11] =
-			{ 0x63, 0x73, 0x49, 0x53, 0x4F, 0x38, 0x38, 0x35, 0x39, 0x31, 0x36 };
+		static const unsigned char c6[11] = { 0x63, 0x73, 0x49, 0x53, 0x4F, 0x38, 0x38, 0x35, 0x39, 0x31, 0x36 };
 		return (
 			CharsetEqual(c1, 11) ||
 			CharsetEqual(c2, 10) ||
@@ -5841,11 +5169,9 @@ namespace Xml
 	inline bool Inspector<TCharactersWriter>::IsTIS620Charset()
 	{
 		// TIS-620
-		static const unsigned char c1[7] =
-			{ 0x54, 0x49, 0x53, 0x2D, 0x36, 0x32, 0x30 };
+		static const unsigned char c1[7] = { 0x54, 0x49, 0x53, 0x2D, 0x36, 0x32, 0x30 };
 		// csTIS620
-		static const unsigned char c2[8] =
-			{ 0x63, 0x73, 0x54, 0x49, 0x53, 0x36, 0x32, 0x30 };
+		static const unsigned char c2[8] = { 0x63, 0x73, 0x54, 0x49, 0x53, 0x36, 0x32, 0x30 };
 		return (
 			CharsetEqual(c1, 7) ||
 			CharsetEqual(c2, 8));
@@ -5860,11 +5186,9 @@ namespace Xml
 	inline bool Inspector<TCharactersWriter>::IsWindows874Charset()
 	{
 		// windows-874
-		static const unsigned char c1[11] =
-			{ 0x77, 0x69, 0x6E, 0x64, 0x6F, 0x77, 0x73, 0x2D, 0x38, 0x37, 0x34 };
+		static const unsigned char c1[11] = { 0x77, 0x69, 0x6E, 0x64, 0x6F, 0x77, 0x73, 0x2D, 0x38, 0x37, 0x34 };
 		// cswindows874
-		static const unsigned char c2[12] =
-			{ 0x63, 0x73, 0x77, 0x69, 0x6E, 0x64, 0x6F, 0x77, 0x73, 0x38, 0x37, 0x34 };
+		static const unsigned char c2[12] = { 0x63, 0x73, 0x77, 0x69, 0x6E, 0x64, 0x6F, 0x77, 0x73, 0x38, 0x37, 0x34 };
 		return (
 			CharsetEqual(c1, 11) ||
 			CharsetEqual(c2, 12));
@@ -5879,11 +5203,9 @@ namespace Xml
 	inline bool Inspector<TCharactersWriter>::IsWindows1250Charset()
 	{
 		// windows-1250
-		static const unsigned char c1[12] =
-			{ 0x77, 0x69, 0x6E, 0x64, 0x6F, 0x77, 0x73, 0x2D, 0x31, 0x32, 0x35, 0x30 };
+		static const unsigned char c1[12] = { 0x77, 0x69, 0x6E, 0x64, 0x6F, 0x77, 0x73, 0x2D, 0x31, 0x32, 0x35, 0x30 };
 		// cswindows1250
-		static const unsigned char c2[13] =
-			{ 0x63, 0x73, 0x77, 0x69, 0x6E, 0x64, 0x6F, 0x77, 0x73, 0x31, 0x32, 0x35, 0x30 };
+		static const unsigned char c2[13] = { 0x63, 0x73, 0x77, 0x69, 0x6E, 0x64, 0x6F, 0x77, 0x73, 0x31, 0x32, 0x35, 0x30 };
 		return (
 			CharsetEqual(c1, 12) ||
 			CharsetEqual(c2, 13));
@@ -5898,11 +5220,9 @@ namespace Xml
 	inline bool Inspector<TCharactersWriter>::IsWindows1251Charset()
 	{
 		// windows-1251
-		static const unsigned char c1[12] =
-			{ 0x77, 0x69, 0x6E, 0x64, 0x6F, 0x77, 0x73, 0x2D, 0x31, 0x32, 0x35, 0x31 };
+		static const unsigned char c1[12] = { 0x77, 0x69, 0x6E, 0x64, 0x6F, 0x77, 0x73, 0x2D, 0x31, 0x32, 0x35, 0x31 };
 		// cswindows1251
-		static const unsigned char c2[13] =
-			{ 0x63, 0x73, 0x77, 0x69, 0x6E, 0x64, 0x6F, 0x77, 0x73, 0x31, 0x32, 0x35, 0x31 };
+		static const unsigned char c2[13] = { 0x63, 0x73, 0x77, 0x69, 0x6E, 0x64, 0x6F, 0x77, 0x73, 0x31, 0x32, 0x35, 0x31 };
 		return (
 			CharsetEqual(c1, 12) ||
 			CharsetEqual(c2, 13));
@@ -5917,11 +5237,9 @@ namespace Xml
 	inline bool Inspector<TCharactersWriter>::IsWindows1252Charset()
 	{
 		// windows-1252
-		static const unsigned char c1[12] =
-			{ 0x77, 0x69, 0x6E, 0x64, 0x6F, 0x77, 0x73, 0x2D, 0x31, 0x32, 0x35, 0x32 };
+		static const unsigned char c1[12] = { 0x77, 0x69, 0x6E, 0x64, 0x6F, 0x77, 0x73, 0x2D, 0x31, 0x32, 0x35, 0x32 };
 		// cswindows1252
-		static const unsigned char c2[13] =
-			{ 0x63, 0x73, 0x77, 0x69, 0x6E, 0x64, 0x6F, 0x77, 0x73, 0x31, 0x32, 0x35, 0x32 };
+		static const unsigned char c2[13] = { 0x63, 0x73, 0x77, 0x69, 0x6E, 0x64, 0x6F, 0x77, 0x73, 0x31, 0x32, 0x35, 0x32 };
 		return (
 			CharsetEqual(c1, 12) ||
 			CharsetEqual(c2, 13));
@@ -5936,11 +5254,9 @@ namespace Xml
 	inline bool Inspector<TCharactersWriter>::IsWindows1253Charset()
 	{
 		// windows-1253
-		static const unsigned char c1[12] =
-			{ 0x77, 0x69, 0x6E, 0x64, 0x6F, 0x77, 0x73, 0x2D, 0x31, 0x32, 0x35, 0x33 };
+		static const unsigned char c1[12] = { 0x77, 0x69, 0x6E, 0x64, 0x6F, 0x77, 0x73, 0x2D, 0x31, 0x32, 0x35, 0x33 };
 		// cswindows1253
-		static const unsigned char c2[13] =
-			{ 0x63, 0x73, 0x77, 0x69, 0x6E, 0x64, 0x6F, 0x77, 0x73, 0x31, 0x32, 0x35, 0x33 };
+		static const unsigned char c2[13] = { 0x63, 0x73, 0x77, 0x69, 0x6E, 0x64, 0x6F, 0x77, 0x73, 0x31, 0x32, 0x35, 0x33 };
 		return (
 			CharsetEqual(c1, 12) ||
 			CharsetEqual(c2, 13));
@@ -5955,11 +5271,9 @@ namespace Xml
 	inline bool Inspector<TCharactersWriter>::IsWindows1254Charset()
 	{
 		// windows-1254
-		static const unsigned char c1[12] =
-			{ 0x77, 0x69, 0x6E, 0x64, 0x6F, 0x77, 0x73, 0x2D, 0x31, 0x32, 0x35, 0x34 };
+		static const unsigned char c1[12] = { 0x77, 0x69, 0x6E, 0x64, 0x6F, 0x77, 0x73, 0x2D, 0x31, 0x32, 0x35, 0x34 };
 		// cswindows1254
-		static const unsigned char c2[13] =
-			{ 0x63, 0x73, 0x77, 0x69, 0x6E, 0x64, 0x6F, 0x77, 0x73, 0x31, 0x32, 0x35, 0x34 };
+		static const unsigned char c2[13] = { 0x63, 0x73, 0x77, 0x69, 0x6E, 0x64, 0x6F, 0x77, 0x73, 0x31, 0x32, 0x35, 0x34 };
 		return (
 			CharsetEqual(c1, 12) ||
 			CharsetEqual(c2, 13));
@@ -5974,11 +5288,9 @@ namespace Xml
 	inline bool Inspector<TCharactersWriter>::IsWindows1255Charset()
 	{
 		// windows-1255
-		static const unsigned char c1[12] =
-			{ 0x77, 0x69, 0x6E, 0x64, 0x6F, 0x77, 0x73, 0x2D, 0x31, 0x32, 0x35, 0x35 };
+		static const unsigned char c1[12] = { 0x77, 0x69, 0x6E, 0x64, 0x6F, 0x77, 0x73, 0x2D, 0x31, 0x32, 0x35, 0x35 };
 		// cswindows1255
-		static const unsigned char c2[13] =
-			{ 0x63, 0x73, 0x77, 0x69, 0x6E, 0x64, 0x6F, 0x77, 0x73, 0x31, 0x32, 0x35, 0x35 };
+		static const unsigned char c2[13] = { 0x63, 0x73, 0x77, 0x69, 0x6E, 0x64, 0x6F, 0x77, 0x73, 0x31, 0x32, 0x35, 0x35 };
 		return (
 			CharsetEqual(c1, 12) ||
 			CharsetEqual(c2, 13));
@@ -5993,11 +5305,9 @@ namespace Xml
 	inline bool Inspector<TCharactersWriter>::IsWindows1256Charset()
 	{
 		// windows-1256
-		static const unsigned char c1[12] =
-			{ 0x77, 0x69, 0x6E, 0x64, 0x6F, 0x77, 0x73, 0x2D, 0x31, 0x32, 0x35, 0x36 };
+		static const unsigned char c1[12] = { 0x77, 0x69, 0x6E, 0x64, 0x6F, 0x77, 0x73, 0x2D, 0x31, 0x32, 0x35, 0x36 };
 		// cswindows1256
-		static const unsigned char c2[13] =
-			{ 0x63, 0x73, 0x77, 0x69, 0x6E, 0x64, 0x6F, 0x77, 0x73, 0x31, 0x32, 0x35, 0x36 };
+		static const unsigned char c2[13] = { 0x63, 0x73, 0x77, 0x69, 0x6E, 0x64, 0x6F, 0x77, 0x73, 0x31, 0x32, 0x35, 0x36 };
 		return (
 			CharsetEqual(c1, 12) ||
 			CharsetEqual(c2, 13));
@@ -6012,11 +5322,9 @@ namespace Xml
 	inline bool Inspector<TCharactersWriter>::IsWindows1257Charset()
 	{
 		// windows-1257
-		static const unsigned char c1[12] =
-			{ 0x77, 0x69, 0x6E, 0x64, 0x6F, 0x77, 0x73, 0x2D, 0x31, 0x32, 0x35, 0x37 };
+		static const unsigned char c1[12] = { 0x77, 0x69, 0x6E, 0x64, 0x6F, 0x77, 0x73, 0x2D, 0x31, 0x32, 0x35, 0x37 };
 		// cswindows1257
-		static const unsigned char c2[13] =
-			{ 0x63, 0x73, 0x77, 0x69, 0x6E, 0x64, 0x6F, 0x77, 0x73, 0x31, 0x32, 0x35, 0x37 };
+		static const unsigned char c2[13] = { 0x63, 0x73, 0x77, 0x69, 0x6E, 0x64, 0x6F, 0x77, 0x73, 0x31, 0x32, 0x35, 0x37 };
 		return (
 			CharsetEqual(c1, 12) ||
 			CharsetEqual(c2, 13));
@@ -6031,11 +5339,9 @@ namespace Xml
 	inline bool Inspector<TCharactersWriter>::IsWindows1258Charset()
 	{
 		// windows-1258
-		static const unsigned char c1[12] =
-			{ 0x77, 0x69, 0x6E, 0x64, 0x6F, 0x77, 0x73, 0x2D, 0x31, 0x32, 0x35, 0x38 };
+		static const unsigned char c1[12] = { 0x77, 0x69, 0x6E, 0x64, 0x6F, 0x77, 0x73, 0x2D, 0x31, 0x32, 0x35, 0x38 };
 		// cswindows1258
-		static const unsigned char c2[13] =
-			{ 0x63, 0x73, 0x77, 0x69, 0x6E, 0x64, 0x6F, 0x77, 0x73, 0x31, 0x32, 0x35, 0x38 };
+		static const unsigned char c2[13] = { 0x63, 0x73, 0x77, 0x69, 0x6E, 0x64, 0x6F, 0x77, 0x73, 0x31, 0x32, 0x35, 0x38 };
 		return (
 			CharsetEqual(c1, 12) ||
 			CharsetEqual(c2, 13));
@@ -6051,8 +5357,7 @@ namespace Xml
 		Inspector<TCharactersWriter>::NewAttribute()
 	{
 		AttributesSizeType fakeSize = static_cast<AttributesSizeType>(attributesSize);
-		if (fakeSize < attributes.size())
-		{
+		if (fakeSize < attributes.size()) {
 			++attributesSize;
 			AttributeType& ref = attributes[fakeSize];
 			ref.Name.clear();
@@ -6080,8 +5385,7 @@ namespace Xml
 		Inspector<TCharactersWriter>::NewUnclosedTag()
 	{
 		UnclosedTagsSizeType fakeSize = static_cast<UnclosedTagsSizeType>(unclosedTagsSize);
-		if (fakeSize < unclosedTags.size())
-		{
+		if (fakeSize < unclosedTags.size()) {
 			++unclosedTagsSize;
 			UnclosedTagType& ref = unclosedTags[fakeSize];
 			ref.Name.clear();
@@ -6107,8 +5411,7 @@ namespace Xml
 		Inspector<TCharactersWriter>::NewNamespace()
 	{
 		NamespacesSizeType fakeSize = static_cast<NamespacesSizeType>(namespacesSize);
-		if (fakeSize < namespaces.size())
-		{
+		if (fakeSize < namespaces.size()) {
 			++namespacesSize;
 			NamespaceDeclarationType& ref = namespaces[fakeSize];
 			ref.Prefix.clear();
@@ -6131,8 +5434,7 @@ namespace Xml
 	{
 		std::size_t length = 0;
 		const char32_t* pt = charset;
-		while (*pt != 0)
-		{
+		while (*pt != 0) {
 			++length;
 			++pt;
 		}
@@ -6141,8 +5443,7 @@ namespace Xml
 		if (length != comparingName.size())
 			return false;
 
-		for (std::size_t i = 0; i < length; ++i)
-		{
+		for (std::size_t i = 0; i < length; ++i) {
 			if (ToLower[static_cast<unsigned char>(comparingName[i])] !=
 				ToLower[static_cast<unsigned char>(charset[i])])
 				return false;
@@ -6159,8 +5460,7 @@ namespace Xml
 		if (len != comparingName.size())
 			return false;
 
-		for (std::size_t i = 0; i < len; ++i)
-		{
+		for (std::size_t i = 0; i < len; ++i) {
 			if (ToLower[static_cast<unsigned char>(comparingName[i])] !=
 				ToLower[charset[i]])
 				return false;
@@ -6214,29 +5514,24 @@ namespace Xml
 		SizeType tempRow;
 		SizeType tempColumn;
 
-		if (currentCharacter == LineFeed)
-		{
+		if (currentCharacter == LineFeed) {
 			++currentRow;
 			currentColumn = 1;
-		}
-		else
-		{
+		} else {
 			++currentColumn;
 		}
 
-		if (bufferedCharacter != 0)
-		{
-			if (bufferedCharacter > 3) // Allowed character.
+		if (bufferedCharacter != 0) {
+			if (bufferedCharacter > 3)  // Allowed character.
 			{
 				currentCharacter = bufferedCharacter;
 				bufferedCharacter = 0;
 				return false;
 			}
 
-			if (bufferedCharacter == 1) // No more characters to read.
+			if (bufferedCharacter == 1)  // No more characters to read.
 			{
-				if (insideTag)
-				{
+				if (insideTag) {
 					// Start token position.
 					tempRow = row;
 					tempColumn = column;
@@ -6245,14 +5540,11 @@ namespace Xml
 					column = tempColumn;
 					SetError(ErrorCode::UnclosedToken);
 					eof = true;
-				}
-				else
-				{
+				} else {
 					eof = true;
 					bufferedCharacter = 0;
 				}
-			}
-			else if (bufferedCharacter == 2) // Character is not allowed in XML document.
+			} else if (bufferedCharacter == 2)  // Character is not allowed in XML document.
 			{
 				// Invalid character position.
 				tempRow = currentRow;
@@ -6261,8 +5553,7 @@ namespace Xml
 				row = tempRow;
 				column = tempColumn;
 				SetError(ErrorCode::InvalidByteSequence);
-			}
-			else // bufferedCharacter == 3 // Stream error.
+			} else  // bufferedCharacter == 3 // Stream error.
 			{
 				// Character at stream error position.
 				tempRow = currentRow;
@@ -6278,34 +5569,30 @@ namespace Xml
 
 		int result = reader->ReadCharacter(currentCharacter);
 
-		if (result == 1) // Character was read successfully.
+		if (result == 1)  // Character was read successfully.
 		{
-			if (currentCharacter == CarriageReturn) // We don't like CR.
+			if (currentCharacter == CarriageReturn)  // We don't like CR.
 			{
 				result = reader->ReadCharacter(currentCharacter);
-				if (result == 1) // Second character was read successfully.
+				if (result == 1)  // Second character was read successfully.
 				{
-					if (currentCharacter != LineFeed)
-					{
+					if (currentCharacter != LineFeed) {
 						// CR, x => LF, x
 						bufferedCharacter = currentCharacter;
 						currentCharacter = LineFeed;
 					}
 					// else CR, LF => LF
-				}
-				else if (result == 0) // No more characters to read.
+				} else if (result == 0)  // No more characters to read.
 				{
 					// CR, [end of document] => LF, [end of document]
 					bufferedCharacter = 1;
 					currentCharacter = LineFeed;
-				}
-				else if (result == -1) // Character is not allowed in XML document.
+				} else if (result == -1)  // Character is not allowed in XML document.
 				{
 					// CR, [not allowed character] => LF, [not allowed character]
 					bufferedCharacter = 2;
 					currentCharacter = LineFeed;
-				}
-				else // result == -2 // Stream error.
+				} else  // result == -2 // Stream error.
 				{
 					// CR, [stream error] => LF, [stream error]
 					bufferedCharacter = 3;
@@ -6315,10 +5602,9 @@ namespace Xml
 			return false;
 		}
 
-		if (result == 0) // No more characters to read.
+		if (result == 0)  // No more characters to read.
 		{
-			if (insideTag)
-			{
+			if (insideTag) {
 				// Start token position.
 				tempRow = row;
 				tempColumn = column;
@@ -6327,13 +5613,10 @@ namespace Xml
 				column = tempColumn;
 				SetError(ErrorCode::UnclosedToken);
 				eof = true;
-			}
-			else
-			{
+			} else {
 				eof = true;
 			}
-		}
-		else if (result == -1) // Character is not allowed in XML document.
+		} else if (result == -1)  // Character is not allowed in XML document.
 		{
 			// Invalid character position.
 			tempRow = currentRow;
@@ -6342,8 +5625,7 @@ namespace Xml
 			row = tempRow;
 			column = tempColumn;
 			SetError(ErrorCode::InvalidByteSequence);
-		}
-		else // result == -2 // Stream error.
+		} else  // result == -2 // Stream error.
 		{
 			// Character at stream error position.
 			tempRow = currentRow;
@@ -6362,28 +5644,24 @@ namespace Xml
 	{
 		SizeType tempRow;
 		SizeType tempColumn;
-		if (!afterBom && (err == ErrorCode::None || err == ErrorCode::StreamError))
-		{
+		if (!afterBom && (err == ErrorCode::None || err == ErrorCode::StreamError)) {
 			// First call of Inspect method or after stream error while BOM parsing.
 			ParseBom();
 			if (err != ErrorCode::None)
 				return false;
 			row = 1;
 			column = 1;
-			if (eof)
-			{
+			if (eof) {
 				SetError(ErrorCode::NoElement);
 				return false;
 			}
 			currentRow = 1;
-			currentColumn = 0; // Don't worry,
+			currentColumn = 0;  // Don't worry,
 			// it will be 1 after first call of NextCharBad method.
 
 			// First character.
-			if (NextCharBad(false))
-			{
-				if (eof)
-				{
+			if (NextCharBad(false)) {
+				if (eof) {
 					SetError(ErrorCode::NoElement);
 					return false;
 				}
@@ -6393,12 +5671,10 @@ namespace Xml
 				bom != Details::Bom::None &&
 				bom != Details::Bom::Utf8 &&
 				bom != Details::Bom::Utf16BE &&
-				bom != Details::Bom::Utf16LE)
-			{
+				bom != Details::Bom::Utf16LE) {
 				// Encoding declaration is required here.
 
-				if (currentCharacter != LessThan)
-				{
+				if (currentCharacter != LessThan) {
 					Reset();
 					SetError(ErrorCode::EncodingDeclarationRequired);
 					row = 1;
@@ -6409,8 +5685,7 @@ namespace Xml
 				if (NextCharBad(true))
 					return false;
 
-				if (currentCharacter != Question)
-				{
+				if (currentCharacter != Question) {
 					Reset();
 					SetError(ErrorCode::EncodingDeclarationRequired);
 					row = 1;
@@ -6418,12 +5693,10 @@ namespace Xml
 					return false;
 				}
 
-				for (std::size_t i = 0; i < 3; ++i)
-				{
+				for (std::size_t i = 0; i < 3; ++i) {
 					if (NextCharBad(true))
 						return false;
-					if (currentCharacter != LowerXml[i])
-					{
+					if (currentCharacter != LowerXml[i]) {
 						Reset();
 						SetError(ErrorCode::EncodingDeclarationRequired);
 						row = 1;
@@ -6438,8 +5711,7 @@ namespace Xml
 				if (NextCharBad(true))
 					return false;
 
-				if (!IsWhiteSpace(currentCharacter))
-				{
+				if (!IsWhiteSpace(currentCharacter)) {
 					Reset();
 					SetError(ErrorCode::EncodingDeclarationRequired);
 					row = 1;
@@ -6450,14 +5722,11 @@ namespace Xml
 				return ParseXmlDeclaration();
 			}
 
-			if (IsWhiteSpace(currentCharacter))
-			{
-				do
-				{
+			if (IsWhiteSpace(currentCharacter)) {
+				do {
 					CharactersWriterType::WriteCharacter(value, currentCharacter);
-					if (NextCharBad(false))
-					{
-						if (eof) // White spaces followed by end of file.
+					if (NextCharBad(false)) {
+						if (eof)  // White spaces followed by end of file.
 						{
 							// In XML document at least one root element is required.
 							tempRow = currentRow;
@@ -6467,18 +5736,15 @@ namespace Xml
 							row = tempRow;
 							column = tempColumn;
 							return false;
-						}
-						else // White spaces followed by invalid character or stream error.
+						} else  // White spaces followed by invalid character or stream error.
 						{
 							// Error is set already.
 							return false;
 						}
 					}
-				}
-				while (IsWhiteSpace(currentCharacter));
+				} while (IsWhiteSpace(currentCharacter));
 
-				if (currentCharacter != LessThan)
-				{
+				if (currentCharacter != LessThan) {
 					tempRow = currentRow;
 					tempColumn = currentColumn;
 					Reset();
@@ -6487,13 +5753,12 @@ namespace Xml
 					column = tempColumn;
 					return false;
 				}
-				
+
 				node = Inspected::Whitespace;
 				return true;
 			}
 
-			if (currentCharacter != LessThan)
-			{
+			if (currentCharacter != LessThan) {
 				tempRow = currentRow;
 				tempColumn = currentColumn;
 				Reset();
@@ -6506,16 +5771,12 @@ namespace Xml
 		if (err != ErrorCode::None)
 			return false;
 
-		if (currentCharacter == GreaterThan) 
-		{
+		if (currentCharacter == GreaterThan) {
 			// End of token.
 			if (NextCharBad(false) && !eof)
 				return false;
-		}
-		else if (currentCharacter == Semicolon)
-		{
-			if (!entityName.empty())
-			{
+		} else if (currentCharacter == Semicolon) {
+			if (!entityName.empty()) {
 				PrepareNode();
 				name = entityName;
 				localName = entityName;
@@ -6524,19 +5785,15 @@ namespace Xml
 				row = currentRow;
 				column = (currentColumn - entityNameCharCount - 1);
 				return true;
-			}
-			else
-			{
+			} else {
 				// End of reference.
 				if (NextCharBad(false) && !eof)
 					return false;
 			}
 		}
 
-		if (eof)
-		{
-			if (!foundElement)
-			{
+		if (eof) {
+			if (!foundElement) {
 				// In XML document at least one root element is required.
 				tempRow = currentRow;
 				tempColumn = currentColumn;
@@ -6544,18 +5801,14 @@ namespace Xml
 				SetError(ErrorCode::NoElement);
 				row = tempRow;
 				column = tempColumn;
-			}
-			else if (unclosedTagsSize != 0)
-			{
+			} else if (unclosedTagsSize != 0) {
 				UnclosedTagType& ref = unclosedTags[unclosedTagsSize - 1];
 				Reset();
 				SetError(ErrorCode::UnclosedTag);
 				row = ref.Row;
 				column = ref.Column;
 				foundElement = true;
-			}
-			else
-			{
+			} else {
 				// XML document is fully parsed without any error.
 				tempRow = currentRow;
 				tempColumn = currentColumn;
@@ -6572,7 +5825,7 @@ namespace Xml
 			return false;
 		}
 
-		if (currentCharacter == LessThan) // New tag to parse.
+		if (currentCharacter == LessThan)  // New tag to parse.
 		{
 			SavePosition();
 
@@ -6580,27 +5833,23 @@ namespace Xml
 			if (NextCharBad(true))
 				return false;
 
-			if (currentCharacter == Slash)
-			{
+			if (currentCharacter == Slash) {
 				// EndTag.
 				return ParseEndTag();
 			}
 
 			if (currentCharacter != Colon &&
-				Encoding::CharactersReader::IsNameStartChar(currentCharacter))
-			{
+				Encoding::CharactersReader::IsNameStartChar(currentCharacter)) {
 				// StartTag or EmptyElementTag.
 				return ParseElement();
 			}
 
-			if (currentCharacter == Exclamation)
-			{
+			if (currentCharacter == Exclamation) {
 				// Comment or DocumentType.
 				return ParseExclamation();
 			}
 
-			if (currentCharacter == Question)
-			{
+			if (currentCharacter == Question) {
 				// XmlDeclaration or ProcessingInstruction.
 				return ParseQuestion();
 			}
@@ -6608,15 +5857,12 @@ namespace Xml
 			// currentCharacter is not allowed here.
 			tempRow = currentRow;
 			tempColumn = currentColumn;
-			if (Encoding::CharactersReader::IsNameChar(currentCharacter))
-			{
+			if (Encoding::CharactersReader::IsNameChar(currentCharacter)) {
 				// Not allowed as start character of the name,
 				// but allowed as a part of this name.
 				Reset();
 				SetError(ErrorCode::InvalidTagName);
-			}
-			else
-			{
+			} else {
 				// Some weird character.
 				Reset();
 				SetError(ErrorCode::InvalidSyntax);
@@ -6757,27 +6003,20 @@ namespace Xml
 		attributesSize = 0;
 		unclosedTagsSize = 0;
 		namespacesSize = 0;
-		if (sourceType == SourcePath)
-		{
+		if (sourceType == SourcePath) {
 			fPath.clear();
 			if (fileStream.is_open())
 				fileStream.close();
 			fileStream.clear();
 			delete reader;
 			reader = nullptr;
-		}
-		else if (sourceType == SourceReader)
-		{
+		} else if (sourceType == SourceReader) {
 			reader = nullptr;
-		}
-		else if (sourceType == SourceStream)
-		{
+		} else if (sourceType == SourceStream) {
 			inputStreamPtr = nullptr;
 			delete reader;
 			reader = nullptr;
-		}
-		else if (sourceType == SourceIterators)
-		{
+		} else if (sourceType == SourceIterators) {
 			delete inputStreamPtr->rdbuf();
 			delete inputStreamPtr;
 			inputStreamPtr = nullptr;
@@ -6817,7 +6056,7 @@ namespace Xml
 		TInputIterator first, TInputIterator last)
 	{
 		Reset();
-		std::unique_ptr<Details::BasicIteratorsBuf<TInputIterator, char> > buf(
+		std::unique_ptr<Details::BasicIteratorsBuf<TInputIterator, char>> buf(
 			new Details::BasicIteratorsBuf<TInputIterator, char>(first, last));
 		inputStreamPtr = new std::istream(buf.get());
 		buf.release();
@@ -6828,8 +6067,7 @@ namespace Xml
 	inline void Inspector<TCharactersWriter>::Reset(Encoding::CharactersReader* r)
 	{
 		Reset();
-		if (r != nullptr)
-		{
+		if (r != nullptr) {
 			reader = r;
 			sourceType = SourceReader;
 		}
@@ -6855,27 +6093,24 @@ namespace Xml
 			// UTF-32 (BE)    00 00 FE FF
 			// UTF-32 (LE)    FF FE 00 00
 
-			if (inputStream != nullptr)
-			{
+			if (inputStream != nullptr) {
 				// Check first byte.
 				int oneByte = inputStream->peek();
 
-				if (oneByte == std::char_traits<char>::eof())
-				{
+				if (oneByte == std::char_traits<char>::eof()) {
 					if ((inputStream->rdstate() & std::istream::eofbit) != 0)
-						return Bom::None; // End of the stream.
+						return Bom::None;  // End of the stream.
 					return Bom::StreamError;
 				}
 
-				if (oneByte == 0xEF) // Should be UTF-8
+				if (oneByte == 0xEF)  // Should be UTF-8
 				{
 					// Extract first byte.
 					inputStream->get();
 
 					// Extract second byte.
 					oneByte = inputStream->get();
-					if (oneByte == std::char_traits<char>::eof())
-					{
+					if (oneByte == std::char_traits<char>::eof()) {
 						if ((inputStream->rdstate() & std::istream::eofbit) != 0)
 							return Bom::Invalid;
 						return Bom::StreamError;
@@ -6885,8 +6120,7 @@ namespace Xml
 
 					// Extract third byte.
 					oneByte = inputStream->get();
-					if (oneByte == std::char_traits<char>::eof())
-					{
+					if (oneByte == std::char_traits<char>::eof()) {
 						if ((inputStream->rdstate() & std::istream::eofbit) != 0)
 							return Bom::Invalid;
 						return Bom::StreamError;
@@ -6895,16 +6129,14 @@ namespace Xml
 						return Bom::Invalid;
 
 					return Bom::Utf8;
-				}
-				else if (oneByte == 0xFE) // Should be UTF-16 (BE)
+				} else if (oneByte == 0xFE)  // Should be UTF-16 (BE)
 				{
 					// Extract first byte.
 					inputStream->get();
 
 					// Extract second byte.
 					oneByte = inputStream->get();
-					if (oneByte == std::char_traits<char>::eof())
-					{
+					if (oneByte == std::char_traits<char>::eof()) {
 						if ((inputStream->rdstate() & std::istream::eofbit) != 0)
 							return Bom::Invalid;
 						return Bom::StreamError;
@@ -6913,16 +6145,14 @@ namespace Xml
 						return Bom::Invalid;
 
 					return Bom::Utf16BE;
-				}
-				else if (oneByte == 0xFF) // Should be UTF-16 (LE) of UTF-32 (LE)
+				} else if (oneByte == 0xFF)  // Should be UTF-16 (LE) of UTF-32 (LE)
 				{
 					// Extract first byte.
 					inputStream->get();
 
 					// Extract second byte.
 					oneByte = inputStream->get();
-					if (oneByte == std::char_traits<char>::eof())
-					{
+					if (oneByte == std::char_traits<char>::eof()) {
 						if ((inputStream->rdstate() & std::istream::eofbit) != 0)
 							return Bom::Invalid;
 						return Bom::StreamError;
@@ -6932,8 +6162,7 @@ namespace Xml
 
 					// Check third byte.
 					oneByte = inputStream->peek();
-					if (oneByte == std::char_traits<char>::eof())
-					{
+					if (oneByte == std::char_traits<char>::eof()) {
 						if ((inputStream->rdstate() & std::istream::eofbit) != 0)
 							return Bom::Utf16LE;
 						return Bom::StreamError;
@@ -6947,8 +6176,7 @@ namespace Xml
 
 					// Extract fourth byte.
 					oneByte = inputStream->get();
-					if (oneByte == std::char_traits<char>::eof())
-					{
+					if (oneByte == std::char_traits<char>::eof()) {
 						if ((inputStream->rdstate() & std::istream::eofbit) != 0)
 							return Bom::Invalid;
 						return Bom::StreamError;
@@ -6957,16 +6185,14 @@ namespace Xml
 						return Bom::Invalid;
 
 					return Bom::Utf32LE;
-				}
-				else if (oneByte == 0x00) // Should be UTF-32 (BE)
+				} else if (oneByte == 0x00)  // Should be UTF-32 (BE)
 				{
 					// Extract first byte.
 					inputStream->get();
 
 					// Extract second byte.
 					oneByte = inputStream->get();
-					if (oneByte == std::char_traits<char>::eof())
-					{
+					if (oneByte == std::char_traits<char>::eof()) {
 						if ((inputStream->rdstate() & std::istream::eofbit) != 0)
 							return Bom::Invalid;
 						return Bom::StreamError;
@@ -6976,8 +6202,7 @@ namespace Xml
 
 					// Extract third byte.
 					oneByte = inputStream->get();
-					if (oneByte == std::char_traits<char>::eof())
-					{
+					if (oneByte == std::char_traits<char>::eof()) {
 						if ((inputStream->rdstate() & std::istream::eofbit) != 0)
 							return Bom::Invalid;
 						return Bom::StreamError;
@@ -6987,8 +6212,7 @@ namespace Xml
 
 					// Extract fourth byte.
 					oneByte = inputStream->get();
-					if (oneByte == std::char_traits<char>::eof())
-					{
+					if (oneByte == std::char_traits<char>::eof()) {
 						if ((inputStream->rdstate() & std::istream::eofbit) != 0)
 							return Bom::Invalid;
 						return Bom::StreamError;
@@ -6997,15 +6221,13 @@ namespace Xml
 						return Bom::Invalid;
 
 					return Bom::Utf32BE;
-				}
-				else
-				{
+				} else {
 					return Bom::None;
 				}
 			}
 			return Bom::StreamError;
 		}
-		
+
 		template <typename TInputIterator>
 		inline Bom ReadBom(TInputIterator& first, TInputIterator& last)
 		{
@@ -7018,7 +6240,7 @@ namespace Xml
 			if (first == last)
 				return Bom::None;
 
-			if (*first == 0xEF) // Should be UTF-8
+			if (*first == 0xEF)  // Should be UTF-8
 			{
 				++first;
 				if (first == last || *first != 0xBB)
@@ -7030,8 +6252,7 @@ namespace Xml
 
 				++first;
 				return Bom::Utf8;
-			}
-			else if (*first == 0xFE) // Should be UTF-16 (BE)
+			} else if (*first == 0xFE)  // Should be UTF-16 (BE)
 			{
 				++first;
 				if (first == last || *first != 0xFF)
@@ -7039,8 +6260,7 @@ namespace Xml
 
 				++first;
 				return Bom::Utf16BE;
-			}
-			else if (*first == 0xFF) // Should be UTF-16 (LE) of UTF-32 (LE)
+			} else if (*first == 0xFF)  // Should be UTF-16 (LE) of UTF-32 (LE)
 			{
 				++first;
 				if (first == last || *first != 0xFE)
@@ -7057,8 +6277,7 @@ namespace Xml
 
 				++first;
 				return Bom::Utf32LE;
-			}
-			else if (*first == 0x00) // Should be UTF-32 (BE)
+			} else if (*first == 0x00)  // Should be UTF-32 (BE)
 			{
 				++first;
 				if (first == last || *first != 0x00)
@@ -7074,9 +6293,7 @@ namespace Xml
 
 				++first;
 				return Bom::Utf32BE;
-			}
-			else
-			{
+			} else {
 				return Bom::None;
 			}
 		}
@@ -7114,13 +6331,10 @@ namespace Xml
 		inline std::streamsize
 			BasicIteratorsBuf<TInputIterator, TCharacterType, TTraits>::showmanyc()
 		{
-			return (curIter != endIter)
-				? 1
-				: 0;
+			return (curIter != endIter) ? 1 : 0;
 		}
 	}
 	/// @endcond
 }
 
 #endif
-

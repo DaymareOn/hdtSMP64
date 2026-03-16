@@ -1,13 +1,13 @@
 #pragma once
 
-#include "hdtBulletHelper.h"
 #include "hdtBoneScaleConstraint.h"
-#include <BulletDynamics/MLCPSolvers/btMLCPSolver.h>
+#include "hdtBulletHelper.h"
 #include "hdtLCP.h"
+#include <BulletDynamics/MLCPSolvers/btMLCPSolver.h>
 
 namespace hdt
 {
-	class ConstraintGroup : 
+	class ConstraintGroup :
 		public RE::BSIntrusiveRefCounted,
 		public btMLCPSolver
 	{
@@ -16,9 +16,10 @@ namespace hdt
 		using btMLCPSolver::operator delete;
 		using btMLCPSolver::operator new[];
 		using btMLCPSolver::operator delete[];
+
 	public:
 		ConstraintGroup();
-		
+
 		void scaleConstraint()
 		{
 			for (auto& i : m_constraints)
@@ -34,19 +35,18 @@ namespace hdt
 		static bool EnableMLCP;
 
 	protected:
-
 		int getOrInitSolverBody(btCollisionObject& body, btScalar timeStep);
 
 		void createMLCPFast(const btContactSolverInfo& infoGlobal) override;
 		btScalar solveSingleIteration(int iteration, btCollisionObject** /*bodies */, int /*numBodies*/,
-		                              btPersistentManifold** /*manifoldPtr*/, int /*numManifolds*/,
-		                              btTypedConstraint** constraints, int numConstraints,
-		                              const btContactSolverInfo& infoGlobal, btIDebugDraw* /*debugDrawer*/) override;
+			btPersistentManifold** /*manifoldPtr*/, int /*numManifolds*/,
+			btTypedConstraint** constraints, int numConstraints,
+			const btContactSolverInfo& infoGlobal, btIDebugDraw* /*debugDrawer*/) override;
 		btScalar solveGroupCacheFriendlyIterations(btCollisionObject** bodies, int numBodies,
-		                                           btPersistentManifold** manifoldPtr, int numManifolds,
-		                                           btTypedConstraint** constraints, int numConstraints,
-		                                           const btContactSolverInfo& infoGlobal,
-		                                           btIDebugDraw* debugDrawer) override;
+			btPersistentManifold** manifoldPtr, int numManifolds,
+			btTypedConstraint** constraints, int numConstraints,
+			const btContactSolverInfo& infoGlobal,
+			btIDebugDraw* debugDrawer) override;
 
 		std::vector<btTypedConstraint*> m_btConstraints;
 		btAlignedObjectArray<btSolverBody>* m_solverBodies;

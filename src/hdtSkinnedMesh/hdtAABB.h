@@ -8,7 +8,8 @@ namespace hdt
 	{
 		Aabb() { invalidate(); }
 
-		Aabb(__m128 mmin, __m128 mmax) : m_min(mmin), m_max(mmax)
+		Aabb(__m128 mmin, __m128 mmax) :
+			m_min(mmin), m_max(mmax)
 		{
 		}
 
@@ -92,8 +93,8 @@ namespace hdt
 		{
 		}
 
-		BoundingSphere(const btVector3& center, float radius)
-			: m_centerRadius(center)
+		BoundingSphere(const btVector3& center, float radius) :
+			m_centerRadius(center)
 		{
 			m_centerRadius[3] = radius;
 		}

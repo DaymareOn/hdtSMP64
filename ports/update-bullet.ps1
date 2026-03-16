@@ -67,20 +67,20 @@ Write-Host "  Created: portfile.cmake.new (for manual review)" -ForegroundColor 
 
 Write-Host "`nStep 5: Review required!" -ForegroundColor Yellow
 Write-Host @"
-  
+
   The upstream portfile.cmake has been saved as portfile.cmake.new
-  
+
   You need to:
   1. Compare portfile.cmake with portfile.cmake.new
   2. Merge any important upstream changes
   3. Ensure your custom modification blocks are preserved
   4. Test the build
-  
+
   Custom modification markers to preserve:
     # Apply non-Hookean spring modifications
     file(READ ...
     string(REPLACE ...
-    
+
 "@ -ForegroundColor Cyan
 
 Write-Host "`nStep 6: Testing build (optional)..." -ForegroundColor Yellow
@@ -91,13 +91,13 @@ if ($response -eq 'y' -or $response -eq 'Y') {
     if (Test-Path $BuildVcpkg) {
         Remove-Item -Recurse -Force $BuildVcpkg
     }
-    
+
     Write-Host "  Running CMake configure..." -ForegroundColor Gray
     $ProjectRoot = Split-Path $PSScriptRoot -Parent
     cmake -S $ProjectRoot -B (Join-Path $ProjectRoot "build") `
         -DCMAKE_TOOLCHAIN_FILE="$VcpkgRoot\scripts\buildsystems\vcpkg.cmake" `
         -DVCPKG_OVERLAY_PORTS=(Split-Path $OverlayPort -Parent)
-    
+
     if ($LASTEXITCODE -eq 0) {
         Write-Host "`n  SUCCESS: Build configuration successful!" -ForegroundColor Green
     } else {

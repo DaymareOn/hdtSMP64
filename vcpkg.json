@@ -1,13 +1,12 @@
 {
   "name": "hdtsmp64",
   "version": "1",
-  "dependencies": 
-  [
+  "dependencies": [
     "directxtk",
     "fmt",
     "rapidcsv",
-    "detours", 
-    "spdlog", 
+    "detours",
+    "spdlog",
     {
       "name": "bullet3",
       "features": [

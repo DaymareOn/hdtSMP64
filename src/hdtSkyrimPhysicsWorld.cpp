@@ -92,8 +92,7 @@ namespace hdt
 		m_averageInterval += (interval - m_averageInterval) * .125f;
 
 		// No need to calculate physics if there is no active skeleton.
-		if (!disabled && hdt::ActorManager::instance()->activeSkeletons)
-		{
+		if (!disabled && hdt::ActorManager::instance()->activeSkeletons) {
 			// The tick is the given time for each computation substep. We set it to the average fps
 			// to have one average computation each frame when everything is usual.
 			// In case of poor fps, we set it to the configured minimum engine value (60 Hz),
@@ -102,8 +101,7 @@ namespace hdt
 
 			// No need to calculate physics when too little time has passed (time exceptionally short since last computation).
 			// This magic value directly impacts the number of computations and the time cost of the mod...
-			if (m_accumulatedInterval * 2.0f > tick)
-			{
+			if (m_accumulatedInterval * 2.0f > tick) {
 				// The interval is limited to a configurable number of substeps, by default 4.
 				// Additional substeps happens when there is a very sudden slowdown, or when fps is lower than min-fps,
 				// we have to compute for the passed time we haven't computed.
@@ -131,8 +129,7 @@ namespace hdt
 
 		LARGE_INTEGER ticks;
 		int64_t startTime = 0;
-		if (m_doMetrics)
-		{
+		if (m_doMetrics) {
 			QueryPerformanceCounter(&ticks);
 			startTime = ticks.QuadPart;
 		}
@@ -149,8 +146,7 @@ namespace hdt
 
 		writeTransform();
 
-		if (m_doMetrics)
-		{
+		if (m_doMetrics) {
 			QueryPerformanceCounter(&ticks);
 			int64_t endTime = ticks.QuadPart;
 			QueryPerformanceFrequency(&ticks);
@@ -172,23 +168,20 @@ namespace hdt
 		btVector3 center;
 		center.setZero();
 		int count = 0;
-		for (int i = 0; i < m_collisionObjects.size(); ++i)
-		{
+		for (int i = 0; i < m_collisionObjects.size(); ++i) {
 			auto rig = btRigidBody::upcast(m_collisionObjects[i]);
-			if (rig)
-			{
+			if (rig) {
 				center += rig->getWorldTransform().getOrigin();
 				++count;
 			}
 		}
 
-		if (count > 0)
-		{
+		if (count > 0) {
 			center /= static_cast<btScalar>(count);
-			for (int i = 0; i < m_collisionObjects.size(); ++i)
-			{
+			for (int i = 0; i < m_collisionObjects.size(); ++i) {
 				auto rig = btRigidBody::upcast(m_collisionObjects[i]);
-				if (rig) rig->getWorldTransform().getOrigin() -= center;
+				if (rig)
+					rig->getWorldTransform().getOrigin() -= center;
 			}
 		}
 		return center;
@@ -196,11 +189,9 @@ namespace hdt
 
 	void SkyrimPhysicsWorld::restoreTranslationOffset(const btVector3& offset)
 	{
-		for (int i = 0; i < m_collisionObjects.size(); ++i)
-		{
+		for (int i = 0; i < m_collisionObjects.size(); ++i) {
 			auto rig = btRigidBody::upcast(m_collisionObjects[i]);
-			if (rig)
-			{
+			if (rig) {
 				rig->getWorldTransform().getOrigin() += offset;
 			}
 		}
@@ -208,26 +199,22 @@ namespace hdt
 
 	void SkyrimPhysicsWorld::setWind(const RE::NiPoint3& a_point, float a_scale, uint32_t a_smoothingSamples)
 	{
-		if (a_smoothingSamples == 0) 
-		{
+		if (a_smoothingSamples == 0) {
 			logger::error("setWind a_smoothingSamples must be > 0; values ignored");
 			return;
 		}
 		const auto oldValueWeight = a_smoothingSamples - 1;
-		if (!btFuzzyZero((m_windSpeed - btVector3(a_point.x, a_point.y, a_point.z)).length())) 
-		{
+		if (!btFuzzyZero((m_windSpeed - btVector3(a_point.x, a_point.y, a_point.z)).length())) {
 			m_windSpeed.setValue((oldValueWeight * m_windSpeed.getX() + a_point.x * a_scale) / a_smoothingSamples, (oldValueWeight * m_windSpeed.getY() + a_point.y * a_scale) / a_smoothingSamples, (oldValueWeight * m_windSpeed.getZ() + a_point.z * a_scale) / a_smoothingSamples);
-			logger::debug
-			(
-				"Wind Speed now ({:.2f}, {:.2f}, {:.2f}), target ({:.2f}, {:.2f}, {:.2f}) using {} samples.", 
-				m_windSpeed.getX(), 
-				m_windSpeed.getY(), 
-				m_windSpeed.getZ(), 
-				a_point.x * a_scale, 
-				a_point.y * a_scale, 
-				a_point.z * a_scale, 
-				a_smoothingSamples
-			);
+			logger::debug(
+				"Wind Speed now ({:.2f}, {:.2f}, {:.2f}), target ({:.2f}, {:.2f}, {:.2f}) using {} samples.",
+				m_windSpeed.getX(),
+				m_windSpeed.getY(),
+				m_windSpeed.getZ(),
+				a_point.x * a_scale,
+				a_point.y * a_scale,
+				a_point.z * a_scale,
+				a_smoothingSamples);
 		}
 	}
 
@@ -242,44 +229,34 @@ namespace hdt
 		std::unordered_map<RE::NiNode*, Group> maps;
 
 		IDStr invalidString;
-		for (auto& i : m_systems)
-		{
+		for (auto& i : m_systems) {
 			auto system = static_cast<SkyrimSystem*>(i.get());
 			auto& map = maps[system->m_skeleton.get()];
-			for (auto& j : system->meshes())
-			{
+			for (auto& j : system->meshes()) {
 				auto shape = static_cast<SkyrimBody*>(j.get());
-				if (!shape) continue;
+				if (!shape)
+					continue;
 
-				if (shape->m_disableTag == invalidString)
-				{
+				if (shape->m_disableTag == invalidString) {
 					for (auto& k : shape->m_tags)
 						map.tags.insert(k);
-				}
-				else
-				{
+				} else {
 					map.list[shape->m_disableTag].push_back(shape);
 				}
 			}
 		}
 
-		for (auto& i : maps)
-		{
-			for (auto& j : i.second.list)
-			{
-				if (i.second.tags.find(j.first) != i.second.tags.end())
-				{
+		for (auto& i : maps) {
+			for (auto& j : i.second.list) {
+				if (i.second.tags.find(j.first) != i.second.tags.end()) {
 					for (auto& k : j.second)
 						k->m_disabled = true;
-				}
-				else if (j.second.size())
-				{
-					std::sort(j.second.begin(), j.second.end(), [](SkyrimBody* a, SkyrimBody* b)
-						{
-							if (a->m_disablePriority != b->m_disablePriority)
-								return a->m_disablePriority > b->m_disablePriority;
-							return a < b;
-						});
+				} else if (j.second.size()) {
+					std::sort(j.second.begin(), j.second.end(), [](SkyrimBody* a, SkyrimBody* b) {
+						if (a->m_disablePriority != b->m_disablePriority)
+							return a->m_disablePriority > b->m_disablePriority;
+						return a < b;
+					});
 
 					for (auto& k : j.second)
 						k->m_disabled = true;
@@ -293,7 +270,8 @@ namespace hdt
 	{
 		std::lock_guard<decltype(m_lock)> l(m_lock);
 		auto s = dynamic_cast<SkyrimSystem*>(system);
-		if (!s) return;
+		if (!s)
+			return;
 
 		s->m_initialized = false;
 		SkinnedMeshWorld::addSkinnedMeshSystem(system);
@@ -310,15 +288,14 @@ namespace hdt
 	{
 		std::lock_guard<decltype(m_lock)> l(m_lock);
 
-		for (int i = 0; i < m_systems.size();)
-		{
+		for (int i = 0; i < m_systems.size();) {
 			RE::BSTSmartPointer<SkyrimSystem> s = hdt::make_smart(dynamic_cast<SkyrimSystem*>(m_systems[i].get()));
-			if (s && s->m_skeleton == root)
-			{
+			if (s && s->m_skeleton == root) {
 				SkinnedMeshWorld::removeSkinnedMeshSystem(s.get());
 			}
-			
-			else ++i;
+
+			else
+				++i;
 		}
 	}
 
@@ -339,20 +316,16 @@ namespace hdt
 	{
 		auto mm = RE::UI::GetSingleton();
 
-		if ((e->gamePaused || mm->GameIsPaused()) && !m_suspended)
-		{
+		if ((e->gamePaused || mm->GameIsPaused()) && !m_suspended) {
 			suspend();
-		}
-		else if (!(e->gamePaused || mm->GameIsPaused()) && m_suspended)
-		{
+		} else if (!(e->gamePaused || mm->GameIsPaused()) && m_suspended) {
 			resume();
 		}
 
 		LARGE_INTEGER ticks;
 		int64_t startTime = 0;
 		int64_t endTime = 0;
-		if (m_doMetrics)
-		{
+		if (m_doMetrics) {
 			QueryPerformanceCounter(&ticks);
 			startTime = ticks.QuadPart;
 		}
@@ -361,17 +334,13 @@ namespace hdt
 
 		float interval = (m_useRealTime ? RE::BSTimer::GetSingleton()->realTimeDelta : RE::BSTimer::GetSingleton()->delta);
 
-		if (interval > FLT_EPSILON && !m_suspended && !m_isStasis && !m_systems.empty())
-		{
+		if (interval > FLT_EPSILON && !m_suspended && !m_isStasis && !m_systems.empty()) {
 			doUpdate(interval);
-		}
-		else if (m_isStasis || (m_suspended && !m_loading))
-		{
+		} else if (m_isStasis || (m_suspended && !m_loading)) {
 			writeTransform();
 		}
 
-		if (m_doMetrics)
-		{
+		if (m_doMetrics) {
 			QueryPerformanceCounter(&ticks);
 			endTime = ticks.QuadPart;
 			QueryPerformanceFrequency(&ticks);
@@ -384,8 +353,7 @@ namespace hdt
 
 	RE::BSEventNotifyControl SkyrimPhysicsWorld::ProcessEvent(const Events::FrameSyncEvent*, RE::BSTEventSource<Events::FrameSyncEvent>*)
 	{
-		if (m_doMetrics)
-		{
+		if (m_doMetrics) {
 			LARGE_INTEGER ticks;
 			QueryPerformanceCounter(&ticks);
 			int64_t startTime = ticks.QuadPart;
@@ -399,14 +367,10 @@ namespace hdt
 			m_SMPProcessingTimeInMainLoop += (endTime - startTime) / static_cast<float>(ticks.QuadPart) * 1e3f;
 			m_averageSMPProcessingTimeInMainLoop = (m_averageSMPProcessingTimeInMainLoop * (m_sampleSize - 1) + m_SMPProcessingTimeInMainLoop) / m_sampleSize;
 			float totalSMPTime = m_averageSMPProcessingTimeInMainLoop + m_2ndStepAverageProcessingTime;
-			logger::info
-			(
-				"smp cost in main loop (msecs): {:.2f}, cost outside main loop: {:.2f}, percentage outside vs total: {:.2f}", 
-				m_averageSMPProcessingTimeInMainLoop, m_2ndStepAverageProcessingTime, 100. * m_2ndStepAverageProcessingTime / totalSMPTime
-			);
-		}
-		else
-		{
+			logger::info(
+				"smp cost in main loop (msecs): {:.2f}, cost outside main loop: {:.2f}, percentage outside vs total: {:.2f}",
+				m_averageSMPProcessingTimeInMainLoop, m_2ndStepAverageProcessingTime, 100. * m_2ndStepAverageProcessingTime / totalSMPTime);
+		} else {
 			m_tasks.wait();
 		}
 
@@ -415,8 +379,7 @@ namespace hdt
 
 	RE::BSEventNotifyControl SkyrimPhysicsWorld::ProcessEvent(const Events::ShutdownEvent*, RE::BSTEventSource<Events::ShutdownEvent>*)
 	{
-		while (m_systems.size())
-		{
+		while (m_systems.size()) {
 			SkinnedMeshWorld::removeSkinnedMeshSystem(m_systems.back().get());
 		}
 
@@ -425,10 +388,8 @@ namespace hdt
 
 	RE::BSEventNotifyControl SkyrimPhysicsWorld::ProcessEvent(const SKSE::CameraEvent* evn, RE::BSTEventSource<SKSE::CameraEvent>*)
 	{
-		if (evn && evn->oldState && evn->newState)
-		{
-			if (evn->oldState->id == RE::CameraState::kFirstPerson && evn->newState->id == RE::CameraState::kThirdPerson)
-			{
+		if (evn && evn->oldState && evn->newState) {
+			if (evn->oldState->id == RE::CameraState::kFirstPerson && evn->newState->id == RE::CameraState::kThirdPerson) {
 				m_resetPc = 3;
 			}
 		}

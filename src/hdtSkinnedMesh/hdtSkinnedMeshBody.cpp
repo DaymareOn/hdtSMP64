@@ -60,20 +60,18 @@ __kernel void updateVertices(
 
 	void SkinnedMeshBody::internalUpdateCL()
 	{
-		for (int i = 0; i < m_skinnedBones.size(); ++i)
-		{
+		for (int i = 0; i < m_skinnedBones.size(); ++i) {
 			auto boneT = m_skinnedBones[i]->m_currentTransform;
 			m_bones[i].m_vertexToWorld = boneT * m_vertexToBone[i];
 			m_bones[i].m_maginMultipler = m_skinnedBones[i]->m_marginMultipler * boneT.getScale();
 		}
 
 		auto cl = hdtCL::instance();
-		if (cl && !m_bonesCL())
-		{
-			m_bonesCL = cl->createBuffer(sizeof(Bone)* m_bones.size(), CL_MEM_READ_ONLY | CL_MEM_HOST_WRITE_ONLY, nullptr);
-			m_verticesCL = cl->createBuffer(sizeof(Vertex)* m_vertices.size(), CL_MEM_READ_ONLY | CL_MEM_HOST_WRITE_ONLY, nullptr);
-			m_vposCL = cl->createBuffer(sizeof(VertexPos)* m_vpos.size(), CL_MEM_READ_WRITE | CL_MEM_HOST_READ_ONLY, nullptr);
-			cl->writeBuffer(m_verticesCL, m_vertices.data(), sizeof(Vertex)* m_vertices.size(), true);
+		if (cl && !m_bonesCL()) {
+			m_bonesCL = cl->createBuffer(sizeof(Bone) * m_bones.size(), CL_MEM_READ_ONLY | CL_MEM_HOST_WRITE_ONLY, nullptr);
+			m_verticesCL = cl->createBuffer(sizeof(Vertex) * m_vertices.size(), CL_MEM_READ_ONLY | CL_MEM_HOST_WRITE_ONLY, nullptr);
+			m_vposCL = cl->createBuffer(sizeof(VertexPos) * m_vpos.size(), CL_MEM_READ_WRITE | CL_MEM_HOST_READ_ONLY, nullptr);
+			cl->writeBuffer(m_verticesCL, m_vertices.data(), sizeof(Vertex) * m_vertices.size(), true);
 		}
 
 		auto e0 = cl->writeBufferE(m_bonesCL, m_bones.data(), m_bones.size() * sizeof(Bone));
@@ -90,10 +88,8 @@ __kernel void updateVertices(
 	{
 #ifdef ENABLE_CL
 		auto cl = hdtCL::instance();
-		if (cl)
-		{
-			if (!m_kernel())
-			{
+		if (cl) {
+			if (!m_kernel()) {
 				m_kernel.lock();
 				if (!m_kernel())
 					m_kernel = hdtCLKernel(cl->compile(sourceCode), "updateVertices");
@@ -124,8 +120,7 @@ __kernel void updateVertices(
 #ifdef CUDA
 	void SkinnedMeshBody::updateBones()
 	{
-		for (size_t i = 0; i < m_skinnedBones.size(); ++i)
-		{
+		for (size_t i = 0; i < m_skinnedBones.size(); ++i) {
 			auto& v = m_skinnedBones[i];
 			auto boneT = v.ptr->m_currentTransform;
 			m_bones[i].m_vertexToWorld = btMatrix4x3T(boneT) * v.vertexToBone;
@@ -143,24 +138,25 @@ __kernel void updateVertices(
 
 		int size = m_vertices.size();
 
-		for (int idx = 0; idx < size; ++idx)
-		{
+		for (int idx = 0; idx < size; ++idx) {
 			auto& v = m_vertices[idx];
 			auto p = v.m_skinPos.get128();
 			auto w = _mm_load_ps(v.m_weight);
 			auto flg = _mm_movemask_ps(_mm_cmplt_ps(_mm_set_ps1(FLT_EPSILON), w));
 			auto posMargin = calcVertexState(p, m_bones[v.getBoneIdx(0)], setAll0(w));
-			if (flg & 0b0010) posMargin += calcVertexState(p, m_bones[v.getBoneIdx(1)], setAll1(w));
-			if (flg & 0b0100) posMargin += calcVertexState(p, m_bones[v.getBoneIdx(2)], setAll2(w));
-			if (flg & 0b1000) posMargin += calcVertexState(p, m_bones[v.getBoneIdx(3)], setAll3(w));
+			if (flg & 0b0010)
+				posMargin += calcVertexState(p, m_bones[v.getBoneIdx(1)], setAll1(w));
+			if (flg & 0b0100)
+				posMargin += calcVertexState(p, m_bones[v.getBoneIdx(2)], setAll2(w));
+			if (flg & 0b1000)
+				posMargin += calcVertexState(p, m_bones[v.getBoneIdx(3)], setAll3(w));
 			m_vpos[idx].set(posMargin);
 		}
 	}
 #else
 	void SkinnedMeshBody::internalUpdate()
 	{
-		for (size_t i = 0; i < m_skinnedBones.size(); ++i)
-		{
+		for (size_t i = 0; i < m_skinnedBones.size(); ++i) {
 			auto& v = m_skinnedBones[i];
 			auto boneT = v.ptr->m_currentTransform;
 			m_bones[i].m_vertexToWorld = btMatrix4x3T(boneT) * v.vertexToBone;
@@ -168,17 +164,19 @@ __kernel void updateVertices(
 		}
 
 		int size = static_cast<int>(m_vpos.size());
-		
-		for (int idx = 0; idx < size; ++idx)
-		{
+
+		for (int idx = 0; idx < size; ++idx) {
 			auto& v = m_vertices[idx];
 			auto p = v.m_skinPos.get128();
 			auto w = _mm_load_ps(v.m_weight);
 			auto flg = _mm_movemask_ps(_mm_cmplt_ps(_mm_set_ps1(FLT_EPSILON), w));
 			auto posMargin = calcVertexState(p, m_bones[v.getBoneIdx(0)], setAll0(w));
-			if (flg & 0b0010) posMargin += calcVertexState(p, m_bones[v.getBoneIdx(1)], setAll1(w));
-			if (flg & 0b0100) posMargin += calcVertexState(p, m_bones[v.getBoneIdx(2)], setAll2(w));
-			if (flg & 0b1000) posMargin += calcVertexState(p, m_bones[v.getBoneIdx(3)], setAll3(w));
+			if (flg & 0b0010)
+				posMargin += calcVertexState(p, m_bones[v.getBoneIdx(1)], setAll1(w));
+			if (flg & 0b0100)
+				posMargin += calcVertexState(p, m_bones[v.getBoneIdx(2)], setAll2(w));
+			if (flg & 0b1000)
+				posMargin += calcVertexState(p, m_bones[v.getBoneIdx(3)], setAll3(w));
 			m_vpos[idx].set(posMargin);
 		}
 
@@ -192,9 +190,9 @@ __kernel void updateVertices(
 	float SkinnedMeshBody::flexible(const Vertex& v)
 	{
 		float ret = 0.f;
-		for (int i = 0; i < 4; ++i)
-		{
-			if (v.m_weight[i] < FLT_EPSILON) break;
+		for (int i = 0; i < 4; ++i) {
+			if (v.m_weight[i] < FLT_EPSILON)
+				break;
 			int boneIdx = v.getBoneIdx(i);
 			if (!m_skinnedBones[boneIdx].isKinematic)
 				ret += v.m_weight[i];
@@ -203,7 +201,7 @@ __kernel void updateVertices(
 	}
 
 	int SkinnedMeshBody::addBone(SkinnedMeshBone* bone, const btQsTransform& verticesToBone,
-	                             const BoundingSphere& boundingSphere)
+		const BoundingSphere& boundingSphere)
 	{
 		m_skinnedBones.push_back(SkinnedBone());
 		auto& v = m_skinnedBones.back();
@@ -227,8 +225,7 @@ __kernel void updateVertices(
 #endif
 
 		m_isKinematic = true;
-		for (auto& i : m_skinnedBones)
-		{
+		for (auto& i : m_skinnedBones) {
 			i.isKinematic = i.ptr->m_rig.isStaticOrKinematicObject();
 			if (!i.isKinematic)
 				m_isKinematic = false;
@@ -242,10 +239,8 @@ __kernel void updateVertices(
 
 		UINT numUsed = 0;
 		std::vector<UINT> map(m_vertices.size());
-		for (int i = 0; i < m_vertices.size(); ++i)
-		{
-			if (flags[i])
-			{
+		for (int i = 0; i < m_vertices.size(); ++i) {
+			if (flags[i]) {
 				m_vertices[numUsed] = m_vertices[i];
 #ifndef CUDA
 				m_vpos[numUsed] = m_vpos[i];
@@ -267,10 +262,10 @@ __kernel void updateVertices(
 
 	bool SkinnedMeshBody::canCollideWith(const SkinnedMeshBody* body) const
 	{
-		if (m_isKinematic && body->m_isKinematic) return false;
+		if (m_isKinematic && body->m_isKinematic)
+			return false;
 
-		if (m_canCollideWithTags.empty())
-		{
+		if (m_canCollideWithTags.empty()) {
 			for (auto& i : body->m_tags)
 				if (m_noCollideWithTags.find(i) != m_noCollideWithTags.end())
 					return false;
@@ -285,27 +280,22 @@ __kernel void updateVertices(
 	void SkinnedMeshBody::updateBoundingSphereAabb()
 	{
 #ifdef CUDA
-		if (m_useBoundingSphere)
-		{
+		if (m_useBoundingSphere) {
 			m_bulletShape.m_aabb.invalidate();
-			for (auto& i : m_skinnedBones)
-			{
+			for (auto& i : m_skinnedBones) {
 				auto sp = i.localBoundingSphere;
 				auto tr = i.ptr->m_currentTransform;
 				i.worldBoundingSphere = BoundingSphere(tr * sp.center(), tr.getScale() * sp.radius());
 				m_bulletShape.m_aabb.merge(i.worldBoundingSphere.getAabb());
 			}
-		}
-		else
-		{
+		} else {
 			internalUpdate();
 			m_shape->internalUpdate();
 			m_bulletShape.m_aabb = m_shape->m_tree.aabbAll;
 		}
 #else
 		m_bulletShape.m_aabb.invalidate();
-		for (auto& i : m_skinnedBones)
-		{
+		for (auto& i : m_skinnedBones) {
 			auto sp = i.localBoundingSphere;
 			auto tr = i.ptr->m_currentTransform;
 			i.worldBoundingSphere = BoundingSphere(tr * sp.center(), tr.getScale() * sp.radius());
@@ -319,8 +309,7 @@ __kernel void updateVertices(
 
 	bool SkinnedMeshBody::isBoundingSphereCollided(SkinnedMeshBody* rhs)
 	{
-		if (canCollideWith(rhs) && rhs->canCollideWith(this))
-		{
+		if (canCollideWith(rhs) && rhs->canCollideWith(this)) {
 			return true;
 			//if (m_useBoundingSphere && rhs->m_useBoundingSphere)
 			//{

@@ -2,10 +2,9 @@
 
 #include "DynamicHDT.h"
 
-
-namespace hdt 
+namespace hdt
 {
-	namespace papyrus 
+	namespace papyrus
 	{
 		bool RegisterAllFunctions(const SKSE::PapyrusInterface* a_papy_intfc);
 
@@ -15,7 +14,7 @@ namespace hdt
 
 		RE::BSFixedString QueryCurrentPhysicsFile(RE::StaticFunctionTag* base, RE::Actor* on_actor, RE::TESObjectARMA* on_item, bool verbose_log);
 
-		namespace impl 
+		namespace impl
 		{
 			bool ReloadPhysicsFileImpl(uint32_t on_actor_formID, uint32_t on_item_formID, std::string physics_file_path, bool persist, bool verbose_log);
 
@@ -23,7 +22,6 @@ namespace hdt
 
 			std::string QueryCurrentPhysicsFileImpl(uint32_t on_actor_formID, uint32_t on_item_formID, bool verbose_log);
 		}
-
 
 		// uint32_t FindOrCreateAnonymousSystem(RE::StaticFunctionTag* base, RE::TESObjectARMA* system_model, bool verbose_log);
 

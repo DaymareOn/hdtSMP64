@@ -5,17 +5,14 @@ namespace hdt
 	void SimulationIslandManager::findUnions(btDispatcher* dispatcher, [[maybe_unused]] btCollisionWorld* colWorld)
 	{
 		const int numOverlappingPairs = dispatcher->getNumManifolds();
-		if (numOverlappingPairs)
-		{
-			for (int i = 0; i < numOverlappingPairs; i++)
-			{
+		if (numOverlappingPairs) {
+			for (int i = 0; i < numOverlappingPairs; i++) {
 				auto p = dispatcher->getInternalManifoldPointer()[i];
 				auto colObj0 = p->getBody0();
 				auto colObj1 = p->getBody1();
 
 				if ((colObj0 && (colObj0->mergesSimulationIslands())) &&
-					(colObj1 && (colObj1->mergesSimulationIslands())))
-				{
+					(colObj1 && (colObj1->mergesSimulationIslands()))) {
 					getUnionFind().unite(colObj0->getIslandTag(), colObj1->getIslandTag());
 				}
 			}
@@ -24,16 +21,14 @@ namespace hdt
 
 	void SimulationIslandManager::updateActivationState(btCollisionWorld* colWorld, btDispatcher* dispatcher)
 	{
-		// put the index into m_controllers into m_tag   
+		// put the index into m_controllers into m_tag
 		int index = 0;
 		{
 			int i;
-			for (i = 0; i < colWorld->getCollisionObjectArray().size(); i++)
-			{
+			for (i = 0; i < colWorld->getCollisionObjectArray().size(); i++) {
 				btCollisionObject* collisionObject = colWorld->getCollisionObjectArray()[i];
 				//Adding filtering here
-				if (!collisionObject->isStaticOrKinematicObject())
-				{
+				if (!collisionObject->isStaticOrKinematicObject()) {
 					collisionObject->setIslandTag(index++);
 				}
 				collisionObject->setCompanionId(-1);

@@ -1,16 +1,16 @@
-#include <random>
 #include "hdtSkinnedMeshWorld.h"
-#include "hdtSkinnedMeshAlgorithm.h"
+#include "hdtBoneScaleConstraint.h"
 #include "hdtDispatcher.h"
 #include "hdtSimulationIslandManager.h"
-#include "hdtBoneScaleConstraint.h"
-#include "hdtSkyrimSystem.h"
+#include "hdtSkinnedMeshAlgorithm.h"
 #include "hdtSkyrimPhysicsWorld.h"
+#include "hdtSkyrimSystem.h"
+#include <random>
 
 namespace hdt
 {
-	SkinnedMeshWorld::SkinnedMeshWorld()
-		: btDiscreteDynamicsWorldMt(nullptr, nullptr, m_solverPool, &m_constraintSolver, nullptr)
+	SkinnedMeshWorld::SkinnedMeshWorld() :
+		btDiscreteDynamicsWorldMt(nullptr, nullptr, m_solverPool, &m_constraintSolver, nullptr)
 	{
 		btSetTaskScheduler(btGetPPLTaskScheduler());
 
@@ -31,8 +31,7 @@ namespace hdt
 
 	SkinnedMeshWorld::~SkinnedMeshWorld()
 	{
-		for (auto system : m_systems)
-		{
+		for (auto system : m_systems) {
 			for (int i = 0; i < system->m_meshes.size(); ++i)
 				removeCollisionObject(system->m_meshes[i].get());
 
@@ -52,20 +51,17 @@ namespace hdt
 
 	void SkinnedMeshWorld::addSkinnedMeshSystem(SkinnedMeshSystem* system)
 	{
-		if (std::find(m_systems.begin(), m_systems.end(), system) != m_systems.end())
-		{
+		if (std::find(m_systems.begin(), m_systems.end(), system) != m_systems.end()) {
 			return;
 		}
 
 		m_systems.push_back(hdt::make_smart(system));
 
-		for (int i = 0; i < system->m_meshes.size(); ++i)
-		{
+		for (int i = 0; i < system->m_meshes.size(); ++i) {
 			addCollisionObject(system->m_meshes[i].get(), 1, 1);
 		}
-		
-		for (int i = 0; i < system->m_bones.size(); ++i)
-		{
+
+		for (int i = 0; i < system->m_bones.size(); ++i) {
 			system->m_bones[i]->m_rig.setActivationState(DISABLE_DEACTIVATION);
 			addRigidBody(&system->m_bones[i]->m_rig, 0, 0);
 		}
@@ -112,8 +108,7 @@ namespace hdt
 		if (hdt::SkyrimPhysicsWorld::get()->m_enableWind)
 			applyWind();
 
-		while (remainingTimeStep > fixedTimeStep)
-		{
+		while (remainingTimeStep > fixedTimeStep) {
 			internalSingleStepSimulation(fixedTimeStep);
 			remainingTimeStep -= fixedTimeStep;
 		}
@@ -140,13 +135,10 @@ namespace hdt
 
 	void SkinnedMeshWorld::applyGravity()
 	{
-		for (auto& i : m_systems)
-		{
-			for (auto& j : i->m_bones)
-			{
+		for (auto& i : m_systems) {
+			for (auto& j : i->m_bones) {
 				auto body = &j->m_rig;
-				if (!body->isStaticOrKinematicObject() && !(body->getFlags() & BT_DISABLE_WORLD_GRAVITY))
-				{
+				if (!body->isStaticOrKinematicObject() && !(body->getFlags() & BT_DISABLE_WORLD_GRAVITY)) {
 					body->setGravity(m_gravity * j->m_gravityFactor);
 				}
 			}
@@ -157,18 +149,15 @@ namespace hdt
 
 	void SkinnedMeshWorld::applyWind()
 	{
-		for (auto& i : m_systems)
-		{
+		for (auto& i : m_systems) {
 			auto system = static_cast<SkyrimSystem*>(i.get());
-			if (btFuzzyZero(system->m_windFactor)) // skip any systems that aren't affected by wind
+			if (btFuzzyZero(system->m_windFactor))  // skip any systems that aren't affected by wind
 				continue;
-			for (auto& j : i->m_bones)
-			{
+			for (auto& j : i->m_bones) {
 				auto body = &j->m_rig;
-				if (!body->isStaticOrKinematicObject()
-					&& (rand() % 5)) // apply randomly 80% of the time to desync wind across npcs
+				if (!body->isStaticOrKinematicObject() && (rand() % 5))  // apply randomly 80% of the time to desync wind across npcs
 				{
-					body->applyCentralForce(m_windSpeed *j->m_windFactor * system->m_windFactor);
+					body->applyCentralForce(m_windSpeed * j->m_windFactor * system->m_windFactor);
 				}
 			}
 		}
@@ -176,17 +165,13 @@ namespace hdt
 
 	void SkinnedMeshWorld::predictUnconstraintMotion(btScalar timeStep)
 	{
-		for (int i = 0; i < m_nonStaticRigidBodies.size(); i++)
-		{
+		for (int i = 0; i < m_nonStaticRigidBodies.size(); i++) {
 			btRigidBody* body = m_nonStaticRigidBodies[i];
-			if (!body->isStaticOrKinematicObject())
-			{
+			if (!body->isStaticOrKinematicObject()) {
 				// not realistic, just an approximate
 				body->applyDamping(timeStep);
 				body->predictIntegratedTransform(timeStep, body->getInterpolationWorldTransform());
-			}
-			else
-			{
+			} else {
 				body->predictIntegratedTransform(timeStep, body->getInterpolationWorldTransform());
 			}
 		}
@@ -194,11 +179,9 @@ namespace hdt
 
 	void SkinnedMeshWorld::integrateTransforms(btScalar timeStep)
 	{
-		for (int i = 0; i < m_collisionObjects.size(); ++i)
-		{
+		for (int i = 0; i < m_collisionObjects.size(); ++i) {
 			auto body = m_collisionObjects[i];
-			if (body->isKinematicObject())
-			{
+			if (body->isKinematicObject()) {
 				btTransformUtil::integrateTransform(
 					body->getWorldTransform(),
 					body->getInterpolationLinearVelocity(),
@@ -211,8 +194,7 @@ namespace hdt
 
 		btVector3 limitMin(-1e+9f, -1e+9f, -1e+9f);
 		btVector3 limitMax(1e+9f, 1e+9f, 1e+9f);
-		for (int i = 0; i < m_nonStaticRigidBodies.size(); i++)
-		{
+		for (int i = 0; i < m_nonStaticRigidBodies.size(); i++) {
 			btRigidBody* body = m_nonStaticRigidBodies[i];
 			auto lv = body->getLinearVelocity();
 			lv.setMax(limitMin);
@@ -231,10 +213,11 @@ namespace hdt
 	void SkinnedMeshWorld::solveConstraints(btContactSolverInfo& solverInfo)
 	{
 		BT_PROFILE("solveConstraints");
-		if (!m_collisionObjects.size()) return;
+		if (!m_collisionObjects.size())
+			return;
 
 		m_solverPool->prepareSolve(getCollisionWorld()->getNumCollisionObjects(),
-		                                getCollisionWorld()->getDispatcher()->getNumManifolds());
+			getCollisionWorld()->getDispatcher()->getNumManifolds());
 
 		m_constraintSolver.m_groups.clear();
 		for (auto& i : m_systems)
@@ -244,8 +227,8 @@ namespace hdt
 		btPersistentManifold** manifold = m_dispatcher1->getInternalManifoldPointer();
 		int maxNumManifolds = m_dispatcher1->getNumManifolds();
 		m_solverPool->solveGroup(&m_collisionObjects[0], m_collisionObjects.size(), manifold, maxNumManifolds,
-		                              &m_constraints[0], m_constraints.size(), solverInfo, m_debugDrawer,
-		                              m_dispatcher1);
+			&m_constraints[0], m_constraints.size(), solverInfo, m_debugDrawer,
+			m_dispatcher1);
 
 		m_solverPool->allSolved(solverInfo, m_debugDrawer);
 		static_cast<CollisionDispatcher*>(m_dispatcher1)->clearAllManifold();

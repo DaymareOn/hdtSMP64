@@ -1,25 +1,26 @@
 #ifdef CUDA
-#include "hdtCudaInterface.h"
+#	include "hdtCudaInterface.h"
 
-#include <ppl.h>
-#include <immintrin.h>
-#include <type_traits>
+#	include <immintrin.h>
+#	include <ppl.h>
+#	include <type_traits>
 
 struct cudaStream_t;
 
-#include "hdtCudaCollision.cuh"
+#	include "hdtCudaCollision.cuh"
 
 namespace hdt
 {
 	namespace
 	{
-		template<typename T>
+		template <typename T>
 		struct NullDeleter
 		{
 			void operator()(T*) const {}
 
-			template<typename U>
-			void operator()(U*) const {}
+			template <typename U>
+			void operator()(U*) const
+			{}
 		};
 
 		class CudaStream
@@ -36,7 +37,7 @@ namespace hdt
 			}
 
 			void* get() { return m_stream; }
-			operator void* () { return m_stream; }
+			operator void*() { return m_stream; }
 
 		private:
 			void* m_stream;
@@ -74,9 +75,8 @@ namespace hdt
 		class CudaBuffer
 		{
 		public:
-
-			CudaBuffer(int n)
-				: m_size(n * sizeof(CudaT))
+			CudaBuffer(int n) :
+				m_size(n * sizeof(CudaT))
 			{
 				static_assert(sizeof(CudaT) == sizeof(HostT), "Device and host types different sizes");
 				cuGetDeviceBuffer(&reinterpret_cast<void*>(m_deviceData), m_size).check(__FUNCTION__);
@@ -100,7 +100,7 @@ namespace hdt
 				cuCopyToHost(m_hostData, m_deviceData, m_size, stream).check(__FUNCTION__);
 			}
 
-			operator HostT* () { return m_hostData; }
+			operator HostT*() { return m_hostData; }
 			HostT* get() { return m_hostData; }
 
 			CudaT* getD() { return m_deviceData; }
@@ -108,7 +108,6 @@ namespace hdt
 			CudaT* getZ() { return m_zeroCopyData; }
 
 		private:
-
 			int m_size;
 			CudaT* m_deviceData;
 			HostT* m_hostData;
@@ -119,9 +118,8 @@ namespace hdt
 		class CudaBuffer<ArrayType<DeviceT, DeviceArgs...>, ArrayType<HostT, HostArgs...>>
 		{
 		public:
-
-			CudaBuffer(int n)
-				: m_size(n),
+			CudaBuffer(int n) :
+				m_size(n),
 				m_allocatedSize(32 * (((n - 1) / 32) + 1)),
 				m_buffer(m_allocatedSize)
 			{}
@@ -152,7 +150,6 @@ namespace hdt
 			}
 
 		private:
-
 			int m_size;
 			int m_allocatedSize;
 			CudaBuffer<HostT, DeviceT> m_buffer;
@@ -162,9 +159,8 @@ namespace hdt
 		class CudaDeviceBuffer
 		{
 		public:
-
-			CudaDeviceBuffer(int n)
-				: m_size(n * sizeof(CudaT))
+			CudaDeviceBuffer(int n) :
+				m_size(n * sizeof(CudaT))
 			{
 				cuGetDeviceBuffer(&reinterpret_cast<void*>(m_deviceData), m_size);
 			}
@@ -177,7 +173,6 @@ namespace hdt
 			CudaT* getD() { return m_deviceData; }
 
 		private:
-
 			int m_size;
 			CudaT* m_deviceData;
 		};
@@ -186,18 +181,17 @@ namespace hdt
 		class CudaDeviceBuffer<ArrayType<T, Ts...>>
 		{
 		public:
-
-			CudaDeviceBuffer(int n)
-				: m_size(32 * (((n - 1) / 32) + 1)),
+			CudaDeviceBuffer(int n) :
+				m_size(32 * (((n - 1) / 32) + 1)),
 				m_buffer(m_size)
 			{}
 
-			ArrayType<T, Ts...> getD() {
+			ArrayType<T, Ts...> getD()
+			{
 				return ArrayType<T, Ts...>(m_buffer.getD(), m_size);
 			}
 
 		private:
-
 			int m_size;
 			CudaDeviceBuffer<T> m_buffer;
 		};
@@ -220,14 +214,12 @@ namespace hdt
 			static constexpr size_t alignment = 128;
 
 		public:
-
 			CudaBufferPool()
 			{}
 
 			~CudaBufferPool()
 			{
-				for (auto record : m_buffers)
-				{
+				for (auto record : m_buffers) {
 					cuFreeDevice(std::get<2>(record).first);
 					cuFreeHost(std::get<2>(record).second);
 				}
@@ -246,17 +238,14 @@ namespace hdt
 
 				auto s = getSize(size);
 				std::vector<Record>::iterator it;
-				for (it = m_buffers.begin(); it != m_buffers.end(); ++it)
-				{
-					if (std::get<0>(*it) + s <= std::get<1>(*it))
-					{
+				for (it = m_buffers.begin(); it != m_buffers.end(); ++it) {
+					if (std::get<0>(*it) + s <= std::get<1>(*it)) {
 						break;
 					}
 				}
-				if (it == m_buffers.end())
-				{
+				if (it == m_buffers.end()) {
 					size_t newSize = std::max(pageSize, blockSize(size));
-					m_buffers.push_back({ 0, newSize, {0,0} });
+					m_buffers.push_back({ 0, newSize, { 0, 0 } });
 					cuGetDeviceBuffer(&(std::get<2>(m_buffers.back()).first), newSize).check(__FUNCTION__);
 					cuGetHostBuffer(&(std::get<2>(m_buffers.back()).second), newSize).check(__FUNCTION__);
 					it = m_buffers.end() - 1;
@@ -271,14 +260,12 @@ namespace hdt
 
 			void clear()
 			{
-				for (auto& record : m_buffers)
-				{
+				for (auto& record : m_buffers) {
 					std::get<0>(record) = 0;
 				}
 			}
 
 		private:
-
 			constexpr size_t getSize(size_t size)
 			{
 				return alignment * ((size - 1) / alignment + 1);
@@ -303,9 +290,8 @@ namespace hdt
 		class CudaPooledBuffer
 		{
 		public:
-
-			CudaPooledBuffer(size_t n)
-				: m_size(n * sizeof(CudaT))
+			CudaPooledBuffer(size_t n) :
+				m_size(n * sizeof(CudaT))
 			{
 				static_assert(sizeof(CudaT) == sizeof(HostT), "Device and host types different sizes");
 				auto buffers = CudaBufferPool::instance()->getBuffer(m_size);
@@ -329,7 +315,7 @@ namespace hdt
 				cuMemset(m_deviceData, 0, m_size, stream).check(__FUNCTION__);
 			}
 
-			operator HostT* () { return m_hostData; }
+			operator HostT*() { return m_hostData; }
 			HostT* get() { return m_hostData; }
 
 			CudaT* getD() { return m_deviceData; }
@@ -337,7 +323,6 @@ namespace hdt
 			CudaT* getZ() { return m_zeroCopyData; }
 
 		private:
-
 			size_t m_size;
 			CudaT* m_deviceData;
 			HostT* m_hostData;
@@ -348,9 +333,8 @@ namespace hdt
 	class CudaBody::Imp
 	{
 	public:
-
-		Imp(SkinnedMeshBody* body)
-			: m_device(cuGetDevice()),
+		Imp(SkinnedMeshBody* body) :
+			m_device(cuGetDevice()),
 			m_numVertices(body->m_vertices.size()),
 			m_numDynamicBones(0),
 			m_bones(body->m_skinnedBones.size()),
@@ -361,23 +345,18 @@ namespace hdt
 		{
 			// Copy vertex data to the GPU, converting to homogeneous coordinates with w=1
 			std::copy(body->m_vertices.begin(), body->m_vertices.end(), m_vertexData.get());
-			for (int i = 0; i < m_numVertices; ++i)
-			{
+			for (int i = 0; i < m_numVertices; ++i) {
 				m_vertexData[i].m_skinPos[3] = 1.0f;
 			}
 			m_vertexData.toDevice(m_stream);
 
 			m_invBoneMap.reserve(body->m_skinnedBones.size());
-			for (int i = 0; i < body->m_skinnedBones.size(); ++i)
-			{
+			for (int i = 0; i < body->m_skinnedBones.size(); ++i) {
 				m_boneWeights[i] = body->m_skinnedBones[i].weightThreshold;
-				if (!body->m_skinnedBones[i].isKinematic)
-				{
+				if (!body->m_skinnedBones[i].isKinematic) {
 					m_boneMap[i] = m_numDynamicBones++;
 					m_invBoneMap.push_back(i);
-				}
-				else
-				{
+				} else {
 					m_boneMap[i] = -1;
 				}
 			}
@@ -419,8 +398,8 @@ namespace hdt
 		CudaBuffer<cuBone, Bone> m_bones;
 	};
 
-	CudaBody::CudaBody(SkinnedMeshBody* body)
-		: m_imp(new Imp(body))
+	CudaBody::CudaBody(SkinnedMeshBody* body) :
+		m_imp(new Imp(body))
 	{}
 
 	void CudaBody::synchronize()
@@ -440,9 +419,8 @@ namespace hdt
 		ColliderTree* m_tree;
 
 	public:
-
-		CudaColliderTree(ColliderTree* tree, CudaStream& stream)
-			: m_tree(tree),
+		CudaColliderTree(ColliderTree* tree, CudaStream& stream) :
+			m_tree(tree),
 			m_numNodes(nodeCount(*tree)),
 			m_nodeData(m_numNodes),
 			m_nodeAabbs(m_numNodes)
@@ -450,11 +428,11 @@ namespace hdt
 			unsigned int biggestNode = 0;
 			buildNodeData(*tree, m_nodeData.get(), biggestNode);
 			m_nodeData.toDevice(stream);
-			
+
 			logger::debug("Tree with {} nodes, largest {}, total {} colliders.",
 				m_numNodes,
 				biggestNode,
-				m_nodeData[m_numNodes-1].first + m_nodeData[m_numNodes-1].second);
+				m_nodeData[m_numNodes - 1].first + m_nodeData[m_numNodes - 1].second);
 		}
 
 		void update()
@@ -467,12 +445,10 @@ namespace hdt
 		CudaBuffer<cuAabb, Aabb> m_nodeAabbs;
 
 	private:
-
 		static int nodeCount(ColliderTree& tree)
 		{
 			int count = tree.numCollider ? 1 : 0;
-			for (auto& child : tree.children)
-			{
+			for (auto& child : tree.children) {
 				count += nodeCount(child);
 			}
 			return count;
@@ -480,13 +456,11 @@ namespace hdt
 
 		NodePair* buildNodeData(ColliderTree& tree, NodePair* nodeData, unsigned int& biggestNode)
 		{
-			if (tree.numCollider)
-			{
+			if (tree.numCollider) {
 				*nodeData++ = { tree.aabb - m_tree->aabb, tree.numCollider };
 				biggestNode = std::max(biggestNode, tree.numCollider);
 			}
-			for (auto& child : tree.children)
-			{
+			for (auto& child : tree.children) {
 				nodeData = buildNodeData(child, nodeData, biggestNode);
 			}
 			return nodeData;
@@ -494,17 +468,13 @@ namespace hdt
 
 		Aabb* updateBoundingBoxes(ColliderTree& tree, Aabb* boundingBoxes)
 		{
-			if (tree.numCollider)
-			{
+			if (tree.numCollider) {
 				tree.aabbMe = *boundingBoxes++;
-			}
-			else
-			{
+			} else {
 				tree.aabbMe.invalidate();
 			}
 			tree.aabbAll = tree.aabbMe;
-			for (auto& child : tree.children)
-			{
+			for (auto& child : tree.children) {
 				boundingBoxes = updateBoundingBoxes(child, boundingBoxes);
 				tree.aabbAll.merge(child.aabbAll);
 			}
@@ -515,9 +485,8 @@ namespace hdt
 	class CudaPerTriangleShape::Imp
 	{
 	public:
-
-		Imp(PerTriangleShape* shape)
-			: m_device(cuGetDevice()),
+		Imp(PerTriangleShape* shape) :
+			m_device(cuGetDevice()),
 			m_numColliders(shape->m_colliders.size()),
 			m_penetrationType(abs(shape->m_shapeProp.penetration) > FLT_EPSILON ? eInternal : eNone),
 			m_body(shape->m_owner->m_cudaObject->m_imp),
@@ -527,23 +496,21 @@ namespace hdt
 			m_margin(shape->m_shapeProp.margin),
 			m_penetration(shape->m_shapeProp.penetration)
 		{
-			for (int i = 0; i < m_numColliders; ++i)
-			{
-				if (m_penetration < 0)
-				{
+			for (int i = 0; i < m_numColliders; ++i) {
+				if (m_penetration < 0) {
 					m_input.get()[i] = {
-						{	static_cast<int>(shape->m_colliders[i].vertices[1]),
+						{ static_cast<int>(shape->m_colliders[i].vertices[1]),
 							static_cast<int>(shape->m_colliders[i].vertices[0]),
 							static_cast<int>(shape->m_colliders[i].vertices[2]) },
-						shape->m_colliders[i].flexible };
-				}
-				else
-				{
+						shape->m_colliders[i].flexible
+					};
+				} else {
 					m_input.get()[i] = {
 						{ static_cast<int>(shape->m_colliders[i].vertices[0]),
 							static_cast<int>(shape->m_colliders[i].vertices[1]),
 							static_cast<int>(shape->m_colliders[i].vertices[2]) },
-						shape->m_colliders[i].flexible };
+						shape->m_colliders[i].flexible
+					};
 				}
 			}
 			m_input.toDevice(m_body->m_stream);
@@ -576,8 +543,8 @@ namespace hdt
 		float m_penetration;
 	};
 
-	CudaPerTriangleShape::CudaPerTriangleShape(PerTriangleShape* shape)
-		: m_imp(new Imp(shape))
+	CudaPerTriangleShape::CudaPerTriangleShape(PerTriangleShape* shape) :
+		m_imp(new Imp(shape))
 	{}
 
 	void CudaPerTriangleShape::updateTree()
@@ -593,9 +560,8 @@ namespace hdt
 	class CudaPerVertexShape::Imp
 	{
 	public:
-
-		Imp(PerVertexShape* shape)
-			: m_device(cuGetDevice()),
+		Imp(PerVertexShape* shape) :
+			m_device(cuGetDevice()),
 			m_numColliders(shape->m_colliders.size()),
 			m_body(shape->m_owner->m_cudaObject->m_imp),
 			m_input(shape->m_colliders.size()),
@@ -603,11 +569,11 @@ namespace hdt
 			m_tree(&shape->m_tree, m_body->m_stream),
 			m_margin(shape->m_shapeProp.margin)
 		{
-			for (int i = 0; i < m_numColliders; ++i)
-			{
+			for (int i = 0; i < m_numColliders; ++i) {
 				m_input.get()[i] = {
 					static_cast<int>(shape->m_colliders[i].vertex),
-					shape->m_colliders[i].flexible };
+					shape->m_colliders[i].flexible
+				};
 			}
 			m_input.toDevice(m_body->m_stream);
 			m_tree.m_nodeData.toDevice(m_body->m_stream);
@@ -637,8 +603,8 @@ namespace hdt
 		float m_margin;
 	};
 
-	CudaPerVertexShape::CudaPerVertexShape(PerVertexShape* shape)
-		: m_imp(new Imp(shape))
+	CudaPerVertexShape::CudaPerVertexShape(PerVertexShape* shape) :
+		m_imp(new Imp(shape))
 	{}
 
 	void CudaPerVertexShape::updateTree()
@@ -654,9 +620,8 @@ namespace hdt
 	class CudaMergeBuffer::Imp
 	{
 	public:
-
-		Imp(SkinnedMeshBody* body0, SkinnedMeshBody* body1)
-			: m_x(body0->m_skinnedBones.size()),
+		Imp(SkinnedMeshBody* body0, SkinnedMeshBody* body1) :
+			m_x(body0->m_skinnedBones.size()),
 			m_y(body1->m_skinnedBones.size()),
 			m_dynx(body0->m_cudaObject->m_imp->m_numDynamicBones),
 			m_stream(),
@@ -672,9 +637,11 @@ namespace hdt
 
 		void addManifold(cuCollisionMerge* c, SkinnedMeshBone* rb0, SkinnedMeshBone* rb1, CollisionDispatcher* dispatcher)
 		{
-			if (c->weight < FLT_EPSILON) return;
+			if (c->weight < FLT_EPSILON)
+				return;
 
-			if (rb0 == rb1) return;
+			if (rb0 == rb1)
+				return;
 
 			float invWeight = 1.0f / c->weight;
 
@@ -684,11 +651,13 @@ namespace hdt
 			auto localA = rb0->m_rig.getWorldTransform().invXform(worldA);
 			auto localB = rb1->m_rig.getWorldTransform().invXform(worldB);
 			auto normal = btVector4(c->normal.val) * invWeight;
-			if (normal.fuzzyZero()) return;
+			if (normal.fuzzyZero())
+				return;
 			auto depth = -normal.length();
 			normal = -normal.normalized();
 
-			if (depth >= -FLT_EPSILON) return;
+			if (depth >= -FLT_EPSILON)
+				return;
 
 			btManifoldPoint newPt(localA, localB, normal, depth);
 			newPt.m_positionWorldOnA = worldA;
@@ -703,13 +672,11 @@ namespace hdt
 		{
 			// Checking can-collide-with and no-collide-with involves a list search, so just do it once for each bone
 			std::vector<bool> canCollide0(body0->m_skinnedBones.size());
-			for (int i = 0; i < body0->m_skinnedBones.size(); ++i)
-			{
+			for (int i = 0; i < body0->m_skinnedBones.size(); ++i) {
 				canCollide0[i] = body1->canCollideWith(body0->m_skinnedBones[i].ptr);
 			}
 			std::vector<bool> canCollide1(body1->m_skinnedBones.size());
-			for (int i = 0; i < body1->m_skinnedBones.size(); ++i)
-			{
+			for (int i = 0; i < body1->m_skinnedBones.size(); ++i) {
 				canCollide1[i] = body0->canCollideWith(body1->m_skinnedBones[i].ptr);
 			}
 
@@ -719,18 +686,14 @@ namespace hdt
 			int* map1 = body1->m_cudaObject->m_imp->m_boneMap.get();
 
 			// First check each dynamic bone of body 0 against every bone of body 1
-			for (int dyn = 0; dyn < body0->m_cudaObject->m_imp->m_invBoneMap.size(); ++dyn)
-			{
+			for (int dyn = 0; dyn < body0->m_cudaObject->m_imp->m_invBoneMap.size(); ++dyn) {
 				int i = body0->m_cudaObject->m_imp->m_invBoneMap[dyn];
-				if (!canCollide0[i])
-				{
+				if (!canCollide0[i]) {
 					continue;
 				}
 
-				for (int j = 0; j < body1->m_skinnedBones.size(); ++j)
-				{
-					if (!canCollide1[j])
-					{
+				for (int j = 0; j < body1->m_skinnedBones.size(); ++j) {
+					if (!canCollide1[j]) {
 						continue;
 					}
 
@@ -738,23 +701,18 @@ namespace hdt
 					auto rb0 = body0->m_skinnedBones[i].ptr;
 					auto rb1 = body1->m_skinnedBones[j].ptr;
 					addManifold(c, rb0, rb1, dispatcher);
-
 				}
 			}
 
 			// Then check each dynamic bone of body 1 against each kinematic bone of body 0
-			for (int dyn = 0; dyn < body1->m_cudaObject->m_imp->m_invBoneMap.size(); ++dyn)
-			{
+			for (int dyn = 0; dyn < body1->m_cudaObject->m_imp->m_invBoneMap.size(); ++dyn) {
 				int j = body1->m_cudaObject->m_imp->m_invBoneMap[dyn];
-				if (!canCollide1[j])
-				{
+				if (!canCollide1[j]) {
 					continue;
 				}
 
-				for (int i = 0; i < body0->m_skinnedBones.size(); ++i)
-				{
-					if (!body0->m_skinnedBones[i].isKinematic || !canCollide0[i])
-					{
+				for (int i = 0; i < body0->m_skinnedBones.size(); ++i) {
+					if (!body0->m_skinnedBones[i].isKinematic || !canCollide0[i]) {
 						continue;
 					}
 
@@ -780,8 +738,8 @@ namespace hdt
 		CudaPooledBuffer<cuCollisionMerge> m_buffer;
 	};
 
-	CudaMergeBuffer::CudaMergeBuffer(SkinnedMeshBody* body0, SkinnedMeshBody* body1)
-		: m_imp(new Imp(body0, body1))
+	CudaMergeBuffer::CudaMergeBuffer(SkinnedMeshBody* body0, SkinnedMeshBody* body1) :
+		m_imp(new Imp(body0, body1))
 	{}
 
 	void CudaMergeBuffer::launchTransfer()
@@ -798,12 +756,11 @@ namespace hdt
 	class CudaCollisionPair<T>::Imp
 	{
 	public:
-
 		Imp(
 			CudaPerVertexShape* shapeA,
 			T* shapeB,
-			int numCollisionPairs)
-			: m_shapeA(shapeA),
+			int numCollisionPairs) :
+			m_shapeA(shapeA),
 			m_shapeB(shapeB),
 			m_numCollisionPairs(numCollisionPairs),
 			m_nextPair(0),
@@ -832,8 +789,7 @@ namespace hdt
 
 		void launch(CudaMergeBuffer* merge, bool swap)
 		{
-			if (m_nextPair > 0)
-			{
+			if (m_nextPair > 0) {
 				collisionFunc()(
 					merge->m_imp->m_stream,
 					m_nextPair,
@@ -843,7 +799,8 @@ namespace hdt
 					*m_shapeB->m_imp,
 					*m_shapeA->m_imp->m_body,
 					*m_shapeB->m_imp->m_body,
-					*merge->m_imp).check(__FUNCTION__);
+					*merge->m_imp)
+					.check(__FUNCTION__);
 			}
 		}
 
@@ -853,7 +810,6 @@ namespace hdt
 		}
 
 	private:
-
 		CudaPerVertexShape* m_shapeA;
 		T* m_shapeB;
 		int m_numCollisionPairs;
@@ -861,29 +817,34 @@ namespace hdt
 
 		CudaPooledBuffer<cuCollisionSetup> m_setupBuffer;
 
-		template<typename T>
+		template <typename T>
 		struct InputType;
-		template<>
-		struct InputType<CudaPerVertexShape> { using type = VertexInputArray; };
-		template<>
-		struct InputType<CudaPerTriangleShape> { using type = TriangleInputArray; };
+		template <>
+		struct InputType<CudaPerVertexShape>
+		{
+			using type = VertexInputArray;
+		};
+		template <>
+		struct InputType<CudaPerTriangleShape>
+		{
+			using type = TriangleInputArray;
+		};
 
 		auto collisionFunc() -> decltype(cuRunCollision<eNone, T>)*;
 	};
 
-	template<>
+	template <>
 	auto CudaCollisionPair<CudaPerVertexShape>::Imp::collisionFunc()
 		-> decltype(cuRunCollision<eNone, CudaPerVertexShape>)*
 	{
 		return cuRunCollision<eNone, CudaPerVertexShape>;
 	}
 
-	template<>
+	template <>
 	auto CudaCollisionPair<CudaPerTriangleShape>::Imp::collisionFunc()
 		-> decltype(cuRunCollision<eNone, CudaPerTriangleShape>)*
 	{
-		switch (m_shapeB->m_imp->m_penetrationType)
-		{
+		switch (m_shapeB->m_imp->m_penetrationType) {
 		case eNone:
 			return cuRunCollision<eNone, CudaPerTriangleShape>;
 		case eInternal:
@@ -895,9 +856,9 @@ namespace hdt
 	template <typename T>
 	CudaCollisionPair<T>::CudaCollisionPair(
 		CudaPerVertexShape* shapeA,
-		T* shapeB, 
-		int numCollisionPairs)
-		: m_imp(new Imp(shapeA, shapeB, numCollisionPairs))
+		T* shapeB,
+		int numCollisionPairs) :
+		m_imp(new Imp(shapeA, shapeB, numCollisionPairs))
 	{}
 
 	template <typename T>
@@ -967,12 +928,14 @@ namespace hdt
 			VertexInputArray(nullptr, 0),
 			BoundingBoxArray(nullptr, 0),
 			0,
-			{ 0 } };
+			{ 0 }
+		};
 		static const cuColliderData<CudaPerTriangleShape> s_emptyTriangleData = {
 			TriangleInputArray(nullptr, 0),
 			BoundingBoxArray(nullptr, 0),
 			0,
-			{ 0, 0 } };
+			{ 0, 0 }
+		};
 
 		body->m_imp->m_bones.toDevice(body->m_imp->m_stream);
 
@@ -987,14 +950,14 @@ namespace hdt
 			triangleShape ? static_cast<cuColliderData<CudaPerTriangleShape>>(*triangleShape->m_imp) : s_emptyTriangleData,
 			triangleShape ? triangleShape->m_imp->m_tree.m_numNodes : 0,
 			triangleShape ? triangleShape->m_imp->m_tree.m_nodeData.getD() : nullptr,
-			triangleShape ? triangleShape->m_imp->m_tree.m_nodeAabbs.getZ() : nullptr).check(__FUNCTION__);
+			triangleShape ? triangleShape->m_imp->m_tree.m_nodeAabbs.getZ() : nullptr)
+			.check(__FUNCTION__);
 	}
 
-	CudaInterface::CudaInterface()
-		: m_enabled(cuDeviceCount() > 0)
+	CudaInterface::CudaInterface() :
+		m_enabled(cuDeviceCount() > 0)
 	{
-		if (m_enabled)
-		{
+		if (m_enabled) {
 			cuInitialize();
 		}
 	}

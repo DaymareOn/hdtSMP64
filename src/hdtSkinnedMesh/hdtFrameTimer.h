@@ -5,7 +5,6 @@ namespace hdt
 	class FrameTimer
 	{
 	public:
-
 		static FrameTimer* instance();
 
 		enum Events
@@ -32,7 +31,6 @@ namespace hdt
 		bool cudaFrame();
 
 	private:
-
 		int m_nFrames;
 		std::map<Events, int64_t> m_timings;
 

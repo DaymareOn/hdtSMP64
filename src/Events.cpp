@@ -1,6 +1,6 @@
 #include "Events.h"
-#include "hdtSkyrimPhysicsWorld.h"
 #include "ActorManager.h"
+#include "hdtSkyrimPhysicsWorld.h"
 
 namespace Events
 {
@@ -23,7 +23,7 @@ namespace Events
 			static ShutdownEventEventSource singleton;
 			return std::addressof(singleton);
 		}
-		
+
 		SkinAllHeadGeometryEventSource* SkinAllHeadGeometryEventSource::GetSingleton()
 		{
 			static SkinAllHeadGeometryEventSource singleton;
@@ -41,7 +41,7 @@ namespace Events
 			static ArmorAttachEventSource singleton;
 			return std::addressof(singleton);
 		}
-		
+
 		ArmorDetachEventSource* ArmorDetachEventSource::GetSingleton()
 		{
 			static ArmorDetachEventSource singleton;
@@ -83,13 +83,13 @@ namespace Events
 		}
 	}
 
-    void Register()
-    {
-        Sinks::FreezeEventHandler::Register();
-    }
+	void Register()
+	{
+		Sinks::FreezeEventHandler::Register();
+	}
 
 	void Unregister()
-    {
+	{
 		Sinks::FreezeEventHandler::Unregister();
-    }
+	}
 }

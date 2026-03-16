@@ -21,11 +21,11 @@
 
     <!--
       There's A unique issue with this port where when the skeleton and the body merge there is a chance that one of the bones don't get moved over and gets deleted
-	  when this happens it will cause a crash later down the line, if you encouter this issue add the node name into and it'll be backed up before the merge and put back as it should be.
+	  when this happens it will cause a crash later down the line, if you encounter this issue add the node name into and it'll be backed up before the merge and put back as it should be.
 	  example, SOS-SAM and the "VirtualHands" node when hdt is enabled... this will cause a crash unless added here.
     -->
     <backupNodeByName></backupNodeByName>
-	
+
     <!-- #################### NPC FACE PARTS ############################## -->
 
     <!--

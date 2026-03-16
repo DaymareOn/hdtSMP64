@@ -33,10 +33,10 @@ __kernel void updateCollider(__global float4* vertices, __global Collider* colli
 {
 	int idx = get_global_id(0);
 	float3 p0 = vertices[colliders[idx].vertex].s012;
-	
+
 	Aabb aabb;
 	aabb.aabbMin = p0 - margin;
 	aabb.aabbMax = p0 + margin;
-	
+
 	colliders[idx].aabb = aabb;
 }

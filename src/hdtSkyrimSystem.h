@@ -1,19 +1,20 @@
 #pragma once
 
 #include "hdtConvertNi.h"
-#include "hdtSkyrimBone.h"
-#include "hdtSkyrimBody.h"
-#include "hdtSkinnedMesh/hdtSkinnedMeshSystem.h"
-#include "hdtSkinnedMesh/hdtGeneric6DofConstraint.h"
-#include "hdtSkinnedMesh/hdtStiffSpringConstraint.h"
-#include "hdtSkinnedMesh/hdtConeTwistConstraint.h"
 #include "hdtDefaultBBP.h"
+#include "hdtSkinnedMesh/hdtConeTwistConstraint.h"
+#include "hdtSkinnedMesh/hdtGeneric6DofConstraint.h"
+#include "hdtSkinnedMesh/hdtSkinnedMeshSystem.h"
+#include "hdtSkinnedMesh/hdtStiffSpringConstraint.h"
+#include "hdtSkyrimBody.h"
+#include "hdtSkyrimBone.h"
 
 namespace hdt
 {
 	class SkyrimSystem : public SkinnedMeshSystem
 	{
 		friend class SkyrimSystemCreator;
+
 	public:
 		struct BoneData
 		{
@@ -23,7 +24,7 @@ namespace hdt
 
 		SkyrimSystem(RE::NiNode* skeleton);
 		~SkyrimSystem() override = default;
-		
+
 		SkinnedMeshBone* findBone(IDStr name);
 		SkinnedMeshBody* findBody(IDStr name);
 		int findBoneIdx(IDStr name);
@@ -36,7 +37,7 @@ namespace hdt
 		RE::NiPointer<RE::NiNode> m_skeleton;
 		RE::NiPointer<RE::NiNode> m_oldRoot;
 		bool m_initialized = false;
-		float m_windFactor = 1.f; // wind factor for the system (i.e., full actor/skeleton) (calculated based off obstructions)
+		float m_windFactor = 1.f;  // wind factor for the system (i.e., full actor/skeleton) (calculated based off obstructions)
 
 		// angular velocity damper
 		btQuaternion m_lastRootRotation;
@@ -48,14 +49,16 @@ namespace hdt
 	{
 	public:
 		SkyrimSystemCreator();
-		
+
 		RE::BSTSmartPointer<SkyrimSystem> createOrUpdateSystem(RE::NiNode* skeleton, RE::NiAVObject* model, DefaultBBP::PhysicsFile_t* file, std::unordered_map<IDStr, IDStr>&& renameMap, SkyrimSystem* old_system);
+
 	protected:
 		struct BoneTemplate : public btRigidBody::btRigidBodyConstructionInfo
 		{
 			static btEmptyShape emptyShape[1];
 
-			BoneTemplate() : btRigidBodyConstructionInfo(0, nullptr, emptyShape)
+			BoneTemplate() :
+				btRigidBodyConstructionInfo(0, nullptr, emptyShape)
 			{
 				m_centerOfMassTransform = btTransform::getIdentity();
 				m_marginMultipler = 1.f;
@@ -120,7 +123,7 @@ namespace hdt
 			btScalar stopERP = 0.2f;
 			btScalar stopCFM = 0;
 		};
-		
+
 		struct StiffSpringConstraintTemplate
 		{
 			float minDistanceFactor = 1;
@@ -165,7 +168,7 @@ namespace hdt
 		std::vector<std::shared_ptr<btCollisionShape>> m_shapeRefs;
 
 		std::pair<RE::BSTSmartPointer<SkyrimBody>, VertexOffsetMap> generateMeshBody(const std::string name, DefaultBBP::NameSet_t* names);
-		
+
 		bool findBones(const IDStr& bodyAName, const IDStr& bodyBName, SkyrimBone*& bodyA, SkyrimBone*& bodyB);
 		bool parseFrameType(const std::string& name, FrameType& type, btTransform& frame);
 		static void calcFrame(FrameType type, const btTransform& frame, const btQsTransform& trA, const btQsTransform& trB, btTransform& frameA, btTransform& frameB);

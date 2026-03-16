@@ -1,10 +1,10 @@
 #pragma once
 
+#include "hdtSkinnedMeshSystem.h"
 #include <BulletDynamics/ConstraintSolver/btNNCGConstraintSolver.h>
 #include <BulletDynamics/ConstraintSolver/btSequentialImpulseConstraintSolverMt.h>
 #include <BulletDynamics/Dynamics/btDiscreteDynamicsWorldMt.h>
 #include <BulletDynamics/MLCPSolvers/btMLCPSolver.h>
-#include "hdtSkinnedMeshSystem.h"
 
 #include <mutex>
 
@@ -21,7 +21,8 @@ namespace hdt
 		void lock() { m_lock.lock(); }
 		void unlock() { m_lock.unlock(); }
 
-		SolverBodyMt(const SolverBodyMt& rhs) : m_body(rhs.m_body)
+		SolverBodyMt(const SolverBodyMt& rhs) :
+			m_body(rhs.m_body)
 		{
 		}
 
@@ -54,9 +55,8 @@ namespace hdt
 	class NonContactSolverTask : public SolverTask
 	{
 	public:
-
 		NonContactSolverTask(SolverBodyMt* A, SolverBodyMt* B, btSolverConstraint** begin, btSolverConstraint** end,
-		                     btSingleConstraintRowSolver s);
+			btSingleConstraintRowSolver s);
 		void solve() override;
 
 	protected:
@@ -68,7 +68,6 @@ namespace hdt
 	class ObsoleteSolverTask : public SolverTask
 	{
 	public:
-
 		ObsoleteSolverTask(SolverBodyMt* A, SolverBodyMt* B, btTypedConstraint* c, float t);
 		void solve() override;
 
@@ -81,8 +80,9 @@ namespace hdt
 	{
 	public:
 		ContactSolverTask(SolverBodyMt* A, SolverBodyMt* B, btSolverConstraint* c, btSolverConstraint* f0,
-		                  btSolverConstraint* f1, btSingleConstraintRowSolver sl, btSingleConstraintRowSolver s);
+			btSolverConstraint* f1, btSingleConstraintRowSolver sl, btSingleConstraintRowSolver s);
 		void solve() override;
+
 	protected:
 		btSolverConstraint* m_contact;
 		btSolverConstraint* m_friction0;
@@ -95,20 +95,21 @@ namespace hdt
 	class GroupConstraintSolver : public btSequentialImpulseConstraintSolverMt
 	{
 		typedef btSequentialImpulseConstraintSolverMt Base;
+
 	public:
 		GroupConstraintSolver();
 
 		btScalar solveSingleIteration(int iteration, btCollisionObject** bodies, int numBodies,
-		                              btPersistentManifold** manifoldPtr, int numManifolds,
-		                              btTypedConstraint** constraints, int numConstraints,
-		                              const btContactSolverInfo& infoGlobal, btIDebugDraw* debugDrawer) override;
+			btPersistentManifold** manifoldPtr, int numManifolds,
+			btTypedConstraint** constraints, int numConstraints,
+			const btContactSolverInfo& infoGlobal, btIDebugDraw* debugDrawer) override;
 		btScalar solveGroupCacheFriendlySetup(btCollisionObject** bodies, int numBodies,
-		                                      btPersistentManifold** manifoldPtr, int numManifolds,
-		                                      btTypedConstraint** constraints, int numConstraints,
-		                                      const btContactSolverInfo& infoGlobal,
-		                                      btIDebugDraw* debugDrawer) override;
+			btPersistentManifold** manifoldPtr, int numManifolds,
+			btTypedConstraint** constraints, int numConstraints,
+			const btContactSolverInfo& infoGlobal,
+			btIDebugDraw* debugDrawer) override;
 		btScalar solveGroupCacheFriendlyFinish(btCollisionObject** bodies, int numBodies,
-		                                       const btContactSolverInfo& infoGlobal) override;
+			const btContactSolverInfo& infoGlobal) override;
 
 		static btSingleConstraintRowSolver getResolveSingleConstraintRowGenericAVX();
 		static btSingleConstraintRowSolver getResolveSingleConstraintRowLowerLimitAVX();

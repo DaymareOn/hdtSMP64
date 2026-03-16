@@ -262,7 +262,7 @@ namespace hdt
 
         int tid = threadIdx.x;
         int threadInWarp = tid & 0x1f;
-        
+
         for (int block = blockIdx.x; block < n; block += gridDim.x)
         {
             int firstBox = nodeData[block].first;
@@ -609,11 +609,11 @@ namespace hdt
         int threadInWarp = tid & 0x1f;
         int warpid = tid >> 5;
         constexpr int nwarps = BlockSize >> 5;
-        
+
         for (int block = blockIdx.x; block < n; block += gridDim.x)
         {
             int nA = setup[block].sizeA;
-            int nB = setup[block].sizeB; 
+            int nB = setup[block].sizeB;
             int offsetA = setup[block].offsetA;
             int offsetB = setup[block].offsetB;
 

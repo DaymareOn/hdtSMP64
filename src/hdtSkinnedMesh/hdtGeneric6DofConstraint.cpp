@@ -2,8 +2,8 @@
 
 namespace hdt
 {
-	Generic6DofConstraint::Generic6DofConstraint(SkinnedMeshBone* a, SkinnedMeshBone* b, const btTransform& frameInA, const btTransform& frameInB) : 
-		BoneScaleConstraint(a, b, static_cast<btTypedConstraint*>(this)), 
+	Generic6DofConstraint::Generic6DofConstraint(SkinnedMeshBone* a, SkinnedMeshBone* b, const btTransform& frameInA, const btTransform& frameInB) :
+		BoneScaleConstraint(a, b, static_cast<btTypedConstraint*>(this)),
 		btGeneric6DofSpring2Constraint(a->m_rig, b->m_rig, btTransform::getIdentity(), btTransform::getIdentity(), RO_XYZ)
 	{
 		auto fa = a->m_rigToLocal * frameInA;
@@ -44,8 +44,7 @@ namespace hdt
 		m_linearLimits.m_springStiffness *= factor3;
 		m_linearLimits.m_upperLimit *= factor;
 		m_linearLimits.m_lowerLimit *= factor;
-		for (int i = 0; i < 3; ++i)
-		{
+		for (int i = 0; i < 3; ++i) {
 			m_angularLimits[i].m_springStiffness *= factor5;
 		}
 
@@ -146,7 +145,7 @@ namespace hdt
 	//	for (int i = 0; i<3; i++)
 	//	{
 	//		if (m_linearLimits.needApplyForce(i))
-	//		{ // re-use rotational motor code
+	//		{ // reuse rotational motor code
 	//			limot.m_bounce = m_linearBounce[i];
 	//			limot.m_currentLimit = m_linearLimits.m_currentLimit[i];
 	//			limot.m_currentPosition = m_linearLimits.m_currentLinearDiff[i];

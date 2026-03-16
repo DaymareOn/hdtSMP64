@@ -3,25 +3,21 @@
 namespace hdt
 {
 	CheckTriangle::CheckTriangle(const btVector3& p0, const btVector3& p1, const btVector3& p2, float margin,
-	                             float prenetration)
-		: p0(p0), p1(p1), p2(p2), margin(margin), prenetration(prenetration)
+		float prenetration) :
+		p0(p0), p1(p1), p2(p2), margin(margin), prenetration(prenetration)
 	{
 		normal = (p1 - p0).cross(p2 - p0);
 		__m128 len2 = _mm_dp_ps(normal.get128(), normal.get128(), 0x71);
-		if (_mm_cvtss_f32(len2) < FLT_EPSILON * FLT_EPSILON)
-		{
+		if (_mm_cvtss_f32(len2) < FLT_EPSILON * FLT_EPSILON) {
 			valid = false;
-		}
-		else
-		{
+		} else {
 			valid = true;
 			normal.set128(_mm_div_ps(normal.get128(), setAll0(_mm_sqrt_ss(len2))));
 
 			if (prenetration > -FLT_EPSILON && prenetration < FLT_EPSILON)
 				prenetration = 0;
 
-			if (prenetration < 0)
-			{
+			if (prenetration < 0) {
 				//triangle facing the other way
 				normal = -normal;
 				prenetration = -prenetration;
@@ -31,7 +27,7 @@ namespace hdt
 	}
 
 	inline static float signedDistanceFromPointToPlane(const btVector3& point, const btVector3& n, float c,
-	                                                   btVector3& closestPointOnFace)
+		btVector3& closestPointOnFace)
 	{
 		float dist = n.dot(point) + c;
 		closestPointOnFace = point - n * dist;
@@ -39,27 +35,23 @@ namespace hdt
 	}
 
 	inline static float segmentSqrDistance(const btVector3& from, const btVector3& to, const btVector3& p,
-	                                       btVector3& nearest)
+		btVector3& nearest)
 	{
 		btVector3 diff = p - from;
 		btVector3 v = to - from;
 		float t = v.dot(diff);
 
-		if (t > 0)
-		{
+		if (t > 0) {
 			float dotVV = v.dot(v);
-			if (t < dotVV)
-			{
+			if (t < dotVV) {
 				t /= dotVV;
 				diff -= v * t;
-			}
-			else
-			{
+			} else {
 				t = 1;
 				diff -= v;
 			}
-		}
-		else t = 0;
+		} else
+			t = 0;
 
 		nearest = from + v * t;
 		return diff.length2();
@@ -74,30 +66,35 @@ namespace hdt
 		auto d1 = ab.dot(ap);
 		auto d2 = ac.dot(ap);
 
-		if (d1 <= 0 && d2 <= 0) return false; //1,0,0
+		if (d1 <= 0 && d2 <= 0)
+			return false;  //1,0,0
 
 		auto bp = p - p2;
 		auto d3 = ab.dot(bp);
 		auto d4 = ac.dot(bp);
-		if (d3 >= 0 && d4 <= d3) return false; //0,1,0
+		if (d3 >= 0 && d4 <= d3)
+			return false;  //0,1,0
 
 		auto cp = p - p3;
 		auto d5 = ab.dot(cp);
 		auto d6 = ac.dot(cp);
-		if (d6 >= 0 && d5 <= d6) return false; //0,0,1
+		if (d6 >= 0 && d5 <= d6)
+			return false;  //0,0,1
 
 		auto vc = d1 * d4 - d3 * d2;
-		if (vc <= 0 && d1 >= 0 && d3 <= 0) return false; //u,v,0
+		if (vc <= 0 && d1 >= 0 && d3 <= 0)
+			return false;  //u,v,0
 
 		auto vb = d5 * d2 - d1 * d6;
-		if (vb <= 0 && d2 >= 0 && d6 <= 0) return false; //u,0,w
+		if (vb <= 0 && d2 >= 0 && d6 <= 0)
+			return false;  //u,0,w
 
 		auto va = d3 * d6 - d5 * d4;
-		if (va <= 0 && d4 >= d3 && d5 >= d6) return false; //0,v,w
+		if (va <= 0 && d4 >= d3 && d5 >= d6)
+			return false;  //0,v,w
 
 		return true;
 	}
-
 
 	bool checkSphereSphere(const btVector3& a, const btVector3& b, float ra, float rb, CollisionResult& res)
 	{
@@ -134,10 +131,8 @@ namespace hdt
 		bool isInsideContactPlane;
 		if (prenetration >= FLT_EPSILON)
 			isInsideContactPlane = distanceFromPlane < radiusWithMargin && distanceFromPlane >= -prenetration;
-		else
-		{
-			if (distanceFromPlane < 0)
-			{
+		else {
+			if (distanceFromPlane < 0) {
 				distanceFromPlane = -distanceFromPlane;
 				normal = -normal;
 			}
@@ -147,18 +142,15 @@ namespace hdt
 		// Check for contact / intersection
 		bool hasContact = false;
 		btVector3 contactPoint;
-		if (isInsideContactPlane)
-		{
-			if (pointInTriangle(tri.p0, tri.p1, tri.p2, normal, s))
-			{
+		if (isInsideContactPlane) {
+			if (pointInTriangle(tri.p0, tri.p1, tri.p2, normal, s)) {
 				// Inside the contact wedge - touches a point on the shell plane
 				hasContact = true;
 				contactPoint = s - normal * distanceFromPlane;
 			}
 		}
 
-		if (hasContact)
-		{
+		if (hasContact) {
 			res.posA = s - normal * r;
 			res.posB = contactPoint;
 			res.normOnB = normal;
@@ -173,9 +165,8 @@ namespace hdt
 		// get d value
 		float d = normal.dot(coord);
 		auto dir = p1 - p0;
-		if (normal.dot(dir) < FLT_EPSILON)
-		{
-			return false; // No intersection, the line is parallel to the plane
+		if (normal.dot(dir) < FLT_EPSILON) {
+			return false;  // No intersection, the line is parallel to the plane
 		}
 
 		// Compute the X value for the directed line ray intersecting the plane
@@ -186,7 +177,7 @@ namespace hdt
 
 		x = btClamped(x - e, 0.f, 1.f);
 		// output contact point
-		contact = p0 + dir * x; //Make sure your ray vector is normalized
+		contact = p0 + dir * x;  //Make sure your ray vector is normalized
 		return true;
 	}
 }
