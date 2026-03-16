@@ -684,7 +684,7 @@ namespace hdt
 				continue;
 
 			if (child->name.size() && !strncmp(child->name.data(), prefix->cstr(), prefix->size())) {
-				dst->DetachChildAt2(i++);
+				dst->DetachChildAt2(i);
 			} else {
 				doSkeletonClean(child, prefix);
 			}
@@ -838,7 +838,6 @@ namespace hdt
 									auto parent = removeObj->parent;
 									if (parent) {
 										parent->DetachChild2(removeObj);
-										removeObj->DecRefCount();
 									}
 								}
 								this->head.nodeUseCount.erase(findNode);
