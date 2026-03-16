@@ -172,7 +172,6 @@ jobs:
           echo "Cloning FSMP-Validator..."
           git clone --depth 1 https://github.com/DaymareOn/FSMP-Validator.git temp-validator
           mkdir -p validator_files
-          cp temp-validator/FSMP* validator_files/
           cp temp-validator/LICENSE validator_files/
           cp temp-validator/skse/plugins/hdtSkinnedMeshConfigs/hdtSMP64.xsd validator_files/
 
