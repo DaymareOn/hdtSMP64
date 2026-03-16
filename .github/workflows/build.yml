@@ -9,6 +9,8 @@ on:
       - "**.cpp"
       - "**.h"
       - "**.hpp"
+      - "**.cu"
+      - "**.cuh"
       - "CMakeLists.txt"
       - "CMakePresets.json"
       - "vcpkg.json"
@@ -27,6 +29,8 @@ on:
       - "**.cpp"
       - "**.h"
       - "**.hpp"
+      - "**.cu"
+      - "**.cuh"
       - "CMakeLists.txt"
       - "CMakePresets.json"
       - "vcpkg.json"
@@ -47,8 +51,10 @@ jobs:
   prepare:
     runs-on: ubuntu-latest
     outputs:
-    # Make the version accessible to other jobs
+      # Make the version accessible to other jobs
       new_version: ${{ steps.versioning.outputs.version }}
+      # We add this output so the release job can retrieve the complete tag (e.g., v1.2.3 or v1.2.3-dev)
+      version_tag: ${{ steps.versioning.outputs.version_tag }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -60,11 +66,34 @@ jobs:
         uses: paulhatch/semantic-version@v5.4.0
         with:
           tag_prefix: "v"
+          version_from_branch: true # Filter existing tags by branch
           version_format: "${major}.${minor}.${patch}"
           major_pattern: "/!:|BREAKING CHANGE:/"
-          minor_pattern: "feat:"
+          minor_pattern: "/feat(\\(.+\\))?:/"
           bump_each_commit: true
-          bump_each_commit_patch_pattern: "fix:"
+          bump_each_commit_patch_pattern: "fix:|refactor:"
+
+  check_messages:
+    runs-on: ubuntu-latest
+    outputs:
+      should_release: ${{ steps.filter.outputs.should_release }}
+    steps:
+      - id: filter
+        shell: bash
+        run: |
+          # We get all the commit messages from the push in JSON
+          COMMITS='${{ toJson(github.event.commits) }}'
+          SHOULD_RELEASE=false
+          # We loop through each message
+          for msg in $(echo "$COMMITS" | jq -r '.[].message'); do
+            # If a commit does not start with style, docs or test
+            if [[ ! "$msg" =~ ^(style|docs|test): ]]; then
+              SHOULD_RELEASE=true
+              break
+            fi
+          done
+          # We set the output variable so it can be used in the release job
+          echo "should_release=$SHOULD_RELEASE" >> $GITHUB_OUTPUT
 
   build:
     needs: prepare
@@ -156,13 +185,11 @@ jobs:
           path: build/plugins/
 
   release:
-    needs: [prepare, build]
+    needs: [prepare, build, check_messages]
     # Release only on push to branches, and ignore commits that are just style, docs, tests changes
     if: |
       github.event_name == 'push' &&
-      !startsWith(github.event.head_commit.message, 'style:') &&
-      !startsWith(github.event.head_commit.message, 'docs:') &&
-      !startsWith(github.event.head_commit.message, 'test:')
+      needs.check_messages.outputs.should_release == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -242,7 +269,7 @@ jobs:
         with:
           # This is where the version is saved into Git with a Tag
           # If the branch isn't master, we append the branch name to the tag to avoid conflicts
-          tag_name: ${{ github.ref_name == 'master' && format('v{0}', needs.prepare.outputs.new_version) || format('v{0}-{1}', needs.prepare.outputs.new_version, github.ref_name) }}
+          tag_name: ${{ needs.prepare.outputs.version_tag }}
           name: FSMP v${{ needs.prepare.outputs.new_version }} (${{ github.ref_name }})
           body: |
             ## Release v${{ needs.prepare.outputs.new_version }}
