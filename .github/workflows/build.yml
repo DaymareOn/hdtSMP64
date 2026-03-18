@@ -67,7 +67,7 @@ jobs:
         with:
           tag_prefix: "v"
           version_from_branch: true # Filter existing tags by branch
-          version_format: "${major}.${minor}.${patch}${{ github.ref_name != 'master' && format('-{0}', github.ref_name) || '' }}"
+          version_format: "${major}.${minor}.${patch}"
           major_pattern: "/!:|BREAKING CHANGE:/"
           minor_pattern: "/feat(\\(.+\\))?:/"
           bump_each_commit: true
@@ -269,10 +269,10 @@ jobs:
         with:
           # This is where the version is saved into Git with a Tag
           # If the branch isn't master, we append the branch name to the tag to avoid conflicts
-          tag_name: ${{ needs.prepare.outputs.version_tag }}
+          tag_name: ${{ github.ref_name == 'master' && format('v{0}', needs.prepare.outputs.new_version) || format('v{0}-{1}', needs.prepare.outputs.new_version, github.ref_name) }}
           name: FSMP v${{ needs.prepare.outputs.new_version }} (${{ github.ref_name }})
           body: |
-            ## Release v${{ needs.prepare.outputs.new_version }}
+            ## Release ${{ github.ref_name == 'master' && format('v{0}', needs.prepare.outputs.new_version) || format('v{0}-{1}', needs.prepare.outputs.new_version, github.ref_name) }}
             Build Date: ${{ github.event.head_commit.timestamp }}
             Commit: ${{ github.sha }}
             Automated Semantic Build.
