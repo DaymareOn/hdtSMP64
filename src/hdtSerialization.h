@@ -106,10 +106,11 @@ namespace hdt
 	template <class _Storage_t, class _Stream_t>
 	inline void Serializer<_Storage_t, _Stream_t>::ReadData(SKSE::SerializationInterface* intfc, uint32_t length)
 	{
-		char* data_block = new char[length];
-		intfc->ReadRecordData(data_block, length);
-		std::string s_data(data_block, length);
-		//_MESSAGE("Reading Data: %s", s_data.c_str());
+		std::string s_data;
+		s_data.resize(length);
+
+		intfc->ReadRecordData(s_data.data(), length);
+
 		_Stream_t _stream;
 		_stream << s_data;
 		this->Deserialize(_stream);
