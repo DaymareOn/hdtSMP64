@@ -395,6 +395,38 @@ namespace hdt
 		btVector3 m_col[4];
 	};
 
+	// Ref counted base for objects that need RE::BSTSmartPointer compatibility but cannot inherit RE::BSIntrusiveRefCounted
+	// due to conflicts
+	class RefObject
+	{
+	public:
+		RefObject() :
+			m_refCount(0) {}
+
+		virtual ~RefObject() = default;
+
+		std::uint32_t IncRef() const { return ++m_refCount; }
+
+		// RE::BSTSmartPointer calls this, and will handle deletion for us
+		std::uint32_t DecRef() const
+		{
+			assert(m_refCount > 0);
+			return --m_refCount;
+		}
+
+		void release() const
+		{
+			if (DecRef() == 0) {
+				delete this;
+			}
+		}
+
+		long getRefCount() const { return m_refCount; }
+
+	private:
+		mutable std::atomic<std::uint32_t> m_refCount;
+	};
+
 	template <>
 	inline btVector3 abs(btVector3 rhs)
 	{

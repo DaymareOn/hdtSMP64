@@ -2,7 +2,7 @@
 
 namespace hdt
 {
-	StiffSpringConstraint::StiffSpringConstraint(SkinnedMeshBone* a, SkinnedMeshBone* b) :
+	StiffSpringConstraint::StiffSpringConstraint(SkinnedMeshBone* a, SkinnedMeshBone* b) : 
 		BoneScaleConstraint(a, b, this), btTypedConstraint(MAX_CONSTRAINT_TYPE, a->m_rig, b->m_rig)
 	{
 		auto distance = a->m_currentTransform.getOrigin().distance(b->m_currentTransform.getOrigin());
@@ -90,7 +90,7 @@ namespace hdt
 			auto m_maxMotorForce = btFabs(force) / info->fps;
 
 			btScalar mot_fact = getMotorFactor(distance, m_minDistance, m_maxDistance, m_targetVelocity,
-				info->fps * info->erp);
+			                                   info->fps * info->erp);
 			info->m_constraintError[0] = mot_fact * m_targetVelocity * (m_rbA.getInvMass() + m_rbB.getInvMass());
 			info->m_lowerLimit[0] = -m_maxMotorForce;
 			info->m_upperLimit[0] = m_maxMotorForce;

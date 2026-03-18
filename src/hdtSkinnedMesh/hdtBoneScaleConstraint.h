@@ -1,11 +1,11 @@
 #pragma once
 
+#include "hdtBulletHelper.h"
 #include "hdtSkinnedMeshBody.h"
 
 namespace hdt
 {
-	class BoneScaleConstraint :
-		public RE::BSIntrusiveRefCounted
+	class alignas(16) BoneScaleConstraint : public RefObject
 	{
 	public:
 		BoneScaleConstraint(SkinnedMeshBone* a, SkinnedMeshBone* b, btTypedConstraint* constraint);
