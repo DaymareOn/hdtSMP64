@@ -5,7 +5,7 @@
 
 namespace hdt
 {
-	class StiffSpringConstraint : 
+	class StiffSpringConstraint :
 		public BoneScaleConstraint,
 		public btTypedConstraint
 	{

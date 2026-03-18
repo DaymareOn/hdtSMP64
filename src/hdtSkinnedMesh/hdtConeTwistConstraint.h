@@ -4,7 +4,7 @@
 namespace hdt
 {
 	class ConeTwistConstraint :
-		public BoneScaleConstraint, 
+		public BoneScaleConstraint,
 		public btConeTwistConstraint
 	{
 	public:
