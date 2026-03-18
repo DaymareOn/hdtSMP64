@@ -53,8 +53,6 @@ jobs:
     outputs:
       # Make the version accessible to other jobs
       new_version: ${{ steps.versioning.outputs.version }}
-      # We add this output so the release job can retrieve the complete tag (e.g., v1.2.3 or v1.2.3-dev)
-      version_tag: ${{ steps.versioning.outputs.version_tag }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
