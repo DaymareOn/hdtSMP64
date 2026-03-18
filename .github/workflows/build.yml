@@ -70,6 +70,7 @@ jobs:
           minor_pattern: "/feat(\\(.+\\))?:/"
           bump_each_commit: true
           bump_each_commit_patch_pattern: "fix:|refactor:"
+          debug: true
 
   check_messages:
     runs-on: ubuntu-latest
