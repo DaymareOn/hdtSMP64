@@ -4,7 +4,7 @@ on:
     branches:
       - master
       - dev
-      - testbuild
+      - fixrelease
     paths:
       - "**.cpp"
       - "**.h"
@@ -24,7 +24,7 @@ on:
     branches:
       - master
       - dev
-      - testbuild
+      - fixrelease
     paths:
       - "**.cpp"
       - "**.h"
@@ -67,7 +67,7 @@ jobs:
         with:
           tag_prefix: "v"
           version_from_branch: true # Filter existing tags by branch
-          version_format: "${major}.${minor}.${patch}"
+          version_format: "${major}.${minor}.${patch}${{ github.ref_name != 'master' && format('-{0}', github.ref_name) || '' }}"
           major_pattern: "/!:|BREAKING CHANGE:/"
           minor_pattern: "/feat(\\(.+\\))?:/"
           bump_each_commit: true
