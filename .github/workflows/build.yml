@@ -4,7 +4,6 @@ on:
     branches:
       - master
       - dev
-      - fixversion
     paths:
       - "**.cpp"
       - "**.h"
@@ -24,7 +23,6 @@ on:
     branches:
       - master
       - dev
-      - fixversion
     paths:
       - "**.cpp"
       - "**.h"
