@@ -112,213 +112,213 @@ jobs:
           echo "New version calculated: $NEW_VERSION"
           echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
 
-# check_messages:
-#   runs-on: ubuntu-latest
-#   outputs:
-#     should_release: ${{ steps.filter.outputs.should_release }}
-#   steps:
-#     - id: filter
-#       shell: bash
-#       run: |
-#         # We get all the commit messages from the push in JSON
-#         COMMITS='${{ toJson(github.event.commits) }}'
-#         SHOULD_RELEASE=false
-#         # We loop through each message
-#         for msg in $(echo "$COMMITS" | jq -r '.[].message'); do
-#           # If a commit does not start with style, docs or test
-#           if [[ ! "$msg" =~ ^(style|docs|test): ]]; then
-#             SHOULD_RELEASE=true
-#             break
-#           fi
-#         done
-#         # We set the output variable so it can be used in the release job
-#         echo "should_release=$SHOULD_RELEASE" >> $GITHUB_OUTPUT
-#
-# build:
-#   needs: prepare
-#   runs-on: windows-2022
-#   strategy:
-#     fail-fast: false
-#     # Use a matrix to run all presets at the same time
-#     matrix:
-#       include:
-#         - preset: vs2022-windows-nocuda
-#           cuda: false
-#         - preset: vs2022-windows-nocuda-avx
-#           cuda: false
-#         - preset: vs2022-windows-nocuda-avx2
-#           cuda: false
-#         - preset: vs2022-windows-nocuda-avx512
-#           cuda: false
-#         - preset: vs2022-windows-cuda
-#           cuda: true
-#         - preset: vs2022-windows-cuda-avx
-#           cuda: true
-#         - preset: vs2022-windows-cuda-avx2
-#           cuda: true
-#         - preset: vs2022-windows-cuda-avx512
-#           cuda: true
-#
-#   steps:
-#     - name: Checkout the repository
-#       uses: actions/checkout@v4
-#       with:
-#         submodules: recursive # This handles the 'git submodule update --init --recursive' automatically
-#
-#     - name: Install CUDA Toolkit
-#       if: matrix.cuda
-#       uses: Jimver/cuda-toolkit@v0.2.30
-#       with:
-#         cuda: "12.6.3"
-#         method: network
-#         sub-packages: '["nvcc", "cudart"]'
-#
-#     - name: Inject version into CMake
-#       shell: pwsh
-#       run: |
-#         $NewVer = "${{ needs.prepare.outputs.new_version }}"
-#         Write-Host "Injecting version $NewVer into CMakeLists.txt"
-#         (Get-Content CMakeLists.txt) -replace 'VERSION \d+\.\d+\.\d+', "VERSION $NewVer" | Set-Content CMakeLists.txt
-#
-#     - name: Restore vcpkg dependencies and binary cache
-#       uses: actions/cache@v4
-#       with:
-#         path: |
-#           build/vcpkg_installed
-#           ~\AppData\Local\vcpkg\archives
-#         # Adding the preset name to the key ensures the presets don't overwrite each other's cache
-#         key: vcpkg-${{ runner.os }}-${{ github.ref_name }}-${{ matrix.preset }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/ports/**') }}
-#         restore-keys: |
-#           vcpkg-${{ runner.os }}-${{ github.ref_name }}-${{ matrix.preset }}-
-#
-#     - name: Configure CMake with vcpkg toolchain injection
-#       shell: pwsh
-#       run: |
-#         # 1. Ensure the binary cache directory exists so vcpkg doesn't complain
-#         $BinaryCachePath = "$env:LOCALAPPDATA\vcpkg\archives"
-#         if (!(Test-Path $BinaryCachePath)) {
-#             Write-Host "Creating vcpkg binary cache directory at $BinaryCachePath"
-#             New-Item -ItemType Directory -Force -Path $BinaryCachePath
-#         }
-#
-#         # 2. Set the environment variable so the vcpkg toolchain sees it
-#         $env:VCPKG_BINARY_SOURCES = "clear;files,$BinaryCachePath,readwrite"
-#
-#         # 3. Run the configuration
-#         cmake --preset ${{ matrix.preset }} `
-#           -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
-#           -DVCPKG_MANIFEST_MODE=ON `
-#           -DCompiledPluginsPath="${{ github.workspace }}/build/plugins"
-#
-#     - name: Create the CompiledPluginsPath folder structure
-#       run: mkdir -p "${{ github.workspace }}/build/plugins/SKSE/Plugins/"
-#       shell: bash
-#
-#     - name: Build according to the preset
-#       run: cmake --build build --config Release
-#
-#     - name: Upload the build folder
-#       uses: actions/upload-artifact@v4
-#       with:
-#         name: raw-${{ matrix.preset }}
-#         path: build/plugins/
-#
-# release:
-#   needs: [prepare, build, check_messages]
-#   # Release only on push to branches, and ignore commits that are just style, docs, tests changes
-#   if: |
-#     github.event_name == 'push' &&
-#     needs.check_messages.outputs.should_release == 'true'
-#   runs-on: ubuntu-latest
-#   permissions:
-#     contents: write
-#
-#   steps:
-#     - name: Checkout the code to get the "fomod tree" folder
-#       uses: actions/checkout@v4
-#       with:
-#         fetch-depth: 0
-#
-#     - name: Update FOMOD version
-#       run: |
-#         VERSION_STRING="${{ needs.prepare.outputs.new_version }}-${{ github.ref_name }}-${{ github.sha }}"
-#         sed -i "s|<Version>.*</Version>|<Version>$VERSION_STRING</Version>|g" "fomod tree/fomod/info.xml"
-#
-#     - name: Download Artifacts
-#       uses: actions/download-artifact@v4
-#       with:
-#         path: tmp_artifacts
-#
-#     - name: Fetch the FSMP Validator
-#       run: |
-#         echo "Cloning FSMP-Validator..."
-#         git clone --depth 1 https://github.com/DaymareOn/FSMP-Validator.git temp-validator
-#         mkdir -p validator_files
-#         cp temp-validator/LICENSE validator_files/
-#         cp temp-validator/skse/plugins/hdtSkinnedMeshConfigs/hdtSMP64.xsd validator_files/
-#
-#     - name: Fetch the FSMP MCM
-#       run: |
-#         echo "Cloning FSMP-MCM..."
-#         git clone --depth 1 https://github.com/DaymareOn/FSMP-MCM.git temp-mcm
-#         mkdir -p mcm_files
-#         cp temp-mcm/FSMP* mcm_files/
-#         cp temp-mcm/LICENSE mcm_files/
-#         cp -r temp-mcm/SKSE mcm_files/
-#         cp -r temp-mcm/Scripts mcm_files/
-#         cp -r temp-mcm/Source mcm_files/
-#
-#     - name: Organize and 7zip
-#       run: |
-#         # 1. Create a clean structure for the final ZIP
-#         mkdir -p final_package/FSMPV
-#         mkdir -p final_package/FSMPM
-#
-#         # 2. Copy everything FROM inside "fomod tree" to the ROOT of final_package
-#         # Using '.' at the end of the source path copies the content, not the folder itself
-#         cp -r "fomod tree/." final_package/
-#
-#         # 3. Move files from the "raw" artifacts into the final structure
-#         # Note: download-artifact creates folders named after the 'name' in upload-artifact
-#         cp -r tmp_artifacts/raw-* final_package/
-#
-#         # 4. Copy the Validator to the root level of the package
-#         cp -r validator_files/* final_package/FSMPV/
-#
-#         # 5. Copy the MCM to the root level of the package
-#         cp -r mcm_files/* final_package/FSMPM/
-#
-#         # 6. Create the unique ZIP
-#         cd final_package
-#         # a: add to archive
-#         # -tzip: ZIP container
-#         # -mm=LZMA: Uses the strongest available compression algorithm; lzma2 isn't supported in ZIP
-#         # -mx=9: Level 9 (Ultra)
-#         7z a -tzip -mm=LZMA -mx=9 ../FSMP-${{ github.ref_name }}-${{ needs.prepare.outputs.new_version }}.zip .
-#         cd ..
-#
-#     - name: Verify the archive content
-#       shell: bash
-#       run: |
-#         echo "Listing contents of FSMP-${{ github.ref_name }}-${{ needs.prepare.outputs.new_version }}.zip:"
-#         7z l FSMP-${{ github.ref_name }}-${{ needs.prepare.outputs.new_version }}.zip
-#
-#     - name: Create GitHub Release and Git Tag
-#       uses: softprops/action-gh-release@v2
-#       with:
-#         # We follow the rule strictly: vX.Y.Z on master, vX.Y.Z-branch on the rest
-#         tag_name: >-
-#           ${{
-#             github.ref_name == 'master' &&
-#             format('v{0}', needs.prepare.outputs.new_version) ||
-#             format('v{0}-{1}', needs.prepare.outputs.new_version, github.ref_name)
-#           }}
-#         name: FSMP v${{ needs.prepare.outputs.new_version }} (${{ github.ref_name }})
-#         body: |
-#           ## Release ${{ github.ref_name == 'master' && format('v{0}', needs.prepare.outputs.new_version) || format('v{0}-{1}', needs.prepare.outputs.new_version, github.ref_name) }}
-#           Build Date: ${{ github.event.head_commit.timestamp }}
-#           Commit: ${{ github.sha }}
-#           Automated Semantic Build.
-#         files: "**.zip"
-#         # prerelease is true for all branches except master
-#         prerelease: ${{ github.ref_name != 'master' }}
+  check_messages:
+    runs-on: ubuntu-latest
+    outputs:
+      should_release: ${{ steps.filter.outputs.should_release }}
+    steps:
+      - id: filter
+        shell: bash
+        run: |
+          # We get all the commit messages from the push in JSON
+          COMMITS='${{ toJson(github.event.commits) }}'
+          SHOULD_RELEASE=false
+          # We loop through each message
+          for msg in $(echo "$COMMITS" | jq -r '.[].message'); do
+            # If a commit does not start with style, docs or test
+            if [[ ! "$msg" =~ ^(style|docs|test): ]]; then
+              SHOULD_RELEASE=true
+              break
+            fi
+          done
+          # We set the output variable so it can be used in the release job
+          echo "should_release=$SHOULD_RELEASE" >> $GITHUB_OUTPUT
+
+  build:
+    needs: prepare
+    runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      # Use a matrix to run all presets at the same time
+      matrix:
+        include:
+          - preset: vs2022-windows-nocuda
+            cuda: false
+          - preset: vs2022-windows-nocuda-avx
+            cuda: false
+          - preset: vs2022-windows-nocuda-avx2
+            cuda: false
+          - preset: vs2022-windows-nocuda-avx512
+            cuda: false
+          - preset: vs2022-windows-cuda
+            cuda: true
+          - preset: vs2022-windows-cuda-avx
+            cuda: true
+          - preset: vs2022-windows-cuda-avx2
+            cuda: true
+          - preset: vs2022-windows-cuda-avx512
+            cuda: true
+
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive # This handles the 'git submodule update --init --recursive' automatically
+
+      - name: Install CUDA Toolkit
+        if: matrix.cuda
+        uses: Jimver/cuda-toolkit@v0.2.30
+        with:
+          cuda: "12.6.3"
+          method: network
+          sub-packages: '["nvcc", "cudart"]'
+
+      - name: Inject version into CMake
+        shell: pwsh
+        run: |
+          $NewVer = "${{ needs.prepare.outputs.new_version }}"
+          Write-Host "Injecting version $NewVer into CMakeLists.txt"
+          (Get-Content CMakeLists.txt) -replace 'VERSION \d+\.\d+\.\d+', "VERSION $NewVer" | Set-Content CMakeLists.txt
+
+      - name: Restore vcpkg dependencies and binary cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            build/vcpkg_installed
+            ~\AppData\Local\vcpkg\archives
+          # Adding the preset name to the key ensures the presets don't overwrite each other's cache
+          key: vcpkg-${{ runner.os }}-${{ github.ref_name }}-${{ matrix.preset }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/ports/**') }}
+          restore-keys: |
+            vcpkg-${{ runner.os }}-${{ github.ref_name }}-${{ matrix.preset }}-
+
+      - name: Configure CMake with vcpkg toolchain injection
+        shell: pwsh
+        run: |
+          # 1. Ensure the binary cache directory exists so vcpkg doesn't complain
+          $BinaryCachePath = "$env:LOCALAPPDATA\vcpkg\archives"
+          if (!(Test-Path $BinaryCachePath)) {
+              Write-Host "Creating vcpkg binary cache directory at $BinaryCachePath"
+              New-Item -ItemType Directory -Force -Path $BinaryCachePath
+          }
+
+          # 2. Set the environment variable so the vcpkg toolchain sees it
+          $env:VCPKG_BINARY_SOURCES = "clear;files,$BinaryCachePath,readwrite"
+
+          # 3. Run the configuration
+          cmake --preset ${{ matrix.preset }} `
+            -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
+            -DVCPKG_MANIFEST_MODE=ON `
+            -DCompiledPluginsPath="${{ github.workspace }}/build/plugins"
+
+      - name: Create the CompiledPluginsPath folder structure
+        run: mkdir -p "${{ github.workspace }}/build/plugins/SKSE/Plugins/"
+        shell: bash
+
+      - name: Build according to the preset
+        run: cmake --build build --config Release
+
+      - name: Upload the build folder
+        uses: actions/upload-artifact@v4
+        with:
+          name: raw-${{ matrix.preset }}
+          path: build/plugins/
+
+  release:
+    needs: [prepare, build, check_messages]
+    # Release only on push to branches, and ignore commits that are just style, docs, tests changes
+    if: |
+      github.event_name == 'push' &&
+      needs.check_messages.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout the code to get the "fomod tree" folder
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Update FOMOD version
+        run: |
+          VERSION_STRING="${{ needs.prepare.outputs.new_version }}-${{ github.ref_name }}-${{ github.sha }}"
+          sed -i "s|<Version>.*</Version>|<Version>$VERSION_STRING</Version>|g" "fomod tree/fomod/info.xml"
+
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: tmp_artifacts
+
+      - name: Fetch the FSMP Validator
+        run: |
+          echo "Cloning FSMP-Validator..."
+          git clone --depth 1 https://github.com/DaymareOn/FSMP-Validator.git temp-validator
+          mkdir -p validator_files
+          cp temp-validator/LICENSE validator_files/
+          cp temp-validator/skse/plugins/hdtSkinnedMeshConfigs/hdtSMP64.xsd validator_files/
+
+      - name: Fetch the FSMP MCM
+        run: |
+          echo "Cloning FSMP-MCM..."
+          git clone --depth 1 https://github.com/DaymareOn/FSMP-MCM.git temp-mcm
+          mkdir -p mcm_files
+          cp temp-mcm/FSMP* mcm_files/
+          cp temp-mcm/LICENSE mcm_files/
+          cp -r temp-mcm/SKSE mcm_files/
+          cp -r temp-mcm/Scripts mcm_files/
+          cp -r temp-mcm/Source mcm_files/
+
+      - name: Organize and 7zip
+        run: |
+          # 1. Create a clean structure for the final ZIP
+          mkdir -p final_package/FSMPV
+          mkdir -p final_package/FSMPM
+
+          # 2. Copy everything FROM inside "fomod tree" to the ROOT of final_package
+          # Using '.' at the end of the source path copies the content, not the folder itself
+          cp -r "fomod tree/." final_package/
+
+          # 3. Move files from the "raw" artifacts into the final structure
+          # Note: download-artifact creates folders named after the 'name' in upload-artifact
+          cp -r tmp_artifacts/raw-* final_package/
+
+          # 4. Copy the Validator to the root level of the package
+          cp -r validator_files/* final_package/FSMPV/
+
+          # 5. Copy the MCM to the root level of the package
+          cp -r mcm_files/* final_package/FSMPM/
+
+          # 6. Create the unique ZIP
+          cd final_package
+          # a: add to archive
+          # -tzip: ZIP container
+          # -mm=LZMA: Uses the strongest available compression algorithm; lzma2 isn't supported in ZIP
+          # -mx=9: Level 9 (Ultra)
+          7z a -tzip -mm=LZMA -mx=9 ../FSMP-${{ github.ref_name }}-${{ needs.prepare.outputs.new_version }}.zip .
+          cd ..
+
+      - name: Verify the archive content
+        shell: bash
+        run: |
+          echo "Listing contents of FSMP-${{ github.ref_name }}-${{ needs.prepare.outputs.new_version }}.zip:"
+          7z l FSMP-${{ github.ref_name }}-${{ needs.prepare.outputs.new_version }}.zip
+
+      - name: Create GitHub Release and Git Tag
+        uses: softprops/action-gh-release@v2
+        with:
+          # We follow the rule strictly: vX.Y.Z on master, vX.Y.Z-branch on the rest
+          tag_name: >-
+            ${{
+              github.ref_name == 'master' &&
+              format('v{0}', needs.prepare.outputs.new_version) ||
+              format('v{0}-{1}', needs.prepare.outputs.new_version, github.ref_name)
+            }}
+          name: FSMP v${{ needs.prepare.outputs.new_version }} (${{ github.ref_name }})
+          body: |
+            ## Release ${{ github.ref_name == 'master' && format('v{0}', needs.prepare.outputs.new_version) || format('v{0}-{1}', needs.prepare.outputs.new_version, github.ref_name) }}
+            Build Date: ${{ github.event.head_commit.timestamp }}
+            Commit: ${{ github.sha }}
+            Automated Semantic Build.
+          files: "**.zip"
+          # prerelease is true for all branches except master
+          prerelease: ${{ github.ref_name != 'master' }}
