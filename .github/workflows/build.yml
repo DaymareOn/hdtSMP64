@@ -109,6 +109,7 @@ jobs:
           fi
 
           NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+          # We set the output variable so it can be used in the release job
           echo "New version calculated: $NEW_VERSION"
           echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
 
@@ -132,6 +133,7 @@ jobs:
             fi
           done
           # We set the output variable so it can be used in the release job
+          echo "We should release: $SHOULD_RELEASE"
           echo "should_release=$SHOULD_RELEASE" >> $GITHUB_OUTPUT
 
   build:
