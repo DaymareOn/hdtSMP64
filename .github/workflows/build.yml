@@ -61,16 +61,56 @@ jobs:
 
       - name: Determine semantic version
         id: versioning
-        uses: paulhatch/semantic-version@v5.4.0
-        with:
-          tag_prefix: "v"
-          version_from_branch: true # Filter existing tags by branch
-          version_format: "${major}.${minor}.${patch}"
-          major_pattern: "/!:|BREAKING CHANGE:/"
-          minor_pattern: "/feat(\\(.+\\))?:/"
-          bump_each_commit: true
-          bump_each_commit_patch_pattern: "fix:|refactor:"
-          debug: true
+        shell: bash
+        run: |
+          # 1. Define the tag pattern based on the branch
+          if [ "${{ github.ref_name }}" == "master" ]; then
+            TAG_PATTERN="v[0-9]*.[0-9]*.[0-9]*"
+            LATEST_TAG=$(git tag -l "$TAG_PATTERN" --merged HEAD | grep -v "-" | sort -V | tail -n1)
+          else
+            TAG_PATTERN="v[0-9]*.[0-9]*.[0-9]*-${{ github.ref_name }}"
+            LATEST_TAG=$(git tag -l "$TAG_PATTERN" --merged HEAD | sort -V | tail -n1)
+          fi
+
+          if [ -z "$LATEST_TAG" ]; then
+            echo "No tag found for branch ${{ github.ref_name }}. Starting from 0.0.0"
+            BASE_VERSION="0.0.0"
+            RANGE="HEAD"
+          else
+            echo "Last tag found: $LATEST_TAG"
+            # Extract only the numeric part (e.g., v1.2.3-dev -> 1.2.3)
+            BASE_VERSION=$(echo $LATEST_TAG | sed -E 's/v([^ -]+).*/\1/')
+            RANGE="$LATEST_TAG..HEAD"
+          fi
+
+          # Extract Major, Minor, Patch
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$BASE_VERSION"
+
+          # 2. Analyze commit messages
+          COMMIT_MESSAGES=$(git log $RANGE --format=%s)
+
+          BUMP="patch"
+          while IFS= read -r msg; do
+            if [[ "$msg" =~ [^[:space:]]\!: || "$msg" =~ "BREAKING CHANGE:" ]]; then
+              BUMP="major"
+              break
+            elif [[ "$msg" =~ ^feat(\(.+\))?: ]]; then
+              BUMP="minor"
+            fi
+          done <<< "$COMMIT_MESSAGES"
+
+          # 3. Apply the increment
+          if [ "$BUMP" == "major" ]; then
+            MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0
+          elif [ "$BUMP" == "minor" ]; then
+            MINOR=$((MINOR + 1)); PATCH=0
+          else
+            PATCH=$((PATCH + 1))
+          fi
+
+          NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+          echo "New version calculated: $NEW_VERSION"
+          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
 
 # check_messages:
 #   runs-on: ubuntu-latest
@@ -266,9 +306,13 @@ jobs:
 #     - name: Create GitHub Release and Git Tag
 #       uses: softprops/action-gh-release@v2
 #       with:
-#         # This is where the version is saved into Git with a Tag
-#         # If the branch isn't master, we append the branch name to the tag to avoid conflicts
-#         tag_name: ${{ github.ref_name == 'master' && format('v{0}', needs.prepare.outputs.new_version) || format('v{0}-{1}', needs.prepare.outputs.new_version, github.ref_name) }}
+#         # We follow the rule strictly: vX.Y.Z on master, vX.Y.Z-branch on the rest
+#         tag_name: >-
+#           ${{
+#             github.ref_name == 'master' &&
+#             format('v{0}', needs.prepare.outputs.new_version) ||
+#             format('v{0}-{1}', needs.prepare.outputs.new_version, github.ref_name)
+#           }}
 #         name: FSMP v${{ needs.prepare.outputs.new_version }} (${{ github.ref_name }})
 #         body: |
 #           ## Release ${{ github.ref_name == 'master' && format('v{0}', needs.prepare.outputs.new_version) || format('v{0}-{1}', needs.prepare.outputs.new_version, github.ref_name) }}
