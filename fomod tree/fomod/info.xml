@@ -1,6 +1,6 @@
 <fomod>
 	<Name>Faster HDT-SMP</Name>
-	<Author>hydrogensaysHDT, aers, ousnius, Karonar1, alandtse, DaydreamingDay, igloomod, SesamePaste, jg1, antpillager, Acro, webspam, full_inu, Kernel Panic, asdt123123</Author>
+	<Author>hydrogensaysHDT, aers, ousnius, Karonar1, alandtse, DaydreamingDay, igloomod, SesamePaste, jg1, antpillager, Acro, webspam, full_inu, Kernel Panic, asdt123123, usernameak</Author>
 	<Version>3.0.0</Version>
 	<Website>https://www.nexusmods.com/skyrimspecialedition/mods/57339</Website>
 	<Description>Hello everybody, this mod allows physics on NPC.
@@ -22,7 +22,7 @@ Plugin functionalities by jg1.
 Non-hookean physics functionalities by webspam.
 Port to CommonLib by Kernel Panic.
 Engine optimizations by asdt123123.
-Current active developers at the time of this writing, ordered by date of involvement in HDT-SMP: alandtse, DaydreamingDay, Kernel Panic, asdt123123.</Description>
+Current active developers at the time of this writing, ordered by date of involvement in HDT-SMP: alandtse, DaydreamingDay, Kernel Panic, asdt123123, usernameak.</Description>
 	<Groups>
 		<element>Animation</element>
 	</Groups>
