@@ -4,7 +4,7 @@ on:
     branches:
       - master
       - dev
-      - hardenrelease
+      - escapeinrelease
     paths:
       - "**.cpp"
       - "**.h"
@@ -24,7 +24,7 @@ on:
     branches:
       - master
       - dev
-      - hardenrelease
+      - escapeinrelease
     paths:
       - "**.cpp"
       - "**.h"
@@ -120,22 +120,12 @@ jobs:
     steps:
       - id: filter
         shell: bash
+        env:
+          COMMITS_JSON: ${{ toJson(github.event.commits) }}
         run: |
-          # We get all the commit messages from the push in JSON
-          COMMITS='${{ toJson(github.event.commits) }}'
-          SHOULD_RELEASE=false
-          # We loop through each message
-          # -c ensures each commit message is on exactly one line (escaped)
-          while read -r msg; do
-            # Skip empty messages
-            [[ -z "$msg" ]] && continue
-
-            # Check if it DOES NOT start with style, docs, or test
-            if [[ ! "$msg" =~ ^(style|docs|test): ]]; then
-              SHOULD_RELEASE=true
-              break
-            fi
-          done < <(echo "$COMMITS" | jq -r '.[].message')
+          SHOULD_RELEASE=$(echo "$COMMITS_JSON" | jq -r '
+            any(.[]; .message | test("^(feat|fix|refactor|chore)"))
+          ')
           # We set the output variable so it can be used in the release job
           echo "We should release: $SHOULD_RELEASE"
           echo "should_release=$SHOULD_RELEASE" >> $GITHUB_OUTPUT
