@@ -422,7 +422,7 @@ namespace hdt
 		// We set which skeletons are active and we count them.
 		const auto world = SkyrimPhysicsWorld::get();
 		const auto wind = WeatherManager::getWindDirection();
-		const bool windEnabled = world->m_enableWind && !btFuzzyZero(hdt::magnitude(wind));
+		const bool windEnabled = world->m_enableWind && !btFuzzyZero(wind.Length());
 
 		activeSkeletons = 0;
 		for (auto& i : m_skeletons) {
@@ -458,12 +458,7 @@ namespace hdt
 			auto reverseWindDir = wind * -1.0f;
 
 			// Normalize the direction vector to ensure accurate math
-			float windMag = std::sqrt(reverseWindDir.x * reverseWindDir.x + reverseWindDir.y * reverseWindDir.y + reverseWindDir.z * reverseWindDir.z);
-			if (windMag > 0.0001f) {
-				reverseWindDir.x /= windMag;
-				reverseWindDir.y /= windMag;
-				reverseWindDir.z /= windMag;
-			}
+			reverseWindDir.Unitize();
 
 			// we project the ray forward by m_distanceForMaxWind
 			RE::NiPoint3 origin;
@@ -477,11 +472,7 @@ namespace hdt
 				origin.z += 100.0f;  // Offset by 100 units so at least it's not their feet
 			}
 
-			RE::NiPoint3 targetPos{
-				origin.x + reverseWindDir.x * world->m_distanceForMaxWind,
-				origin.y + reverseWindDir.y * world->m_distanceForMaxWind,
-				origin.z + reverseWindDir.z * world->m_distanceForMaxWind
-			};
+			RE::NiPoint3 targetPos = origin + reverseWindDir * world->m_distanceForMaxWind;
 
 			RE::NiPoint3 hitLocation;
 
@@ -492,7 +483,7 @@ namespace hdt
 			if (object) {
 				auto diff = owner->data.location - hitLocation;
 				diff.z = 0;  // remove z component difference
-				dist = hdt::magnitude(diff);
+				dist = diff.Length();
 				// windfactor = 0 when dist <= m_distanceForNoWind, = 1 when dist >= m_distanceForMaxWind, and is linear with dist between these 2 values.
 				targetWindFactor = std::clamp((dist - world->m_distanceForNoWind) / (world->m_distanceForMaxWind - world->m_distanceForNoWind), 0.f, 1.f);
 			}
