@@ -29,138 +29,9 @@ namespace hdt
 		});
 	}
 
-#ifdef ENABLE_CL
-	static const std::string sourceVtxUpdate = R"__KERNEL(
-typedef struct Aabb
-{
-	float4 aabbMin;
-	float4 aabbMax;
-} Aabb;
-
-__kernel void updateCollider(__global float4* vertices, __global uint4* colliders, __global Aabb* aabbs, float margin)
-{
-	int idx = get_global_id(0);
-	float4 data = vertices[colliders[idx].x];
-	float3 p0 = data.xyz;
-	float m = margin * data.w;
-
-	Aabb aabb;
-	aabb.aabbMin.xyz = p0 - m;
-	aabb.aabbMax.xyz = p0 + m;
-
-	aabbs[idx] = aabb;
-}
-)__KERNEL";
-
-	hdtCLKernel PerVertexShape::m_kernel;
-
-	void PerVertexShape::internalUpdateCL()
-	{
-		auto cl = hdtCL::instance();
-
-		if (!m_colliderCL()) {
-			m_colliderCL = cl->createBuffer(sizeof(Collider) * m_colliders.size(), CL_MEM_READ_ONLY | CL_MEM_HOST_WRITE_ONLY, 0);
-			m_aabbCL = cl->createBuffer(sizeof(Aabb) * m_aabb.size(), CL_MEM_WRITE_ONLY | CL_MEM_HOST_READ_ONLY, 0);
-			cl->writeBuffer(m_colliderCL, m_colliders.data(), sizeof(Collider) * m_colliders.size(), true);
-		}
-
-		m_kernel.lock();
-		m_kernel.setArg(0, m_owner->m_vposCL);
-		m_kernel.setArg(1, m_colliderCL);
-		m_kernel.setArg(2, m_aabbCL);
-		m_kernel.setArg(3, m_shapeProp.margin);
-		auto e0 = m_kernel.runE({ m_colliders.size() });
-		m_kernel.unlock();
-		m_eDoneCL = cl->readBufferE(m_aabb.data(), m_aabbCL, m_aabb.size() * sizeof(Aabb), { e0 });
-	}
-
-	static const std::string sourceTriUpdate = R"__KERNEL(
-typedef struct Aabb
-{
-	float3 aabbMin;
-	float3 aabbMax;
-} Aabb;
-
-void aabbMerge(Aabb* aabb, float3 pt)
-{
-	aabb->aabbMin = fmin(aabb->aabbMin, pt);
-	aabb->aabbMax = fmax(aabb->aabbMax, pt);
-}
-
-void aabbExpand(Aabb* aabb, float margin)
-{
-	aabb->aabbMin -= margin;
-	aabb->aabbMax += margin;
-}
-
-__kernel void updateCollider(__global float4* vertices, __global uint4* colliders, __global Aabb* aabbs, float penetration, float margin)
-{
-	int idx = get_global_id(0);
-	float3 p0 = vertices[colliders[idx].x].s012;
-	float3 p1 = vertices[colliders[idx].y].s012;
-	float3 p2 = vertices[colliders[idx].z].s012;
-	float m = vertices[colliders[idx].x].w + vertices[colliders[idx].y].w + vertices[colliders[idx].z].w;
-
-	Aabb aabb;
-	aabb.aabbMin = aabb.aabbMax = p0;
-	aabbMerge(&aabb, p1);
-	aabbMerge(&aabb, p2);
-	aabbExpand(&aabb, margin * m / 3.0f);
-
-	if(penetration > FLT_EPSILON || penetration < -FLT_EPSILON)
-	{
-		float3 normal = cross((p1-p0).s012, (p2-p0).s012);
-		float len2 = dot(normal, normal);
-		if(len2 > FLT_EPSILON * FLT_EPSILON)
-		{
-			normal = normalize(normal) * penetration;
-			aabb.aabbMin = fmin(aabb.aabbMin, aabb.aabbMin - normal);
-			aabb.aabbMax = fmax(aabb.aabbMax, aabb.aabbMax - normal);
-		}
-	}
-	aabbs[idx] = aabb;
-}
-)__KERNEL";
-
-	hdtCLKernel PerTriangleShape::m_kernel;
-
-	void PerTriangleShape::internalUpdateCL()
-	{
-		auto cl = hdtCL::instance();
-
-		if (!m_colliderCL()) {
-			m_colliderCL = cl->createBuffer(sizeof(Collider) * m_colliders.size(), CL_MEM_READ_ONLY | CL_MEM_HOST_WRITE_ONLY, 0);
-			m_aabbCL = cl->createBuffer(sizeof(Aabb) * m_aabb.size(), CL_MEM_WRITE_ONLY | CL_MEM_HOST_READ_ONLY, 0);
-			cl->writeBuffer(m_colliderCL, m_colliders.data(), sizeof(Collider) * m_colliders.size(), true);
-		}
-
-		m_kernel.lock();
-		m_kernel.setArg(0, m_owner->m_vposCL);
-		m_kernel.setArg(1, m_colliderCL);
-		m_kernel.setArg(2, m_aabbCL);
-		m_kernel.setArg(3, m_shapeProp.penetration);
-		m_kernel.setArg(4, m_shapeProp.margin);
-		auto e0 = m_kernel.runE({ m_colliders.size() });
-		m_kernel.unlock();
-		m_eDoneCL = cl->readBufferE(m_aabb.data(), m_aabbCL, m_aabb.size() * sizeof(Aabb), { e0 });
-	}
-
-#endif
-
 	PerVertexShape::PerVertexShape(SkinnedMeshBody* body) :
 		SkinnedMeshShape(body)
 	{
-#ifdef ENABLE_CL
-		auto cl = hdtCL::instance();
-		if (cl) {
-			if (!m_kernel()) {
-				m_kernel.lock();
-				if (!m_kernel())
-					m_kernel = hdtCLKernel(cl->compile(sourceVtxUpdate), "updateCollider");
-				m_kernel.unlock();
-			}
-		}
-#endif
 	}
 
 	PerVertexShape::~PerVertexShape()
@@ -177,22 +48,13 @@ __kernel void updateCollider(__global float4* vertices, __global uint4* collider
 		m_owner->setCollisionFlags(m_tree.isKinematic ? btCollisionObject::CF_KINEMATIC_OBJECT : 0);
 
 		m_tree.exportColliders(m_colliders);
-#ifdef CUDA
-		m_aabb.reset(new Aabb[m_colliders.size()]);
-		m_tree.remapColliders(m_colliders.data(), m_aabb.get());
-#else
 		m_aabb.resize(m_colliders.size());
 		m_tree.remapColliders(m_colliders.data(), m_aabb.data());
-#endif
 	}
 
 	void PerVertexShape::internalUpdate()
 	{
-#ifdef CUDA
-		auto vertices = m_owner->m_vpos.get();
-#else
 		auto& vertices = m_owner->m_vpos;
-#endif  // CUDA
 
 		size_t size = m_colliders.size();
 		for (size_t i = 0; i < size; ++i) {
@@ -235,17 +97,6 @@ __kernel void updateCollider(__global float4* vertices, __global uint4* collider
 	PerTriangleShape::PerTriangleShape(SkinnedMeshBody* body) :
 		SkinnedMeshShape(body)
 	{
-#ifdef ENABLE_CL
-		auto cl = hdtCL::instance();
-		if (cl) {
-			if (!m_kernel()) {
-				m_kernel.lock();
-				if (!m_kernel())
-					m_kernel = hdtCLKernel(cl->compile(sourceTriUpdate), "updateCollider");
-				m_kernel.unlock();
-			}
-		}
-#endif
 	}
 
 	PerTriangleShape::~PerTriangleShape()
@@ -254,11 +105,7 @@ __kernel void updateCollider(__global float4* vertices, __global uint4* collider
 
 	void PerTriangleShape::internalUpdate()
 	{
-#ifdef CUDA
-		auto vertices = m_owner->m_vpos.get();
-#else
 		auto& vertices = m_owner->m_vpos;
-#endif  // CUDA
 
 		size_t size = m_colliders.size();
 		for (size_t i = 0; i < size; ++i) {
@@ -297,13 +144,8 @@ __kernel void updateCollider(__global float4* vertices, __global uint4* collider
 		m_owner->setCollisionFlags(m_tree.isKinematic ? btCollisionObject::CF_KINEMATIC_OBJECT : 0);
 
 		m_tree.exportColliders(m_colliders);
-#ifdef CUDA
-		m_aabb.reset(new Aabb[m_colliders.size()]);
-		m_tree.remapColliders(m_colliders.data(), m_aabb.get());
-#else
 		m_aabb.resize(m_colliders.size());
 		m_tree.remapColliders(m_colliders.data(), m_aabb.data());
-#endif  // CUDA
 
 		RE::BSTSmartPointer<PerTriangleShape> holder = hdt::make_smart(this);
 		m_verticesCollision = RE::make_smart<PerVertexShape>(m_owner);

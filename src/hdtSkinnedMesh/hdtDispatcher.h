@@ -44,9 +44,5 @@ namespace hdt
 
 		hdt::SpinLock m_lock;
 		std::vector<std::pair<SkinnedMeshBody*, SkinnedMeshBody*>> m_pairs;
-#ifdef CUDA
-		std::vector<std::function<void()>> m_immediateFuncs;
-		std::vector<std::function<void()>> m_delayedFuncs;
-#endif
 	};
 }

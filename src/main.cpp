@@ -294,23 +294,6 @@ bool SMPDebug_Execute(
 		hdt::SkyrimPhysicsWorld::get()->resetSystems();
 		return true;
 	}
-#ifdef CUDA
-	if (_strnicmp(buffer, "gpu", MAX_PATH) == 0) {
-		CudaInterface::enableCuda = !CudaInterface::enableCuda;
-		if (CudaInterface::instance()->hasCuda()) {
-			RE::ConsoleLog::GetSingleton()->Print("CUDA collision enabled");
-		} else {
-			RE::ConsoleLog::GetSingleton()->Print("CUDA collision disabled");
-		}
-
-		return true;
-	}
-	if (_strnicmp(buffer, "timing", MAX_PATH) == 0) {
-		FrameTimer::instance()->reset(200);
-		Console_Print("Started frame timing");
-		return true;
-	}
-#endif
 	if (_strnicmp(buffer, "dumptree", MAX_PATH) == 0) {
 		if (a_thisObj) {
 			RE::ConsoleLog::GetSingleton()->Print("dumping targeted reference's node tree");

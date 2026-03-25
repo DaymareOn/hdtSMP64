@@ -2,14 +2,6 @@
 
 #include "hdtDispatcher.h"
 #include "hdtSkinnedMeshShape.h"
-#ifdef CUDA
-#	include "hdtCudaInterface.h"
-
-// Define this to do actual collision checking on GPU. This is currently slow and has very inconsistent
-// framerate. If not defined, the GPU will still be used if available for vertex and bounding box
-// calculations, but collision will be done on the CPU.
-#	define USE_GPU_COLLISION
-#endif
 
 namespace hdt
 {
@@ -46,13 +38,6 @@ namespace hdt
 		// Note: It's possible to exceed this with complex outfits, which is why we cap it.
 		// We don't want to stress a simulation island too much!
 		static const int MaxCollisionCount = 256;
-
-#ifdef CUDA
-		static std::function<void()> queueCollision(
-			SkinnedMeshBody* body0Wrap,
-			SkinnedMeshBody* body1Wrap,
-			CollisionDispatcher* dispatcher);
-#endif
 
 		static void processCollision(SkinnedMeshBody* body0Wrap, SkinnedMeshBody* body1Wrap,
 			CollisionDispatcher* dispatcher);

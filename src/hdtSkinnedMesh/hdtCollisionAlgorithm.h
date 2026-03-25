@@ -16,7 +16,6 @@ namespace hdt
 
 	bool checkSphereSphere(const btVector3& a, const btVector3& b, float ra, float rb, CollisionResult& res);
 
-#ifndef CUDA
 	static inline btVector3 BaryCoord(const btVector3& a,
 		const btVector3& b,
 		const btVector3& c,
@@ -38,5 +37,4 @@ namespace hdt
 		xmm1 = _mm_dp_ps(xmm1, xmm0, 0x77);
 		return _mm_div_ps(xmm0, xmm1);
 	}
-#endif
 }

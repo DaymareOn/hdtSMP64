@@ -68,9 +68,6 @@ namespace hdt
 		void insertCollider(const std::vector<U32>& keys, const Collider& c);
 		void exportColliders(vectorA16<Collider>& exportTo);
 		void remapColliders(Collider* start, Aabb* startAabb);
-#ifdef CUDA
-		void relocateAabb(Aabb* newAabb);
-#endif
 
 		void checkCollisionL(ColliderTree* r, std::vector<std::pair<ColliderTree*, ColliderTree*>>& ret);
 		void checkCollisionR(ColliderTree* r, std::vector<std::pair<ColliderTree*, ColliderTree*>>& ret);

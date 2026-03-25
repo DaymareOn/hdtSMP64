@@ -18,8 +18,6 @@ set(SOURCE_FILES
 	"${SOURCE_DIR}/hdtSkinnedMesh/hdtConeTwistConstraint.cpp"
 	"${SOURCE_DIR}/hdtSkinnedMesh/hdtConeTwistConstraint.h"
 	"${SOURCE_DIR}/hdtSkinnedMesh/hdtConstraintGroup.h"
-	"${SOURCE_DIR}/hdtSkinnedMesh/hdtCudaInterface.cpp"
-	"${SOURCE_DIR}/hdtSkinnedMesh/hdtCudaInterface.h"
 	"${SOURCE_DIR}/hdtSkinnedMesh/hdtDispatcher.cpp"
 	"${SOURCE_DIR}/hdtSkinnedMesh/hdtDispatcher.h"
 	"${SOURCE_DIR}/hdtSkinnedMesh/hdtFrameTimer.cpp"

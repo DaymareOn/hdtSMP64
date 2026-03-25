@@ -3,10 +3,6 @@
 #include "XmlReader.h"
 #include "hdtSkyrimPhysicsWorld.h"
 
-#ifdef CUDA
-#	include "hdtSkinnedMesh/hdtCudaInterface.h"
-#endif
-
 namespace hdt
 {
 	int g_logLevel;
@@ -106,25 +102,7 @@ namespace hdt
 					SkyrimPhysicsWorld::get()->m_percentageOfFrameTime = std::clamp(reader.readInt() * 10, 1, 1000);
 				} else if (reader.GetLocalName() == "useRealTime") {
 					SkyrimPhysicsWorld::get()->m_useRealTime = reader.readBool();
-				}
-#ifdef CUDA
-				else if (reader.GetLocalName() == "enableCuda") {
-					CudaInterface::enableCuda = reader.readBool();
-				} else if (reader.GetLocalName() == "cudaDevice") {
-					int device = reader.readInt();
-					if (device >= 0 && device < CudaInterface::instance()->deviceCount()) {
-						CudaInterface::currentDevice = device;
-					}
-				}
-#else
-				else if (reader.GetLocalName() == "enableCuda") {
-					if (reader.readBool()) {
-						logger::warn("CUDA isn't built into this version.");
-					}
-				} else if (reader.GetLocalName() == "cudaDevice") {
-				}
-#endif
-				else if (reader.GetLocalName() == "minCullingDistance") {
+				} else if (reader.GetLocalName() == "minCullingDistance") {
 					ActorManager::instance()->m_minCullingDistance = reader.readFloat();
 				} else if (reader.GetLocalName() == "maximumActiveSkeletons") {
 					ActorManager::instance()->m_maxActiveSkeletons = reader.readInt();

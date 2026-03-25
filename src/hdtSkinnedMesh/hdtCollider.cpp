@@ -184,11 +184,6 @@ namespace hdt
 				node->aabbMe.m_min = mn;
 				node->aabbMe.m_max = mx;
 			}
-#ifdef CUDA
-			else {
-				node->aabbMe.invalidate();
-			}
-#endif
 
 			__m128 allMin = node->aabbMe.m_min;
 			__m128 allMax = node->aabbMe.m_max;
@@ -341,12 +336,4 @@ namespace hdt
 		for (auto& i : children)
 			i.remapColliders(start, startAabb);
 	}
-#ifdef CUDA
-	void ColliderTree::relocateAabb(Aabb* newAabb)
-	{
-		for (auto& i : children)
-			i.relocateAabb(newAabb + (i.aabb - aabb));
-		aabb = newAabb;
-	}
-#endif
 }
