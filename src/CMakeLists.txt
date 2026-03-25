@@ -20,8 +20,6 @@ set(SOURCE_FILES
 	"${SOURCE_DIR}/hdtSkinnedMesh/hdtConstraintGroup.h"
 	"${SOURCE_DIR}/hdtSkinnedMesh/hdtDispatcher.cpp"
 	"${SOURCE_DIR}/hdtSkinnedMesh/hdtDispatcher.h"
-	"${SOURCE_DIR}/hdtSkinnedMesh/hdtFrameTimer.cpp"
-	"${SOURCE_DIR}/hdtSkinnedMesh/hdtFrameTimer.h"
 	"${SOURCE_DIR}/hdtSkinnedMesh/hdtGeneric6DofConstraint.cpp"
 	"${SOURCE_DIR}/hdtSkinnedMesh/hdtGeneric6DofConstraint.h"
 	"${SOURCE_DIR}/hdtSkinnedMesh/hdtSkinnedMeshAlgorithm.cpp"
