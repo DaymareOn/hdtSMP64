@@ -63,6 +63,7 @@ namespace hdt
 			void setWindFactor(float a_windFactor);
 
 			RE::BSTSmartPointer<SkyrimSystem> m_physics;
+			bool m_hasDynamicPhysics = false;
 		};
 
 		struct Head

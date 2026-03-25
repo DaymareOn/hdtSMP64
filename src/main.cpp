@@ -579,11 +579,5 @@ extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* a_s
 	//
 	hdt::papyrus::RegisterAllFunctions(SKSE::GetPapyrusInterface());
 
-	if (hdt::SkyrimPhysicsWorld::get()->m_enableWind) {
-		logger::info("Wind enabled");
-		std::thread t(hdt::WeatherCheck);
-		t.detach();
-	}
-
 	return true;
 }

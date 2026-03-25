@@ -421,8 +421,8 @@ namespace hdt
 
 		// We set which skeletons are active and we count them.
 		const auto world = SkyrimPhysicsWorld::get();
-		const auto wind = getWindDirection();
-		const bool windEnabled = world->m_enableWind && wind && !btFuzzyZero(hdt::magnitude(*wind));
+		const auto wind = WeatherManager::getWindDirection();
+		const bool windEnabled = world->m_enableWind && !btFuzzyZero(hdt::magnitude(wind));
 
 		activeSkeletons = 0;
 		for (auto& i : m_skeletons) {
@@ -435,26 +435,77 @@ namespace hdt
 			if (!windEnabled)
 				continue;
 
+			const auto armorReacts = [](const auto& armor) {
+				return armor.m_hasDynamicPhysics && armor.state() == ActorManager::ItemState::e_Active;
+			};
+
+			const auto headReacts = [](const auto& headPart) {
+				return headPart.m_hasDynamicPhysics && headPart.state() == ActorManager::ItemState::e_Active;
+			};
+
+			// Does this actor have anything visible and active that can be blown in the wind?
+			if (!std::ranges::any_of(i.getArmors(), armorReacts) && !std::ranges::any_of(i.head.headParts, headReacts)) {
+				continue;
+			}
+
 			const auto owner = skyrim_cast<RE::Actor*>(i.skeletonOwner.get());
 			if (!owner) {
 				logger::debug("{} is active skeleton, but failed to cast to Actor, no wind obstruction check possible.", i.name());
 				continue;
 			}
 
-			auto windray = *wind * -1;  // reverse wind raycast to find obstruction
-			RE::NiPoint3 hitLocation;
-			const auto object = Actor_CalculateLOS(owner, &windray, &hitLocation, std::numbers::pi_v<float> * 2.f);
-			if (!object)
-				continue;
+			// Get the  wind direction pointing TOWARDS the source of the wind
+			auto reverseWindDir = wind * -1.0f;
 
-			auto diff = owner->data.location - hitLocation;
-			diff.z = 0;  // remove z component difference
-			const auto dist = hdt::magnitude(diff);
-			// windfactor = 0 when dist <= m_distanceForNoWind, = 1 when dist >= m_distanceForMaxWind, and is linear with dist between these 2 values.
-			const auto windFactor = std::clamp((dist - world->m_distanceForNoWind) / (world->m_distanceForMaxWind - world->m_distanceForNoWind), 0.f, 1.f);
-			if (!btFuzzyZero(windFactor - i.getWindFactor())) {
-				logger::debug("{} blocked by {} with distance {:.2f}; setting windFactor {:.2f}.", i.name(), object->name, dist, windFactor);
-				i.updateWindFactor(windFactor);
+			// Normalize the direction vector to ensure accurate math
+			float windMag = std::sqrt(reverseWindDir.x * reverseWindDir.x + reverseWindDir.y * reverseWindDir.y + reverseWindDir.z * reverseWindDir.z);
+			if (windMag > 0.0001f) {
+				reverseWindDir.x /= windMag;
+				reverseWindDir.y /= windMag;
+				reverseWindDir.z /= windMag;
+			}
+
+			// we project the ray forward by m_distanceForMaxWind
+			RE::NiPoint3 origin;
+
+			// If possible, use the head for the origin. Since hair is more likely to be affected, and
+			// it'd be more accurate in animations/height of the actor.
+			if (auto headNode = owner->GetNodeByName("NPC Head [Head]")) {
+				origin = headNode->world.translate;
+			} else {
+				origin = owner->data.location;
+				origin.z += 100.0f;  // Offset by 100 units so at least it's not their feet
+			}
+
+			RE::NiPoint3 targetPos{
+				origin.x + reverseWindDir.x * world->m_distanceForMaxWind,
+				origin.y + reverseWindDir.y * world->m_distanceForMaxWind,
+				origin.z + reverseWindDir.z * world->m_distanceForMaxWind
+			};
+
+			RE::NiPoint3 hitLocation;
+
+			const auto object = Actor_CalculateLOS(owner, &targetPos, &hitLocation, std::numbers::pi_v<float> * 2.f);
+
+			float targetWindFactor = 1.0f;
+			float dist = 0.0f;
+			if (object) {
+				auto diff = owner->data.location - hitLocation;
+				diff.z = 0;  // remove z component difference
+				dist = hdt::magnitude(diff);
+				// windfactor = 0 when dist <= m_distanceForNoWind, = 1 when dist >= m_distanceForMaxWind, and is linear with dist between these 2 values.
+				targetWindFactor = std::clamp((dist - world->m_distanceForNoWind) / (world->m_distanceForMaxWind - world->m_distanceForNoWind), 0.f, 1.f);
+			}
+
+			if (const float current = i.getWindFactor(); !btFuzzyZero(targetWindFactor - current)) {
+				const float next = std::lerp(current, targetWindFactor, 0.05f);
+				const float newWindFactor = std::abs(targetWindFactor - next) < 0.01f ? targetWindFactor : next;
+
+				if (object) {
+					logger::debug("{} blocked by {} with distance {:.2f}; setting windFactor {:.2f}.", i.name(), object->name, dist, newWindFactor);
+				}
+
+				i.updateWindFactor(newWindFactor);
 			}
 		}
 
@@ -499,6 +550,17 @@ namespace hdt
 	{
 		clearPhysics();
 		m_physics = system;
+		m_hasDynamicPhysics = false;
+
+		if (m_physics) {
+			for (const auto& bone : m_physics->getBones()) {
+				if (bone && !bone->m_rig.isStaticOrKinematicObject()) {
+					m_hasDynamicPhysics = true;
+					break;
+				}
+			}
+		}
+
 		if (active) {
 			SkyrimPhysicsWorld::get()->addSkinnedMeshSystem(m_physics.get());
 		}
@@ -510,6 +572,7 @@ namespace hdt
 			m_physics->m_world->removeSkinnedMeshSystem(m_physics.get());
 		}
 		m_physics = nullptr;
+		m_hasDynamicPhysics = false;
 	}
 
 	ActorManager::ItemState ActorManager::PhysicsItem::state() const

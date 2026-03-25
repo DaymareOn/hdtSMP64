@@ -1,5 +1,6 @@
 #include "hdtSkyrimPhysicsWorld.h"
 #include "PluginInterfaceImpl.h"
+#include "WeatherManager.h"
 
 namespace hdt
 {
@@ -318,6 +319,10 @@ namespace hdt
 			suspend();
 		} else if (!(e->gamePaused || mm->GameIsPaused()) && m_suspended) {
 			resume();
+		}
+
+		if (m_enableWind) {
+			WeatherManager::runWeatherTick(RE::GetSecondsSinceLastFrame());
 		}
 
 		LARGE_INTEGER ticks;

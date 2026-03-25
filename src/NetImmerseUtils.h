@@ -136,4 +136,28 @@ namespace hdt
 			}
 		}
 	}
+
+	static inline float dot(const RE::NiPoint3& a, const RE::NiPoint3& b)
+	{
+		return a.x * b.x + a.y * b.y + a.z * b.z;
+	}
+
+	static inline RE::NiPoint3 cross(const RE::NiPoint3& a, const RE::NiPoint3& b)
+	{
+		return RE::NiPoint3(
+			a.y * b.z - a.z * b.y,
+			a.z * b.x - a.x * b.z,
+			a.x * b.y - a.y * b.x);
+	}
+
+	static inline RE::NiPoint3 rotate(const RE::NiPoint3& v, const RE::NiPoint3& axis, float theta)
+	{
+		const float cosTheta = std::cos(theta);
+		return (v * cosTheta) + (cross(axis, v) * std::sin(theta)) + (axis * dot(axis, v)) * (1.0f - cosTheta);
+	}
+
+	static inline float magnitude(RE::NiPoint3 p)
+	{
+		return sqrtf(p.x * p.x + p.y * p.y + p.z * p.z);
+	}
 }
