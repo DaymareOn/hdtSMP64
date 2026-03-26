@@ -162,13 +162,13 @@
     {
       "name": "avx2-debug",
       "displayName": "Debug",
-      "configurePreset": "vs2022-windows-nocuda-avx2",
+      "configurePreset": "vs2022-windows-avx2",
       "configuration": "Debug"
     },
     {
       "name": "avx2-release",
       "displayName": "Release",
-      "configurePreset": "vs2022-windows-nocuda-avx2",
+      "configurePreset": "vs2022-windows-avx2",
       "configuration": "Release"
     }
   ],
