@@ -151,7 +151,7 @@ Finally, credits and thanks to hydrogensaysHDT, aers, ousnius, Karonar1, alandts
 					<flagDependency flag="NOAVX" value="On" />
 				</dependencies>
 				<files>
-					<folder source="raw-vs2022-windows-nocuda\SKSE" destination="SKSE" priority="0" />
+					<folder source="raw-vs2022-windows\SKSE" destination="SKSE" priority="0" />
 				</files>
 			</pattern>
 			<pattern>
@@ -159,7 +159,7 @@ Finally, credits and thanks to hydrogensaysHDT, aers, ousnius, Karonar1, alandts
 					<flagDependency flag="AVX" value="On" />
 				</dependencies>
 				<files>
-					<folder source="raw-vs2022-windows-nocuda-avx\SKSE" destination="SKSE" priority="0" />
+					<folder source="raw-vs2022-windows-avx\SKSE" destination="SKSE" priority="0" />
 				</files>
 			</pattern>
 			<pattern>
@@ -167,7 +167,7 @@ Finally, credits and thanks to hydrogensaysHDT, aers, ousnius, Karonar1, alandts
 					<flagDependency flag="AVX2" value="On" />
 				</dependencies>
 				<files>
-					<folder source="raw-vs2022-windows-nocuda-avx2\SKSE" destination="SKSE" priority="0" />
+					<folder source="raw-vs2022-windows-avx2\SKSE" destination="SKSE" priority="0" />
 				</files>
 			</pattern>
 			<pattern>
@@ -175,7 +175,7 @@ Finally, credits and thanks to hydrogensaysHDT, aers, ousnius, Karonar1, alandts
 					<flagDependency flag="AVX512" value="On" />
 				</dependencies>
 				<files>
-					<folder source="raw-vs2022-windows-nocuda-avx512\SKSE" destination="SKSE" priority="0" />
+					<folder source="raw-vs2022-windows-avx512\SKSE" destination="SKSE" priority="0" />
 				</files>
 			</pattern>
 		</patterns>
