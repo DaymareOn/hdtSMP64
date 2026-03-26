@@ -69,10 +69,13 @@ jobs:
         run: |
           SHORT_SHA=$(git rev-parse --short HEAD)
           PROD_TAG_PATTERN="v[0-9]*.[0-9]*.[0-9]*"
+          # For pull_request events github.ref_name is "{PR}/merge"; use head_ref (source branch) instead.
+          BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
 
-          if [ "${{ github.ref_name }}" == "master" ]; then
+          if [ "$BRANCH_NAME" == "master" ]; then
             # 1. For master: find the latest production tag and bump via conventional commits
-            LATEST_TAG=$(git tag -l "$PROD_TAG_PATTERN" --merged HEAD | grep -v -- "-" | sort -V | tail -n1)
+            # Use "|| true" so grep returning no matches doesn't abort the script under pipefail.
+            LATEST_TAG=$(git tag -l "$PROD_TAG_PATTERN" --merged HEAD | grep -v -- "-" | sort -V | tail -n1 || true)
 
             if [ -z "$LATEST_TAG" ]; then
               echo "No production tag found. Starting from 0.0.0"
@@ -89,7 +92,7 @@ jobs:
             IFS='.' read -r MAJOR MINOR PATCH <<< "$BASE_VERSION"
 
             # 2. Analyze commit messages to determine bump level
-            COMMIT_MESSAGES=$(git log $RANGE --format=%s)
+            COMMIT_MESSAGES=$(git log $RANGE --format=%s || true)
 
             BUMP="patch"
             while IFS= read -r msg; do
@@ -117,11 +120,12 @@ jobs:
             # For non-master branches (dev, hardenrelease, etc.):
             # Use the base version from the latest production tag without bumping,
             # and append branch name + short SHA as a pre-release postfix.
-            LATEST_PROD_TAG=$(git tag -l "$PROD_TAG_PATTERN" --merged HEAD | grep -v -- "-" | sort -V | tail -n1)
+            # Use "|| true" so grep returning no matches doesn't abort the script under pipefail.
+            LATEST_PROD_TAG=$(git tag -l "$PROD_TAG_PATTERN" --merged HEAD | grep -v -- "-" | sort -V | tail -n1 || true)
 
             if [ -z "$LATEST_PROD_TAG" ]; then
               # Fallback: try any production tag in the repo
-              LATEST_PROD_TAG=$(git tag -l "$PROD_TAG_PATTERN" | grep -v -- "-" | sort -V | tail -n1)
+              LATEST_PROD_TAG=$(git tag -l "$PROD_TAG_PATTERN" | grep -v -- "-" | sort -V | tail -n1 || true)
             fi
 
             if [ -z "$LATEST_PROD_TAG" ]; then
@@ -133,8 +137,8 @@ jobs:
             fi
 
             NEW_VERSION="$BASE_VERSION"
-            TAG_VERSION="${BASE_VERSION}-${{ github.ref_name }}-${SHORT_SHA}"
-            BUILD_INFO="${{ github.ref_name }}-${SHORT_SHA}"
+            TAG_VERSION="${BASE_VERSION}-${BRANCH_NAME}-${SHORT_SHA}"
+            BUILD_INFO="${BRANCH_NAME}-${SHORT_SHA}"
           fi
 
           # We set the output variables so they can be used in downstream jobs
