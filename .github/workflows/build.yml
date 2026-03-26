@@ -55,6 +55,8 @@ jobs:
       new_version: ${{ steps.versioning.outputs.version }}
       # Full version string used for tags/releases (includes branch+hash postfix for non-master)
       tag_version: ${{ steps.versioning.outputs.tag_version }}
+      # Pre-release identifier injected into the compiled binary (empty for master/production)
+      build_info: ${{ steps.versioning.outputs.build_info }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -110,6 +112,7 @@ jobs:
 
             NEW_VERSION="$MAJOR.$MINOR.$PATCH"
             TAG_VERSION="$NEW_VERSION"
+            BUILD_INFO=""
           else
             # For non-master branches (dev, hardenrelease, etc.):
             # Use the base version from the latest production tag without bumping,
@@ -131,13 +134,16 @@ jobs:
 
             NEW_VERSION="$BASE_VERSION"
             TAG_VERSION="${BASE_VERSION}-${{ github.ref_name }}-${SHORT_SHA}"
+            BUILD_INFO="${{ github.ref_name }}-${SHORT_SHA}"
           fi
 
           # We set the output variables so they can be used in downstream jobs
           echo "CMake version: $NEW_VERSION"
           echo "Tag version: $TAG_VERSION"
+          echo "Build info: $BUILD_INFO"
           echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
           echo "tag_version=$TAG_VERSION" >> $GITHUB_OUTPUT
+          echo "build_info=$BUILD_INFO" >> $GITHUB_OUTPUT
 
   check_messages:
     runs-on: ubuntu-latest
@@ -239,7 +245,8 @@ jobs:
           cmake --preset ${{ matrix.preset }} `
             -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
             -DVCPKG_MANIFEST_MODE=ON `
-            -DCompiledPluginsPath="${{ github.workspace }}/out/build/${{ matrix.preset }}/plugins"
+            -DCompiledPluginsPath="${{ github.workspace }}/out/build/${{ matrix.preset }}/plugins" `
+            -DPROJECT_BUILD_INFO="${{ needs.prepare.outputs.build_info }}"
 
       - name: Create the CompiledPluginsPath folder structure
         run: mkdir -p "${{ github.workspace }}/out/build/${{ matrix.preset }}/plugins/SKSE/Plugins/"

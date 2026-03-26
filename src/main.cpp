@@ -503,7 +503,11 @@ extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* a_s
 
 	//
 	InitializeLog();
-	logger::info("{} v{}"sv, Plugin::NAME, Plugin::VERSION.string());
+	if constexpr (Plugin::BUILD_INFO.empty()) {
+		logger::info("{} v{}"sv, Plugin::NAME, Plugin::VERSION.string());
+	} else {
+		logger::info("{} v{}-{}"sv, Plugin::NAME, Plugin::VERSION.string(), Plugin::BUILD_INFO);
+	}
 
 	SKSE::Init(a_skse);
 
