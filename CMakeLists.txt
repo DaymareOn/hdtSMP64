@@ -7,7 +7,9 @@ project(
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Pre-release build identifier (e.g. "dev-abc1234"). Empty for production builds.
-set(PROJECT_BUILD_INFO "" CACHE STRING "Pre-release build info injected by CI (e.g. dev-abc1234)")
+set(PROJECT_BUILD_INFO
+	""
+	CACHE STRING "Pre-release build info injected by CI (e.g. dev-abc1234)")
 
 if("${PROJECT_SOURCE_DIR}" STREQUAL "${PROJECT_BINARY_DIR}")
 	message(FATAL_ERROR "in-source builds are not allowed")
