@@ -103,7 +103,7 @@
         "vcpkg",
         "windows"
       ],
-      "name": "vs2022-windows-nocuda",
+      "name": "vs2022-windows",
       "toolset": "v143"
     },
     {
@@ -120,7 +120,7 @@
         "vcpkg",
         "windows-avx"
       ],
-      "name": "vs2022-windows-nocuda-avx",
+      "name": "vs2022-windows-avx",
       "toolset": "v143"
     },
     {
@@ -137,7 +137,7 @@
         "vcpkg",
         "windows-avx2"
       ],
-      "name": "vs2022-windows-nocuda-avx2",
+      "name": "vs2022-windows-avx2",
       "toolset": "v143"
     },
     {
@@ -154,79 +154,7 @@
         "vcpkg",
         "windows-avx512"
       ],
-      "name": "vs2022-windows-nocuda-avx512",
-      "toolset": "v143"
-    },
-    {
-      "architecture": {
-        "strategy": "set",
-        "value": "x64"
-      },
-      "cacheVariables": {
-        "CMAKE_CXX_FLAGS": "/EHsc /MP /W4 /WX",
-        "ENABLE_CUDA_SUPPORT": "ON"
-      },
-      "generator": "Visual Studio 17 2022",
-      "inherits": [
-        "cmake-dev",
-        "vcpkg",
-        "windows"
-      ],
-      "name": "vs2022-windows-cuda",
-      "toolset": "v143"
-    },
-    {
-      "architecture": {
-        "strategy": "set",
-        "value": "x64"
-      },
-      "cacheVariables": {
-        "CMAKE_CXX_FLAGS": "/EHsc /MP /W4 /WX /arch:AVX",
-        "ENABLE_CUDA_SUPPORT": "ON"
-      },
-      "generator": "Visual Studio 17 2022",
-      "inherits": [
-        "cmake-dev",
-        "vcpkg",
-        "windows-avx"
-      ],
-      "name": "vs2022-windows-cuda-avx",
-      "toolset": "v143"
-    },
-    {
-      "architecture": {
-        "strategy": "set",
-        "value": "x64"
-      },
-      "cacheVariables": {
-        "CMAKE_CXX_FLAGS": "/EHsc /MP /W4 /WX /arch:AVX2",
-        "ENABLE_CUDA_SUPPORT": "ON"
-      },
-      "generator": "Visual Studio 17 2022",
-      "inherits": [
-        "cmake-dev",
-        "vcpkg",
-        "windows-avx2"
-      ],
-      "name": "vs2022-windows-cuda-avx2",
-      "toolset": "v143"
-    },
-    {
-      "architecture": {
-        "strategy": "set",
-        "value": "x64"
-      },
-      "cacheVariables": {
-        "CMAKE_CXX_FLAGS": "/EHsc /MP /W4 /WX /arch:AVX512",
-        "ENABLE_CUDA_SUPPORT": "ON"
-      },
-      "generator": "Visual Studio 17 2022",
-      "inherits": [
-        "cmake-dev",
-        "vcpkg",
-        "windows-avx512"
-      ],
-      "name": "vs2022-windows-cuda-avx512",
+      "name": "vs2022-windows-avx512",
       "toolset": "v143"
     }
   ],
