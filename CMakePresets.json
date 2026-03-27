@@ -52,6 +52,24 @@
     },
     {
       "cacheVariables": {
+        "ENABLE_SKYRIM_SE": {
+          "type": "BOOL",
+          "value": "ON"
+        },
+        "ENABLE_SKYRIM_AE": {
+          "type": "BOOL",
+          "value": "ON"
+        },
+        "ENABLE_SKYRIM_VR": {
+          "type": "BOOL",
+          "value": "ON"
+        }
+      },
+      "hidden": true,
+      "name": "skyrim-runtimes"
+    },
+    {
+      "cacheVariables": {
         "VCPKG_TARGET_TRIPLET": {
           "type": "STRING",
           "value": "x64-windows-static-md-avx"
@@ -101,9 +119,10 @@
       "inherits": [
         "cmake-dev",
         "vcpkg",
-        "windows"
+        "windows",
+        "skyrim-runtimes"
       ],
-      "name": "vs2022-windows-nocuda",
+      "name": "vs2022-windows",
       "toolset": "v143"
     },
     {
@@ -118,9 +137,10 @@
       "inherits": [
         "cmake-dev",
         "vcpkg",
-        "windows-avx"
+        "windows-avx",
+        "skyrim-runtimes"
       ],
-      "name": "vs2022-windows-nocuda-avx",
+      "name": "vs2022-windows-avx",
       "toolset": "v143"
     },
     {
@@ -135,9 +155,10 @@
       "inherits": [
         "cmake-dev",
         "vcpkg",
-        "windows-avx2"
+        "windows-avx2",
+        "skyrim-runtimes"
       ],
-      "name": "vs2022-windows-nocuda-avx2",
+      "name": "vs2022-windows-avx2",
       "toolset": "v143"
     },
     {
@@ -152,81 +173,10 @@
       "inherits": [
         "cmake-dev",
         "vcpkg",
-        "windows-avx512"
+        "windows-avx512",
+        "skyrim-runtimes"
       ],
-      "name": "vs2022-windows-nocuda-avx512",
-      "toolset": "v143"
-    },
-    {
-      "architecture": {
-        "strategy": "set",
-        "value": "x64"
-      },
-      "cacheVariables": {
-        "CMAKE_CXX_FLAGS": "/EHsc /MP /W4 /WX",
-        "ENABLE_CUDA_SUPPORT": "ON"
-      },
-      "generator": "Visual Studio 17 2022",
-      "inherits": [
-        "cmake-dev",
-        "vcpkg",
-        "windows"
-      ],
-      "name": "vs2022-windows-cuda",
-      "toolset": "v143"
-    },
-    {
-      "architecture": {
-        "strategy": "set",
-        "value": "x64"
-      },
-      "cacheVariables": {
-        "CMAKE_CXX_FLAGS": "/EHsc /MP /W4 /WX /arch:AVX",
-        "ENABLE_CUDA_SUPPORT": "ON"
-      },
-      "generator": "Visual Studio 17 2022",
-      "inherits": [
-        "cmake-dev",
-        "vcpkg",
-        "windows-avx"
-      ],
-      "name": "vs2022-windows-cuda-avx",
-      "toolset": "v143"
-    },
-    {
-      "architecture": {
-        "strategy": "set",
-        "value": "x64"
-      },
-      "cacheVariables": {
-        "CMAKE_CXX_FLAGS": "/EHsc /MP /W4 /WX /arch:AVX2",
-        "ENABLE_CUDA_SUPPORT": "ON"
-      },
-      "generator": "Visual Studio 17 2022",
-      "inherits": [
-        "cmake-dev",
-        "vcpkg",
-        "windows-avx2"
-      ],
-      "name": "vs2022-windows-cuda-avx2",
-      "toolset": "v143"
-    },
-    {
-      "architecture": {
-        "strategy": "set",
-        "value": "x64"
-      },
-      "cacheVariables": {
-        "CMAKE_CXX_FLAGS": "/EHsc /MP /W4 /WX /arch:AVX512",
-        "ENABLE_CUDA_SUPPORT": "ON"
-      },
-      "generator": "Visual Studio 17 2022",
-      "inherits": [
-        "cmake-dev",
-        "vcpkg",
-        "windows-avx512"
-      ],
-      "name": "vs2022-windows-cuda-avx512",
+      "name": "vs2022-windows-avx512",
       "toolset": "v143"
     }
   ],
@@ -234,13 +184,13 @@
     {
       "name": "avx2-debug",
       "displayName": "Debug",
-      "configurePreset": "vs2022-windows-nocuda-avx2",
+      "configurePreset": "vs2022-windows-avx2",
       "configuration": "Debug"
     },
     {
       "name": "avx2-release",
       "displayName": "Release",
-      "configurePreset": "vs2022-windows-nocuda-avx2",
+      "configurePreset": "vs2022-windows-avx2",
       "configuration": "Release"
     }
   ],
