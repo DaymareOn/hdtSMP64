@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.22)
 
 project(
 	hdtsmp64
-	VERSION 2.5.0
+	VERSION 3.0.0
 	LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
