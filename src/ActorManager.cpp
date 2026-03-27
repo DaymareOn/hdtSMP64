@@ -1309,7 +1309,7 @@ namespace hdt
 										// Must run before NiStream_deconstructor while the tree is live.
 										if (REL::Module::IsVR()) {
 											auto& ch = rootFadeNode->GetChildren();
-											for (std::uint32_t ci = 0; ci < ch.size(); ++ci) {
+											for (std::uint16_t ci = 0; ci < ch.size(); ++ci) {
 												auto faceChild = ch[ci].get();
 												if (!faceChild || !isValidNiObject(faceChild))
 													continue;
@@ -1345,7 +1345,7 @@ namespace hdt
 										// Detect remaining unresolvable bone refs (non-null, non-canonical pointers).
 										bool brokenBoneRefs = false;
 										auto& faceCh = rootFadeNode->GetChildren();
-										for (std::uint32_t ci = 0; ci < faceCh.size() && !brokenBoneRefs; ++ci) {
+										for (std::uint16_t ci = 0; ci < faceCh.size() && !brokenBoneRefs; ++ci) {
 											auto faceChild = faceCh[ci].get();
 											if (!faceChild)
 												continue;
