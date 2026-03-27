@@ -51,7 +51,7 @@ jobs:
   prepare:
     runs-on: ubuntu-latest
     outputs:
-      # Make the version accessible to other jobs
+      # Base version read from CMakeLists.txt (e.g. "2.5.0")
       new_version: ${{ steps.versioning.outputs.version }}
       # Full version string used for tags/releases (includes branch+hash postfix for non-master)
       tag_version: ${{ steps.versioning.outputs.tag_version }}
@@ -60,88 +60,31 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0 # Necessary for SemVer
 
       - name: Determine semantic version
         id: versioning
         shell: bash
         run: |
           SHORT_SHA=$(git rev-parse --short HEAD)
-          PROD_TAG_PATTERN="v[0-9]*.[0-9]*.[0-9]*"
           # For pull_request events github.ref_name is "{PR}/merge"; use head_ref (source branch) instead.
-          BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
+          # Sanitize branch name: replace "/" with "-" so it's safe for git tags and semver pre-release.
+          RAW_BRANCH="${{ github.head_ref || github.ref_name }}"
+          BRANCH_NAME="${RAW_BRANCH//\//-}"
+
+          # CMakeLists.txt is the single source of truth for the base version.
+          BASE_VERSION=$(grep -m1 'project(' CMakeLists.txt -A5 | grep 'VERSION' | sed -E 's/.*VERSION ([0-9]+\.[0-9]+\.[0-9]+).*/\1/')
+          echo "Base version from CMakeLists.txt: $BASE_VERSION"
 
           if [ "$BRANCH_NAME" == "master" ]; then
-            # 1. For master: find the latest production tag and bump via conventional commits
-            # Use "|| true" so grep returning no matches doesn't abort the script under pipefail.
-            LATEST_TAG=$(git tag -l "$PROD_TAG_PATTERN" --merged HEAD | grep -v -- "-" | sort -V | tail -n1 || true)
-
-            if [ -z "$LATEST_TAG" ]; then
-              echo "No production tag found. Starting from 0.0.0"
-              BASE_VERSION="0.0.0"
-              RANGE="HEAD"
-            else
-              echo "Last production tag: $LATEST_TAG"
-              # Extract only the numeric part (e.g., v1.2.3 -> 1.2.3)
-              BASE_VERSION=$(echo $LATEST_TAG | sed -E 's/v([^ -]+).*/\1/')
-              RANGE="$LATEST_TAG..HEAD"
-            fi
-
-            # Extract Major, Minor, Patch
-            IFS='.' read -r MAJOR MINOR PATCH <<< "$BASE_VERSION"
-
-            # 2. Analyze commit messages to determine bump level
-            COMMIT_MESSAGES=$(git log $RANGE --format=%s || true)
-
-            BUMP="patch"
-            while IFS= read -r msg; do
-              if [[ "$msg" =~ [^[:space:]]\!: || "$msg" =~ "BREAKING CHANGE:" ]]; then
-                BUMP="major"
-                break
-              elif [[ "$msg" =~ ^feat(\(.+\))?: ]]; then
-                BUMP="minor"
-              fi
-            done <<< "$COMMIT_MESSAGES"
-
-            # 3. Apply the increment
-            if [ "$BUMP" == "major" ]; then
-              MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0
-            elif [ "$BUMP" == "minor" ]; then
-              MINOR=$((MINOR + 1)); PATCH=0
-            else
-              PATCH=$((PATCH + 1))
-            fi
-
-            NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+            NEW_VERSION="$BASE_VERSION"
             TAG_VERSION="$NEW_VERSION"
             BUILD_INFO=""
           else
-            # For non-master branches (dev, hardenrelease, etc.):
-            # Use the base version from the latest production tag without bumping,
-            # and append branch name + short SHA as a pre-release postfix.
-            # Use "|| true" so grep returning no matches doesn't abort the script under pipefail.
-            LATEST_PROD_TAG=$(git tag -l "$PROD_TAG_PATTERN" --merged HEAD | grep -v -- "-" | sort -V | tail -n1 || true)
-
-            if [ -z "$LATEST_PROD_TAG" ]; then
-              # Fallback: try any production tag in the repo
-              LATEST_PROD_TAG=$(git tag -l "$PROD_TAG_PATTERN" | grep -v -- "-" | sort -V | tail -n1 || true)
-            fi
-
-            if [ -z "$LATEST_PROD_TAG" ]; then
-              echo "No production tag found. Starting from 0.0.0"
-              BASE_VERSION="0.0.0"
-            else
-              echo "Last production tag: $LATEST_PROD_TAG"
-              BASE_VERSION=$(echo $LATEST_PROD_TAG | sed -E 's/v([^ -]+).*/\1/')
-            fi
-
             NEW_VERSION="$BASE_VERSION"
             TAG_VERSION="${BASE_VERSION}-${BRANCH_NAME}-${SHORT_SHA}"
             BUILD_INFO="${BRANCH_NAME}-${SHORT_SHA}"
           fi
 
-          # We set the output variables so they can be used in downstream jobs
           echo "CMake version: $NEW_VERSION"
           echo "Tag version: $TAG_VERSION"
           echo "Build info: $BUILD_INFO"
@@ -182,44 +125,17 @@ jobs:
       fail-fast: false
       # Use a matrix to run all presets at the same time
       matrix:
-        include:
-          - preset: vs2022-windows-nocuda
-            cuda: false
-          - preset: vs2022-windows-nocuda-avx
-            cuda: false
-          - preset: vs2022-windows-nocuda-avx2
-            cuda: false
-          - preset: vs2022-windows-nocuda-avx512
-            cuda: false
-          - preset: vs2022-windows-cuda
-            cuda: true
-          - preset: vs2022-windows-cuda-avx
-            cuda: true
-          - preset: vs2022-windows-cuda-avx2
-            cuda: true
-          - preset: vs2022-windows-cuda-avx512
-            cuda: true
+        preset:
+          - vs2022-windows
+          - vs2022-windows-avx
+          - vs2022-windows-avx2
+          - vs2022-windows-avx512
 
     steps:
       - name: Checkout the repository
         uses: actions/checkout@v4
         with:
           submodules: recursive # This handles the 'git submodule update --init --recursive' automatically
-
-      - name: Install CUDA Toolkit
-        if: matrix.cuda
-        uses: Jimver/cuda-toolkit@v0.2.30
-        with:
-          cuda: "12.6.3"
-          method: network
-          sub-packages: '["nvcc", "cudart"]'
-
-      - name: Inject version into CMake
-        shell: pwsh
-        run: |
-          $NewVer = "${{ needs.prepare.outputs.new_version }}"
-          Write-Host "Injecting version $NewVer into CMakeLists.txt"
-          (Get-Content CMakeLists.txt) -replace 'VERSION \d+\.\d+\.\d+', "VERSION $NewVer" | Set-Content CMakeLists.txt
 
       - name: Restore vcpkg dependencies and binary cache
         uses: actions/cache@v4
@@ -283,8 +199,7 @@ jobs:
 
       - name: Update FOMOD version
         run: |
-          VERSION_STRING="${{ needs.prepare.outputs.tag_version }}-${{ github.sha }}"
-          sed -i "s|<Version>.*</Version>|<Version>$VERSION_STRING</Version>|g" "fomod tree/fomod/info.xml"
+          sed -i "s|<Version>.*</Version>|<Version>${{ needs.prepare.outputs.tag_version }}</Version>|g" "fomod tree/fomod/info.xml"
 
       - name: Download Artifacts
         uses: actions/download-artifact@v4
