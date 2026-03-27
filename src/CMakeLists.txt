@@ -1,5 +1,4 @@
 set(ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/..")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /WX-")
 
 add_compile_definitions(_SILENCE_AMP_DEPRECATION_WARNINGS)
 
@@ -114,6 +113,7 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
 				"/permissive-" # Standards conformance
 				"/Zc:preprocessor" # Enable preprocessor conformance mode
 				"/bigobj" # Increase Number of Sections in .obj file
+				"/WX" # Warnings as errors
 				"$<$<CONFIG:DEBUG>:>"
 				"$<$<CONFIG:RELEASE>:/Zc:inline;/JMC-;/Ob3>")
 
