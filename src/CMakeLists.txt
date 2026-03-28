@@ -97,11 +97,10 @@ source_group("src" FILES "${VERSION_HEADER}")
 configure_file("${ROOT_DIR}/cmake/version.rc.in" "${CMAKE_CURRENT_BINARY_DIR}/version.rc" @ONLY)
 
 find_path(DETOURS_INCLUDE_DIRS "detours/detours.h")
-# find_library resolves to whichever variant it finds first — on vcpkg it tends to
-# pick debug/lib even for Release builds.  Look up both variants explicitly so we
-# can pass them with the optimized/debug keywords below.
-# Prefer the public VCPKG_INSTALLED_DIR variable; fall back to the internal
-# _VCPKG_INSTALLED_DIR for older vcpkg, and error if neither is set.
+# find_library resolves to whichever variant it finds first — on vcpkg it tends to pick debug/lib even for Release
+# builds.  Look up both variants explicitly so we can pass them with the optimized/debug keywords below. Prefer the
+# public VCPKG_INSTALLED_DIR variable; fall back to the internal _VCPKG_INSTALLED_DIR for older vcpkg, and error if
+# neither is set.
 if(DEFINED VCPKG_INSTALLED_DIR)
 	set(_detours_vcpkg_installed "${VCPKG_INSTALLED_DIR}")
 elseif(DEFINED _VCPKG_INSTALLED_DIR)
@@ -109,9 +108,15 @@ elseif(DEFINED _VCPKG_INSTALLED_DIR)
 else()
 	message(FATAL_ERROR "detours: could not determine vcpkg installed directory (set VCPKG_INSTALLED_DIR)")
 endif()
-find_library(DETOURS_LIBRARY_RELEASE NAMES detours NO_DEFAULT_PATH
+find_library(
+	DETOURS_LIBRARY_RELEASE
+	NAMES detours
+	NO_DEFAULT_PATH
 	PATHS "${_detours_vcpkg_installed}/${VCPKG_TARGET_TRIPLET}/lib")
-find_library(DETOURS_LIBRARY_DEBUG NAMES detours NO_DEFAULT_PATH
+find_library(
+	DETOURS_LIBRARY_DEBUG
+	NAMES detours
+	NO_DEFAULT_PATH
 	PATHS "${_detours_vcpkg_installed}/${VCPKG_TARGET_TRIPLET}/debug/lib")
 if(NOT DETOURS_LIBRARY_RELEASE)
 	message(FATAL_ERROR "detours: release library not found in vcpkg installed dir")
@@ -188,9 +193,16 @@ find_package(xbyak REQUIRED CONFIG)
 
 include_directories(${BULLET_INCLUDE_DIRS})
 
-target_link_libraries("${PROJECT_NAME}" PRIVATE CommonLibSSE::CommonLibSSE xbyak::xbyak spdlog::spdlog
-												optimized ${DETOURS_LIBRARY_RELEASE} debug ${DETOURS_LIBRARY_DEBUG}
-												${BULLET_LIBRARIES})
+target_link_libraries(
+	"${PROJECT_NAME}"
+	PRIVATE CommonLibSSE::CommonLibSSE
+			xbyak::xbyak
+			spdlog::spdlog
+			optimized
+			${DETOURS_LIBRARY_RELEASE}
+			debug
+			${DETOURS_LIBRARY_DEBUG}
+			${BULLET_LIBRARIES})
 
 target_precompile_headers("${PROJECT_NAME}" PRIVATE "${SOURCE_DIR}/PCH.h")
 
