@@ -101,15 +101,24 @@ find_path(DETOURS_INCLUDE_DIRS "detours/detours.h")
 # find_library resolves to whichever variant it finds first — on vcpkg it tends to
 # pick debug/lib even for Release builds.  Look up both variants explicitly so we
 # can pass them with the optimized/debug keywords below.
+# Prefer the public VCPKG_INSTALLED_DIR variable; fall back to the internal
+# _VCPKG_INSTALLED_DIR for older vcpkg, and error if neither is set.
+if(DEFINED VCPKG_INSTALLED_DIR)
+	set(_detours_vcpkg_installed "${VCPKG_INSTALLED_DIR}")
+elseif(DEFINED _VCPKG_INSTALLED_DIR)
+	set(_detours_vcpkg_installed "${_VCPKG_INSTALLED_DIR}")
+else()
+	message(FATAL_ERROR "detours: could not determine vcpkg installed directory (set VCPKG_INSTALLED_DIR)")
+endif()
 find_library(DETOURS_LIBRARY_RELEASE NAMES detours NO_DEFAULT_PATH
-    PATHS "${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib")
+	PATHS "${_detours_vcpkg_installed}/${VCPKG_TARGET_TRIPLET}/lib")
 find_library(DETOURS_LIBRARY_DEBUG NAMES detours NO_DEFAULT_PATH
-    PATHS "${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/debug/lib")
+	PATHS "${_detours_vcpkg_installed}/${VCPKG_TARGET_TRIPLET}/debug/lib")
 if(NOT DETOURS_LIBRARY_RELEASE)
-    message(FATAL_ERROR "detours: release library not found in vcpkg installed dir")
+	message(FATAL_ERROR "detours: release library not found in vcpkg installed dir")
 endif()
 if(NOT DETOURS_LIBRARY_DEBUG)
-    set(DETOURS_LIBRARY_DEBUG ${DETOURS_LIBRARY_RELEASE})
+	set(DETOURS_LIBRARY_DEBUG ${DETOURS_LIBRARY_RELEASE})
 endif()
 
 add_library("${PROJECT_NAME}" SHARED ${SOURCE_FILES} "${VERSION_HEADER}" "${CMAKE_CURRENT_BINARY_DIR}/version.rc"
@@ -134,7 +143,7 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
 endif()
 
 target_include_directories("${PROJECT_NAME}" PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/src" "${SOURCE_DIR}"
-													 ${DETOURS_LIBRARY} ${BULLET_INCLUDE_DIRS})
+													 ${DETOURS_INCLUDE_DIRS} ${BULLET_INCLUDE_DIRS})
 
 set(SKSE_SUPPORT_XBYAK ON)
 
