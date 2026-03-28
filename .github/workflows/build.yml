@@ -127,36 +127,16 @@ jobs:
       # Use a matrix to run all presets at the same time
       matrix:
         include:
-          - preset: vs2022-windows-nocuda
-            cuda: false
-          - preset: vs2022-windows-nocuda-avx
-            cuda: false
-          - preset: vs2022-windows-nocuda-avx2
-            cuda: false
-          - preset: vs2022-windows-nocuda-avx512
-            cuda: false
-          - preset: vs2022-windows-cuda
-            cuda: true
-          - preset: vs2022-windows-cuda-avx
-            cuda: true
-          - preset: vs2022-windows-cuda-avx2
-            cuda: true
-          - preset: vs2022-windows-cuda-avx512
-            cuda: true
+          - preset: vs2022-windows
+          - preset: vs2022-windows-avx
+          - preset: vs2022-windows-avx2
+          - preset: vs2022-windows-avx512
 
     steps:
       - name: Checkout the repository
         uses: actions/checkout@v4
         with:
           submodules: recursive # This handles the 'git submodule update --init --recursive' automatically
-
-      - name: Install CUDA Toolkit
-        if: matrix.cuda
-        uses: Jimver/cuda-toolkit@v0.2.30
-        with:
-          cuda: "12.6.3"
-          method: network
-          sub-packages: '["nvcc", "cudart"]'
 
       - name: Restore vcpkg dependencies and binary cache
         uses: actions/cache@v4
