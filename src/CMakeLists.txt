@@ -98,7 +98,19 @@ source_group("src" FILES "${VERSION_HEADER}")
 configure_file("${ROOT_DIR}/cmake/version.rc.in" "${CMAKE_CURRENT_BINARY_DIR}/version.rc" @ONLY)
 
 find_path(DETOURS_INCLUDE_DIRS "detours/detours.h")
-find_library(DETOURS_LIBRARY detours REQUIRED)
+# find_library resolves to whichever variant it finds first — on vcpkg it tends to
+# pick debug/lib even for Release builds.  Look up both variants explicitly so we
+# can pass them with the optimized/debug keywords below.
+find_library(DETOURS_LIBRARY_RELEASE NAMES detours NO_DEFAULT_PATH
+    PATHS "${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib")
+find_library(DETOURS_LIBRARY_DEBUG NAMES detours NO_DEFAULT_PATH
+    PATHS "${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/debug/lib")
+if(NOT DETOURS_LIBRARY_RELEASE)
+    message(FATAL_ERROR "detours: release library not found in vcpkg installed dir")
+endif()
+if(NOT DETOURS_LIBRARY_DEBUG)
+    set(DETOURS_LIBRARY_DEBUG ${DETOURS_LIBRARY_RELEASE})
+endif()
 
 add_library("${PROJECT_NAME}" SHARED ${SOURCE_FILES} "${VERSION_HEADER}" "${CMAKE_CURRENT_BINARY_DIR}/version.rc"
 									 "${ROOT_DIR}/.clang-format" "${ROOT_DIR}/.editorconfig")
@@ -168,7 +180,8 @@ find_package(xbyak REQUIRED CONFIG)
 include_directories(${BULLET_INCLUDE_DIRS})
 
 target_link_libraries("${PROJECT_NAME}" PRIVATE CommonLibSSE::CommonLibSSE xbyak::xbyak spdlog::spdlog
-												${DETOURS_LIBRARY} ${BULLET_LIBRARIES})
+												optimized ${DETOURS_LIBRARY_RELEASE} debug ${DETOURS_LIBRARY_DEBUG}
+												${BULLET_LIBRARIES})
 
 target_precompile_headers("${PROJECT_NAME}" PRIVATE "${SOURCE_DIR}/PCH.h")
 
