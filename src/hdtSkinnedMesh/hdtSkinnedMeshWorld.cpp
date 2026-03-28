@@ -15,10 +15,12 @@ namespace hdt
 		btDiscreteDynamicsWorldMt(
 			nullptr,
 			nullptr,
-			// Pool of regular sequential solvers one per hardware thread.
+			// Pool of regular sequential solvers, one per performance core.
+			// On Intel hybrid CPUs (Alder Lake+) this excludes E-cores, which are ~3-4x
+			// slower for compute work and cause tail-latency stalls in parallel island solving.
+			// On AMD and non-hybrid Intel, getPCoreCount() returns hardware_concurrency().
 			// Each island gets dispatched to a free solver on any thread.
-			new btConstraintSolverPoolMt(
-				std::max(1, static_cast<int>(std::thread::hardware_concurrency()))),
+			new btConstraintSolverPoolMt(getPCoreCount()),
 			nullptr,  // no Mt solver, avoids btBatchedConstraints entirely (we are not designed for that yet)
 			nullptr)
 	{

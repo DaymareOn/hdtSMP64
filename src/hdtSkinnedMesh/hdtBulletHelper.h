@@ -7,6 +7,9 @@
 #include <cassert>
 #include <cfloat>
 #include <intrin.h>
+#include <thread>
+#include <vector>
+#include <windows.h>
 
 #undef min
 #undef max
@@ -421,6 +424,43 @@ namespace hdt
 
 	template <class T>
 	using vectorA16 = std::vector<T>;
+
+	// Returns the count of performance cores on Intel hybrid CPUs (P-cores only).
+	// On AMD and non-hybrid Intel, all cores have EfficiencyClass == 0, so isHybrid
+	// stays false and this falls back to hardware_concurrency() — no change in behaviour.
+	inline int getPCoreCount()
+	{
+		DWORD length = 0;
+		if (!GetLogicalProcessorInformationEx(RelationProcessorCore, nullptr, &length) &&
+			GetLastError() != ERROR_INSUFFICIENT_BUFFER)
+			return static_cast<int>(std::thread::hardware_concurrency());
+
+		std::vector<uint8_t> buffer(length);
+		auto* info = reinterpret_cast<SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX*>(buffer.data());
+		if (!GetLogicalProcessorInformationEx(RelationProcessorCore, info, &length))
+			return static_cast<int>(std::thread::hardware_concurrency());
+
+		bool isHybrid = false;
+		for (DWORD offset = 0; offset < length;) {
+			auto* entry = reinterpret_cast<SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX*>(buffer.data() + offset);
+			if (entry->Processor.EfficiencyClass > 0)
+				isHybrid = true;
+			offset += entry->Size;
+		}
+
+		if (!isHybrid)
+			return static_cast<int>(std::thread::hardware_concurrency());
+
+		int pCores = 0;
+		for (DWORD offset = 0; offset < length;) {
+			auto* entry = reinterpret_cast<SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX*>(buffer.data() + offset);
+			if (entry->Processor.EfficiencyClass > 0)
+				pCores += static_cast<int>(__popcnt64(entry->Processor.GroupMask[0].Mask));
+			offset += entry->Size;
+		}
+
+		return std::max(1, pCores);
+	}
 
 	class SpinLock
 	{

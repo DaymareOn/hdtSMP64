@@ -320,7 +320,12 @@ namespace hdt
 				listB.clear();
 			};
 
-			if (pairs.size() >= std::thread::hardware_concurrency())
+			// Use P-core count as the parallelism threshold. On Intel hybrid CPUs
+			// hardware_concurrency() includes E-cores, which inflates the threshold and
+			// causes small workloads to go serial unnecessarily, or dispatches to E-cores
+			// whose slowness stalls the barrier. getPCoreCount() is cached at first call.
+			static const int physicsThreadCount = getPCoreCount();
+			if (pairs.size() >= static_cast<size_t>(physicsThreadCount))
 				// FIXME PROFILING This is the line where we spend the most time in the whole mod.
 				concurrency::parallel_for_each(pairs.begin(), pairs.end(), func);
 			else
