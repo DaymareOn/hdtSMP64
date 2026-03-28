@@ -454,8 +454,10 @@ namespace hdt
 		int pCores = 0;
 		for (DWORD offset = 0; offset < length;) {
 			auto* entry = reinterpret_cast<SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX*>(buffer.data() + offset);
-			if (entry->Processor.EfficiencyClass > 0)
-				pCores += static_cast<int>(__popcnt64(entry->Processor.GroupMask[0].Mask));
+			if (entry->Processor.EfficiencyClass > 0) {
+				for (WORD g = 0; g < entry->Processor.GroupCount; ++g)
+					pCores += static_cast<int>(__popcnt64(entry->Processor.GroupMask[g].Mask));
+			}
 			offset += entry->Size;
 		}
 
