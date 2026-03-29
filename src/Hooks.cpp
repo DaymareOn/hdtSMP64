@@ -198,23 +198,25 @@ namespace Hooks
 		localTrampoline.write_branch<5>(GeometrySkinningBoneFix.address(), localTrampoline.allocate(code));
 	}
 
-	void MainHooks::Update(RE::Main* const a_this)
+	void MainHooks::Update(uint32_t _0, uint32_t _0x18)
 	{
-		//
-		_Update(a_this);
+		_WaitForJobTask(_0, _0x18);
 
-		// why doesn't this class have a GetRuntimeData() helper? the offsets are borked with VR support enabled.
-		bool quitGame = REL::RelocateMember<bool>(a_this, 0x10, 0x8);
+		auto main = RE::Main::GetSingleton();
+		if (main) {
+			// why doesn't this class have a GetRuntimeData() helper? the offsets are borked with VR support enabled.
+			bool quitGame = REL::RelocateMember<bool>(main, 0x10, 0x8);
 
-		//
-		if (quitGame) {
-			Events::ShutdownEvent e;
-			Events::Sources::ShutdownEventEventSource::GetSingleton()->SendEvent(&e);
-		} else {
-			Events::FrameEvent e;
-			e.gamePaused = a_this->freezeTime;
-			Events::Sources::FrameEventSource::GetSingleton()->SendEvent(&e);
+			if (quitGame) {
+				Events::ShutdownEvent e;
+				Events::Sources::ShutdownEventEventSource::GetSingleton()->SendEvent(&e);
+				return;
+			}
 		}
+
+		Events::FrameEvent e;
+		e.gamePaused = false;  // This hook doesn't get called if the game is paused
+		Events::Sources::FrameEventSource::GetSingleton()->SendEvent(&e);
 	}
 
 	void MainHooks::Unk_sub(void* a_this)
