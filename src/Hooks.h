@@ -65,7 +65,7 @@ namespace Hooks
 		{
 			// 36564     140645EA0
 			// 35565     1405B2FF0
-			REL::Relocation<uintptr_t> UpdateHook1{ REL::VariantID(35565, 36564, 0x05BAB10), REL::VariantOffset(0x2CC, 0x2E7, 0x371) };     // 0x05AF3D0, 0x05E7EE0, 0x05B6D70 (SE/1.5.97.0, AE/1.6.640.0, VR/1.4.15.0)
+			REL::Relocation<uintptr_t> UpdateHook1{ REL::VariantID(35565, 36564, 0x05BAB10), REL::VariantOffset(0x2CC, 0x2E7, 0x371) };  // 0x05AF3D0, 0x05E7EE0, 0x05B6D70 (SE/1.5.97.0, AE/1.6.640.0, VR/1.4.15.0)
 			REL::Relocation<uintptr_t> UpdateHook2{ REL::VariantID(35565, 36564, 0x05BAB10), REL::VariantOffset(0x56D, 0x9DC, 0x611) };  // 0x05B2FF0, 0x05EC240, 0x05BAB10 (SE/1.5.97.0, AE/1.6.640.0, VR/1.4.15.0)
 
 			logger::debug("Applying MainHooks hooks!");
