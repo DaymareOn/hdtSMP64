@@ -212,7 +212,7 @@ namespace Hooks
 			Events::Sources::ShutdownEventEventSource::GetSingleton()->SendEvent(&e);
 		} else {
 			Events::FrameEvent e;
-			e.gamePaused = a_this->freezeTime;
+			e.gamePaused = REL::RelocateMember<bool>(a_this, 0x16, 0x0E);
 			Events::Sources::FrameEventSource::GetSingleton()->SendEvent(&e);
 		}
 	}
