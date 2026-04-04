@@ -94,6 +94,7 @@ namespace hdt
 			btTransform m_centerOfMassTransform;
 			float m_marginMultipler;
 			float m_gravityFactor = 1.0f;
+			float m_windFactor = 1.0f;
 			U32 m_collisionFilter = 0;
 		};
 

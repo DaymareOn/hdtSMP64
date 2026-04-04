@@ -482,6 +482,8 @@ namespace hdt
 					cinfo.m_noCollideWithBone.push_back(m_reader->readText());
 				} else if (name == "gravity-factor") {
 					cinfo.m_gravityFactor = btClamped(m_reader->readFloat(), 0.0f, 1.0f);
+				} else if (name == "wind-factor") {
+					cinfo.m_windFactor = std::max(m_reader->readFloat(), 0.0f);
 				} else {
 					logger::warn("unknown element - {}", name.c_str());
 					m_reader->skipCurrentElement();
@@ -669,6 +671,7 @@ namespace hdt
 			bone->m_rigToLocal = boneTemplate.m_centerOfMassTransform.inverse();
 			bone->m_marginMultipler = boneTemplate.m_marginMultipler;
 			bone->m_gravityFactor = boneTemplate.m_gravityFactor;
+			bone->m_windFactor = boneTemplate.m_windFactor;
 
 			if (old_system) {
 				auto old_b = old_system->findBone(bodyName);
@@ -884,8 +887,6 @@ namespace hdt
 					body->m_disableTag = m_reader->readText();
 				} else if (nodeName == "disable-priority") {
 					body->m_disablePriority = m_reader->readInt();
-				} else if (nodeName == "wind-effect") {
-					shape->m_windEffect = m_reader->readFloat();
 				} else {
 					logger::warn("unknown element - {}", name.c_str());
 					m_reader->skipCurrentElement();
@@ -981,8 +982,6 @@ namespace hdt
 					body->m_disableTag = m_reader->readText();
 				} else if (nodeName == "disable-priority") {
 					body->m_disablePriority = m_reader->readInt();
-				} else if (nodeName == "wind-effect") {
-					shape->m_windEffect = m_reader->readFloat();
 				} else {
 					logger::warn("unknown element - {}", nodeName.c_str());
 					m_reader->skipCurrentElement();

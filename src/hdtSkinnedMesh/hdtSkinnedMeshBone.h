@@ -20,7 +20,7 @@ namespace hdt
 		float m_marginMultipler;
 		float m_boudingSphereMultipler = 1.0f;
 		float m_gravityFactor = 1.0f;
-		float m_windFactor = 1.0f;  // wind factor for each skinnedmeshbody; currently not changed, this may have been intended to be m_windEffect e.g., (wind-effect in xml)
+		float m_windFactor = 1.0f;  // Mapped to <wind-factor> in the XML. Acts as a multiplier for the global wind force applied to this bone (0.0 = no wind, 2.0 = double wind)
 
 		btRigidBody m_rig;
 		btTransform m_localToRig;

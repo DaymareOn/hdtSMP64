@@ -39,7 +39,6 @@ namespace hdt
 		vectorA16<Aabb> m_aabb;
 		vectorA16<Collider> m_colliders;
 		ColliderTree m_tree;
-		float m_windEffect = 0.f;  //effect from xml m_windEffect
 	};
 
 	class PerVertexShape : public SkinnedMeshShape
