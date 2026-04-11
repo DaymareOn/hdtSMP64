@@ -203,16 +203,15 @@ namespace Hooks
 		//
 		_Update(a_this);
 
-		// why doesn't this class have a GetRuntimeData() helper? the offsets are borked with VR support enabled.
-		bool quitGame = REL::RelocateMember<bool>(a_this, 0x10, 0x8);
+		const auto& runtimeData = a_this->GetRuntimeData();
 
 		//
-		if (quitGame) {
+		if (runtimeData.quitGame) {
 			Events::ShutdownEvent e;
 			Events::Sources::ShutdownEventEventSource::GetSingleton()->SendEvent(&e);
 		} else {
 			Events::FrameEvent e;
-			e.gamePaused = a_this->freezeTime;
+			e.gamePaused = runtimeData.freezeTime;
 			Events::Sources::FrameEventSource::GetSingleton()->SendEvent(&e);
 		}
 	}
