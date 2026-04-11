@@ -5,7 +5,7 @@ on:
       - master
       - dev
       - hardenrelease
-      - testCommonlibPRWithDHDTScripts
+      - testCommonLibPRWithDHDTScripts
     paths:
       - "**.cpp"
       - "**.h"
@@ -27,7 +27,7 @@ on:
       - dev
       - hardenrelease
       - copilot/update-dev-build-versioning
-      - testCommonlibPRWithDHDTScripts
+      - testCommonLibPRWithDHDTScripts
     paths:
       - "**.cpp"
       - "**.h"
