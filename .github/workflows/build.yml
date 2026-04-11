@@ -5,6 +5,7 @@ on:
       - master
       - dev
       - hardenrelease
+      - testCommonlibPR
     paths:
       - "**.cpp"
       - "**.h"
@@ -26,6 +27,7 @@ on:
       - dev
       - hardenrelease
       - copilot/update-dev-build-versioning
+      - testCommonlibPR
     paths:
       - "**.cpp"
       - "**.h"
