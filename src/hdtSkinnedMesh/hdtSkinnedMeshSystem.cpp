@@ -1,8 +1,8 @@
 #include "hdtSkinnedMeshSystem.h"
 
+#include "hdtBoneScaleConstraint.h"
 #include "hdtSkinnedMeshBody.h"
 #include "hdtSkinnedMeshShape.h"
-#include "hdtBoneScaleConstraint.h"
 
 namespace hdt
 {
@@ -17,28 +17,23 @@ namespace hdt
 		if (this->block_resetting)
 			return;
 
-		concurrency::parallel_for_each(m_bones.begin(), m_bones.end(), [=](const auto& bone) 
-		{
+		for (const auto& bone : m_bones) {
 			bone->readTransform(timeStep);
-		});
+		}
 
-		for (auto i : m_constraints)
-		{
+		for (auto i : m_constraints) {
 			i->scaleConstraint();
 		}
 
-		for (auto i : m_constraintGroups)
-		{
+		for (auto i : m_constraintGroups) {
 			i->scaleConstraint();
 		}
 	}
 
 	void SkinnedMeshSystem::writeTransform()
 	{
-		for (int i = 0; i < m_bones.size(); ++i)
-		{
-			if (m_bones[i]->m_rig.isKinematicObject()) 
-			{
+		for (int i = 0; i < m_bones.size(); ++i) {
+			if (m_bones[i]->m_rig.isKinematicObject()) {
 				continue;
 			}
 
@@ -55,24 +50,14 @@ namespace hdt
 			i->updateBoundingSphereAabb();
 	}
 
-	//void SkinnedMeshSystem::internalUpdateCL()
-	//{
-	//	for (auto& i : m_bones)
-	//		i->internalUpdate();
-
-	//	//i->internalUpdate();
-	//}
-
 	void SkinnedMeshSystem::gather(std::vector<SkinnedMeshBody*>& bodies, std::vector<SkinnedMeshShape*>& shapes)
 	{
-		for (auto& i : m_meshes)
-		{
+		for (auto& i : m_meshes) {
 			bodies.push_back(i.get());
 			shapes.push_back(i->m_shape.get());
 			auto triShape = dynamic_cast<PerTriangleShape*>(i->m_shape.get());
 
-			if (triShape)
-			{
+			if (triShape) {
 				shapes.push_back(triShape->m_verticesCollision.get());
 			}
 		}

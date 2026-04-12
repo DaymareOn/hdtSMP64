@@ -1,20 +1,19 @@
 #pragma once
 
-#include "FrameworkUtils.h"
-
-namespace hdt 
+namespace hdt
 {
-	class ForceUpdateList 
+	class ForceUpdateList
 	{
-		typedef struct 
+		typedef struct
 		{
-			std::unordered_set<std::string> nodes;
-			std::unordered_set<std::string> nodes_mov;
+			std::unordered_set<RE::BSFixedString> nodes;
+			std::unordered_set<RE::BSFixedString> nodes_mov;
 		} nodeList_t;
+
 	public:
 		static ForceUpdateList* GetSingleton();
-		int isAmong(std::string node_name);
-		int isAmong(hdt::IDStr node_name);
+		int isAmong(const RE::BSFixedString& node_name);
+
 	private:
 		ForceUpdateList();
 		nodeList_t m_list;

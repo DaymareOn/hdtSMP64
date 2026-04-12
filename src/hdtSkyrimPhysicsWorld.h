@@ -1,23 +1,22 @@
 #pragma once
 
 #include "ActorManager.h"
-#include "hdtSkyrimSystem.h"
-#include "hdtSkinnedMesh/hdtSkinnedMeshWorld.h"
 #include "Events.h"
+#include "hdtSkinnedMesh/hdtSkinnedMeshWorld.h"
+#include "hdtSkyrimSystem.h"
 
 namespace hdt
 {
 	constexpr float RESET_PHYSICS = -10.0f;
 
-	class SkyrimPhysicsWorld : 
-		protected SkinnedMeshWorld, 
+	class SkyrimPhysicsWorld :
+		protected SkinnedMeshWorld,
 		public RE::BSTEventSink<Events::FrameEvent>,
-		public RE::BSTEventSink<Events::ShutdownEvent>, 
-		public RE::BSTEventSink<SKSE::CameraEvent>, 
+		public RE::BSTEventSink<Events::ShutdownEvent>,
+		public RE::BSTEventSink<SKSE::CameraEvent>,
 		public RE::BSTEventSink<Events::FrameSyncEvent>
 	{
 	public:
-
 		static SkyrimPhysicsWorld* get();
 
 		void doUpdate(float delta);
@@ -27,6 +26,7 @@ namespace hdt
 		void addSkinnedMeshSystem(SkinnedMeshSystem* system) override;
 		void removeSkinnedMeshSystem(SkinnedMeshSystem* system) override;
 		void removeSystemByNode(void* root);
+		using SkinnedMeshWorld::updateConstraintsForBone;
 
 		void resetTransformsToOriginal();
 		void resetSystems();
@@ -47,15 +47,15 @@ namespace hdt
 		void resume()
 		{
 			m_suspended = false;
-			if (m_loading)
-			{
+			if (m_loading) {
 				resetSystems();
 				m_loading = false;
 			}
 		}
 
-		void suspendSimulationUntilFinished(std::function<void(void)> process);
-		std::atomic_bool m_isStasis = false;
+		// This is used for when you want to mutate some physics objects without causing problems
+		// Bullet is VERY sensitive to changes during simulation!
+		std::unique_lock<std::mutex> lockSimulation();
 
 		btVector3 applyTranslationOffset();
 		void restoreTranslationOffset(const btVector3&);
@@ -70,9 +70,10 @@ namespace hdt
 
 		concurrency::task_group m_tasks;
 
+		bool m_pendingTransformUpdate = false;
 		bool m_useRealTime = false;
 		int min_fps = 60;
-		int m_percentageOfFrameTime = 300; // percentage of time per frame doing hdt. Profiler shows 30% is reasonable. Out of 1000.
+		float m_budgetMs = 3.5f;
 		float m_timeTick = 1 / 60.f;
 		int m_maxSubSteps = 4;
 		bool m_clampRotations = true;
@@ -85,16 +86,15 @@ namespace hdt
 		bool disabled = false;
 		uint8_t m_resetPc;
 		bool m_doMetrics = false;
-		int m_sampleSize = 5; // how many samples (each sample taken every second) for determining average time per activeSkeleton.
+		int m_sampleSize = 5;  // how many samples (each sample taken every second) for determining average time per activeSkeleton.
 
 		//wind settings
 		bool m_enableWind = true;
-		float m_windStrength = 2.0f; // compare to gravity acceleration of 9.8
-		float m_distanceForNoWind = 50.0f; // how close to wind obstruction to fully block wind
-		float m_distanceForMaxWind = 3000.0f; // how far to wind obstruction to not block wind
+		float m_windStrength = 2.0f;           // compare to gravity acceleration of 9.8
+		float m_distanceForNoWind = 50.0f;     // how close to wind obstruction to fully block wind
+		float m_distanceForMaxWind = 3000.0f;  // how far to wind obstruction to not block wind
 
 	private:
-
 		SkyrimPhysicsWorld(void);
 		~SkyrimPhysicsWorld(void);
 

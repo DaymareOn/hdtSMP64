@@ -1,21 +1,18 @@
 #pragma once
 
+#include "hdtAABB.h"
 #include "hdtBulletHelper.h"
 #include "hdtSkinnedMeshBone.h"
 #include "hdtVertex.h"
-#include "hdtAABB.h"
 
 #include <BulletCollision/Gimpact/btBoxCollision.h>
 
 namespace hdt
 {
 	class SkinnedMeshShape;
-#ifdef CUDA
-	class CudaBody;
-#endif
 
-	class SkinnedMeshBody : 
-		public btCollisionObject, 
+	class SkinnedMeshBody :
+		public btCollisionObject,
 		public RE::BSIntrusiveRefCounted
 	{
 	public:
@@ -23,13 +20,15 @@ namespace hdt
 		using btCollisionObject::operator delete;
 		using btCollisionObject::operator new[];
 		using btCollisionObject::operator delete[];
+
 	public:
 		SkinnedMeshBody();
 		virtual ~SkinnedMeshBody();
 
-		struct CollisionShape : public btCollisionShape // a shape only used for markout
+		struct CollisionShape : public btCollisionShape  // a shape only used for markout
 		{
-			CollisionShape() : m_aabb(_mm_setzero_ps(), _mm_setzero_ps()) { m_shapeType = CUSTOM_CONCAVE_SHAPE_TYPE; }
+			CollisionShape() :
+				m_aabb(_mm_setzero_ps(), _mm_setzero_ps()) { m_shapeType = CUSTOM_CONCAVE_SHAPE_TYPE; }
 
 			Aabb m_aabb;
 
@@ -71,7 +70,7 @@ namespace hdt
 			bool isKinematic;
 		};
 
-		IDStr m_name;
+		RE::BSFixedString m_name;
 
 		//		int m_priority;
 		bool m_isKinematic;
@@ -81,44 +80,28 @@ namespace hdt
 		int addBone(SkinnedMeshBone* bone, const btQsTransform& verticesToBone, const BoundingSphere& boundingSphere);
 
 		void finishBuild();
-#ifdef CUDA
-		void updateBones();
-#endif
 		virtual void internalUpdate();
 
 		std::vector<SkinnedBone> m_skinnedBones;
-#ifdef CUDA
-		std::shared_ptr<Bone[]> m_bones;
-#else
 		std::vector<Bone> m_bones;
-#endif
 
 		std::vector<Vertex> m_vertices;
-#ifdef CUDA
-		std::shared_ptr<VertexPos[]> m_vpos;
-#else
 		std::vector<VertexPos> m_vpos;
-#endif
 
-		std::vector<IDStr> m_tags;
-		std::unordered_set<IDStr> m_canCollideWithTags;
-		std::unordered_set<IDStr> m_noCollideWithTags;
-		std::vector<SkinnedMeshBone*> m_canCollideWithBones;
-		std::vector<SkinnedMeshBone*> m_noCollideWithBones;
-
-#ifdef CUDA
-		std::shared_ptr<CudaBody> m_cudaObject;
-#endif
+		std::vector<RE::BSFixedString> m_tags;
+		std::unordered_set<RE::BSFixedString> m_canCollideWithTags;
+		std::unordered_set<RE::BSFixedString> m_noCollideWithTags;
+		std::unordered_set<SkinnedMeshBone*> m_canCollideWithBones;
+		std::unordered_set<SkinnedMeshBone*> m_noCollideWithBones;
 
 		float flexible(const Vertex& v);
 
 		bool canCollideWith(const SkinnedMeshBone* bone) const
 		{
-			if (m_canCollideWithBones.size())
-			{
-				return std::find(m_canCollideWithBones.begin(), m_canCollideWithBones.end(), bone) != m_canCollideWithBones.end();
+			if (!m_canCollideWithBones.empty()) {
+				return m_canCollideWithBones.contains(const_cast<SkinnedMeshBone*>(bone));
 			}
-			return std::find(m_noCollideWithBones.begin(), m_noCollideWithBones.end(), bone) == m_noCollideWithBones.end();
+			return !m_noCollideWithBones.contains(const_cast<SkinnedMeshBone*>(bone));
 		}
 
 		virtual bool canCollideWith(const SkinnedMeshBody* body) const;

@@ -1,8 +1,8 @@
 #pragma once
 
 #include "hdtConvertNi.h"
-#include "hdtSkyrimBone.h"
 #include "hdtSkinnedMesh/hdtSkinnedMeshBody.h"
+#include "hdtSkyrimBone.h"
 
 namespace hdt
 {
@@ -26,7 +26,7 @@ namespace hdt
 		SharedType m_shared;
 		bool m_disabled = false;
 		int m_disablePriority = 0;
-		IDStr m_disableTag;
+		RE::BSFixedString m_disableTag;
 
 		bool canCollideWith(const SkinnedMeshBody* body) const override;
 		void internalUpdate() override;

@@ -7,25 +7,25 @@
 
     <!--
       logLevel: (int 0-5) level of logs
-      0 = trace
-      1 = debug
-      2 = info
-      3 = warn
-      4 = error
-      5 = critical
+      0 = critical
+      1 = err
+      2 = warn
+      3 = info
+      4 = debug
+      5 = trace
 	  6 = off
     -->
-    <logLevel>2</logLevel>
+    <logLevel>3</logLevel>
 
     <!-- ######################## Bone Node Backup #################################### -->
 
     <!--
       There's A unique issue with this port where when the skeleton and the body merge there is a chance that one of the bones don't get moved over and gets deleted
-	  when this happens it will cause a crash later down the line, if you encouter this issue add the node name into and it'll be backed up before the merge and put back as it should be.
+	  when this happens it will cause a crash later down the line, if you encounter this issue add the node name into and it'll be backed up before the merge and put back as it should be.
 	  example, SOS-SAM and the "VirtualHands" node when hdt is enabled... this will cause a crash unless added here.
     -->
     <backupNodeByName></backupNodeByName>
-	
+
     <!-- #################### NPC FACE PARTS ############################## -->
 
     <!--
@@ -135,32 +135,27 @@
     <maximumActiveSkeletons>20</maximumActiveSkeletons>
 
     <!--
-      percentageOfFrameTime: (int 1-100) [requires autoAdjustMaxSkeleton = true]
-      percentage of the configured min-fps period allocated to additional physics calculus.
+      budgetMs: (int 0.1-30.0) [requires autoAdjustMaxSkeleton = true]
 
-      Each frame, FSMP uses a certain time to calculate physics (T).
-      Each frame, the work done by the Skyrim executable can be split into 2 parts:
-        one that can be parallelized with the FSMP calculus (T1),
-        one that can't because it depend on it (T2).
-      If the FSMP calculus T is shorter than T1, then physics doesn't cost any fps.
-      If it is longer, the Skyrim executable must wait (T - T1) for the physics calculus to finish.
+      How many milliseconds per frame FSMP is allowed to spend on physics
+      before it starts reducing the number of active skeletons.
 
-      This setting allows you to choose how much fps you're willing to lose to increase
-      the number of skeletons with physics at the same time :)
+      FSMP runs physics in parallel with the game. If physics finishes
+      before the game needs the results, it's essentially free. This budget
+      controls the max time FSMP will wait for physics to finish if it
+      doesn't complete in time.
 
-      FSMP being heavily parallelized, adding a 10th skeleton on top of 9
-      doesn't cost a lot, so you should do your tests with a reasonable number
-      of skeletons (10?), and set this setting depending on what performance
-      you want to have in a heavy context. Whiterun seems a good place.
-      Absolutely check what happens with the log at level 4 (verbose);
-      it depends A LOT on your personal setup.
+      Lower = less fps impact, fewer active skeletons.
+      Higher = more fps impact, more active skeletons.
 
-      If your min-fps is 60 and your percentage is 30, then the allocated time
-      for additional physics calculus during a frame is 1/60s * 30% = 5ms.
+      For reference, at 60fps a full frame is ~16.6ms. A budget of 2-3ms
+      is conservative, 5ms is generous. Test in a busy area like Whiterun
+      with ~10 skeleton NPCs and check the verbose log (level 4) to see
+      how your setup performs.
 
-      If no value is set, default is 30, which is NOT optimized.
+      Default: 3.5
     -->
-    <percentageOfFrameTime>30</percentageOfFrameTime>
+	  <budgetMs>3.5</budgetMs>
 
     <!--
       sampleSize: (int) how many samples (sample taken every min_fps
@@ -204,19 +199,6 @@
       If no value is set, default is 10.
     -->
     <numIterations>16</numIterations>
-
-    <!--
-      groupIterations: (int 0-4096)
-      If no value is set, default is 2.
-    -->
-    <groupIterations>16</groupIterations>
-
-    <!--
-      groupEnableMLCP: (boolean) Turns on the higher quality constraint solver,
-      better constraint simulation at the cost of performance.
-      If no value is set, default is true.
-    -->
-    <groupEnableMLCP>false</groupEnableMLCP>
 
     <!--
       erp: (float ]0-1[) The error correction force applied per simulation

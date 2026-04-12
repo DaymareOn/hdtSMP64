@@ -16,4 +16,10 @@ namespace Plugin
 	};
 
 	inline constexpr auto NAME = "@PROJECT_NAME@"sv;
+
+	// Pre-release identifier set by CI for non-production builds (e.g. "dev-abc1234").
+	// Empty string for production/release builds.
+	inline constexpr auto BUILD_INFO = "@PROJECT_BUILD_INFO@"sv;
+
+	inline constexpr auto AVX_VARIANT = "@AVX_VARIANT@"sv;
 }

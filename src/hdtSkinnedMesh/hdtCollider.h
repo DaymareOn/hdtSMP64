@@ -15,7 +15,7 @@ namespace hdt
 		Collider(int i0, int i1, int i2) { vertices[0] = i0, vertices[1] = i1, vertices[2] = i2; }
 		Collider(const Collider& rhs) { operator=(rhs); }
 
-		Collider& operator =(const Collider& rhs)
+		Collider& operator=(const Collider& rhs)
 		{
 			__m128i* dst = (__m128i*)this;
 			__m128i* src = (__m128i*)&rhs;
@@ -26,8 +26,8 @@ namespace hdt
 
 		union
 		{
-			U32 vertex; // vertexshape
-			U32 vertices[3]; // triangleshape
+			U32 vertex;       // vertexshape
+			U32 vertices[3];  // triangleshape
 		};
 
 		float flexible;
@@ -42,7 +42,8 @@ namespace hdt
 			aabbMe.invalidate();
 		}
 
-		ColliderTree(U32 k) : key(k)
+		ColliderTree(U32 k) :
+			key(k)
 		{
 			aabbAll.invalidate();
 			aabbMe.invalidate();
@@ -64,12 +65,9 @@ namespace hdt
 		vectorA16<Collider> colliders;
 		U32 key;
 
-		void insertCollider(const std::vector<U32>& keys, const Collider& c);
+		void insertCollider(const U32* keys, size_t keyCount, const Collider& c);
 		void exportColliders(vectorA16<Collider>& exportTo);
 		void remapColliders(Collider* start, Aabb* startAabb);
-#ifdef CUDA
-		void relocateAabb(Aabb* newAabb);
-#endif
 
 		void checkCollisionL(ColliderTree* r, std::vector<std::pair<ColliderTree*, ColliderTree*>>& ret);
 		void checkCollisionR(ColliderTree* r, std::vector<std::pair<ColliderTree*, ColliderTree*>>& ret);
@@ -81,24 +79,7 @@ namespace hdt
 
 		bool empty() const { return children.empty() && colliders.empty(); }
 
-
 		bool collapseCollideL(ColliderTree* r);
 		bool collapseCollideR(ColliderTree* r);
 	};
-
-	/*
-	struct _CRT_ALIGN(16) ColliderTree
-	{
-
-		Aabb aabb;
-		vectorA16<Node> nodes;
-		U32 isKinematic;
-
-		void insertCollider(const std::vector<U32>& keys, const Collider& c);
-		void checkCollision(const ColliderTree& r, std::vector<std::pair<Node*, Node*>>& ret);
-		void clipCollider(const std::function<bool(const Collider&)>& func);
-		void updateKinematic(const std::function<bool(const Collider*)>& func);
-		void updateAabb(const std::function<void(Collider*)>& func);
-		void visitColliders(const std::function<void(Collider*)>& func);
-	};*/
 }

@@ -4,9 +4,9 @@
 
 namespace hdt
 {
-	class EventDebugLogger : 
-		public RE::BSTEventSink<Events::ArmorAttachEvent>, 
-		public RE::BSTEventSink<RE::TESCellAttachDetachEvent>, 
+	class EventDebugLogger :
+		public RE::BSTEventSink<Events::ArmorAttachEvent>,
+		public RE::BSTEventSink<RE::TESCellAttachDetachEvent>,
 		public RE::BSTEventSink<RE::TESMoveAttachDetachEvent>
 	{
 	protected:

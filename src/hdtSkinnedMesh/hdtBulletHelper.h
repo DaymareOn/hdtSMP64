@@ -1,25 +1,12 @@
 #pragma once
 
-#include "FrameworkUtils.h"
-
 #include <btBulletCollisionCommon.h>
 #include <btBulletDynamicsCommon.h>
 
-#include <intrin.h>
+#include <bit>
 #include <cassert>
-
-#define FLT_DIG         6                       /* # of decimal digits of precision */
-#define FLT_EPSILON     1.192092896e-07F        /* smallest such that 1.0+FLT_EPSILON != 1.0 */
-#define FLT_GUARD       0
-#define FLT_MANT_DIG    24                      /* # of bits in mantissa */
-#define FLT_MAX         3.402823466e+38F        /* max value */
-#define FLT_MAX_10_EXP  38                      /* max decimal exponent */
-#define FLT_MAX_EXP     128                     /* max binary exponent */
-#define FLT_MIN         1.175494351e-38F        /* min positive value */
-#define FLT_MIN_10_EXP  (-37)                   /* min decimal exponent */
-#define FLT_MIN_EXP     (-125)                  /* min binary exponent */
-#define FLT_NORMALIZE   0
-#define FLT_RADIX       2                       /* exponent radix */
+#include <cfloat>
+#include <intrin.h>
 
 #undef min
 #undef max
@@ -39,7 +26,10 @@ namespace hdt
 	typedef uint64_t U64;
 
 	template <int imm>
-	__m128 pshufd(__m128 m) { return _mm_castsi128_ps(_mm_shuffle_epi32(_mm_castps_si128(m), imm)); }
+	__m128 pshufd(__m128 m)
+	{
+		return _mm_castsi128_ps(_mm_shuffle_epi32(_mm_castps_si128(m), imm));
+	}
 
 	inline __m128 setAll(float f) { return pshufd<0>(_mm_load_ss(&f)); }
 	inline __m128 setAll0(__m128 m) { return pshufd<0>(m); }
@@ -47,37 +37,37 @@ namespace hdt
 	inline __m128 setAll2(__m128 m) { return pshufd<0xAA>(m); }
 	inline __m128 setAll3(__m128 m) { return pshufd<0xFF>(m); }
 
-	inline __m128& operator +=(__m128& l, __m128 r)
+	inline __m128& operator+=(__m128& l, __m128 r)
 	{
 		l = _mm_add_ps(l, r);
 		return l;
 	}
 
-	inline __m128& operator -=(__m128& l, __m128 r)
+	inline __m128& operator-=(__m128& l, __m128 r)
 	{
 		l = _mm_sub_ps(l, r);
 		return l;
 	}
 
-	inline __m128& operator *=(__m128& l, __m128 r)
+	inline __m128& operator*=(__m128& l, __m128 r)
 	{
 		l = _mm_mul_ps(l, r);
 		return l;
 	}
 
-	inline __m128& operator +=(__m128& l, float r)
+	inline __m128& operator+=(__m128& l, float r)
 	{
 		l = _mm_add_ps(l, setAll(r));
 		return l;
 	}
 
-	inline __m128& operator -=(__m128& l, float r)
+	inline __m128& operator-=(__m128& l, float r)
 	{
 		l = _mm_sub_ps(l, setAll(r));
 		return l;
 	}
 
-	inline __m128& operator *=(__m128& l, float r)
+	inline __m128& operator*=(__m128& l, float r)
 	{
 		l = _mm_mul_ps(l, setAll(r));
 		return l;
@@ -100,45 +90,56 @@ namespace hdt
 
 	inline float rsqrt(float number)
 	{
-		const float threehalfs = 1.5F;
-		const float x2 = number * 0.5F;
+		__m128 n = _mm_set_ss(number);
+		__m128 est = _mm_rsqrt_ss(n);
 
-		float res = number;
-		U32& i = *reinterpret_cast<U32*>(&res); // evil floating point bit level hacking
-		i = 0x5f375a86 - (i >> 1); // what the fuck?
-		res = res * (threehalfs - (x2 * res * res)); // 1st iteration
-		res = res * (threehalfs - (x2 * res * res)); // 2nd iteration, this can be removed
-		res = res * (threehalfs - (x2 * res * res));
-		res = res * (threehalfs - (x2 * res * res));
-		return res;
+		__m128 muls = _mm_mul_ss(_mm_mul_ss(n, est), est);
+
+		__m128 half_est = _mm_mul_ss(est, _mm_set_ss(0.5f));
+		__m128 three_minus_muls = _mm_sub_ss(_mm_set_ss(3.0f), muls);
+
+		return _mm_cvtss_f32(_mm_mul_ss(half_est, three_minus_muls));
 	}
 
 	template <class T>
-	T abs(T rhs) { return rhs < 0 ? -rhs : rhs; }
+	T abs(T rhs)
+	{
+		return rhs < 0 ? -rhs : rhs;
+	}
 
 	template <>
-	inline float abs(float rhs) { return _mm_cvtss_f32(_mm_andnot_ps(_mm_set_ss(-0.f), _mm_set_ss(rhs))); }
+	inline float abs(float rhs)
+	{
+		return _mm_cvtss_f32(_mm_andnot_ps(_mm_set_ss(-0.f), _mm_set_ss(rhs)));
+	}
 
 	template <class T>
-	T min(const T& a, const T& b) restrict(cpu, amp) { return a < b ? a : b; }
+	T min(const T& a, const T& b)
+	{
+		return a < b ? a : b;
+	}
 
 	template <class T>
-	T max(const T& a, const T& b) restrict(cpu, amp) { return a < b ? b : a; }
+	T max(const T& a, const T& b)
+	{
+		return a < b ? b : a;
+	}
 
 	inline int aligned(int x, int a) { return (x + a - 1) & -a; }
 
 	template <int a>
-	int aligned(int x) { return (x + a - 1) & -a; }
+	int aligned(int x)
+	{
+		return (x + a - 1) & -a;
+	}
 
 	inline U32 aligned2Pow(U32 lim)
 	{
-		unsigned long size;
-		_BitScanReverse(&size, lim);
-		size = 1 << size;
-		return size;
+		return std::bit_floor(lim);
 	}
 
-	ATTRIBUTE_ALIGNED16(class) btQsTransform
+	ATTRIBUTE_ALIGNED16(class)
+	btQsTransform
 	{
 		btQuaternion m_basis;
 		btVector4 m_originScale;
@@ -146,37 +147,52 @@ namespace hdt
 	public:
 		BT_DECLARE_ALIGNED_ALLOCATOR();
 
-		btQsTransform() : m_basis(btQuaternion::getIdentity()), m_originScale(0, 0, 0, 1)
+		btQsTransform() :
+			m_basis(btQuaternion::getIdentity()), m_originScale(0, 0, 0, 1)
 		{
 		}
 
-		btQsTransform(const btQuaternion& r, const btVector3& t, float s = 1.0f)
-			: m_basis(r), m_originScale(t.get128())
+		btQsTransform(const btQuaternion& r, const btVector3& t, float s = 1.0f) :
+			m_basis(r)
 		{
-			setScale(s);
+#ifdef BT_ALLOW_SSE4
+			//0x30 inserts the 0th element of _mm_set_ss into the 3rd (W) element of t
+			m_originScale.mVec128 = _mm_insert_ps(t.get128(), _mm_set_ss(s), 0x30);
+#else
+			m_originScale = t;
+			m_originScale[3] = s;
+#endif
 		}
 
-		btQsTransform(const btTransform& t, float s = 1.0f)
+		btQsTransform(const btTransform& t, float s = 1.0f) :
+			m_basis(t.getRotation())
 		{
-			m_basis = t.getRotation();
+#ifdef BT_ALLOW_SSE4
+			m_originScale.mVec128 = _mm_insert_ps(t.getOrigin().get128(), _mm_set_ss(s), 0x30);
+#else
 			m_originScale = t.getOrigin();
-			setScale(s);
+			m_originScale[3] = s;
+#endif
 		}
 
-		btQsTransform(const btQsTransform& rhs)
-			: m_basis(rhs.m_basis), m_originScale(rhs.m_originScale.get128())
-		{
-			assert(getScale() > 0);
-		}
+		btQsTransform(const btQsTransform&) = default;
+		btQsTransform(btQsTransform&&) = default;
+		btQsTransform& operator=(const btQsTransform&) = default;
+		btQsTransform& operator=(btQsTransform&&) = default;
 
-		btQuaternion getBasis() const { return m_basis; }
+		[[nodiscard]] bool isValid() const { return getScale() > 0; }
+
+		[[nodiscard]] btQuaternion getBasis() const { return m_basis; }
 		btQuaternion& getBasis() { return m_basis; }
+
 		void setBasis(const btQuaternion& q) { m_basis = q; }
 		void setBasis(const btMatrix3x3& m) { m.getRotation(m_basis); }
 
-		float getScale() const { return m_originScale[3]; }
+		[[nodiscard]] float getScale() const { return m_originScale[3]; }
 		float& getScale() { return m_originScale[3]; }
-		float getScaleReg() const { return _mm_cvtss_f32(setAll3(m_originScale.get128())); }
+
+		// Deprecated: just use getScale(), the compiler will automatically optimize register extraction..
+		[[nodiscard]] float getScaleReg() const { return getScale(); }
 
 		void setScale(float s)
 		{
@@ -184,13 +200,17 @@ namespace hdt
 			m_originScale[3] = s;
 		}
 
-		btVector3 getOrigin() const { return m_originScale; }
+		[[nodiscard]] btVector3 getOrigin() const { return m_originScale; }
 
 		void setOrigin(const btVector3& vec)
 		{
+#ifdef BT_ALLOW_SSE4
+			m_originScale.mVec128 = _mm_blend_ps(vec.get128(), m_originScale.get128(), 0b1000);
+#else
 			float s = getScale();
-			m_originScale = vec.mVec128;
-			setScale(s);
+			m_originScale = vec;
+			m_originScale[3] = s;
+#endif
 		}
 
 		void setOrigin(float x, float y, float z)
@@ -200,46 +220,54 @@ namespace hdt
 			m_originScale[2] = z;
 		}
 
-		btQsTransform& operator =(const btQsTransform& rhs)
+		[[nodiscard]] btQsTransform operator*(const btQsTransform& rhs) const
 		{
-			m_basis = rhs.m_basis;
-			m_originScale = rhs.m_originScale;
-			assert(getScale() > 0);
-			return *this;
+			return btQsTransform(
+				m_basis * rhs.m_basis,
+				getOrigin() + quatRotate(m_basis, rhs.getOrigin() * getScale()),
+				getScale() * rhs.getScale());
 		}
 
-		btQsTransform operator *(const btQsTransform& rhs) const
-		{
-			return btQsTransform(m_basis * rhs.m_basis, *this * rhs.getOrigin(), getScale() * rhs.getScale());
-		}
-
-		btVector3 operator *(const btVector3& rhs) const
+		[[nodiscard]] btVector3 operator*(const btVector3& rhs) const
 		{
 			return getOrigin() + quatRotate(m_basis, rhs * getScale());
 		}
 
-		void operator *=(const btQsTransform& rhs)
+		void operator*=(const btQsTransform& rhs)
 		{
 			float s = getScale();
-			setOrigin(getOrigin() + quatRotate(m_basis, rhs.getOrigin() * s));
+			float newScale = s * rhs.getScale();
+			btVector3 newOrigin = getOrigin() + quatRotate(m_basis, rhs.getOrigin() * s);
 			m_basis *= rhs.m_basis;
-			setScale(s * rhs.getScale());
+
+#ifdef BT_ALLOW_SSE4
+			m_originScale.mVec128 = _mm_insert_ps(newOrigin.get128(), _mm_set_ss(newScale), 0x30);
+#else
+			m_originScale = newOrigin;
+			m_originScale[3] = newScale;
+#endif
 		}
 
-		btQsTransform inverse() const
+		[[nodiscard]] btQsTransform inverse() const
 		{
-			auto r = m_basis.inverse();
-			auto s = 1 / getScale();
+			btQuaternion r = m_basis.inverse();
+			float s = 1.0f / getScale();
 			return btQsTransform(r, quatRotate(r, -getOrigin() * s), s);
 		}
 
-		btTransform asTransform() const
+		[[nodiscard]] btTransform asTransform() const
 		{
 			return btTransform(m_basis, m_originScale);
 		}
+
+		[[nodiscard]] static btQsTransform getIdentity()
+		{
+			return btQsTransform();  // Returns value utilizing XMM registers directly, skipping threadsafe static guards
+		}
 	};
 
-	ATTRIBUTE_ALIGNED16(class) btMatrix4x3
+	ATTRIBUTE_ALIGNED16(class)
+	btMatrix4x3
 	{
 	public:
 		btMatrix4x3()
@@ -248,7 +276,7 @@ namespace hdt
 
 		btMatrix4x3(const btQsTransform& t)
 		{
-			((btMatrix3x3*)this)->setRotation(t.getBasis());
+			reinterpret_cast<btMatrix3x3*>(this)->setRotation(t.getBasis());
 			__m128 scale = pshufd<0xFF>(t.getOrigin().get128());
 			m_row[0] = _mm_mul_ps(m_row[0], scale);
 			m_row[1] = _mm_mul_ps(m_row[1], scale);
@@ -258,14 +286,7 @@ namespace hdt
 			m_row[2].m128_f32[3] = t.getOrigin()[2];
 		}
 
-		/*btMatrix4x3(const btMatrix4x3& rhs)
-		{
-		_mm_store_ps(m_row[0].m128_f32, rhs.m_row[0]);
-		_mm_store_ps(m_row[1].m128_f32, rhs.m_row[1]);
-		_mm_store_ps(m_row[2].m128_f32, rhs.m_row[2]);
-		}*/
-
-		btVector3 operator *(const btVector3& rhs) const
+		btVector3 operator*(const btVector3& rhs) const
 		{
 #ifdef BT_ALLOW_SSE4
 			auto v = _mm_blend_ps(rhs.get128(), _mm_set_ps1(1), 0x8);
@@ -293,12 +314,12 @@ namespace hdt
 		{
 #ifdef BT_ALLOW_SSE4
 			auto v = _mm_blend_ps(rhs.get128(), _mm_set_ps1(1), 0x8);
-			__m128 xmm0 = _mm_dp_ps(m_row[0], v, 0xF1); // x, 0, 0, 0
-			__m128 xmm1 = _mm_dp_ps(m_row[1], v, 0xF2); // 0, y, 0, 0
-			xmm0 = _mm_or_ps(xmm0, xmm1); // x, y, 0, 0
-			xmm1 = _mm_dp_ps(m_row[2], v, 0xF1); // z, 0, 0, 0
-			xmm1 = _mm_unpacklo_ps(xmm1, _mm_set_ss(packW)); // z, w, 0, 0
-			xmm0 = _mm_movelh_ps(xmm0, xmm1); // x, y, z, w
+			__m128 xmm0 = _mm_dp_ps(m_row[0], v, 0xF1);       // x, 0, 0, 0
+			__m128 xmm1 = _mm_dp_ps(m_row[1], v, 0xF2);       // 0, y, 0, 0
+			xmm0 = _mm_or_ps(xmm0, xmm1);                     // x, y, 0, 0
+			xmm1 = _mm_dp_ps(m_row[2], v, 0xF1);              // z, 0, 0, 0
+			xmm1 = _mm_unpacklo_ps(xmm1, _mm_set_ss(packW));  // z, w, 0, 0
+			xmm0 = _mm_movelh_ps(xmm0, xmm1);                 // x, y, z, w
 #else
 			auto v = rhs.get128();
 			v.m128_f32[3] = 1;
@@ -315,18 +336,11 @@ namespace hdt
 			return xmm0;
 		}
 
-		/*inline btMatrix4x3& operator =(const btMatrix4x3& rhs)
-		{
-		_mm_store_ps(m_row[0].m128_f32, rhs.m_row[0]);
-		_mm_store_ps(m_row[1].m128_f32, rhs.m_row[1]);
-		_mm_store_ps(m_row[2].m128_f32, rhs.m_row[2]);
-		return *this;
-		}*/
-
 		__m128 m_row[3];
 	};
 
-	ATTRIBUTE_ALIGNED16(class) btMatrix4x3T
+	ATTRIBUTE_ALIGNED16(class)
+	btMatrix4x3T
 	{
 	public:
 		btMatrix4x3T()
@@ -345,7 +359,7 @@ namespace hdt
 			m_col[3] = t.getOrigin().get128();
 		}
 
-		btVector3 operator *(const btVector3& rhs) const
+		btVector3 operator*(const btVector3& rhs) const
 		{
 			return m_col[0] * rhs[0] + m_col[1] * rhs[1] + m_col[2] * rhs[2] + m_col[3];
 		}
@@ -360,42 +374,77 @@ namespace hdt
 			return ret;
 		}
 
-		btMatrix3x3 basis() const { return ((btMatrix3x3*)this)->transpose(); }
-		btTransform toTransform() const { return btTransform(((btMatrix3x3*)this)->transpose(), m_col[3]); }
-		/*inline btMatrix4x3& operator =(const btMatrix4x3& rhs)
-		{
-		_mm_store_ps(m_row[0].m128_f32, rhs.m_row[0]);
-		_mm_store_ps(m_row[1].m128_f32, rhs.m_row[1]);
-		_mm_store_ps(m_row[2].m128_f32, rhs.m_row[2]);
-		return *this;
-		}*/
+		btMatrix3x3 basis() const { return reinterpret_cast<const btMatrix3x3*>(this)->transpose(); }
+		btTransform toTransform() const { return btTransform(reinterpret_cast<const btMatrix3x3*>(this)->transpose(), m_col[3]); }
 
 		btVector3 m_col[4];
 	};
-	
+
+	// Ref counted base for objects that need RE::BSTSmartPointer compatibility but cannot inherit RE::BSIntrusiveRefCounted
+	// due to conflicts
+	class RefObject
+	{
+	public:
+		RefObject() :
+			m_refCount(0) {}
+
+		virtual ~RefObject() = default;
+
+		std::uint32_t IncRef() const { return ++m_refCount; }
+
+		// RE::BSTSmartPointer calls this, and will handle deletion for us
+		std::uint32_t DecRef() const
+		{
+			assert(m_refCount > 0);
+			return --m_refCount;
+		}
+
+		void release() const
+		{
+			if (DecRef() == 0) {
+				delete this;
+			}
+		}
+
+		long getRefCount() const { return m_refCount; }
+
+	private:
+		mutable std::atomic<std::uint32_t> m_refCount;
+	};
+
 	template <>
-	inline btVector3 abs(btVector3 rhs) { return _mm_andnot_ps(_mm_set_ps1(-0.f), rhs.get128()); }
+	inline btVector3 abs(btVector3 rhs)
+	{
+		return _mm_andnot_ps(_mm_set_ps1(-0.f), rhs.get128());
+	}
 
 	template <class T>
 	using vectorA16 = std::vector<T>;
 
-	struct SpinLock
+	class SpinLock
 	{
+		std::atomic<bool> m_flag{ false };
+
 	public:
-		void lock()
+		void lock() noexcept
 		{
-			long count = 0;
-			while (m_flag.test_and_set(std::memory_order_acquire))
-			{
-				if (++count > 10000)
-				{
-					SwitchToThread();
-				}
+			for (;;) {
+				if (!m_flag.exchange(true, std::memory_order_acquire))
+					return;
+				// spin on cachelocal read until it looks free
+				while (m_flag.load(std::memory_order_relaxed))
+					_mm_pause();
 			}
 		}
 
-		void unlock() { m_flag.clear(std::memory_order_release); }
-	protected:
-		std::atomic_flag m_flag = ATOMIC_FLAG_INIT;
+		void unlock() noexcept
+		{
+			m_flag.store(false, std::memory_order_release);
+		}
+
+		bool try_lock() noexcept
+		{
+			return !m_flag.exchange(true, std::memory_order_acquire);
+		}
 	};
 }

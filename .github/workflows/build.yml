@@ -1,0 +1,309 @@
+name: Continuous FSMP mod build
+on:
+  push:
+    branches:
+      - master
+      - dev
+      - hardenrelease
+    paths:
+      - "**.cpp"
+      - "**.h"
+      - "**.hpp"
+      - "**.cu"
+      - "**.cuh"
+      - "CMakeLists.txt"
+      - "CMakePresets.json"
+      - "vcpkg.json"
+      - "vcpkg-configuration.json"
+      - ".gitmodules"
+      - "extern/**"
+      - "cmake/**"
+      - ".github/workflows/**"
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - master
+      - dev
+      - hardenrelease
+      - copilot/update-dev-build-versioning
+    paths:
+      - "**.cpp"
+      - "**.h"
+      - "**.hpp"
+      - "**.cu"
+      - "**.cuh"
+      - "CMakeLists.txt"
+      - "CMakePresets.json"
+      - "vcpkg.json"
+      - "vcpkg-configuration.json"
+      - ".gitmodules"
+      - "extern/**"
+      - "cmake/**"
+      - ".github/workflows/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      # Base version read from CMakeLists.txt (e.g. "2.5.0")
+      new_version: ${{ steps.versioning.outputs.version }}
+      # Full version string used for tags/releases (includes branch+hash postfix for non-master)
+      tag_version: ${{ steps.versioning.outputs.tag_version }}
+      # Pre-release identifier injected into the compiled binary (empty for master/production)
+      build_info: ${{ steps.versioning.outputs.build_info }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Determine semantic version
+        id: versioning
+        shell: bash
+        run: |
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          # For pull_request events github.ref_name is "{PR}/merge"; use head_ref (source branch) instead.
+          # Sanitize branch name: replace "/" with "-" so it's safe for git tags and semver pre-release.
+          RAW_BRANCH="${{ github.head_ref || github.ref_name }}"
+          BRANCH_NAME="${RAW_BRANCH//\//-}"
+
+          # CMakeLists.txt is the single source of truth for the base version.
+          BASE_VERSION=$(grep -m1 'project(' CMakeLists.txt -A5 | grep 'VERSION' | sed -E 's/.*VERSION ([0-9]+\.[0-9]+\.[0-9]+).*/\1/')
+          echo "Base version from CMakeLists.txt: $BASE_VERSION"
+
+          if [ "$BRANCH_NAME" == "master" ]; then
+            NEW_VERSION="$BASE_VERSION"
+            TAG_VERSION="$NEW_VERSION"
+            BUILD_INFO=""
+          else
+            NEW_VERSION="$BASE_VERSION"
+            TAG_VERSION="${BASE_VERSION}-${BRANCH_NAME}-${SHORT_SHA}"
+            BUILD_INFO="${BRANCH_NAME}-${SHORT_SHA}"
+          fi
+
+          echo "CMake version: $NEW_VERSION"
+          echo "Tag version: $TAG_VERSION"
+          echo "Build info: $BUILD_INFO"
+          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "tag_version=$TAG_VERSION" >> $GITHUB_OUTPUT
+          echo "build_info=$BUILD_INFO" >> $GITHUB_OUTPUT
+
+  check_messages:
+    runs-on: ubuntu-latest
+    outputs:
+      should_release: ${{ steps.filter.outputs.should_release }}
+    steps:
+      - id: filter
+        shell: bash
+        env:
+          COMMITS: ${{ toJson(github.event.commits) }}
+        run: |
+          SHOULD_RELEASE=false
+          # We loop through each message
+          while read -r msg; do
+            # Skip empty messages
+            [[ -z "$msg" ]] && continue
+
+            # Check if it DOES NOT start with style, docs, or test
+            if [[ ! "$msg" =~ ^(style|docs|test): ]]; then
+              SHOULD_RELEASE=true
+              break
+            fi
+          done < <(echo "$COMMITS" | jq -r '.[].message')
+          # We set the output variable so it can be used in the release job
+          echo "We should release: $SHOULD_RELEASE"
+          echo "should_release=$SHOULD_RELEASE" >> $GITHUB_OUTPUT
+
+  build:
+    needs: prepare
+    runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      # Use a matrix to run all presets at the same time
+      matrix:
+        include:
+          - preset: vs2022-windows
+            avx_variant: noavx
+          - preset: vs2022-windows-avx
+            avx_variant: avx
+          - preset: vs2022-windows-avx2
+            avx_variant: avx2
+          - preset: vs2022-windows-avx512
+            avx_variant: avx512
+
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive # This handles the 'git submodule update --init --recursive' automatically
+
+      - name: Restore vcpkg dependencies and binary cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            out/build/${{ matrix.preset }}/vcpkg_installed
+            ~\AppData\Local\vcpkg\archives
+          # Adding the preset name to the key ensures the presets don't overwrite each other's cache
+          key: vcpkg-${{ runner.os }}-${{ github.ref_name }}-${{ matrix.preset }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/ports/**') }}
+          restore-keys: |
+            vcpkg-${{ runner.os }}-${{ github.ref_name }}-${{ matrix.preset }}-
+
+      - name: Configure CMake with vcpkg toolchain injection
+        shell: pwsh
+        run: |
+          # 1. Ensure the binary cache directory exists so vcpkg doesn't complain
+          $BinaryCachePath = "$env:LOCALAPPDATA\vcpkg\archives"
+          if (!(Test-Path $BinaryCachePath)) {
+              Write-Host "Creating vcpkg binary cache directory at $BinaryCachePath"
+              New-Item -ItemType Directory -Force -Path $BinaryCachePath
+          }
+
+          # 2. Set the environment variable so the vcpkg toolchain sees it
+          $env:VCPKG_BINARY_SOURCES = "clear;files,$BinaryCachePath,readwrite"
+
+          # 3. Run the configuration
+          cmake --preset ${{ matrix.preset }} `
+            -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
+            -DVCPKG_MANIFEST_MODE=ON `
+            -DCompiledPluginsPath="${{ github.workspace }}/out/build/${{ matrix.preset }}/plugins" `
+            -DPROJECT_BUILD_INFO="${{ needs.prepare.outputs.build_info }}"
+
+      - name: Create the CompiledPluginsPath folder structure
+        run: mkdir -p "${{ github.workspace }}/out/build/${{ matrix.preset }}/plugins/SKSE/Plugins/"
+        shell: bash
+
+      - name: Build according to the preset
+        run: cmake --build out/build/${{ matrix.preset }} --config Release
+
+      - name: Verify build info embedded in DLL
+        if: needs.prepare.outputs.build_info != ''
+        shell: pwsh
+        run: |
+          $BuildInfo = "${{ needs.prepare.outputs.build_info }}"
+          $DllPath = "out/build/${{ matrix.preset }}/plugins/SKSE/Plugins/hdtSMP64.dll"
+          $bytes = [System.IO.File]::ReadAllBytes($DllPath)
+          $text = [System.Text.Encoding]::UTF8.GetString($bytes)
+          if ($text.Contains($BuildInfo)) {
+            Write-Host "BUILD INFO VERIFIED: '$BuildInfo' found in $DllPath"
+          } else {
+            Write-Error "BUILD INFO MISSING: '$BuildInfo' not found in $DllPath"
+            exit 1
+          }
+
+      - name: Verify AVX variant embedded in DLL
+        shell: pwsh
+        run: |
+          $Variant = "${{ matrix.avx_variant }}"
+          $DllPath = "out/build/${{ matrix.preset }}/plugins/SKSE/Plugins/hdtSMP64.dll"
+          $ProductVersion = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($DllPath).ProductVersion
+          if ($ProductVersion -match [regex]::Escape("($Variant)")) {
+            Write-Host "AVX VARIANT VERIFIED: ProductVersion '$ProductVersion' contains '($Variant)'"
+          } else {
+            Write-Error "AVX VARIANT MISSING: ProductVersion '$ProductVersion' does not contain '($Variant)' in $DllPath"
+            exit 1
+          }
+
+      - name: Upload the build folder
+        uses: actions/upload-artifact@v4
+        with:
+          name: raw-${{ matrix.preset }}
+          path: out/build/${{ matrix.preset }}/plugins/
+
+  release:
+    needs: [prepare, build, check_messages]
+    # Release only on push to branches, and ignore commits that are just style, docs, tests changes
+    if: |
+      github.event_name == 'push' &&
+      needs.check_messages.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout the code to get the "fomod tree" folder
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Update FOMOD version
+        run: |
+          sed -i "s|<Version>.*</Version>|<Version>${{ needs.prepare.outputs.tag_version }}</Version>|g" "fomod tree/fomod/info.xml"
+
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: tmp_artifacts
+
+      - name: Fetch the FSMP Validator
+        run: |
+          echo "Cloning FSMP-Validator..."
+          git clone --depth 1 https://github.com/DaymareOn/FSMP-Validator.git temp-validator
+          mkdir -p validator_files
+          cp temp-validator/LICENSE validator_files/
+          cp temp-validator/skse/plugins/hdtSkinnedMeshConfigs/hdtSMP64.xsd validator_files/
+
+      - name: Fetch the FSMP MCM
+        run: |
+          echo "Cloning FSMP-MCM..."
+          git clone --depth 1 https://github.com/DaymareOn/FSMP-MCM.git temp-mcm
+          mkdir -p mcm_files
+          cp temp-mcm/FSMP* mcm_files/
+          cp temp-mcm/LICENSE mcm_files/
+          cp -r temp-mcm/SKSE mcm_files/
+          cp -r temp-mcm/Scripts mcm_files/
+          cp -r temp-mcm/Source mcm_files/
+
+      - name: Organize and 7zip
+        run: |
+          # 1. Create a clean structure for the final ZIP
+          mkdir -p final_package/FSMPV
+          mkdir -p final_package/FSMPM
+
+          # 2. Copy everything FROM inside "fomod tree" to the ROOT of final_package
+          # Using '.' at the end of the source path copies the content, not the folder itself
+          cp -r "fomod tree/." final_package/
+
+          # 3. Move files from the "raw" artifacts into the final structure
+          # Note: download-artifact creates folders named after the 'name' in upload-artifact
+          cp -r tmp_artifacts/raw-* final_package/
+
+          # 4. Copy the Validator to the root level of the package
+          cp -r validator_files/* final_package/FSMPV/
+
+          # 5. Copy the MCM to the root level of the package
+          cp -r mcm_files/* final_package/FSMPM/
+
+          # 6. Create the unique ZIP
+          cd final_package
+          # a: add to archive
+          # -tzip: ZIP container
+          # -mm=LZMA: Uses the strongest available compression algorithm; lzma2 isn't supported in ZIP
+          # -mx=9: Level 9 (Ultra)
+          7z a -tzip -mm=LZMA -mx=9 ../FSMP-${{ needs.prepare.outputs.tag_version }}.zip .
+          cd ..
+
+      - name: Verify the archive content
+        shell: bash
+        run: |
+          echo "Listing contents of FSMP-${{ needs.prepare.outputs.tag_version }}.zip:"
+          7z l FSMP-${{ needs.prepare.outputs.tag_version }}.zip
+
+      - name: Create GitHub Release and Git Tag
+        uses: softprops/action-gh-release@v2
+        with:
+          # vX.Y.Z for master, vX.Y.Z-{branch}-{short_sha} for non-master branches
+          tag_name: v${{ needs.prepare.outputs.tag_version }}
+          name: FSMP v${{ needs.prepare.outputs.tag_version }}
+          body: |
+            ## Release v${{ needs.prepare.outputs.tag_version }}
+            Build Date: ${{ github.event.head_commit.timestamp }}
+            Commit: ${{ github.sha }}
+            Automated Semantic Build.
+          files: "**.zip"
+          # prerelease is true for all branches except master
+          prerelease: ${{ github.ref_name != 'master' }}

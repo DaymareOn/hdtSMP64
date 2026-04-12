@@ -1,7 +1,7 @@
 #include "hdtDefaultBBP.h"
 
-#include "XmlReader.h"
 #include "NetImmerseUtils.h"
+#include "XmlReader.h"
 
 namespace hdt
 {
@@ -13,11 +13,9 @@ namespace hdt
 
 	DefaultBBP::PhysicsFile_t DefaultBBP::scanBBP(RE::NiNode* scan)
 	{
-		for (int i = 0; i < scan->extraDataSize; ++i)
-		{
+		for (int i = 0; i < scan->extraDataSize; ++i) {
 			auto stringData = netimmerse_cast<RE::NiStringExtraData*>(scan->extra[i]);
-			if (stringData && stringData->name == "HDT Skinned Mesh Physics Object" && stringData->value)
-			{
+			if (stringData && stringData->name == "HDT Skinned Mesh Physics Object" && stringData->value) {
 				return { { std::string(stringData->value) }, defaultNameMap(scan) };
 			}
 		}
@@ -35,7 +33,8 @@ namespace hdt
 		auto path = "SKSE/Plugins/hdtSkinnedMeshConfigs/defaultBBPs.xml";
 
 		auto loaded = readAllFile(path);
-		if (loaded.empty()) return;
+		if (loaded.empty())
+			return;
 
 		// Store original locale
 		char saved_locale[32];
@@ -103,8 +102,7 @@ namespace hdt
 		static std::mutex s_lock;
 		std::lock_guard<std::mutex> l(s_lock);
 
-		if (bbpFileList.empty()) 
-		{
+		if (bbpFileList.empty()) {
 			return { { std::string("") }, {} };
 		}
 
@@ -118,31 +116,23 @@ namespace hdt
 	{
 		auto nameMap = defaultNameMap(armor);
 
-		for (auto remap : remaps)
-		{
+		for (auto remap : remaps) {
 			bool doRemap = true;
-			for (auto req : remap.required)
-			{
-				if (nameMap.find(req) == nameMap.end())
-				{
+			for (auto req : remap.required) {
+				if (nameMap.find(req) == nameMap.end()) {
 					doRemap = false;
 				}
 			}
-			
-			if (doRemap)
-			{
+
+			if (doRemap) {
 				auto start = std::find_if(remap.entries.rbegin(), remap.entries.rend(), [&](const auto& e) { return nameMap.find(e.second) != nameMap.end(); });
 				auto end = std::find_if(start, remap.entries.rend(), [&](const auto& e) { return e.first != start->first; });
-				if (start != remap.entries.rend())
-				{
-					auto&& s = nameMap.insert({ remap.name, { } }).first;
-					std::for_each(start, end, [&](const auto& e)
-					{
+				if (start != remap.entries.rend()) {
+					auto&& s = nameMap.insert({ remap.name, {} }).first;
+					std::for_each(start, end, [&](const auto& e) {
 						auto it = nameMap.find(e.second);
-						if (it != nameMap.end())
-						{
-							std::for_each(it->second.begin(), it->second.end(), [&](const std::string& name)
-							{
+						if (it != nameMap.end()) {
+							std::for_each(it->second.begin(), it->second.end(), [&](const std::string& name) {
 								s->second.insert(name);
 							});
 						}
@@ -159,38 +149,30 @@ namespace hdt
 
 		// This case never happens to a lurker skeleton, thus we don't need to test.
 		auto skinned = findNode(armor, "BSFaceGenNiNodeSkinned");
-		if (skinned)
-		{
+		if (skinned) {
 			const auto& skinnedNodechildren = skinned->GetChildren();
-			for (uint16_t i = 0; i < skinnedNodechildren.size(); ++i)
-			{
-				if (!skinnedNodechildren[i]) 
-				{
+			for (uint16_t i = 0; i < skinnedNodechildren.size(); ++i) {
+				if (!skinnedNodechildren[i]) {
 					continue;
 				}
-				
+
 				auto tri = skinnedNodechildren[i]->AsTriShape();
-				if (!tri || !tri->name.size()) 
-				{
+				if (!tri || !tri->name.size()) {
 					continue;
 				}
-				
 
 				nameMap.emplace(tri->name.c_str(), std::unordered_set<std::string>{ std::string(tri->name.c_str()) });
 			}
 		}
 
 		const auto& armorNodechildren = armor->GetChildren();
-		for (uint16_t i = 0; i < armorNodechildren.size(); ++i)
-		{
-			if (!armorNodechildren[i]) 
-			{
+		for (uint16_t i = 0; i < armorNodechildren.size(); ++i) {
+			if (!armorNodechildren[i]) {
 				continue;
 			}
-			
+
 			auto tri = armorNodechildren[i]->AsTriShape();
-			if (!tri || !tri->name.size()) 
-			{
+			if (!tri || !tri->name.size()) {
 				continue;
 			}
 

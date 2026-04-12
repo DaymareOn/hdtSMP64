@@ -1,14 +1,18 @@
 {
   "name": "hdtsmp64",
   "version": "1",
-  "dependencies": 
-  [
+  "dependencies": [
     "directxtk",
     "fmt",
     "rapidcsv",
-    "detours", 
-    "spdlog", 
-	"bullet3",
+    "detours",
+    "spdlog",
+    {
+      "name": "bullet3",
+      "features": [
+        "multithreading"
+      ]
+    },
     "xbyak"
   ]
 }

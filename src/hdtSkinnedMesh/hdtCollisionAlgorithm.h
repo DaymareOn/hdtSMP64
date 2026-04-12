@@ -14,19 +14,8 @@ namespace hdt
 		float depth;
 	};
 
-	struct CheckTriangle
-	{
-		CheckTriangle(const btVector3& p0, const btVector3& p1, const btVector3& p2, float margin, float prenetration);
-
-		btVector3 p0, p1, p2, normal;
-		float margin, prenetration;
-		bool valid;
-	};
-
 	bool checkSphereSphere(const btVector3& a, const btVector3& b, float ra, float rb, CollisionResult& res);
-	bool checkSphereTriangle(const btVector3& s, float r, const CheckTriangle& tri, CollisionResult& res);
 
-#ifndef CUDA
 	static inline btVector3 BaryCoord(const btVector3& a,
 		const btVector3& b,
 		const btVector3& c,
@@ -48,5 +37,4 @@ namespace hdt
 		xmm1 = _mm_dp_ps(xmm1, xmm0, 0x77);
 		return _mm_div_ps(xmm0, xmm1);
 	}
-#endif
 }

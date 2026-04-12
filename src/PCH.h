@@ -12,33 +12,25 @@
 #endif
 #pragma warning(pop)
 
-#include "IString.h"
-#include "FrameworkUtils.h"
-
-//
-#include <vector>
-#include <atomic>
-#include <mutex>
-#include <functional>
-#include <string>
-#include <stdexcept>
 #include <algorithm>
-#include <random>
-#include <fstream>
-#include <d3d11.h>
+#include <atomic>
+#include <cinttypes>
 #include <clocale>
+#include <d3d11.h>
+#include <fstream>
+#include <functional>
+#include <iostream>
+#include <mutex>
+#include <optional>
 #include <ppl.h>
-#include <unordered_map>
-#include <unordered_set>
+#include <random>
 #include <set>
 #include <sstream>
-#include <iostream>
-#include <optional>
-#include <cinttypes>
-#include <amp.h>
-#include <amp_graphics.h>
-#include <amp_math.h>
-#include <amp_short_vectors.h>
+#include <stdexcept>
+#include <string>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
 
 using namespace std::literals;
 
@@ -98,21 +90,14 @@ namespace hdt
 
 namespace std
 {
-	template <>
-	struct hash<hdt::IDStr>
+	// TODO: should this be contributed to CommonLibSSE-NG?
+	template <class CharT>
+	struct hash<RE::detail::BSFixedString<CharT>>
 	{
-		size_t operator()(const hdt::IDStr& id) const noexcept 
+	public:
+		[[nodiscard]] inline std::size_t operator()(const RE::detail::BSFixedString<CharT>& a_key) const noexcept
 		{
-            return std::hash<std::string>()(id->cstr());
-        }
-	};
-
-	template <>
-	struct hash<hdt::IString>
-	{
-		size_t operator()(const hdt::IString& id) const noexcept
-		{
-			return std::hash<std::string>()(id.cstr());
+			return std::hash<const CharT*>{}(a_key.data());
 		}
 	};
 }

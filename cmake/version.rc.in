@@ -22,7 +22,7 @@ BEGIN
 			VALUE "InternalName", "@PROJECT_NAME@"
 			VALUE "LegalCopyright", "GPLv3"
 			VALUE "ProductName", "@PROJECT_NAME@"
-			VALUE "ProductVersion", "@PROJECT_VERSION@.0"
+			VALUE "ProductVersion", "@PROJECT_VERSION@.0 (@AVX_VARIANT@)"
 		END
 	END
 	BLOCK "VarFileInfo"

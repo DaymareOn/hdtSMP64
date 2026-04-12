@@ -1,0 +1,206 @@
+<?xml version="1.0" encoding="utf-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+  <!-- ========== Simple types (no native XSD equivalent) ========== -->
+
+  <xs:simpleType name="booleanTextType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="true"/>
+      <xs:enumeration value="false"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="positiveFloatType">
+    <xs:restriction base="xs:float">
+      <xs:minExclusive value="0"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- ========== Root element ========== -->
+
+  <xs:element name="configs">
+    <xs:complexType>
+      <xs:all>
+
+        <xs:element name="smp" minOccurs="0">
+          <xs:complexType>
+            <xs:all>
+              <xs:element name="logLevel" minOccurs="0">
+                <xs:annotation>
+                  <xs:documentation>logLevel: (int 0-6) level of logs. 0 = critical, 1 = err, 2 = warn, 3 = info, 4 = debug, 5 = trace, 6 = off.</xs:documentation>
+                </xs:annotation>
+                <xs:simpleType>
+                  <xs:restriction base="xs:integer">
+                    <xs:minInclusive value="0"/>
+                    <xs:maxInclusive value="6"/>
+                  </xs:restriction>
+                </xs:simpleType>
+              </xs:element>
+              <xs:element name="backupNodeByName" type="xs:string" minOccurs="0">
+                <xs:annotation>
+                  <xs:documentation>There's a unique issue with this port where when the skeleton and the body merge there is a chance that one of the bones don't get moved over and gets deleted. When this happens it will cause a crash later down the line. If you encounter this issue, add the node name here and it'll be backed up before the merge and put back as it should be. Example: SOS-SAM and the "VirtualHands" node when hdt is enabled.</xs:documentation>
+                </xs:annotation>
+              </xs:element>
+              <xs:element name="enableNPCFaceParts" type="booleanTextType" minOccurs="0">
+                <xs:annotation>
+                  <xs:documentation>enableNPCFaceParts: (boolean) enables physics for NPC face parts. If no value is set, default is true.</xs:documentation>
+                </xs:annotation>
+              </xs:element>
+              <xs:element name="disableSMPHairWhenWigEquipped" type="booleanTextType" minOccurs="0">
+                <xs:annotation>
+                  <xs:documentation>disableSMPHairWhenWigEquipped: (boolean) disables SMP hair when a wig/hair-slot armor is equipped (MCM label: "Disable SMP hair when there's a wig"). If no value is set, the default value is false; the MCM sets the value as true by default.</xs:documentation>
+                </xs:annotation>
+              </xs:element>
+              <xs:element name="clampRotations" type="booleanTextType" minOccurs="0">
+                <xs:annotation>
+                  <xs:documentation>clampRotations: (boolean) limits the PC rotation speed when turning a large angle, so that your character rotates slowly instead of instantly. If no value is set, default is true.</xs:documentation>
+                </xs:annotation>
+              </xs:element>
+              <xs:element name="rotationSpeedLimit" type="positiveFloatType" minOccurs="0">
+                <xs:annotation>
+                  <xs:documentation>rotationSpeedLimit: (float) rotation speed limit of the PC in radians per second. Must be positive. If no value is set, default is 10.0.</xs:documentation>
+                </xs:annotation>
+              </xs:element>
+              <xs:element name="unclampedResets" type="booleanTextType" minOccurs="0">
+                <xs:annotation>
+                  <xs:documentation>unclampedResets: (boolean) when unclamped, if you do a large turn (full 180° for example), we will attempt to apply physics for that enormous turn. Setting this to true will instead trigger a physics reset on the actor if the turn is large enough. You can try setting this false and decide if you're OK with the results. If no value is set, default is true.</xs:documentation>
+                </xs:annotation>
+              </xs:element>
+              <xs:element name="unclampedResetAngle" type="xs:float" minOccurs="0">
+                <xs:annotation>
+                  <xs:documentation>unclampedResetAngle: (float) the angle value in degrees to reset at. You'll probably want to tweak this until you're happy. There is no limitation on value, use your common sense. If no value is set, default is 120°.</xs:documentation>
+                </xs:annotation>
+              </xs:element>
+              <xs:element name="useRealTime" type="booleanTextType" minOccurs="0">
+                <xs:annotation>
+                  <xs:documentation>useRealTime: (boolean) use external clock time instead of game world time. This is better when using slow time or high fps. If no value is set, the default is false; the MCM sets it to true by default.</xs:documentation>
+                </xs:annotation>
+              </xs:element>
+              <xs:element name="minCullingDistance" type="xs:float" minOccurs="0">
+                <xs:annotation>
+                  <xs:documentation>minCullingDistance: (float) the distance from camera below which a NPC SMP is always calculated. Useful when an NPC is behind camera, but some cloth is visible in front. If no value is set, the default value is 500. In the MCM, the slider range is 0-10000 with default at 300.</xs:documentation>
+                </xs:annotation>
+              </xs:element>
+              <xs:element name="autoAdjustMaxSkeletons" type="booleanTextType" minOccurs="0">
+                <xs:annotation>
+                  <xs:documentation>autoAdjustMaxSkeletons: (boolean) auto-adjust the max number of SMP NPC to fit the frame-time budget. If disabled, the cap is 5. The algorithm will prioritize closer skeletons within the center of your field of view. If no value is set, default is true.</xs:documentation>
+                </xs:annotation>
+              </xs:element>
+              <xs:element name="maximumActiveSkeletons" type="xs:positiveInteger" minOccurs="0">
+                <xs:annotation>
+                  <xs:documentation>maximumActiveSkeletons: (int) max number of simultaneous SMP NPC when autoAdjustMaxSkeletons is enabled. If no value is set, the default is 20. In the MCM, the slider range is 0-200 with default at 40.</xs:documentation>
+                </xs:annotation>
+              </xs:element>
+              <xs:element name="budgetMs" minOccurs="0">
+                <xs:annotation>
+                  <xs:documentation>budgetMs: (float 0.1-30.0) when autoAdjustMaxSkeletons is true, the time budget allowed for SMP each frame in milliseconds. In the MCM, the slider range is 0.1-16.0 with default at 3.5.</xs:documentation>
+                </xs:annotation>
+                <xs:simpleType>
+                  <xs:restriction base="xs:float">
+                    <xs:minInclusive value="0.1"/>
+                    <xs:maxInclusive value="30.0"/>
+                  </xs:restriction>
+                </xs:simpleType>
+              </xs:element>
+              <xs:element name="sampleSize" type="xs:positiveInteger" minOccurs="0">
+                <xs:annotation>
+                  <xs:documentation>sampleSize: (int >= 1) controls adjustment speed for auto-adjust: the higher, the slower. In the MCM, the slider range is 1-50 with default 5.</xs:documentation>
+                </xs:annotation>
+              </xs:element>
+              <xs:element name="disable1stPersonViewPhysics" type="booleanTextType" minOccurs="0">
+                <xs:annotation>
+                  <xs:documentation>disable1stPersonViewPhysics: (boolean) if set to true, the physics of the PC won't be calculated when in 1st person view, to save performance. If no value is set, default is false.</xs:documentation>
+                </xs:annotation>
+              </xs:element>
+              <xs:element name="enableCuda" type="booleanTextType" minOccurs="0">
+                <xs:annotation>
+                  <xs:documentation>enableCuda: (boolean) experimental GPU collision algorithm. Try this if you have a slow CPU and fast GPU. This setting will be ignored if you haven't installed the CUDA-enabled version. If no value is set, default is false.</xs:documentation>
+                </xs:annotation>
+              </xs:element>
+            </xs:all>
+          </xs:complexType>
+        </xs:element>
+
+        <xs:element name="solver" minOccurs="0">
+          <xs:complexType>
+            <xs:all>
+              <xs:element name="numIterations" minOccurs="0">
+                <xs:annotation>
+                  <xs:documentation>numIterations: (int 4-128) simulation quality. If no value is set, default is 10. In the MCM, the slider range is 4-128 with default at 16.</xs:documentation>
+                </xs:annotation>
+                <xs:simpleType>
+                  <xs:restriction base="xs:integer">
+                    <xs:minInclusive value="4"/>
+                    <xs:maxInclusive value="128"/>
+                  </xs:restriction>
+                </xs:simpleType>
+              </xs:element>
+              <xs:element name="erp" minOccurs="0">
+                <xs:annotation>
+                  <xs:documentation>erp: (float ]0-1[) The error correction force applied per simulation step. Constraints will drift apart naturally; this value will exert a force to move them back to where they are supposed to be. Do not use the 0 and 1 values. If no value is set, default is 0.2.</xs:documentation>
+                </xs:annotation>
+                <xs:simpleType>
+                  <xs:restriction base="xs:float">
+                    <xs:minExclusive value="0"/>
+                    <xs:maxExclusive value="1"/>
+                  </xs:restriction>
+                </xs:simpleType>
+              </xs:element>
+              <xs:element name="min-fps" minOccurs="0">
+                <xs:annotation>
+                  <xs:documentation>min-fps: (int 60-300) the main frequency at which physics simulation will advance (p=1/f). min-fps should never be configured under 60 or the bullet physics engine will badly bug. The higher it is, the better the simulation quality and the more costly for your CPU/GPU. 120 costs twice as much cpu as 60. If no value is set, default is 60.</xs:documentation>
+                </xs:annotation>
+                <xs:simpleType>
+                  <xs:restriction base="xs:integer">
+                    <xs:minInclusive value="60"/>
+                    <xs:maxInclusive value="300"/>
+                  </xs:restriction>
+                </xs:simpleType>
+              </xs:element>
+              <xs:element name="maxSubSteps" minOccurs="0">
+                <xs:annotation>
+                  <xs:documentation>maxSubSteps: (int 1-60) max number of simulations per frame; used to control behavior at low fps. You will have slowdowns when fps &lt; min-fps / maxSubSteps. In the MCM, the slider range is 1-60 with default at 2.</xs:documentation>
+                </xs:annotation>
+                <xs:simpleType>
+                  <xs:restriction base="xs:integer">
+                    <xs:minInclusive value="1"/>
+                    <xs:maxInclusive value="60"/>
+                  </xs:restriction>
+                </xs:simpleType>
+              </xs:element>
+            </xs:all>
+          </xs:complexType>
+        </xs:element>
+
+        <xs:element name="wind" minOccurs="0">
+          <xs:complexType>
+            <xs:all>
+              <xs:element name="enabled" type="booleanTextType" minOccurs="0">
+                <xs:annotation>
+                  <xs:documentation>enabled: (boolean) enable FSMP-native implementation using Skyrim wind. Default is true.</xs:documentation>
+                </xs:annotation>
+              </xs:element>
+              <xs:element name="windStrength" type="xs:float" minOccurs="0">
+                <xs:annotation>
+                  <xs:documentation>windStrength: (float) Base strength of wind. Compare to gravity which uses 9.8 m/s^2. Default is 2.0.</xs:documentation>
+                </xs:annotation>
+              </xs:element>
+              <xs:element name="distanceForNoWind" type="positiveFloatType" minOccurs="0">
+                <xs:annotation>
+                  <xs:documentation>distanceForNoWind: (float) How close to an obstruction for wind to be fully blocked. This scales linearly with distanceForMaxWind. Default is 50.0.</xs:documentation>
+                </xs:annotation>
+              </xs:element>
+              <xs:element name="distanceForMaxWind" type="positiveFloatType" minOccurs="0">
+                <xs:annotation>
+                  <xs:documentation>distanceForMaxWind: (float) how far from an obstruction for wind to not be blocked; scales linearly with distanceForNoWind. If no value is set, default is 3000. In the MCM, the slider range is 0-10000 with default at 2500.</xs:documentation>
+                </xs:annotation>
+              </xs:element>
+            </xs:all>
+          </xs:complexType>
+        </xs:element>
+
+      </xs:all>
+    </xs:complexType>
+  </xs:element>
+
+</xs:schema>

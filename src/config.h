@@ -6,4 +6,5 @@ namespace hdt
 
 	//
 	void loadConfig();
+	void logConfig();
 }
