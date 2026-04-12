@@ -4,7 +4,7 @@ Scriptname DynamicHDT hidden
 ;   new_physics_file_path   should be relative path which should look like the original xml path in nif file.
 ;   on_ARMA_item     should be refering to an ArmorAddon(ARMA) object for this to function.
 ;   persist          whether to remember the ArmorAddon object so as to avoid resetting physics file on loading save or re-equipping.
-;   
+;
 ;Return:    true upon success
 bool Function ReloadPhysicsFile(Actor on_actor, ArmorAddon on_ARMA_item, String new_physics_file_path, Bool persist, Bool verbose_log = false) native global
 
@@ -12,7 +12,7 @@ bool Function ReloadPhysicsFile(Actor on_actor, ArmorAddon on_ARMA_item, String 
 ;   new_physics_file_path   should be relative path which should look like the original xml path in nif file.
 ;   old_physics_file_path   original path of the physics file that's been written in the nif file.
 ;   persist          whether to remember old_physics_file_path.
-;   
+;
 ;Return:    true upon success
 bool Function SwapPhysicsFile(Actor on_actor, String old_physics_file_path, String new_physics_file_path, Bool persist, Bool verbose_log = false) native global
 
