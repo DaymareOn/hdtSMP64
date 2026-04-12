@@ -3,9 +3,6 @@
 #include "Events.h"
 #include "Hooks.h"
 
-//
-#include <xbyak/xbyak.h>
-
 namespace Hooks
 {
 	void BSFaceGenNiNodeHooks::ProcessHeadPart(RE::BSFaceGenNiNode* const a_this, RE::BGSHeadPart* headPart, RE::NiNode* a_skeleton, bool a_unk)
@@ -162,40 +159,64 @@ namespace Hooks
 	{
 		REL::Relocation<uintptr_t> GeometrySkinningBoneFix{ REL::VariantID(24330, 24836, 0x37ADD0), REL::VariantOffset(0x58, 0x75, 0x58) };
 
-		struct BoneLimitFix :
-			public Xbyak::CodeGenerator
+		// Direct pre-assembled patch replacing the xbyak CodeGenerator.
+		// Two register variants depending on game version:
+		//   SE uses esi, AE uses ebp as the bone-count register.
+		//
+		//   mov  reg, [rax+0x58]      ; read skinData->boneCount
+		//   cmp  reg, 8               ; compare against limit
+		//   jle  +5                   ; keep value when already <= 8
+		//   mov  reg, 8               ; clamp to 8
+		//   jmp  qword ptr [rip+0]    ; absolute jump back to patched site
+		//   <8-byte return address>
+#pragma pack(push, 1)
+		struct Patch
 		{
-			BoneLimitFix(uintptr_t a_returnAddr) :
-				Xbyak::CodeGenerator()
-			{
-				Xbyak::Label ret;
-
-				auto clamp_bone_count = [&](Xbyak::Reg32 reg) {
-					mov(reg, ptr[rax + 0x58]);  // skinData->boneCount
-					cmp(reg, 8);                // compare with limit
-					jle(ret);                   // jump if <= 8 (keep value)
-					mov(reg, 8);                // clamp to 8 if > 8
-				};
-
-				Xbyak::Reg32 boneReg = !REL::Module::IsAE() ? esi : ebp;
-				clamp_bone_count(boneReg);
-
-				//
-				L(ret);
-				jmp(ptr[rip]);
-				dq(a_returnAddr);
-			}
+			std::uint8_t  mov_load[3];   // mov reg32, [rax+0x58]
+			std::uint8_t  cmp_8[3];      // cmp reg32, 8
+			std::uint8_t  jle_5[2];      // jle +5  (skip the clamp below)
+			std::uint8_t  mov_clamp[5];  // mov reg32, 8
+			std::uint8_t  jmp_rip[6];    // jmp qword ptr [rip+0]
+			std::uintptr_t ret_addr;     // absolute return address
 		};
+#pragma pack(pop)
+		static_assert(sizeof(Patch) == 27, "Patch struct size mismatch");
 
-		//
-		BoneLimitFix code(GeometrySkinningBoneFix.address() + 7);
+		const bool isAE = REL::Module::IsAE();
 
-		//
+		Patch patch{};
+		// mov reg, [rax+0x58]: opcode 0x8B, ModRM differs by register
+		patch.mov_load[0]  = 0x8B;
+		patch.mov_load[1]  = isAE ? std::uint8_t{ 0x68 } : std::uint8_t{ 0x70 };  // 0x68=ebp(AE), 0x70=esi(SE)
+		patch.mov_load[2]  = 0x58;
+		// cmp reg, 8: opcode 0x83, ModRM differs by register
+		patch.cmp_8[0]     = 0x83;
+		patch.cmp_8[1]     = isAE ? std::uint8_t{ 0xFD } : std::uint8_t{ 0xFE };  // 0xFD=ebp(AE), 0xFE=esi(SE)
+		patch.cmp_8[2]     = 0x08;
+		// jle +5: skips the 5-byte mov clamp instruction
+		patch.jle_5[0]     = 0x7E;
+		patch.jle_5[1]     = 0x05;
+		// mov reg, 8: opcode differs by register (BD = ebp, BE = esi)
+		patch.mov_clamp[0] = isAE ? std::uint8_t{ 0xBD } : std::uint8_t{ 0xBE };  // 0xBD=ebp(AE), 0xBE=esi(SE)
+		patch.mov_clamp[1] = 0x08;
+		patch.mov_clamp[2] = 0x00;
+		patch.mov_clamp[3] = 0x00;
+		patch.mov_clamp[4] = 0x00;
+		// jmp qword ptr [rip+0]: FF 25 00 00 00 00
+		patch.jmp_rip[0]   = 0xFF;
+		patch.jmp_rip[1]   = 0x25;
+		patch.jmp_rip[2]   = 0x00;
+		patch.jmp_rip[3]   = 0x00;
+		patch.jmp_rip[4]   = 0x00;
+		patch.jmp_rip[5]   = 0x00;
+		patch.ret_addr     = GeometrySkinningBoneFix.address() + 7;
+
 		auto& localTrampoline = SKSE::GetTrampoline();
-		SKSE::AllocTrampoline(14 + code.getSize());
+		SKSE::AllocTrampoline(14 + sizeof(patch));
 
-		//
-		localTrampoline.write_branch<5>(GeometrySkinningBoneFix.address(), localTrampoline.allocate(code));
+		void* code = localTrampoline.allocate(sizeof(patch));
+		std::memcpy(code, &patch, sizeof(patch));
+		localTrampoline.write_branch<5>(GeometrySkinningBoneFix.address(), reinterpret_cast<std::uintptr_t>(code));
 	}
 
 	void MainHooks::Update(RE::Main* const a_this)
