@@ -5,6 +5,10 @@
 	<requiredInstallFiles>
 		<file source="LICENSE" destination="LICENSE" />
 		<file source="Readme.txt" destination="Readme.txt" />
+		<file source="DynamicHDTOriginalWorkLicense.txt" destination="DynamicHDTOriginalWorkLicense.txt" />
+		<folder source="Scripts" destination="Scripts" priority="1" />
+		<folder source="SKSE" destination="SKSE" priority="1" />
+		<folder source="Source" destination="Source" priority="1" />
 	</requiredInstallFiles>
 	<installSteps order="Explicit">
 		<installStep name="Introduction">
