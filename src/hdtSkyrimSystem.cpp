@@ -727,6 +727,9 @@ namespace hdt
 			RE::NiSkinData* skinData = skinInstance->skinData.get();
 			for (uint32_t boneIdx = 0; boneIdx < skinData->bones; ++boneIdx) {
 				auto node = skinInstance->bones[boneIdx];
+				if (!node) {
+					continue;
+				}
 				auto boneData = &skinData->boneData[boneIdx];
 				auto boundingSphere = BoundingSphere(convertNi(boneData->bound.center), boneData->bound.radius);
 				const RE::BSFixedString& boneName = node->name;
@@ -917,6 +920,9 @@ namespace hdt
 
 		for (auto entry : vertexOffsetMap) {
 			auto* g = castBSTriShape(findObject(m_model, entry.first.c_str()));
+			if (!g) {
+				continue;
+			}
 			if (g->GetGeometryRuntimeData().skinInstance) {
 				int offset = entry.second;
 				RE::NiSkinPartition* skinPartition = g->GetGeometryRuntimeData().skinInstance->skinPartition.get();

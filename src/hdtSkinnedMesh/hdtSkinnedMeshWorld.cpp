@@ -161,12 +161,37 @@ namespace hdt
 		return 0;
 	}
 
+	// --Todo: This, and the systems related to it, can be optimized a bit more. I WILL BE BACK...
+	// This optimizes Bullet's broadphase by removing tons of redudent work. We don't use persistent manifolds,
+	// we don't have static objects, etc..
+	// HOWEVER: If we ever add non-skinned Bullet collision objects, or make (0,0) bodies participate in
+	// broadphase queries/collision, this optimization must be revisited.
 	void SkinnedMeshWorld::performDiscreteCollisionDetection()
 	{
-		for (auto& system : m_systems)
+		for (auto& system : m_systems) {
 			system->internalUpdate();
+		}
 
-		btDiscreteDynamicsWorldMt::performDiscreteCollisionDetection();
+		btDispatcherInfo& dispatchInfo = getDispatchInfo();
+
+		for (int i = 0; i < m_collisionObjects.size(); i++) {
+			btCollisionObject* colObj = m_collisionObjects[i];
+			btBroadphaseProxy* proxy = colObj->getBroadphaseHandle();
+
+			if (proxy->m_collisionFilterGroup == 0 && proxy->m_collisionFilterMask == 0)
+				continue;
+
+			btVector3 minAabb, maxAabb;
+			colObj->getCollisionShape()->getAabb(colObj->getWorldTransform(), minAabb, maxAabb);
+
+			m_broadphasePairCache->setAabb(proxy, minAabb, maxAabb, m_dispatcher1);
+		}
+
+		m_broadphasePairCache->calculateOverlappingPairs(m_dispatcher1);
+
+		if (m_dispatcher1) {
+			m_dispatcher1->dispatchAllCollisionPairs(m_broadphasePairCache->getOverlappingPairCache(), dispatchInfo, m_dispatcher1);
+		}
 	}
 
 	void SkinnedMeshWorld::applyGravity()
@@ -201,16 +226,33 @@ namespace hdt
 
 	void SkinnedMeshWorld::predictUnconstraintMotion(btScalar timeStep)
 	{
-		concurrency::parallel_for(0, (int)m_nonStaticRigidBodies.size(), [&](int i) {
-			btRigidBody* body = m_nonStaticRigidBodies[i];
-			if (!body->isStaticOrKinematicObject()) {
-				// not realistic, just an approximate
-				body->applyDamping(timeStep);
-				body->predictIntegratedTransform(timeStep, body->getInterpolationWorldTransform());
-			} else {
-				body->predictIntegratedTransform(timeStep, body->getInterpolationWorldTransform());
+		struct UpdaterPredictUnconstraintMotion : public btIParallelForBody
+		{
+			btScalar timeStep;
+			btRigidBody** rigidBodies;
+
+			void forLoop(int iBegin, int iEnd) const BT_OVERRIDE
+			{
+				for (int i = iBegin; i < iEnd; ++i) {
+					btRigidBody* body = rigidBodies[i];
+
+					// not realistic, just an approximate
+					if (!body->isStaticOrKinematicObject())
+						body->applyDamping(timeStep);
+
+					body->predictIntegratedTransform(timeStep, body->getInterpolationWorldTransform());
+				}
 			}
-		});
+		};
+
+		if (m_nonStaticRigidBodies.size() > 0) {
+			UpdaterPredictUnconstraintMotion update;
+			update.timeStep = timeStep;
+			update.rigidBodies = &m_nonStaticRigidBodies[0];
+
+			const int grainSize = 100;
+			btParallelFor(0, m_nonStaticRigidBodies.size(), grainSize, update);
+		}
 	}
 
 	void SkinnedMeshWorld::integrateTransforms(btScalar timeStep)

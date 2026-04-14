@@ -1426,24 +1426,65 @@ namespace hdt
 					boneName = fmd->bones[boneIdx];
 			}
 
+			// Workaround for broken/poorly ported LE head meshes
+			// NiStream can severely misalign memory when loading these in the background,
+			// stuffing raw vertex floats into skinData and bone pointers. Blindly dereferencing
+			// them causes instant EXCEPTION_ACCESS_VIOLATION crashes
+			//
+			// If we just bail out on bad data, the NPC ends up bald because the hair mesh
+			// fails to map to the skeleton. To fix both the crash and the baldness:
+			// 1. Try fetching bone names from the active rendering geometry first (the engine formats this already)
+			// 2. If falling back to origGeom/origNiGeom, strictly enforce canonical pointer bounds so we don't treat float data as memory addresses
+			// 3. Handle unresolved bone references (which the engine leaves as raw char* strings instead of NiNodes it seems)
+			// -- Todo: Improve this in the future, look into exactly how the engine is handling this kind of junk internally
 			if (boneName.empty()) {
-				if (origGeom) {
-					const auto& rd = origGeom->GetGeometryRuntimeData();
-					if (rd.skinInstance && rd.skinInstance->skinData && boneIdx < rd.skinInstance->skinData->bones) {
-						auto bone = rd.skinInstance->bones[boneIdx];
-						if (isValidNiObject(bone))
-							boneName = bone->name;
-						else if (bone)
-							logger::warn("processGeometry: origGeom '{}' bone[{}] at {:p} is not a valid NiObject (VR NiStream unresolved bone ref)", geometry->name.c_str(), boneIdx, static_cast<void*>(bone));
+				// Fallback 1, Check the active rendering geometry first
+				// The game engine properly aligns this mesh, so unresolved bone strings are safe to read here
+				const auto& activeSkin = geometry->GetGeometryRuntimeData().skinInstance;
+				if (activeSkin && reinterpret_cast<uintptr_t>(activeSkin.get()) <= kCanonicalUserSpaceMax) {
+					auto skinData = activeSkin->skinData.get();
+					if (skinData && reinterpret_cast<uintptr_t>(skinData) <= kCanonicalUserSpaceMax && boneIdx < skinData->bones) {
+						if (activeSkin->bones && reinterpret_cast<uintptr_t>(activeSkin->bones) <= kCanonicalUserSpaceMax) {
+							auto bone = activeSkin->bones[boneIdx];
+							if (isValidNiObject(bone)) {
+								boneName = bone->name;
+							} else if (bone && reinterpret_cast<uintptr_t>(bone) <= kCanonicalUserSpaceMax) {
+								boneName = reinterpret_cast<const char*>(bone);
+							}
+						}
 					}
-				} else if (origNiGeom) {
+				}
+
+				// Fallback 2, origGeom
+				if (boneName.empty() && origGeom) {
+					const auto& rd = origGeom->GetGeometryRuntimeData();
+					if (rd.skinInstance && reinterpret_cast<uintptr_t>(rd.skinInstance.get()) <= kCanonicalUserSpaceMax) {
+						auto skinData = rd.skinInstance->skinData.get();
+						if (skinData && reinterpret_cast<uintptr_t>(skinData) <= kCanonicalUserSpaceMax && boneIdx < skinData->bones) {
+							if (rd.skinInstance->bones && reinterpret_cast<uintptr_t>(rd.skinInstance->bones) <= kCanonicalUserSpaceMax) {
+								auto bone = rd.skinInstance->bones[boneIdx];
+								if (isValidNiObject(bone)) {
+									boneName = bone->name;
+								}
+							}
+						}
+					}
+				}
+
+				// Fallback 3, origNiGeom (with strict protection against misaligned LE meshes)
+				if (boneName.empty() && origNiGeom) {
 					const auto& spSkin = origNiGeom->GetRuntimeData().spSkinInstance;
-					if (spSkin && spSkin->skinData && boneIdx < spSkin->skinData->bones) {
-						auto bone = spSkin->bones[boneIdx];
-						if (isValidNiObject(bone))
-							boneName = bone->name;
-						else if (bone)
-							logger::warn("processGeometry: origNiGeom bone[{}] at {:p} is not a valid NiObject (VR NiStream unresolved bone ref)", boneIdx, static_cast<void*>(bone));
+					if (spSkin && reinterpret_cast<uintptr_t>(spSkin.get()) <= kCanonicalUserSpaceMax) {
+						auto skinData = spSkin->skinData.get();
+						// Only proceed if skinData is mathematically valid (blocks the 0x10010000000000b3 garbage!)
+						if (skinData && reinterpret_cast<uintptr_t>(skinData) <= kCanonicalUserSpaceMax && boneIdx < skinData->bones) {
+							if (spSkin->bones && reinterpret_cast<uintptr_t>(spSkin->bones) <= kCanonicalUserSpaceMax) {
+								auto bone = spSkin->bones[boneIdx];
+								if (isValidNiObject(bone)) {
+									boneName = bone->name;
+								}
+							}
+						}
 					}
 				}
 			}
