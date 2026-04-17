@@ -136,6 +136,7 @@ Finally, credits and thanks to hydrogensaysHDT, aers, ousnius, Karonar1, alandts
 								<folder source="FSMPM\Scripts" destination="Scripts" priority="1" />
 								<folder source="FSMPM\SKSE" destination="SKSE" priority="1" />
 								<folder source="FSMPM\Source" destination="Source" priority="1" />
+								<folder source="FSMPM\interface" destination="interface" priority="1" />
 								<file source="FSMPM\FSMPM - The FSMP MCM.esp" destination=".\FSMPM - The FSMP MCM.esp" priority="1" />
 								<file source="FSMPV\hdtSMP64.xsd" destination="SKSE\Plugins\hdtSMP64.xsd" priority="1" />
 							</files>

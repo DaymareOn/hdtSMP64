@@ -425,8 +425,13 @@ namespace hdt
 		const bool windEnabled = world->m_enableWind && !btFuzzyZero(wind.Length());
 
 		activeSkeletons = 0;
+		const float minCullingDistance2 = m_minCullingDistance * m_minCullingDistance;
 		for (auto& i : m_skeletons) {
-			if (!i.hasPhysics || !i.updateAttachedState(playerCell, activeSkeletons >= maxActiveSkeletons))
+			// Skeletons inside the minimum culling distance are kept active even when the budget cap
+			// is exceeded, so a shrinking auto-adjust cap can't strip physics from NPCs next to the camera.
+			const bool forceKeepNear = i.m_distanceFromCamera2 < minCullingDistance2;
+			const bool overBudget = activeSkeletons >= maxActiveSkeletons;
+			if (!i.hasPhysics || !i.updateAttachedState(playerCell, overBudget && !forceKeepNear))
 				continue;
 
 			activeSkeletons++;
@@ -526,16 +531,21 @@ namespace hdt
 				averageProcessingTimeInMainLoop,
 				maxBudgetTime);
 
-			if (m_autoAdjustMaxSkeletons) {
+			if (m_autoAdjustMaxSkeletons && m_maxActiveSkeletons > 3) {
 				// Deadzones to prevent constantly switching back and fourth
 				if (averageProcessingTimeInMainLoop > maxBudgetTime) {
-					maxActiveSkeletons -= 2;
-				} else if (averageProcessingTimeInMainLoop < maxBudgetTime * 0.9f) {  // under 90% of budget
-					maxActiveSkeletons += 2;
+					// When few skeletons active, step down by 1 to avoid over-correction
+					maxActiveSkeletons -= (activeSkeletons < 10) ? 1 : 2;
+				} else if (averageProcessingTimeInMainLoop < maxBudgetTime) {
+					// Scale up by however many skeletons fit within the remaining budget headroom, max of 2
+					// Falls back to +2 when no skeletons are active (timePerSkeleton == 0).
+					const float headroom = maxBudgetTime - averageProcessingTimeInMainLoop;
+					const int canAdd = (averageTimePerSkeletonInMainLoop > 0.f) ? static_cast<int>(headroom / averageTimePerSkeletonInMainLoop) : 2;
+					maxActiveSkeletons += std::clamp(canAdd, 0, 2);
 				}
 
-				// clamp the value to the m_maxActiveSkeletons value
-				maxActiveSkeletons = std::clamp(maxActiveSkeletons, 1, m_maxActiveSkeletons);
+				// clamp the adjusted value between 3 and m_maxActiveSkeletons
+				maxActiveSkeletons = std::clamp(maxActiveSkeletons, 3, m_maxActiveSkeletons);
 				frameCount = 1;
 
 			} else if (maxActiveSkeletons != m_maxActiveSkeletons)
@@ -654,12 +664,12 @@ namespace hdt
 		return 0;
 	}
 
-	void ActorManager::Skeleton::doSkeletonMerge(RE::NiNode* dst, RE::NiNode* src, std::string_view prefix, std::unordered_map<RE::BSFixedString, RE::BSFixedString>& map)
+	void ActorManager::Skeleton::doSkeletonMerge(RE::NiNode* dst, RE::NiNode* src, std::string_view prefix, std::unordered_map<RE::BSFixedString, RE::BSFixedString>& map, bool renameSource)
 	{
-		doSkeletonMerge(dst, src, prefix, map, dst);
+		doSkeletonMerge(dst, src, prefix, map, dst, renameSource);
 	}
 
-	void ActorManager::Skeleton::doSkeletonMerge(RE::NiNode* dst, RE::NiNode* src, std::string_view prefix, std::unordered_map<RE::BSFixedString, RE::BSFixedString>& map, RE::NiNode* dstRoot)
+	void ActorManager::Skeleton::doSkeletonMerge(RE::NiNode* dst, RE::NiNode* src, std::string_view prefix, std::unordered_map<RE::BSFixedString, RE::BSFixedString>& map, RE::NiNode* dstRoot, bool renameSource)
 	{
 		const auto& children = src->GetChildren();
 
@@ -669,7 +679,7 @@ namespace hdt
 				continue;
 
 			if (!srcChild->name.size()) {
-				doSkeletonMerge(dst, srcChild, prefix, map, dstRoot);
+				doSkeletonMerge(dst, srcChild, prefix, map, dstRoot, renameSource);
 				continue;
 			}
 
@@ -683,14 +693,14 @@ namespace hdt
 			// TODO check it's not a lurker skeleton
 			auto dstChild = findNode(dstRoot, srcChild->name);
 			if (dstChild) {
-				doSkeletonMerge(dstChild, srcChild, prefix, map, dstRoot);
+				doSkeletonMerge(dstChild, srcChild, prefix, map, dstRoot, renameSource);
 			} else {
-				dst->AttachChild(cloneNodeTree(srcChild, prefix, map), false);
+				dst->AttachChild(cloneNodeTree(srcChild, prefix, map, renameSource), false);
 			}
 		}
 	}
 
-	RE::NiNode* ActorManager::Skeleton::cloneNodeTree(RE::NiNode* src, std::string_view prefix, std::unordered_map<RE::BSFixedString, RE::BSFixedString>& map)
+	RE::NiNode* ActorManager::Skeleton::cloneNodeTree(RE::NiNode* src, std::string_view prefix, std::unordered_map<RE::BSFixedString, RE::BSFixedString>& map, bool renameSource)
 	{
 		//
 		RE::NiCloningProcess c;
@@ -703,8 +713,11 @@ namespace hdt
 		auto ret = static_cast<RE::NiNode*>(src->CreateClone(c));
 		src->ProcessClone(c);
 
-		// FIXME: cloneHeadNodeTree just did this for ret, not both. Don't know if that matters. Armor parts need it on both.
-		renameTree(src, prefix, map);
+		// Renaming the source tree for Head parts corrupts the shared npcFaceGeomNode cache,
+		// so only rename the source for armor merges where the source is a per-attachment tree
+		if (renameSource) {
+			renameTree(src, prefix, map);
+		}
 		renameTree(ret, prefix, map);
 
 		return ret;
@@ -1299,98 +1312,74 @@ namespace hdt
 					if (skeletonNpc) {
 						char filePath[MAX_PATH];
 						if (TESNPC_GetFaceGeomPath(skeletonNpc, filePath)) {
-							logger::debug("Loading facegeometry from path {}.", filePath);
-							uint8_t niStreamMemory[sizeof(RE::NiStream)];
-							memset(niStreamMemory, 0, sizeof(RE::NiStream));
-							RE::NiStream* niStream = (RE::NiStream*)niStreamMemory;
-							NiStream_constructor(niStream);
+							logger::debug("Loading facegeometry via BSModelDB from path {}.", filePath);
 
-							RE::BSResourceNiBinaryStream binaryStream(filePath);
-							if (!binaryStream.good()) {
-								logger::error("Somehow NPC facegeometry was not found.");
-								NiStream_deconstructor(niStream);
-							} else {
-								niStream->Load1(&binaryStream);
-								if (niStream->topObjects[0]) {
-									auto rootFadeNode = niStream->topObjects[0]->AsFadeNode();
-									if (rootFadeNode) {
-										logger::debug("NPC facegeometry root fadeNode found.");
-										logBrokenNifOnce(filePath, rootFadeNode);
-										// VR: NiSkinInstance::LinkObject fails to resolve internal bone refs,
-										// storing the bone name as a raw char* instead of a resolved NiNode*.
-										// Bone NiNodes are self-contained in the face geometry NIF, so resolve
-										// them now by name lookup against the loaded tree.
-										// Must run before NiStream_deconstructor while the tree is live.
-										if (REL::Module::IsVR()) {
-											auto& ch = rootFadeNode->GetChildren();
-											for (std::uint16_t ci = 0; ci < ch.size(); ++ci) {
-												auto faceChild = ch[ci].get();
-												if (!faceChild || !isValidNiObject(faceChild))
-													continue;
-												auto faceGeo = faceChild->AsGeometry();
-												if (!faceGeo)
-													continue;
-												const auto& grd = faceGeo->GetGeometryRuntimeData();
-												if (!grd.skinInstance || !grd.skinInstance->skinData)
-													continue;
-												std::uint32_t vrResolved = 0, vrFailed = 0;
-												for (std::uint32_t bi = 0; bi < grd.skinInstance->skinData->bones; ++bi) {
-													auto bone = grd.skinInstance->bones[bi];
-													if (!bone || isValidNiObject(bone))
-														continue;
-													// char* case: bone pointer is canonical but its bytes are not a valid vtable.
-													// Guard against truly non-canonical addresses before reading as a string.
-													if (reinterpret_cast<uintptr_t>(bone) > kCanonicalUserSpaceMax)
-														continue;
-													const char* name = reinterpret_cast<const char*>(bone);
-													auto result = findNode(rootFadeNode, RE::BSFixedString(name));
-													grd.skinInstance->bones[bi] = result;
-													if (result)
-														++vrResolved;
-													else {
-														++vrFailed;
-														logger::warn("VR bone fix '{}': bone[{}] '{}' not found in NIF tree.", faceGeo->name.c_str(), bi, name);
-													}
-												}
-												if (vrResolved || vrFailed)
-													logger::info("VR bone fix '{}': resolved {}/{} unresolved bone refs in '{}'.", faceGeo->name.c_str(), vrResolved, vrResolved + vrFailed, filePath);
-											}
-										}
-										// Detect remaining unresolvable bone refs (non-null, non-canonical pointers).
-										bool brokenBoneRefs = false;
-										auto& faceCh = rootFadeNode->GetChildren();
-										for (std::uint16_t ci = 0; ci < faceCh.size() && !brokenBoneRefs; ++ci) {
-											auto faceChild = faceCh[ci].get();
-											if (!faceChild)
+							// same DBTraits Bethesda uses for FaceGen (from FUN_1403bbe00 on AE)
+							RE::BSModelDB::DBTraits::ArgsType args;
+							args.LODmult = 0;
+							args.texLoadLevel = 3;
+							args.unk8 = false;
+							args.unk9 = true;
+							args.unkA = false;
+							args.postProcess = true;
+
+							RE::NiPointer<RE::NiNode> loadedModel;
+							auto error = RE::BSModelDB::Demand(filePath, loadedModel, args);
+
+							if (error == RE::BSResource::ErrorCode::kNone && loadedModel) {
+								auto rootFadeNode = loadedModel->AsFadeNode();
+								if (rootFadeNode) {
+									logger::debug("NPC facegeometry root fadeNode successfully loaded.");
+
+									// VR stuff probably still needed?
+									// VR: NiSkinInstance::LinkObject fails to resolve internal bone refs,
+									// storing the bone name as a raw char* instead of a resolved NiNode*.
+									// Bone NiNodes are self-contained in the face geometry NIF, so resolve
+									// them now by name lookup against the loaded tree.
+									// Must run before NiStream_deconstructor while the tree is live.
+									if (REL::Module::IsVR()) {
+										auto& ch = rootFadeNode->GetChildren();
+										for (std::uint16_t ci = 0; ci < ch.size(); ++ci) {
+											auto faceChild = ch[ci].get();
+											if (!faceChild || !isValidNiObject(faceChild))
 												continue;
-											if (!isValidNiObject(faceChild)) {
-												brokenBoneRefs = true;
-												break;
-											}
 											auto faceGeo = faceChild->AsGeometry();
 											if (!faceGeo)
 												continue;
-											const auto& fgrd = faceGeo->GetGeometryRuntimeData();
-											if (!fgrd.skinInstance || !fgrd.skinInstance->skinData)
+											const auto& grd = faceGeo->GetGeometryRuntimeData();
+											if (!grd.skinInstance || !grd.skinInstance->skinData)
 												continue;
-											for (std::uint32_t bi = 0; bi < fgrd.skinInstance->skinData->bones && !brokenBoneRefs; ++bi) {
-												auto fBone = fgrd.skinInstance->bones[bi];
-												if (fBone && !isValidNiObject(fBone))
-													brokenBoneRefs = true;
+											std::uint32_t vrResolved = 0, vrFailed = 0;
+											for (std::uint32_t bi = 0; bi < grd.skinInstance->skinData->bones; ++bi) {
+												auto bone = grd.skinInstance->bones[bi];
+												if (!bone || isValidNiObject(bone))
+													continue;
+												// char* case: bone pointer is canonical but its bytes are not a valid vtable.
+												// Guard against truly non-canonical addresses before reading as a string.
+												if (reinterpret_cast<uintptr_t>(bone) > kCanonicalUserSpaceMax)
+													continue;
+												const char* name = reinterpret_cast<const char*>(bone);
+												auto result = findNode(rootFadeNode, RE::BSFixedString(name));
+												grd.skinInstance->bones[bi] = result;
+												if (result)
+													++vrResolved;
+												else {
+													++vrFailed;
+													logger::warn("VR bone fix '{}': bone[{}] '{}' not found in NIF tree.", faceGeo->name.c_str(), bi, name);
+												}
 											}
+											if (vrResolved || vrFailed)
+												logger::info("VR bone fix '{}': resolved {}/{} unresolved bone refs in '{}'.", faceGeo->name.c_str(), vrResolved, vrResolved + vrFailed, filePath);
 										}
-										if (brokenBoneRefs) {
-											logger::warn(
-												"processGeometry: NPC facegeometry '{}' has remaining unresolvable "
-												"bone refs after VR fix pass. Skipping facegeometry-based bone lookup to avoid crashes.",
-												filePath);
-											head.npcFaceGeomNodeBroken = true;
-										} else
-											head.npcFaceGeomNode = hdt::make_nismart(rootFadeNode);
-									} else
-										logger::debug("NPC facegeometry root wasn't fadeNode as expected.");
+									}
+
+									head.npcFaceGeomNode = hdt::make_nismart(rootFadeNode);
+								} else {
+									logger::debug("NPC facegeometry root wasn't fadeNode as expected.");
 								}
-								NiStream_deconstructor(niStream);
+							} else {
+								logger::error("Facegeometry rejected by BSModelDB. Possibly a corrupted or unconverted LE mesh.");
+								head.npcFaceGeomNodeBroken = true;
 							}
 						}
 					}
@@ -1426,20 +1415,28 @@ namespace hdt
 					boneName = fmd->bones[boneIdx];
 			}
 
-			// Workaround for broken/poorly ported LE head meshes
-			// NiStream can severely misalign memory when loading these in the background,
-			// stuffing raw vertex floats into skinData and bone pointers. Blindly dereferencing
-			// them causes instant EXCEPTION_ACCESS_VIOLATION crashes
-			//
-			// If we just bail out on bad data, the NPC ends up bald because the hair mesh
-			// fails to map to the skeleton. To fix both the crash and the baldness:
-			// 1. Try fetching bone names from the active rendering geometry first (the engine formats this already)
-			// 2. If falling back to origGeom/origNiGeom, strictly enforce canonical pointer bounds so we don't treat float data as memory addresses
-			// 3. Handle unresolved bone references (which the engine leaves as raw char* strings instead of NiNodes it seems)
-			// -- Todo: Improve this in the future, look into exactly how the engine is handling this kind of junk internally
+			// BSModelDB guarantees origGeom is perfectly formed, so we check this BEFORE the active geometry
+			if (boneName.empty() && origGeom) {
+				const auto& rd = origGeom->GetGeometryRuntimeData();
+				if (rd.skinInstance && reinterpret_cast<uintptr_t>(rd.skinInstance.get()) <= kCanonicalUserSpaceMax) {
+					auto skinData = rd.skinInstance->skinData.get();
+					if (skinData && reinterpret_cast<uintptr_t>(skinData) <= kCanonicalUserSpaceMax && boneIdx < skinData->bones) {
+						if (rd.skinInstance->bones && reinterpret_cast<uintptr_t>(rd.skinInstance->bones) <= kCanonicalUserSpaceMax) {
+							auto bone = rd.skinInstance->bones[boneIdx];
+							if (isValidNiObject(bone)) {
+								boneName = bone->name;
+							} else {
+								logger::debug("isValidNiObject was false for BSModelDB");
+							}
+						}
+					}
+				}
+			}
+
+			// Fallback to active rendering geometry
+			// We only do this if origGeom failed, because FaceGen > 7 leaves garbage in here
+			// This should be dead code, but we keep it just in case..
 			if (boneName.empty()) {
-				// Fallback 1, Check the active rendering geometry first
-				// The game engine properly aligns this mesh, so unresolved bone strings are safe to read here
 				const auto& activeSkin = geometry->GetGeometryRuntimeData().skinInstance;
 				if (activeSkin && reinterpret_cast<uintptr_t>(activeSkin.get()) <= kCanonicalUserSpaceMax) {
 					auto skinData = activeSkin->skinData.get();
@@ -1449,39 +1446,25 @@ namespace hdt
 							if (isValidNiObject(bone)) {
 								boneName = bone->name;
 							} else if (bone && reinterpret_cast<uintptr_t>(bone) <= kCanonicalUserSpaceMax) {
-								boneName = reinterpret_cast<const char*>(bone);
-							}
-						}
-					}
-				}
+								// Try to salvage what we can to avoid bald NPC's and what not
+								const char* raw = reinterpret_cast<const char*>(bone);
+								bool looksLikeString = true;
+								for (int ci = 0; ci < 64; ++ci) {
+									char ch = raw[ci];
+									if (ch == '\0')
+										break;
 
-				// Fallback 2, origGeom
-				if (boneName.empty() && origGeom) {
-					const auto& rd = origGeom->GetGeometryRuntimeData();
-					if (rd.skinInstance && reinterpret_cast<uintptr_t>(rd.skinInstance.get()) <= kCanonicalUserSpaceMax) {
-						auto skinData = rd.skinInstance->skinData.get();
-						if (skinData && reinterpret_cast<uintptr_t>(skinData) <= kCanonicalUserSpaceMax && boneIdx < skinData->bones) {
-							if (rd.skinInstance->bones && reinterpret_cast<uintptr_t>(rd.skinInstance->bones) <= kCanonicalUserSpaceMax) {
-								auto bone = rd.skinInstance->bones[boneIdx];
-								if (isValidNiObject(bone)) {
-									boneName = bone->name;
+									// cast to unsigned char to prevent negative values passing the < 0x20 check
+									if ((unsigned char)ch < 0x20 || (unsigned char)ch > 0x7E) {
+										looksLikeString = false;
+										logger::debug("Hit a corrupted bone name?");
+										break;
+									}
 								}
-							}
-						}
-					}
-				}
-
-				// Fallback 3, origNiGeom (with strict protection against misaligned LE meshes)
-				if (boneName.empty() && origNiGeom) {
-					const auto& spSkin = origNiGeom->GetRuntimeData().spSkinInstance;
-					if (spSkin && reinterpret_cast<uintptr_t>(spSkin.get()) <= kCanonicalUserSpaceMax) {
-						auto skinData = spSkin->skinData.get();
-						// Only proceed if skinData is mathematically valid (blocks the 0x10010000000000b3 garbage!)
-						if (skinData && reinterpret_cast<uintptr_t>(skinData) <= kCanonicalUserSpaceMax && boneIdx < skinData->bones) {
-							if (spSkin->bones && reinterpret_cast<uintptr_t>(spSkin->bones) <= kCanonicalUserSpaceMax) {
-								auto bone = spSkin->bones[boneIdx];
-								if (isValidNiObject(bone)) {
-									boneName = bone->name;
+								if (looksLikeString && raw[0] != '\0') {
+									boneName = raw;
+								} else {
+									logger::debug("Rendering geometry fallback failed to resolve bone names");
 								}
 							}
 						}
@@ -1501,7 +1484,7 @@ namespace hdt
 			if (!boneNode && !hasMerged) {
 				logger::debug("Bone not found on skeleton, trying skeleton merge.");
 				if (this->head.headParts.back().origPartRootNode) {
-					doSkeletonMerge(npc.get(), head.headParts.back().origPartRootNode.get(), head.prefix, head.renameMap);
+					doSkeletonMerge(npc.get(), head.headParts.back().origPartRootNode.get(), head.prefix, head.renameMap, false);
 				} else if (this->head.npcFaceGeomNode) {
 					// Facegen data doesn't have any tree structure to the skeleton. We need to make any new
 					// nodes children of the head node, so that they move properly when there's no physics.
@@ -1523,7 +1506,7 @@ namespace hdt
 							}
 						}
 					}
-					doSkeletonMerge(npc.get(), this->head.npcFaceGeomNode.get(), head.prefix, head.renameMap);
+					doSkeletonMerge(npc.get(), this->head.npcFaceGeomNode.get(), head.prefix, head.renameMap, false);
 				}
 
 				hasMerged = true;
@@ -1552,7 +1535,21 @@ namespace hdt
 
 		if (hasRenames) {
 			for (auto& entry : head.renameMap) {
-				if ((this->head.headParts.back().origPartRootNode && findObject(this->head.headParts.back().origPartRootNode.get(), entry.first)) || (this->head.npcFaceGeomNode && findObject(this->head.npcFaceGeomNode.get(), entry.first))) {
+				bool inUse = false;
+
+				auto origPartRoot = this->head.headParts.back().origPartRootNode.get();
+				auto npcFaceGeom = this->head.npcFaceGeomNode.get();
+
+				// we must check for BOTH entry.first (original name) and entry.second (renamed name)
+				// If this geometry performed the skeleton merge, renameTree altered the names in the source tree to
+				// entry.second. If another geometry did the merge, the names remain entry.first
+				if (origPartRoot && (findObject(origPartRoot, entry.first) || findObject(origPartRoot, entry.second))) {
+					inUse = true;
+				} else if (npcFaceGeom && (findObject(npcFaceGeom, entry.first) || findObject(npcFaceGeom, entry.second))) {
+					inUse = true;
+				}
+
+				if (inUse) {
 					auto findNode = this->head.nodeUseCount.find(entry.first);
 					if (findNode != this->head.nodeUseCount.end()) {
 						findNode->second += 1;

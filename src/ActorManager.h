@@ -148,9 +148,9 @@ namespace hdt
 			void scanHead();
 			void processGeometry(RE::BSFaceGenNiNode* head, RE::BSGeometry* geometry);
 
-			static void doSkeletonMerge(RE::NiNode* dst, RE::NiNode* src, std::string_view prefix, std::unordered_map<RE::BSFixedString, RE::BSFixedString>& map);
+			static void doSkeletonMerge(RE::NiNode* dst, RE::NiNode* src, std::string_view prefix, std::unordered_map<RE::BSFixedString, RE::BSFixedString>& map, bool renameSource = true);
 			static void doSkeletonClean(RE::NiNode* dst, std::string_view prefix);
-			static RE::NiNode* cloneNodeTree(RE::NiNode* src, std::string_view prefix, std::unordered_map<RE::BSFixedString, RE::BSFixedString>& map);
+			static RE::NiNode* cloneNodeTree(RE::NiNode* src, std::string_view prefix, std::unordered_map<RE::BSFixedString, RE::BSFixedString>& map, bool renameSource);
 			static void renameTree(RE::NiNode* root, std::string_view prefix, std::unordered_map<RE::BSFixedString, RE::BSFixedString>& map);
 
 			std::vector<Armor>& getArmors() { return armors; }
@@ -164,7 +164,7 @@ namespace hdt
 		private:
 			bool isActiveInScene() const;
 			bool checkPhysics();
-			static void doSkeletonMerge(RE::NiNode* dst, RE::NiNode* src, std::string_view prefix, std::unordered_map<RE::BSFixedString, RE::BSFixedString>& map, RE::NiNode* dstRoot);
+			static void doSkeletonMerge(RE::NiNode* dst, RE::NiNode* src, std::string_view prefix, std::unordered_map<RE::BSFixedString, RE::BSFixedString>& map, RE::NiNode* dstRoot, bool renameSource);
 
 			bool isActive = false;
 			float currentWindFactor = 0.f;

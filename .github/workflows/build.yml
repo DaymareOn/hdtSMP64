@@ -19,6 +19,7 @@ on:
       - "extern/**"
       - "cmake/**"
       - ".github/workflows/**"
+      - "fomod tree/**"
   workflow_dispatch:
   pull_request:
     branches:
@@ -40,6 +41,7 @@ on:
       - "extern/**"
       - "cmake/**"
       - ".github/workflows/**"
+      - "fomod tree/**"
 
 permissions:
   contents: read
@@ -214,15 +216,9 @@ jobs:
           name: raw-${{ matrix.preset }}
           path: out/build/${{ matrix.preset }}/plugins/
 
-  release:
-    needs: [prepare, build, check_messages]
-    # Release only on push to branches, and ignore commits that are just style, docs, tests changes
-    if: |
-      github.event_name == 'push' &&
-      needs.check_messages.outputs.should_release == 'true'
+  package:
+    needs: [prepare, build]
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
 
     steps:
       - name: Checkout the code to get the "fomod tree" folder
@@ -257,6 +253,11 @@ jobs:
           cp -r temp-mcm/SKSE mcm_files/
           cp -r temp-mcm/Scripts mcm_files/
           cp -r temp-mcm/Source mcm_files/
+          if [ -d temp-mcm/interface ]; then
+            cp -r temp-mcm/interface mcm_files/
+          else
+            echo "No interface folder in FSMP-MCM, skipping."
+          fi
 
       - name: Organize and 7zip
         run: |
@@ -293,6 +294,29 @@ jobs:
           echo "Listing contents of FSMP-${{ needs.prepare.outputs.tag_version }}.zip:"
           7z l FSMP-${{ needs.prepare.outputs.tag_version }}.zip
 
+      - name: Upload final package as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: FSMP-${{ needs.prepare.outputs.tag_version }}
+          path: FSMP-${{ needs.prepare.outputs.tag_version }}.zip
+          if-no-files-found: error
+
+  release:
+    needs: [prepare, package, check_messages]
+    # Release only on push to branches, and ignore commits that are just style, docs, tests changes
+    if: |
+      github.event_name == 'push' &&
+      needs.check_messages.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download the packaged zip
+        uses: actions/download-artifact@v4
+        with:
+          name: FSMP-${{ needs.prepare.outputs.tag_version }}
+
       - name: Create GitHub Release and Git Tag
         uses: softprops/action-gh-release@v2
         with:
@@ -304,6 +328,6 @@ jobs:
             Build Date: ${{ github.event.head_commit.timestamp }}
             Commit: ${{ github.sha }}
             Automated Semantic Build.
-          files: "**.zip"
+          files: "FSMP-${{ needs.prepare.outputs.tag_version }}.zip"
           # prerelease is true for all branches except master
           prerelease: ${{ github.ref_name != 'master' }}
