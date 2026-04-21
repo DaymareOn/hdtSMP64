@@ -118,78 +118,80 @@ void DumpNodeChildren(RE::NiAVObject* node)
 	}
 
 	RE::NiNode* niNode = node->AsNode();
-	auto& children = niNode->GetChildren();
-	if (niNode && children.size() > 0) {
-		for (uint16_t i = 0; i < children.size(); i++) {
-			RE::NiPointer<RE::NiAVObject> object = children[i];
-			if (object) {
-				RE::NiNode* childNode = object->AsNode();
-				RE::BSGeometry* geometry = object->AsGeometry();
-				if (geometry) {
-					logger::info(
-						"{} {} [{:.2f}, {:.2f}, {:.2f}] - Geometry",
-						object->GetRTTI()->name,
-						object->name,
-						geometry->world.translate.x,
-						geometry->world.translate.y,
-						geometry->world.translate.z);
+	if (niNode) {
+		auto& children = niNode->GetChildren();
+		if (children.size() > 0) {
+			for (uint16_t i = 0; i < children.size(); i++) {
+				RE::NiPointer<RE::NiAVObject> object = children[i];
+				if (object) {
+					RE::NiNode* childNode = object->AsNode();
+					RE::BSGeometry* geometry = object->AsGeometry();
+					if (geometry) {
+						logger::info(
+							"{} {} [{:.2f}, {:.2f}, {:.2f}] - Geometry",
+							object->GetRTTI()->name,
+							object->name,
+							geometry->world.translate.x,
+							geometry->world.translate.y,
+							geometry->world.translate.z);
 
-					if (geometry->GetGeometryRuntimeData().skinInstance && geometry->GetGeometryRuntimeData().skinInstance->skinData) {
-						for (uint32_t boneIdx = 0; boneIdx < geometry->GetGeometryRuntimeData().skinInstance->skinData->bones; boneIdx++) {
-							auto bone = geometry->GetGeometryRuntimeData().skinInstance->bones[boneIdx];
-							logger::info(
-								"Bone {} - {} {} [{:.2f}, {:.2f}, {:.2f}]",
-								boneIdx,
-								bone->GetRTTI()->name,
-								bone->name,
-								bone->world.translate.x,
-								bone->world.translate.y,
-								bone->world.translate.z);
+						if (geometry->GetGeometryRuntimeData().skinInstance && geometry->GetGeometryRuntimeData().skinInstance->skinData) {
+							for (uint32_t boneIdx = 0; boneIdx < geometry->GetGeometryRuntimeData().skinInstance->skinData->bones; boneIdx++) {
+								auto bone = geometry->GetGeometryRuntimeData().skinInstance->bones[boneIdx];
+								logger::info(
+									"Bone {} - {} {} [{:.2f}, {:.2f}, {:.2f}]",
+									boneIdx,
+									bone->GetRTTI()->name,
+									bone->name,
+									bone->world.translate.x,
+									bone->world.translate.y,
+									bone->world.translate.z);
+							}
 						}
-					}
 
-					RE::BSShaderProperty* shaderProperty = geometry->GetGeometryRuntimeData().shaderProperty.get();
-					if (shaderProperty) {
-						RE::BSLightingShaderProperty* lightingShader = netimmerse_cast<RE::BSLightingShaderProperty*>(shaderProperty);
-						if (lightingShader) {
-							RE::BSLightingShaderMaterial* material = static_cast<RE::BSLightingShaderMaterial*>(lightingShader->material);
+						RE::BSShaderProperty* shaderProperty = geometry->GetGeometryRuntimeData().shaderProperty.get();
+						if (shaderProperty) {
+							RE::BSLightingShaderProperty* lightingShader = netimmerse_cast<RE::BSLightingShaderProperty*>(shaderProperty);
+							if (lightingShader) {
+								RE::BSLightingShaderMaterial* material = static_cast<RE::BSLightingShaderMaterial*>(lightingShader->material);
 
-							for (int texIdx = 0; texIdx < RE::BSTextureSet::Textures::kTotal; ++texIdx) {
-								RE::BSTextureSet::Textures::Texture textureID = static_cast<RE::BSTextureSet::Textures::Texture>(texIdx);
+								for (int texIdx = 0; texIdx < RE::BSTextureSet::Textures::kTotal; ++texIdx) {
+									RE::BSTextureSet::Textures::Texture textureID = static_cast<RE::BSTextureSet::Textures::Texture>(texIdx);
 
-								const char* texturePath = material->textureSet->GetTexturePath(textureID);
-								if (!texturePath) {
-									continue;
-								}
+									const char* texturePath = material->textureSet->GetTexturePath(textureID);
+									if (!texturePath) {
+										continue;
+									}
 
-								const char* textureName = "";
-								RE::NiSourceTexturePtr* texture = GetTextureFromIndex(material, textureID);
-								if (texture && texture->get()) {
-									textureName = texture->get()->name.c_str();
+									const char* textureName = "";
+									RE::NiSourceTexturePtr* texture = GetTextureFromIndex(material, textureID);
+									if (texture && texture->get()) {
+										textureName = texture->get()->name.c_str();
+									}
+
+									logger::info(
+										"Texture {} - {} ({})",
+										texIdx,
+										texturePath,
+										textureName);
 								}
 
 								logger::info(
-									"Texture {} - {} ({})",
-									texIdx,
-									texturePath,
-									textureName);
+									"Flags - {:08X}",
+									lightingShader->flags.underlying());
 							}
-
-							logger::info(
-								"Flags - {:08X}",
-								lightingShader->flags.underlying());
 						}
+					} else if (childNode) {
+						DumpNodeChildren(childNode);
+					} else {
+						logger::info(
+							"{} {} [{:.2f}, {:.2f}, {:.2f}]",
+							object->GetRTTI()->name,
+							object->name,
+							object->world.translate.x,
+							object->world.translate.y,
+							object->world.translate.z);
 					}
-				} else if (childNode) {
-					DumpNodeChildren(childNode);
-				} else {
-					logger::info(
-						"{} {} [{:.2f}, {:.2f}, {:.2f}]",
-						object->GetRTTI()->name,
-						object->name,
-						object->world.translate.x,
-						object->world.translate.y,
-						object->world.translate.z);
 				}
 			}
 		}
