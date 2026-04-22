@@ -390,6 +390,19 @@ namespace hdt
 		}
 	}
 
+	// Returns true when receiver is allowed to accept a collision contribution from the given bone
+	// coming from sender.  When sender has an explicit can-collide-with-tag whitelist that already
+	// approved the body pair (verified by needsCollision), receiver's own can-collide-with-bone
+	// whitelist must not silently override that tag-based allowance.  The no-collide-with-bone
+	// blacklist is honoured regardless.
+	static bool boneCollisionAllowed(const SkinnedMeshBody* receiver, const SkinnedMeshBody* sender,
+		const SkinnedMeshBone* bone)
+	{
+		if (!sender->m_canCollideWithTags.empty())
+			return !receiver->m_noCollideWithBones.contains(const_cast<SkinnedMeshBone*>(bone));
+		return receiver->canCollideWith(bone);
+	}
+
 	void SkinnedMeshAlgorithm::MergeBuffer::apply(SkinnedMeshBody* body0, SkinnedMeshBody* body1,
 		CollisionDispatcher* dispatcher)
 	{
@@ -403,9 +416,9 @@ namespace hdt
 			if (c->weight < FLT_EPSILON)
 				continue;
 
-			if (!body1->canCollideWith(body0->m_skinnedBones[i].ptr))
+			if (!boneCollisionAllowed(body1, body0, body0->m_skinnedBones[i].ptr))
 				continue;
-			if (!body0->canCollideWith(body1->m_skinnedBones[j].ptr))
+			if (!boneCollisionAllowed(body0, body1, body1->m_skinnedBones[j].ptr))
 				continue;
 			if (body0->m_skinnedBones[i].isKinematic && body1->m_skinnedBones[j].isKinematic)
 				continue;
