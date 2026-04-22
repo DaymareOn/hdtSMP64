@@ -391,14 +391,14 @@ namespace hdt
 	}
 
 	// Returns true when receiver is allowed to accept a collision contribution from the given bone
-	// coming from sender.  When sender has an explicit can-collide-with-tag whitelist that already
+	// coming from sender.  When either body has an explicit can-collide-with-tag whitelist that
 	// approved the body pair (verified by needsCollision), receiver's own can-collide-with-bone
 	// whitelist must not silently override that tag-based allowance.  The no-collide-with-bone
 	// blacklist is honoured regardless.
 	static bool boneCollisionAllowed(const SkinnedMeshBody* receiver, const SkinnedMeshBody* sender,
 		const SkinnedMeshBone* bone)
 	{
-		if (!sender->m_canCollideWithTags.empty())
+		if (!receiver->m_canCollideWithTags.empty() || !sender->m_canCollideWithTags.empty())
 			return !receiver->m_noCollideWithBones.contains(const_cast<SkinnedMeshBone*>(bone));
 		return receiver->canCollideWith(bone);
 	}
