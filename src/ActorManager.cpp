@@ -1331,6 +1331,18 @@ namespace hdt
 								if (rootFadeNode) {
 									logger::debug("NPC facegeometry root fadeNode successfully loaded.");
 
+									// Because we mutate rootFadeNode, we MUST deep clone the cached model!
+									// The clone can't be null (Otherwise it would CTD internally), so no null checks needed
+									RE::NiCloningProcess c;
+
+									// These just say, copy the original exactly
+									c.copyType = 1;
+									c.scale = { 1.0f, 1.0f, 1.0f };
+
+									auto clonedObj = rootFadeNode->CreateClone(c);
+									rootFadeNode->ProcessClone(c);
+									auto clonedRoot = static_cast<RE::BSFadeNode*>(clonedObj);
+
 									// VR stuff probably still needed?
 									// VR: NiSkinInstance::LinkObject fails to resolve internal bone refs,
 									// storing the bone name as a raw char* instead of a resolved NiNode*.
@@ -1338,7 +1350,7 @@ namespace hdt
 									// them now by name lookup against the loaded tree.
 									// Must run before NiStream_deconstructor while the tree is live.
 									if (REL::Module::IsVR()) {
-										auto& ch = rootFadeNode->GetChildren();
+										auto& ch = clonedRoot->GetChildren();
 										for (std::uint16_t ci = 0; ci < ch.size(); ++ci) {
 											auto faceChild = ch[ci].get();
 											if (!faceChild || !isValidNiObject(faceChild))
@@ -1359,7 +1371,7 @@ namespace hdt
 												if (reinterpret_cast<uintptr_t>(bone) > kCanonicalUserSpaceMax)
 													continue;
 												const char* name = reinterpret_cast<const char*>(bone);
-												auto result = findNode(rootFadeNode, RE::BSFixedString(name));
+												auto result = findNode(clonedRoot, RE::BSFixedString(name));
 												grd.skinInstance->bones[bi] = result;
 												if (result)
 													++vrResolved;
@@ -1373,7 +1385,7 @@ namespace hdt
 										}
 									}
 
-									head.npcFaceGeomNode = hdt::make_nismart(rootFadeNode);
+									head.npcFaceGeomNode = hdt::make_nismart(clonedRoot);
 								} else {
 									logger::debug("NPC facegeometry root wasn't fadeNode as expected.");
 								}
@@ -1486,6 +1498,8 @@ namespace hdt
 				if (this->head.headParts.back().origPartRootNode) {
 					doSkeletonMerge(npc.get(), head.headParts.back().origPartRootNode.get(), head.prefix, head.renameMap, false);
 				} else if (this->head.npcFaceGeomNode) {
+					logger::debug("Merging facegen into the head node.");
+
 					// Facegen data doesn't have any tree structure to the skeleton. We need to make any new
 					// nodes children of the head node, so that they move properly when there's no physics.
 					// This case never happens to a lurker skeleton, thus we don't need to test.

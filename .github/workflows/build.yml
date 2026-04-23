@@ -331,3 +331,28 @@ jobs:
           files: "FSMP-${{ needs.prepare.outputs.tag_version }}.zip"
           # prerelease is true for all branches except master
           prerelease: ${{ github.ref_name != 'master' }}
+
+  nexus_upload:
+    needs: [prepare, package]
+    # Upload to Nexus Mods only when a version-bump commit is pushed to master
+    if: |
+      github.event_name == 'push' &&
+      github.ref_name == 'master' &&
+      startsWith(github.event.head_commit.message, 'chore: bump FSMP to version')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download the packaged zip
+        uses: actions/download-artifact@v4
+        with:
+          name: FSMP-${{ needs.prepare.outputs.tag_version }}
+
+      - name: Upload to Nexus Mods
+        uses: Nexus-Mods/upload-action@v1.0.0-beta.4
+        with:
+          api_key: ${{ secrets.NEXUSMODS_API_KEY }}
+          file_group_id: ${{ secrets.NEXUSMODS_FILE_GROUP_ID }}
+          filename: FSMP-${{ needs.prepare.outputs.tag_version }}.zip
+          version: ${{ needs.prepare.outputs.new_version }}
+          display_name: FSMP ${{ needs.prepare.outputs.new_version }}
+          file_category: main

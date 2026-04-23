@@ -20,10 +20,11 @@ namespace Hooks
 			//
 			logger::debug("Applying BSFaceGenNiNodeHooks hooks!");
 
-			//
 			REL::Relocation<uintptr_t> BSFaceGenNiNode__vtbl{ RE::VTABLE_BSFaceGenNiNode[0] };
 			// VR adds SKYRIM_REL_VR_VIRTUAL FixSkinInstances at slot 0x3E, pushing SkinAllGeometry to 0x3F
-			BSFaceGenNiNode__vtbl.write_vfunc(REL::Module::IsVR() ? 0x3F : 0x3E, SkinAllGeometry__Hook);
+			size_t vtbl_idx = REL::Module::IsVR() ? 0x3F : 0x3E;
+			uintptr_t origFuncAddr = *reinterpret_cast<uintptr_t*>(BSFaceGenNiNode__vtbl.address() + (sizeof(void*) * vtbl_idx));
+			_SkinAllGeometry_Orig = reinterpret_cast<SkinAllGeometry_t>(origFuncAddr);
 
 			//
 			_SkinSingleGeometry = trampoline.write_call<5>(SkinSingleGeometryCode1.address(), SkinSingleGeometry__Hook);
@@ -69,6 +70,9 @@ namespace Hooks
 		// Complements the loop-count cap in ApplyBoneLimitFix.
 		static void HookSetBoneName();
 		static void SetBoneName_Hook(RE::BSFaceGenModelExtraData*, std::uint32_t, RE::BSFixedString*);
+
+		using SkinAllGeometry_t = decltype(&BSFaceGenNiNodeHooks::SkinAllGeometry__Hook);
+		static inline SkinAllGeometry_t _SkinAllGeometry_Orig{ nullptr };
 
 		static inline REL::Relocation<decltype(&BSFaceGenNiNodeHooks::SkinSingleGeometry__Hook)> _SkinSingleGeometry;
 
