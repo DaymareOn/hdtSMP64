@@ -211,7 +211,7 @@ namespace hdt
 		}
 
 		// Store original locale and switch to en_US for numeric parsing
-		char saved_locale[32];
+		char saved_locale[64];
 		strcpy_s(saved_locale, std::setlocale(LC_NUMERIC, nullptr));
 		std::setlocale(LC_NUMERIC, "en_US");
 

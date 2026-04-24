@@ -11,6 +11,7 @@
 #include <iomanip>
 #include <sstream>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 namespace hdt
@@ -37,6 +38,13 @@ namespace hdt
 		});
 		return p;
 	}
+
+	// XML file stems to skip – not physics config files
+	static const std::unordered_set<std::string> kSkippedXMLStems = {
+		"configs",    // main configuration file
+		"defaultbbps",  // shape-to-XML mapping (not a physics config)
+		"hdtsmp64",   // XSD schema file
+	};
 
 	// ---- Phase 1: XML discovery ----
 
@@ -65,11 +73,10 @@ namespace hdt
 				// Lowercase extension comparison
 				std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
 				if (ext == ".xml") {
-					// Skip the XSD file itself and configs.xml (not physics configs)
+					// Skip non-physics-config files using the static exclusion list
 					auto stem = p.stem().string();
 					std::transform(stem.begin(), stem.end(), stem.begin(), ::tolower);
-					if (stem != "configs" && stem != "defaultbbps" &&
-						stem != "hdtsmp64" && stem != "configs.xsd") {
+					if (!kSkippedXMLStems.count(stem)) {
 						result.push_back(p.string());
 					}
 				}
@@ -185,11 +192,6 @@ namespace hdt
 					out << "    [ERROR] " << v.elementPath << " (line " << v.line << "): "
 						<< v.message << "\n";
 				}
-			}
-
-			// Phase 5: warn on missing weight thresholds even for valid files
-			if (!xsdResult.hasWeightThreshold && xsdResult.isValid) {
-				out << "    [WARN] No <weight-threshold> elements found\n";
 			}
 		}
 	}

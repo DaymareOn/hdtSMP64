@@ -127,7 +127,9 @@ namespace hdt
 				r.readShortSizedStr();  // process script
 				r.readShortSizedStr();  // export script
 			} else {
-				// Older BS header (LE NIFs): one extra uint32 follows the author string
+				// Older BS header (LE NIFs, BSVersion < 130): one extra uint32 follows
+				// the author string. This is an undocumented reserved/unknown field
+				// present in Fallout 3/NV and Skyrim LE NIF headers.
 				r.skip(4);
 			}
 		}
