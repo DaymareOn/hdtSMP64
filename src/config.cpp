@@ -1,4 +1,5 @@
 #include "config.h"
+#include "hdtAssetValidator.h"
 #include "Hooks.h"
 #include "XmlReader.h"
 #include "hdtSkyrimPhysicsWorld.h"
@@ -124,6 +125,32 @@ namespace hdt
 		}
 	}
 
+	static void validation(XMLReader& reader)
+	{
+		while (reader.Inspect()) {
+			switch (reader.GetInspected()) {
+			case XMLReader::Inspected::StartTag:
+				if (reader.GetLocalName() == "enabled") {
+					g_validationConfig.enabled = reader.readBool();
+				} else if (reader.GetLocalName() == "strict-mode") {
+					g_validationConfig.strictMode = reader.readBool();
+				} else if (reader.GetLocalName() == "report-file-enabled") {
+					g_validationConfig.reportFileEnabled = reader.readBool();
+				} else if (reader.GetLocalName() == "scan-data-folder") {
+					g_validationConfig.scanDataFolder = reader.readBool();
+				} else if (reader.GetLocalName() == "warn-triangle-count") {
+					g_validationConfig.warnTriangleCount = std::max(reader.readInt(), 100);
+				} else {
+					logger::warn("Unknown config : {}", reader.GetLocalName());
+					reader.skipCurrentElement();
+				}
+				break;
+			case XMLReader::Inspected::EndTag:
+				return;
+			}
+		}
+	}
+
 	static void config(XMLReader& reader)
 	{
 		while (reader.Inspect()) {
@@ -135,6 +162,8 @@ namespace hdt
 					wind(reader);
 				} else if (reader.GetLocalName() == "smp") {
 					smp(reader);
+				} else if (reader.GetLocalName() == "validation") {
+					validation(reader);
 				} else {
 					logger::warn("Unknown config : {}", reader.GetLocalName());
 					reader.skipCurrentElement();
