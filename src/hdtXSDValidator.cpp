@@ -210,10 +210,12 @@ namespace hdt
 			return result;
 		}
 
-		// Store original locale and switch to en_US for numeric parsing
+		// Store original locale and switch to "C" for numeric parsing.
+		// "C" locale is guaranteed available on all systems and provides
+		// the same dot-as-decimal-separator behaviour needed for XML values.
 		char saved_locale[64];
 		strcpy_s(saved_locale, std::setlocale(LC_NUMERIC, nullptr));
-		std::setlocale(LC_NUMERIC, "en_US");
+		std::setlocale(LC_NUMERIC, "C");
 
 		ValidationContext ctx{
 			xmlPath,
