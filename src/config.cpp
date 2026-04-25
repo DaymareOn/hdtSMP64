@@ -133,7 +133,7 @@ namespace hdt
 				} else if (reader.GetLocalName() == "scan-data-folder") {
 					g_validationConfig.scanDataFolder = reader.readBool();
 				} else if (reader.GetLocalName() == "warn-triangle-count") {
-					g_validationConfig.warnTriangleCount = std::max(reader.readInt(), 100);
+					g_validationConfig.warnTriangleCount = reader.readInt();
 				} else {
 					logger::warn("Unknown config : {}", reader.GetLocalName());
 					reader.skipCurrentElement();
