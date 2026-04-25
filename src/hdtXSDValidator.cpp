@@ -122,6 +122,9 @@ namespace hdt
 	// hdtSMP64.xsd defines a <constraint-group> whose <xs:choice> lists all valid
 	// constraint elements by ref. We collect ref values that end with "-constraint"
 	// (excluding "-constraint-default" variants).
+	// Suffix used to identify constraint element refs (excludes "-constraint-default").
+	static const std::string kConstraintSuffix = "-constraint";
+
 	static std::unordered_set<std::string> parseConstraintTypes(std::vector<uint8_t>& bytes)
 	{
 		std::unordered_set<std::string> result;
@@ -145,9 +148,9 @@ namespace hdt
 					if (localName == "element" && reader.hasAttribute("ref")) {
 						const std::string ref = reader.getAttribute("ref");
 						// Accept anything ending in "-constraint" but not "-constraint-default"
-						static const std::string kSuffix = "-constraint";
-						if (ref.size() > kSuffix.size() &&
-							ref.compare(ref.size() - kSuffix.size(), kSuffix.size(), kSuffix) == 0) {
+						if (ref.size() > kConstraintSuffix.size() &&
+							ref.compare(ref.size() - kConstraintSuffix.size(),
+								kConstraintSuffix.size(), kConstraintSuffix) == 0) {
 							result.insert(ref);
 						}
 					}
@@ -302,17 +305,17 @@ namespace hdt
 			const std::string tag = reader.GetLocalName();
 			ctx.elementStack.push_back(tag);
 
+			const PhysicsSchema& schema = getPhysicsSchema();
 			if (tag == "shared") {
 				// Read text and validate against allowed values from the schema
 				const std::string val = reader.readText();
-				const PhysicsSchema& schema = getPhysicsSchema();
 				if (schema.loaded && !schema.sharedValues.count(val)) {
 					ctx.addViolation(reader.GetRow(), reader.GetColumn(),
 						"<shared> has invalid value '" + val +
 							"' (see hdtSMP64.xsd <shared> for valid values: " +
 							joinSet(schema.sharedValues) + ")");
 				}
-			} else if (getPhysicsSchema().shapeTypes.count(tag) || tag == "per-triangle-shape" ||
+			} else if (schema.shapeTypes.count(tag) || tag == "per-triangle-shape" ||
 				tag == "per-vertex-shape") {
 				ctx.elementStack.pop_back();
 				validateShape(reader, tag, ctx);
