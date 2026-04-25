@@ -43,7 +43,7 @@ namespace hdt
 	static const std::unordered_set<std::string> kSkippedXMLStems = {
 		"configs",    // main configuration file
 		"defaultbbps",  // shape-to-XML mapping (not a physics config)
-		"hdtsmp64",   // XSD schema file
+		"hdtsmp64",   // hdtSMP64.xsd physics schema (FSMP-Validator)
 	};
 
 	// ---- Phase 1: XML discovery ----
