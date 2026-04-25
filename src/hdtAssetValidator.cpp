@@ -243,7 +243,7 @@ namespace hdt
 
 	// ---- report writing ----
 
-	static void writeReport(const AssetValidationResult& report, const std::string& reportContent,
+	static void writeReport(const std::string& reportContent,
 		const std::string& timestamp)
 	{
 		if (!g_validationConfig.reportFileEnabled) {
@@ -341,7 +341,7 @@ namespace hdt
 
 		// Write report to file
 		std::string reportContent = reportStream.str();
-		writeReport(report, reportContent, timestamp);
+		writeReport(reportContent, timestamp);
 
 		// Log summary to main log
 		if (report.hasErrors) {
