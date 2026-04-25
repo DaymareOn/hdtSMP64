@@ -40,10 +40,10 @@ namespace hdt
 	// Collect all xs:enumeration/@value from a *named* xs:simpleType.
 	// Used for hdtSMP64.xsd's top-level "shapeType" simpleType.
 	static std::unordered_set<std::string> parseNamedSimpleTypeEnumerations(
-		std::vector<uint8_t>& bytes, const std::string& typeName)
+		std::string& bytes, const std::string& typeName)
 	{
 		std::unordered_set<std::string> result;
-		XMLReader reader(bytes.data(), bytes.size());
+		XMLReader reader(reinterpret_cast<uint8_t*>(bytes.data()), bytes.size());
 
 		bool inTargetType = false;
 		int depth = 0;
@@ -81,10 +81,10 @@ namespace hdt
 	// inside a named xs:element. Used for hdtSMP64.xsd's <shared> element, which
 	// embeds its restriction inline rather than referencing a named simpleType.
 	static std::unordered_set<std::string> parseElementEnumerations(
-		std::vector<uint8_t>& bytes, const std::string& elementName)
+		std::string& bytes, const std::string& elementName)
 	{
 		std::unordered_set<std::string> result;
-		XMLReader reader(bytes.data(), bytes.size());
+		XMLReader reader(reinterpret_cast<uint8_t*>(bytes.data()), bytes.size());
 
 		bool inElement = false;
 		int depth = 0;
@@ -125,10 +125,10 @@ namespace hdt
 	// Suffix used to identify constraint element refs (excludes "-constraint-default").
 	static const std::string kConstraintSuffix = "-constraint";
 
-	static std::unordered_set<std::string> parseConstraintTypes(std::vector<uint8_t>& bytes)
+	static std::unordered_set<std::string> parseConstraintTypes(std::string& bytes)
 	{
 		std::unordered_set<std::string> result;
-		XMLReader reader(bytes.data(), bytes.size());
+		XMLReader reader(reinterpret_cast<uint8_t*>(bytes.data()), bytes.size());
 
 		bool inGroup = false;
 		int depth = 0;
