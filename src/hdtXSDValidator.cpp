@@ -3,23 +3,109 @@
 #include "NetImmerseUtils.h"
 #include "XmlReader.h"
 
+#include <mutex>
 #include <string>
 #include <unordered_set>
 #include <vector>
 
 namespace hdt
 {
-	static const std::unordered_set<std::string> kValidSharedValues = {
-		"public", "private", "internal", "external"
+	// Path to the physics XSD schema file, relative to the game working directory.
+	// This file defines the accepted xs:enumeration values for sharedType, shapeType,
+	// and constraintType — edit it without recompiling to extend or restrict validation.
+	static const char* kPhysicsXSDPath =
+		"data/skse/plugins/hdtSkinnedMeshConfigs/physics.xsd";
+
+	// Parsed schema enumerations loaded once from physics.xsd.
+	struct PhysicsSchema
+	{
+		std::unordered_set<std::string> sharedValues;
+		std::unordered_set<std::string> shapeTypes;
+		std::unordered_set<std::string> constraintTags;
+		bool loaded = false;
 	};
 
-	static const std::unordered_set<std::string> kValidShapeTypes = {
-		"box", "sphere", "capsule", "hull", "cylinder", "compound", "ref"
-	};
+	// Parse all xs:enumeration/@value strings from the xs:simpleType with the given name.
+	// Returns an empty set if the named type is not found.
+	static std::unordered_set<std::string> parseSimpleTypeEnumerations(
+		const std::vector<uint8_t>& xsdBytes, const std::string& typeName)
+	{
+		std::unordered_set<std::string> result;
+		XMLReader reader(const_cast<uint8_t*>(xsdBytes.data()), xsdBytes.size());
 
-	static const std::unordered_set<std::string> kConstraintTags = {
-		"generic-constraint", "stiffspring-constraint", "conetwist-constraint"
-	};
+		bool inTargetType = false;
+		int depth = 0;
+
+		while (reader.Inspect()) {
+			if (reader.GetInspected() == XMLReader::Inspected::StartTag) {
+				const std::string localName = reader.GetLocalName();
+
+				if (!inTargetType) {
+					if (localName == "simpleType" && reader.hasAttribute("name") &&
+						reader.getAttribute("name") == typeName) {
+						inTargetType = true;
+						depth = 0;
+					}
+				} else {
+					++depth;
+					if (localName == "enumeration" && reader.hasAttribute("value")) {
+						result.insert(reader.getAttribute("value"));
+					}
+				}
+			} else if (reader.GetInspected() == XMLReader::Inspected::EndTag) {
+				if (inTargetType) {
+					if (depth == 0) {
+						// End of the target simpleType element
+						break;
+					}
+					--depth;
+				}
+			}
+		}
+
+		return result;
+	}
+
+	static PhysicsSchema g_physicsSchema;
+	static std::once_flag g_schemaOnce;
+
+	static const PhysicsSchema& getPhysicsSchema()
+	{
+		std::call_once(g_schemaOnce, []() {
+			auto bytes = readAllFile(kPhysicsXSDPath);
+			if (bytes.empty()) {
+				bytes = readAllFile2(kPhysicsXSDPath);
+			}
+
+			if (bytes.empty()) {
+				logger::warn("[XSDValidator] Could not load physics schema from '{}'; "
+							 "shared/shape/constraint validation will be skipped.",
+					kPhysicsXSDPath);
+				return;
+			}
+
+			try {
+				g_physicsSchema.sharedValues =
+					parseSimpleTypeEnumerations(bytes, "sharedType");
+				g_physicsSchema.shapeTypes =
+					parseSimpleTypeEnumerations(bytes, "shapeType");
+				g_physicsSchema.constraintTags =
+					parseSimpleTypeEnumerations(bytes, "constraintType");
+				g_physicsSchema.loaded = true;
+
+				logger::info(
+					"[XSDValidator] Loaded physics schema: {} shared value(s), "
+					"{} shape type(s), {} constraint type(s).",
+					g_physicsSchema.sharedValues.size(), g_physicsSchema.shapeTypes.size(),
+					g_physicsSchema.constraintTags.size());
+			} catch (...) {
+				logger::warn("[XSDValidator] Failed to parse physics schema '{}'.",
+					kPhysicsXSDPath);
+			}
+		});
+
+		return g_physicsSchema;
+	}
 
 	// ---- validation context ----
 
@@ -69,12 +155,13 @@ namespace hdt
 			}
 
 			const std::string tag = reader.GetLocalName();
+			const PhysicsSchema& schema = getPhysicsSchema();
 
 			if (tag == "bone") {
 				validateBone(reader, ctx);
-			} else if (kConstraintTags.count(tag)) {
+			} else if (schema.constraintTags.count(tag)) {
 				validateConstraint(reader, tag, ctx);
-			} else if (kValidShapeTypes.count(tag) || tag == "per-triangle-shape" ||
+			} else if (schema.shapeTypes.count(tag) || tag == "per-triangle-shape" ||
 				tag == "per-vertex-shape") {
 				validateShape(reader, tag, ctx);
 			} else if (tag == "weight-threshold") {
@@ -113,14 +200,20 @@ namespace hdt
 			ctx.elementStack.push_back(tag);
 
 			if (tag == "shared") {
-				// Read text and validate against allowed values
+				// Read text and validate against allowed values from the schema
 				const std::string val = reader.readText();
-				if (!kValidSharedValues.count(val)) {
+				const PhysicsSchema& schema = getPhysicsSchema();
+				if (schema.loaded && !schema.sharedValues.count(val)) {
+					std::string expected;
+					for (const auto& v : schema.sharedValues) {
+						if (!expected.empty()) expected += ", ";
+						expected += v;
+					}
 					ctx.addViolation(reader.GetRow(), reader.GetColumn(),
 						"<shared> has invalid value '" + val +
-							"' (expected: public, private, internal, external)");
+							"' (see physics.xsd sharedType for valid values: " + expected + ")");
 				}
-			} else if (kValidShapeTypes.count(tag) || tag == "per-triangle-shape" ||
+			} else if (getPhysicsSchema().shapeTypes.count(tag) || tag == "per-triangle-shape" ||
 				tag == "per-vertex-shape") {
 				ctx.elementStack.pop_back();
 				validateShape(reader, tag, ctx);
@@ -165,11 +258,17 @@ namespace hdt
 	{
 		ctx.elementStack.push_back(tag);
 
-		if (!kValidShapeTypes.count(tag) && tag != "per-triangle-shape" &&
+		const PhysicsSchema& schema = getPhysicsSchema();
+		if (schema.loaded && !schema.shapeTypes.count(tag) && tag != "per-triangle-shape" &&
 			tag != "per-vertex-shape") {
+			std::string expected;
+			for (const auto& v : schema.shapeTypes) {
+				if (!expected.empty()) expected += ", ";
+				expected += v;
+			}
 			ctx.addViolation(reader.GetRow(), reader.GetColumn(),
 				"Unknown shape type <" + tag +
-					"> (expected: box, sphere, capsule, hull, cylinder, compound, ref)");
+					"> (see physics.xsd shapeType for valid values: " + expected + ")");
 		}
 
 		reader.skipCurrentElement();

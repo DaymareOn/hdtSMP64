@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  XSD schema for FSMP (hdtSMP64) physics XML configuration files.
+
+  This file is parsed at startup by the asset validator to determine valid
+  enumeration values for <shared>, shape types, and constraint element names.
+  Modify the xs:enumeration entries below to extend or restrict what the
+  validator accepts — no recompilation needed.
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+  <!-- ========== Enumeration types used by the validator ========== -->
+
+  <!--
+    sharedType — valid values for the <shared> element inside a <bone>.
+    Controls the visibility of the rigid body to other bodies/constraints.
+  -->
+  <xs:simpleType name="sharedType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="public"/>
+      <xs:enumeration value="private"/>
+      <xs:enumeration value="internal"/>
+      <xs:enumeration value="external"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!--
+    shapeType — valid physics-shape element names that may appear inside a <bone>.
+    Each value matches the XML tag name of the shape element.
+  -->
+  <xs:simpleType name="shapeType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="box"/>
+      <xs:enumeration value="sphere"/>
+      <xs:enumeration value="capsule"/>
+      <xs:enumeration value="hull"/>
+      <xs:enumeration value="cylinder"/>
+      <xs:enumeration value="compound"/>
+      <xs:enumeration value="ref"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!--
+    constraintType — valid constraint element names that may appear inside <system>.
+    Each value matches the XML tag name of the constraint element.
+  -->
+  <xs:simpleType name="constraintType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="generic-constraint"/>
+      <xs:enumeration value="stiffspring-constraint"/>
+      <xs:enumeration value="conetwist-constraint"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+</xs:schema>
