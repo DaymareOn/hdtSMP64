@@ -10,13 +10,14 @@
 
 namespace hdt
 {
-	// Path to the physics XSD schema file, relative to the game working directory.
-	// This file defines the accepted xs:enumeration values for sharedType, shapeType,
-	// and constraintType — edit it without recompiling to extend or restrict validation.
+	// Path to the hdtSMP64 XSD schema, relative to the game working directory.
+	// This is the same schema shipped with the FSMP-Validator tool and already
+	// present in users' data folders. The validator reads accepted enum values
+	// from it at startup so they never need to be hardcoded here.
 	static const char* kPhysicsXSDPath =
-		"data/skse/plugins/hdtSkinnedMeshConfigs/physics.xsd";
+		"data/skse/plugins/hdtSkinnedMeshConfigs/hdtSMP64.xsd";
 
-	// Parsed schema enumerations loaded once from physics.xsd.
+	// Parsed schema enumerations loaded once from hdtSMP64.xsd.
 	struct PhysicsSchema
 	{
 		std::unordered_set<std::string> sharedValues;
@@ -25,13 +26,24 @@ namespace hdt
 		bool loaded = false;
 	};
 
-	// Parse all xs:enumeration/@value strings from the xs:simpleType with the given name.
-	// Returns an empty set if the named type is not found.
-	static std::unordered_set<std::string> parseSimpleTypeEnumerations(
-		const std::vector<uint8_t>& xsdBytes, const std::string& typeName)
+	// Build a comma-separated string from a set of strings (for error messages).
+	static std::string joinSet(const std::unordered_set<std::string>& s)
+	{
+		std::string result;
+		for (const auto& v : s) {
+			if (!result.empty()) result += ", ";
+			result += v;
+		}
+		return result;
+	}
+
+	// Collect all xs:enumeration/@value from a *named* xs:simpleType.
+	// Used for hdtSMP64.xsd's top-level "shapeType" simpleType.
+	static std::unordered_set<std::string> parseNamedSimpleTypeEnumerations(
+		std::vector<uint8_t>& bytes, const std::string& typeName)
 	{
 		std::unordered_set<std::string> result;
-		XMLReader reader(const_cast<uint8_t*>(xsdBytes.data()), xsdBytes.size());
+		XMLReader reader(bytes.data(), bytes.size());
 
 		bool inTargetType = false;
 		int depth = 0;
@@ -55,7 +67,94 @@ namespace hdt
 			} else if (reader.GetInspected() == XMLReader::Inspected::EndTag) {
 				if (inTargetType) {
 					if (depth == 0) {
-						// End of the target simpleType element
+						break;
+					}
+					--depth;
+				}
+			}
+		}
+
+		return result;
+	}
+
+	// Collect all xs:enumeration/@value from the *anonymous* simpleType nested
+	// inside a named xs:element. Used for hdtSMP64.xsd's <shared> element, which
+	// embeds its restriction inline rather than referencing a named simpleType.
+	static std::unordered_set<std::string> parseElementEnumerations(
+		std::vector<uint8_t>& bytes, const std::string& elementName)
+	{
+		std::unordered_set<std::string> result;
+		XMLReader reader(bytes.data(), bytes.size());
+
+		bool inElement = false;
+		int depth = 0;
+
+		while (reader.Inspect()) {
+			if (reader.GetInspected() == XMLReader::Inspected::StartTag) {
+				const std::string localName = reader.GetLocalName();
+
+				if (!inElement) {
+					if (localName == "element" && reader.hasAttribute("name") &&
+						reader.getAttribute("name") == elementName) {
+						inElement = true;
+						depth = 0;
+					}
+				} else {
+					++depth;
+					if (localName == "enumeration" && reader.hasAttribute("value")) {
+						result.insert(reader.getAttribute("value"));
+					}
+				}
+			} else if (reader.GetInspected() == XMLReader::Inspected::EndTag) {
+				if (inElement) {
+					if (depth == 0) {
+						break;
+					}
+					--depth;
+				}
+			}
+		}
+
+		return result;
+	}
+
+	// Collect constraint element names from the xs:element named "constraint-group".
+	// hdtSMP64.xsd defines a <constraint-group> whose <xs:choice> lists all valid
+	// constraint elements by ref. We collect ref values that end with "-constraint"
+	// (excluding "-constraint-default" variants).
+	static std::unordered_set<std::string> parseConstraintTypes(std::vector<uint8_t>& bytes)
+	{
+		std::unordered_set<std::string> result;
+		XMLReader reader(bytes.data(), bytes.size());
+
+		bool inGroup = false;
+		int depth = 0;
+
+		while (reader.Inspect()) {
+			if (reader.GetInspected() == XMLReader::Inspected::StartTag) {
+				const std::string localName = reader.GetLocalName();
+
+				if (!inGroup) {
+					if (localName == "element" && reader.hasAttribute("name") &&
+						reader.getAttribute("name") == "constraint-group") {
+						inGroup = true;
+						depth = 0;
+					}
+				} else {
+					++depth;
+					if (localName == "element" && reader.hasAttribute("ref")) {
+						const std::string ref = reader.getAttribute("ref");
+						// Accept anything ending in "-constraint" but not "-constraint-default"
+						static const std::string kSuffix = "-constraint";
+						if (ref.size() > kSuffix.size() &&
+							ref.compare(ref.size() - kSuffix.size(), kSuffix.size(), kSuffix) == 0) {
+							result.insert(ref);
+						}
+					}
+				}
+			} else if (reader.GetInspected() == XMLReader::Inspected::EndTag) {
+				if (inGroup) {
+					if (depth == 0) {
 						break;
 					}
 					--depth;
@@ -85,12 +184,13 @@ namespace hdt
 			}
 
 			try {
-				g_physicsSchema.sharedValues =
-					parseSimpleTypeEnumerations(bytes, "sharedType");
+				// shapeType — named simpleType in hdtSMP64.xsd
 				g_physicsSchema.shapeTypes =
-					parseSimpleTypeEnumerations(bytes, "shapeType");
-				g_physicsSchema.constraintTags =
-					parseSimpleTypeEnumerations(bytes, "constraintType");
+					parseNamedSimpleTypeEnumerations(bytes, "shapeType");
+				// shared values — anonymous simpleType inside <element name="shared">
+				g_physicsSchema.sharedValues = parseElementEnumerations(bytes, "shared");
+				// constraint element names — refs inside <element name="constraint-group">
+				g_physicsSchema.constraintTags = parseConstraintTypes(bytes);
 				g_physicsSchema.loaded = true;
 
 				logger::info(
@@ -98,6 +198,9 @@ namespace hdt
 					"{} shape type(s), {} constraint type(s).",
 					g_physicsSchema.sharedValues.size(), g_physicsSchema.shapeTypes.size(),
 					g_physicsSchema.constraintTags.size());
+			} catch (const std::exception& e) {
+				logger::warn("[XSDValidator] Failed to parse physics schema '{}': {}",
+					kPhysicsXSDPath, e.what());
 			} catch (...) {
 				logger::warn("[XSDValidator] Failed to parse physics schema '{}'.",
 					kPhysicsXSDPath);
@@ -204,14 +307,10 @@ namespace hdt
 				const std::string val = reader.readText();
 				const PhysicsSchema& schema = getPhysicsSchema();
 				if (schema.loaded && !schema.sharedValues.count(val)) {
-					std::string expected;
-					for (const auto& v : schema.sharedValues) {
-						if (!expected.empty()) expected += ", ";
-						expected += v;
-					}
 					ctx.addViolation(reader.GetRow(), reader.GetColumn(),
 						"<shared> has invalid value '" + val +
-							"' (see physics.xsd sharedType for valid values: " + expected + ")");
+							"' (see hdtSMP64.xsd <shared> for valid values: " +
+							joinSet(schema.sharedValues) + ")");
 				}
 			} else if (getPhysicsSchema().shapeTypes.count(tag) || tag == "per-triangle-shape" ||
 				tag == "per-vertex-shape") {
@@ -261,14 +360,10 @@ namespace hdt
 		const PhysicsSchema& schema = getPhysicsSchema();
 		if (schema.loaded && !schema.shapeTypes.count(tag) && tag != "per-triangle-shape" &&
 			tag != "per-vertex-shape") {
-			std::string expected;
-			for (const auto& v : schema.shapeTypes) {
-				if (!expected.empty()) expected += ", ";
-				expected += v;
-			}
 			ctx.addViolation(reader.GetRow(), reader.GetColumn(),
 				"Unknown shape type <" + tag +
-					"> (see physics.xsd shapeType for valid values: " + expected + ")");
+					"> (see hdtSMP64.xsd shapeType for valid values: " +
+					joinSet(schema.shapeTypes) + ")");
 		}
 
 		reader.skipCurrentElement();
