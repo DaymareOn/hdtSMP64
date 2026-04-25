@@ -31,7 +31,8 @@ namespace hdt
 	{
 		std::string result;
 		for (const auto& v : s) {
-			if (!result.empty()) result += ", ";
+			if (!result.empty())
+				result += ", ";
 			result += v;
 		}
 		return result;
@@ -180,8 +181,9 @@ namespace hdt
 			}
 
 			if (bytes.empty()) {
-				logger::warn("[XSDValidator] Could not load physics schema from '{}'; "
-							 "shared/shape/constraint validation will be skipped.",
+				logger::warn(
+					"[XSDValidator] Could not load physics schema from '{}'; "
+					"shared/shape/constraint validation will be skipped.",
 					kPhysicsXSDPath);
 				return;
 			}
@@ -268,7 +270,7 @@ namespace hdt
 			} else if (schema.constraintTags.count(tag)) {
 				validateConstraint(reader, tag, ctx);
 			} else if (schema.shapeTypes.count(tag) || tag == "per-triangle-shape" ||
-				tag == "per-vertex-shape") {
+					   tag == "per-vertex-shape") {
 				validateShape(reader, tag, ctx);
 			} else if (tag == "weight-threshold") {
 				validateWeightThreshold(reader, ctx);
@@ -316,7 +318,7 @@ namespace hdt
 							joinSet(schema.sharedValues) + ")");
 				}
 			} else if (schema.shapeTypes.count(tag) || tag == "per-triangle-shape" ||
-				tag == "per-vertex-shape") {
+					   tag == "per-vertex-shape") {
 				ctx.elementStack.pop_back();
 				validateShape(reader, tag, ctx);
 				continue;  // validateShape manages its own stack entry
@@ -459,4 +461,3 @@ namespace hdt
 	}
 
 }  // namespace hdt
-
