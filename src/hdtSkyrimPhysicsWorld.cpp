@@ -300,12 +300,6 @@ namespace hdt
 		}
 	}
 
-	void SkyrimPhysicsWorld::resetTransformsToOriginal()
-	{
-		std::lock_guard<decltype(m_lock)> l(m_lock);
-		SkinnedMeshWorld::resetTransformsToOriginal();
-	}
-
 	void SkyrimPhysicsWorld::resetSystems()
 	{
 		std::lock_guard<decltype(m_lock)> l(m_lock);

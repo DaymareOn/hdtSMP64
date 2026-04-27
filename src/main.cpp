@@ -295,7 +295,6 @@ bool SMPDebug_Execute(
 		hdt::loadConfig();
 		hdt::logConfig();
 
-		hdt::SkyrimPhysicsWorld::get()->resetTransformsToOriginal();
 		const RE::MenuOpenCloseEvent e{ "", false };
 		hdt::ActorManager::instance()->ProcessEvent(&e, nullptr);
 		hdt::SkyrimPhysicsWorld::get()->resetSystems();

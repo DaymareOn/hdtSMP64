@@ -28,7 +28,6 @@ namespace hdt
 		void removeSystemByNode(void* root);
 		using SkinnedMeshWorld::updateConstraintsForBone;
 
-		void resetTransformsToOriginal();
 		void resetSystems();
 
 		RE::BSEventNotifyControl ProcessEvent(const Events::FrameEvent* e, RE::BSTEventSource<Events::FrameEvent>*) override;

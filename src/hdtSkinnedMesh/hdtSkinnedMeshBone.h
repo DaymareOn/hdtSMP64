@@ -26,13 +26,10 @@ namespace hdt
 		btTransform m_localToRig;
 		btTransform m_rigToLocal;
 		btQsTransform m_currentTransform;
-		btQsTransform m_origTransform;
-		btQsTransform m_origToSkeletonTransform;
 
 		std::vector<RE::BSFixedString> m_canCollideWithBone;
 		std::vector<RE::BSFixedString> m_noCollideWithBone;
 
-		virtual void resetTransformToOriginal() = 0;
 		virtual void readTransform(float timeStep) = 0;
 		virtual void writeTransform() = 0;
 
