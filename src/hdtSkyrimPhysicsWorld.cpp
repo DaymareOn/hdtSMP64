@@ -4,83 +4,8 @@
 
 #ifdef BT_ENABLE_PROFILE
 #	pragma message("BT_ENABLE_PROFILE is enabled.")
+#	include "hdtPhysicsProfiler.h"
 #	include <LinearMath/btQuickprof.h>
-
-namespace
-{
-	struct ProfileChild
-	{
-		int index{};
-		std::string name;
-		float ms{};
-		int calls{};
-	};
-
-	void logProfileRow(const std::string& scope, float ms, int frames, float parentMs, int calls)
-	{
-		const auto pct = parentMs > FLT_EPSILON ? (ms / parentMs) * 100.0f : 0.0f;
-		const auto msPerFrame = ms / static_cast<float>(frames);
-		if (calls >= 0) {
-			const auto msPerCall = calls > 0 ? ms / static_cast<float>(calls) : 0.0f;
-			logger::info("{:<70} {:>10.3f} ms {:>10.3f} ms/frame {:>10.3f} ms/call {:>8.2f}% {:>8}", scope, ms, msPerFrame, msPerCall, pct, calls);
-		} else {
-			logger::info("{:<70} {:>10.3f} ms {:>10.3f} ms/frame {:>17} {:>8.2f}% {:>8}", scope, ms, msPerFrame, "-", pct, "-");
-		}
-	}
-
-	void dumpRecursive(CProfileIterator* it, const std::string& prefix, int frames)
-	{
-		it->First();
-		if (it->Is_Done()) {
-			return;
-		}
-
-		const auto parentMs = it->Is_Root() ? CProfileManager::Get_Time_Since_Reset() : it->Get_Current_Parent_Total_Time();
-		float accountedMs = 0.0f;
-		std::vector<ProfileChild> children;
-
-		for (int i = 0; !it->Is_Done(); ++i, it->Next()) {
-			children.emplace_back(i, it->Get_Current_Name(), it->Get_Current_Total_Time(), it->Get_Current_Total_Calls());
-			accountedMs += children.back().ms;
-		}
-
-		std::ranges::sort(children, [](const auto& a, const auto& b) { return a.ms > b.ms; });
-
-		for (const auto& child : children) {
-			logProfileRow(prefix + "|-- " + child.name, child.ms, frames, parentMs, child.calls);
-			it->Enter_Child(child.index);
-			dumpRecursive(it, prefix + "|   ", frames);
-			it->Enter_Parent();
-		}
-
-		logProfileRow(prefix + "`-- [self / unaccounted]", parentMs - accountedMs, frames, parentMs, -1);
-	}
-
-	void dumpBulletProfile()
-	{
-		auto* it = CProfileManager::Get_Iterator();
-		if (!it) {
-			logger::error("CProfileManager::Get_Iterator() returned NULL!");
-			return;
-		}
-
-		it->First();
-		if (it->Is_Done()) {
-			CProfileManager::Release_Iterator(it);
-			return;
-		}
-
-		const auto frames = std::max(1, CProfileManager::Get_Frame_Count_Since_Reset());
-		const auto totalMs = CProfileManager::Get_Time_Since_Reset();
-
-		logger::info("{:<70} {:>14} {:>18} {:>18} {:>9} {:>8}", "Scope", "Total", "Avg/frame", "Avg/call", "Parent%", "Calls");
-		logger::info("{:-<142}", "");
-		logProfileRow(it->Get_Current_Parent_Name(), totalMs, frames, totalMs, -1);
-		dumpRecursive(it, "", frames);
-
-		CProfileManager::Release_Iterator(it);
-	}
-}
 #endif
 
 namespace hdt
@@ -90,8 +15,8 @@ namespace hdt
 	SkyrimPhysicsWorld::SkyrimPhysicsWorld(void)
 	{
 #ifdef BT_ENABLE_PROFILE
-		btSetCustomEnterProfileZoneFunc(&CProfileManager::Start_Profile);
-		btSetCustomLeaveProfileZoneFunc(&CProfileManager::Stop_Profile);
+		physicsprofiler::install();
+		physicsprofiler::setProfileHistory(240);
 #endif
 
 		gDisableDeactivation = true;
@@ -212,8 +137,6 @@ namespace hdt
 		if (m_suspended)
 			return;
 
-		BT_PROFILE("HDTSMP_doUpdate2ndStep");
-
 		std::lock_guard<decltype(m_lock)> l(m_lock);
 
 		_MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
@@ -227,12 +150,15 @@ namespace hdt
 
 		g_pluginInterface.onPreStep({ getCollisionObjectArray(), remainingTimeStep });
 
-		updateActiveState();
-		auto offset = applyTranslationOffset();
-		stepSimulation(remainingTimeStep, 0, tick);
-		restoreTranslationOffset(offset);
-		m_accumulatedInterval = 0;
-		m_pendingTransformUpdate = true;
+		{
+			BT_PROFILE("HDTSMP_doUpdate2ndStep");
+			updateActiveState();
+			auto offset = applyTranslationOffset();
+			stepSimulation(remainingTimeStep, 0, tick);
+			restoreTranslationOffset(offset);
+			m_accumulatedInterval = 0;
+			m_pendingTransformUpdate = true;
+		}
 
 		g_pluginInterface.onPostStep({ getCollisionObjectArray(), remainingTimeStep });
 
@@ -246,12 +172,8 @@ namespace hdt
 		}
 
 #ifdef BT_ENABLE_PROFILE
-		static int profilerFrameCount = 0;
-		if (++profilerFrameCount % 240 == 0) {
-			dumpBulletProfile();
-			CProfileManager::Reset();
-		}
-		CProfileManager::Increment_Frame_Counter();
+		physicsprofiler::endFrame();
+		physicsprofiler::dumpEvery(240);
 #endif
 	}
 
