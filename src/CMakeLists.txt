@@ -141,10 +141,13 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
 				"/bigobj" # Increase Number of Sections in .obj file
 				"/WX" # Warnings as errors
 				"$<$<CONFIG:DEBUG>:>"
-				"$<$<CONFIG:RELEASE>:/Zc:inline;/JMC-;/Ob3>")
+				"$<$<OR:$<CONFIG:RELEASE>,$<CONFIG:PROFILE>>:/Zc:inline;/JMC-;/Ob3>")
 
-	target_link_options("${PROJECT_NAME}" PRIVATE "$<$<CONFIG:DEBUG>:/INCREMENTAL;/OPT:NOREF;/OPT:NOICF>"
-						"$<$<CONFIG:RELEASE>:/INCREMENTAL:NO;/OPT:REF;/OPT:ICF;/DEBUG:FULL>")
+	target_link_options(
+		"${PROJECT_NAME}"
+		PRIVATE
+		"$<$<CONFIG:DEBUG>:/INCREMENTAL;/OPT:NOREF;/OPT:NOICF>"
+		"$<$<OR:$<CONFIG:RELEASE>,$<CONFIG:PROFILE>>:/INCREMENTAL:NO;/OPT:REF;/OPT:ICF;/DEBUG:FULL>")
 endif()
 
 target_include_directories("${PROJECT_NAME}" PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/src" "${SOURCE_DIR}"
