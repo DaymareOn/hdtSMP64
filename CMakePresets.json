@@ -208,6 +208,12 @@
       "displayName": "Release",
       "configurePreset": "vs2022-windows-avx2",
       "configuration": "Release"
+    },
+    {
+      "name": "avx2-profile",
+      "displayName": "Profile",
+      "configurePreset": "vs2022-windows-avx2",
+      "configuration": "Profile"
     }
   ],
   "version": 3
