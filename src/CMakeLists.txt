@@ -131,6 +131,10 @@ add_library("${PROJECT_NAME}" SHARED ${SOURCE_FILES} "${VERSION_HEADER}" "${CMAK
 target_compile_features("${PROJECT_NAME}" PRIVATE cxx_std_20)
 
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+	# Remove /Ob2 that CMake injects by default for Release so /Ob3 below doesn't produce a D9025 warning.
+	string(REPLACE "/Ob2" "" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
+	string(STRIP "${CMAKE_CXX_FLAGS_RELEASE}" CMAKE_CXX_FLAGS_RELEASE)
+
 	target_compile_options(
 		"${PROJECT_NAME}"
 		PRIVATE "/sdl" # Enable Additional Security Checks

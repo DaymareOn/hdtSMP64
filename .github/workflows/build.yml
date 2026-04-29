@@ -140,12 +140,12 @@ jobs:
 
     steps:
       - name: Checkout the repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive # This handles the 'git submodule update --init --recursive' automatically
 
       - name: Restore vcpkg dependencies and binary cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             out/build/${{ matrix.preset }}/vcpkg_installed
@@ -211,7 +211,7 @@ jobs:
           }
 
       - name: Upload the build folder
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: raw-${{ matrix.preset }}
           path: out/build/${{ matrix.preset }}/plugins/
@@ -222,7 +222,7 @@ jobs:
 
     steps:
       - name: Checkout the code to get the "fomod tree" folder
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -231,7 +231,7 @@ jobs:
           sed -i "s|<Version>.*</Version>|<Version>${{ needs.prepare.outputs.tag_version }}</Version>|g" "fomod tree/fomod/info.xml"
 
       - name: Download Artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: tmp_artifacts
 
@@ -295,7 +295,7 @@ jobs:
           7z l FSMP-${{ needs.prepare.outputs.tag_version }}.zip
 
       - name: Upload final package as artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: FSMP-${{ needs.prepare.outputs.tag_version }}
           path: FSMP-${{ needs.prepare.outputs.tag_version }}.zip
@@ -313,12 +313,12 @@ jobs:
 
     steps:
       - name: Download the packaged zip
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: FSMP-${{ needs.prepare.outputs.tag_version }}
 
       - name: Create GitHub Release and Git Tag
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           # vX.Y.Z for master, vX.Y.Z-{branch}-{short_sha} for non-master branches
           tag_name: v${{ needs.prepare.outputs.tag_version }}
@@ -343,12 +343,12 @@ jobs:
 
     steps:
       - name: Download the packaged zip
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: FSMP-${{ needs.prepare.outputs.tag_version }}
 
       - name: Upload to Nexus Mods
-        uses: Nexus-Mods/upload-action@v1.0.0-beta.4
+        uses: Nexus-Mods/upload-action@v1.0.0-beta.5
         with:
           api_key: ${{ secrets.NEXUSMODS_API_KEY }}
           file_group_id: ${{ secrets.NEXUSMODS_FILE_GROUP_ID }}
