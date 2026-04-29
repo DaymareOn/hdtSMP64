@@ -1,0 +1,36 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 22,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "local-dev",
+      "displayName": "Local development (no game directory required)",
+      "description": "Copy this file to CMakeUserPresets.json and adjust as needed. Disables copying the built DLL to the game directory so CompiledPluginsPath is not required.",
+      "inherits": ["vs2022-windows-avx2"],
+      "cacheVariables": {
+        "COPY_OUTPUT": {
+          "type": "BOOL",
+          "value": "OFF"
+        }
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "local-dev-release",
+      "displayName": "Local Release",
+      "configurePreset": "local-dev",
+      "configuration": "Release"
+    },
+    {
+      "name": "local-dev-debug",
+      "displayName": "Local Debug",
+      "configurePreset": "local-dev",
+      "configuration": "Debug"
+    }
+  ]
+}
