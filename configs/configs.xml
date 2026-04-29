@@ -276,8 +276,9 @@
     <enabled>true</enabled>
 
     <!--
-      strict-mode: (boolean) if true, treat validation errors as fatal and return
-      false from SKSEPlugin_Load. The game will still run; this is for diagnostics only.
+      strict-mode: (boolean) if true, treat validation errors as fatal: validation
+      will return false, which is logged as a warning. The game will still run;
+      this is for diagnostics only.
       If no value is set, default is false.
     -->
     <strict-mode>false</strict-mode>

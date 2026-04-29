@@ -24,7 +24,11 @@ namespace hdt
 	{
 		auto t = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
 		std::tm tmBuf{};
+#ifdef _WIN32
 		localtime_s(&tmBuf, &t);
+#else
+		localtime_r(&t, &tmBuf);
+#endif
 		std::ostringstream ss;
 		ss << std::put_time(&tmBuf, "%Y%m%d_%H%M%S");
 		return ss.str();
