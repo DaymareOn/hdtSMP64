@@ -85,7 +85,13 @@ set(SOURCE_FILES
 	"${SOURCE_DIR}/NetImmerseUtils.h"
 	"${SOURCE_DIR}/main.h"
 	"${SOURCE_DIR}/main.cpp"
-	"${SOURCE_DIR}/PCH.h")
+	"${SOURCE_DIR}/PCH.h"
+	"${SOURCE_DIR}/hdtAssetValidator.cpp"
+	"${SOURCE_DIR}/hdtAssetValidator.h"
+	"${SOURCE_DIR}/hdtXSDValidator.cpp"
+	"${SOURCE_DIR}/hdtXSDValidator.h"
+	"${SOURCE_DIR}/hdtNIFValidator.cpp"
+	"${SOURCE_DIR}/hdtNIFValidator.h")
 source_group(TREE "${ROOT_DIR}" FILES ${SOURCE_FILES})
 
 set(VERSION_HEADER "${CMAKE_CURRENT_BINARY_DIR}/src/Plugin.h")

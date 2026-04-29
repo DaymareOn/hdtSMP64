@@ -6,6 +6,7 @@
 #include "config.h"
 #include "dhdtOverrideManager.h"
 #include "dhdtPapyrusFunctions.h"
+#include "hdtAssetValidator.h"
 #include "hdtSkyrimPhysicsWorld.h"
 
 void checkOldPlugins()
@@ -449,6 +450,14 @@ void MessageHandler(SKSE::MessagingInterface::Message* a_msg)
 		{
 			hdt::g_pluginInterface.onPostPostLoad();
 			checkOldPlugins();
+		}
+		break;
+	case SKSE::MessagingInterface::kDataLoaded:
+		{
+			if (!hdt::ValidateAllPhysicsAssets()) {
+				logger::warn("Validation issues detected. See hdtSMP64_validation_*.log for details");
+				// Non-blocking: continue loading even when issues are found
+			}
 		}
 		break;
 	}
