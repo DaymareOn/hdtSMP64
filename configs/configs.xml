@@ -178,6 +178,38 @@
     -->
     <disable1stPersonViewPhysics>false</disable1stPersonViewPhysics>
 
+    <!-- ##################### SCENEGRAPH AUDIT ########################### -->
+
+    <!--
+      auditScenegraph: (boolean) enables first-version in-mod auditing of
+      scenegraph mutations on FSMP-managed nodes.
+
+      When enabled, FSMP installs a hook on NiNode::DetachChild and logs an
+      entry to the FSMP log file whenever any code (including FSMP itself or
+      a third-party DLL) calls DetachChild on a node whose name starts with
+      one of FSMP's auto-rename prefixes:
+        hdtSSEPhysics_AutoRename_Armor_
+        hdtSSEPhysics_AutoRename_Head_
+
+      Each log line is tagged [FSMP-Audit] and contains:
+        - the operation (DetachChild)
+        - the node name and pointer address
+        - the parent node pointer address
+        - the caller's module filename and offset (e.g. SomeMod.dll+0x1A2B3)
+
+      Grep the FSMP log for "[FSMP-Audit]" to see all audit events.
+      Any entry whose caller is NOT hdtSkinnedMeshPhysics.dll is suspicious
+      and identifies a third-party mod that is mutating the scenegraph.
+
+      WARNING: This feature has a small per-call overhead while enabled.
+      Disable it (set to false) during normal gameplay; only enable it when
+      diagnosing skeleton/physics corruption issues.
+
+      When false (default) the hook is never installed, so there is zero
+      runtime overhead.
+    -->
+    <auditScenegraph>false</auditScenegraph>
+
     <!-- ##################### CUDA ####################################### -->
 
     <!--

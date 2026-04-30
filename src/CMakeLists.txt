@@ -85,6 +85,8 @@ set(SOURCE_FILES
 	"${SOURCE_DIR}/XmlReader.h"
 	"${SOURCE_DIR}/XmlReader.cpp"
 	"${SOURCE_DIR}/NetImmerseUtils.h"
+	"${SOURCE_DIR}/NodeHookAudit.cpp"
+	"${SOURCE_DIR}/NodeHookAudit.h"
 	"${SOURCE_DIR}/main.h"
 	"${SOURCE_DIR}/main.cpp"
 	"${SOURCE_DIR}/PCH.h")
