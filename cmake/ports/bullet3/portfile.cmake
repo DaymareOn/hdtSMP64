@@ -141,6 +141,14 @@ string(COMPARE EQUAL "${VCPKG_CRT_LINKAGE}" "dynamic" USE_MSVC_RUNTIME_LIBRARY_D
 string(APPEND VCPKG_CXX_FLAGS " /DBT_USE_SSE_IN_API")
 string(APPEND VCPKG_C_FLAGS " /DBT_USE_SSE_IN_API")
 
+# This builds with profiling permanently enabled - however since we gate the stubs in hdtSkyrimPhysicsWorld.cpp it has
+# virtually no performance impact. The profile function would just be empty The only thing /DBT_ENABLE_PROFILE does is
+# compile the CProfileManager classes into the .lib
+if("profile" IN_LIST FEATURES)
+	string(APPEND VCPKG_CXX_FLAGS " /DBT_ENABLE_PROFILE")
+	string(APPEND VCPKG_C_FLAGS " /DBT_ENABLE_PROFILE")
+endif()
+
 vcpkg_cmake_configure(
 	SOURCE_PATH
 	"${SOURCE_PATH}"

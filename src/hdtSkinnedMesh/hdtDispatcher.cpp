@@ -66,6 +66,8 @@ namespace hdt
 	// Collision phases are: Bullet's broadphase, our BVH midphase, then finally our narrowphase
 	void CollisionDispatcher::dispatchAllCollisionPairs(btOverlappingPairCache* pairCache, [[maybe_unused]] const btDispatcherInfo& dispatchInfo, [[maybe_unused]] btDispatcher* dispatcher)
 	{
+		BT_PROFILE("HDTSMP_dispatchAllCollisionPairs");
+
 		auto size = pairCache->getNumOverlappingPairs();
 		if (!size)
 			return;
@@ -135,10 +137,14 @@ namespace hdt
 			});
 		}
 
-		tbb::parallel_for_each(m_pairs.begin(), m_pairs.end(), [&, this](const std::pair<SkinnedMeshBody*, SkinnedMeshBody*>& i) {
-			if (i.first->m_shape->m_tree.collapseCollideL(&i.second->m_shape->m_tree))
-				SkinnedMeshAlgorithm::processCollision(i.first, i.second, this);
-		});
+		{
+			BT_PROFILE("HDTSMP_processCollision");
+
+			tbb::parallel_for_each(m_pairs.begin(), m_pairs.end(), [&, this](const std::pair<SkinnedMeshBody*, SkinnedMeshBody*>& i) {
+				if (i.first->m_shape->m_tree.collapseCollideL(&i.second->m_shape->m_tree))
+					SkinnedMeshAlgorithm::processCollision(i.first, i.second, this);
+			});
+		}
 
 		m_pairs.clear();
 	}

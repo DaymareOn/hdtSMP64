@@ -2,12 +2,23 @@
 #include "PluginInterfaceImpl.h"
 #include "WeatherManager.h"
 
+#ifdef BT_ENABLE_PROFILE
+#	pragma message("BT_ENABLE_PROFILE is enabled.")
+#	include "hdtPhysicsProfiler.h"
+#	include <LinearMath/btQuickprof.h>
+#endif
+
 namespace hdt
 {
 	static const float* timeStamp = (float*)0x12E355C;
 
 	SkyrimPhysicsWorld::SkyrimPhysicsWorld(void)
 	{
+#ifdef BT_ENABLE_PROFILE
+		physicsprofiler::install();
+		physicsprofiler::setProfileHistory(240);
+#endif
+
 		gDisableDeactivation = true;
 		setGravity(btVector3(0, 0, -9.8f * scaleSkyrim));
 
@@ -139,12 +150,15 @@ namespace hdt
 
 		g_pluginInterface.onPreStep({ getCollisionObjectArray(), remainingTimeStep });
 
-		updateActiveState();
-		auto offset = applyTranslationOffset();
-		stepSimulation(remainingTimeStep, 0, tick);
-		restoreTranslationOffset(offset);
-		m_accumulatedInterval = 0;
-		m_pendingTransformUpdate = true;
+		{
+			BT_PROFILE("HDTSMP_doUpdate2ndStep");
+			updateActiveState();
+			auto offset = applyTranslationOffset();
+			stepSimulation(remainingTimeStep, 0, tick);
+			restoreTranslationOffset(offset);
+			m_accumulatedInterval = 0;
+			m_pendingTransformUpdate = true;
+		}
 
 		g_pluginInterface.onPostStep({ getCollisionObjectArray(), remainingTimeStep });
 
@@ -156,6 +170,11 @@ namespace hdt
 			float lastProcessingTime = (endTime - startTime) / static_cast<float>(ticks.QuadPart) * 1e3f;
 			m_2ndStepAverageProcessingTime = (m_2ndStepAverageProcessingTime + lastProcessingTime) * 0.5f;
 		}
+
+#ifdef BT_ENABLE_PROFILE
+		physicsprofiler::endFrame();
+		physicsprofiler::dumpEvery(240);
+#endif
 	}
 
 	std::unique_lock<std::mutex> SkyrimPhysicsWorld::lockSimulation()

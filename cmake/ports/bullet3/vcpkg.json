@@ -33,6 +33,9 @@
       "description": "Build Bullet3OpenCL_clew library",
       "supports": "!uwp"
     },
+    "profile": {
+      "description": "Compile Bullet with BT_ENABLE_PROFILE so CProfileNode/CProfileManager symbols are available to consumers"
+    },
     "rtti": {
       "description": "Enable RTTI on windows"
     }
