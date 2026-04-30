@@ -344,6 +344,17 @@ bool SMPDebug_Execute(
 		return true;
 	}
 
+	if (_strnicmp(buffer, "report", MAX_PATH) == 0) {
+		RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Running validation, please wait...");
+		bool ok = hdt::ValidateAllPhysicsAssets();
+		if (ok) {
+			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Validation complete: no errors found. See log for details.");
+		} else {
+			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Validation complete: issues found. See hdtSMP64_validation_*.log for details.");
+		}
+		return true;
+	}
+
 	auto skeletons = hdt::ActorManager::instance()->getSkeletons();
 
 	size_t activeSkeletons = 0;
@@ -568,7 +579,7 @@ extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* a_s
 
 		unusedCommand->functionName = "SMPDebug";
 		unusedCommand->shortName = "smp";
-		unusedCommand->helpString = "smp <reset>";
+		unusedCommand->helpString = "smp <reset|report>";
 		unusedCommand->referenceFunction = 0;
 		unusedCommand->numParams = 1;
 		unusedCommand->params = params;
