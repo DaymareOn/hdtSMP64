@@ -14,8 +14,7 @@ namespace hdt
 			case XMLReader::Inspected::StartTag:
 				if (reader.GetLocalName() == "numIterations") {
 					SkyrimPhysicsWorld::get()->getSolverInfo().m_numIterations = btClamped(reader.readInt(), 4, 128);
-				}
-				else if (reader.GetLocalName() == "erp") {
+				} else if (reader.GetLocalName() == "erp") {
 					SkyrimPhysicsWorld::get()->getSolverInfo().m_erp = btClamped(reader.readFloat(), 0.01f, 1.0f);
 				} else if (reader.GetLocalName() == "min-fps") {
 					SkyrimPhysicsWorld::get()->min_fps = (btClamped(reader.readInt(), 1, 300));
