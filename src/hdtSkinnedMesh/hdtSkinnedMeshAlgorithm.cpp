@@ -271,7 +271,7 @@ namespace hdt
 
 			// The collision is just too complex to solve. We must quit before we explode the user's computer
 			// If this DOES solve, it seems to only cause the collision to become significantly more tangles up
-			if (pairs.size() >= MaxCollisionPairs) {
+			if (pairs.size() > MaxCollisionPairs) {
 				return 0;
 			}
 
