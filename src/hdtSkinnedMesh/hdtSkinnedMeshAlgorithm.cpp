@@ -219,7 +219,7 @@ namespace hdt
 			CollisionChecker<T, SwapResults>(std::forward<Ts>(ts)...)
 		{}
 
-		// We intentionally don't use a 'Dynamic 1D Sweep and Prune Algorithm' here. 
+		// We intentionally don't use a 'Dynamic 1D Sweep and Prune Algorithm' here.
 		// O(N*M) is nearly always faster or within a margin of error. Not worth the extra boilerplate code
 		void dispatch(ColliderTree* a, ColliderTree* b, std::vector<Aabb*>& listA, std::vector<Aabb*>& listB, const Aabb& refinedBForPruningA)
 		{
