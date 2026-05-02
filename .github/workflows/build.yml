@@ -4,7 +4,7 @@ on:
     branches:
       - master
       - dev
-      - copilot/fix-dll-loading-error
+      - "**/build"
     paths:
       - "**.cpp"
       - "**.h"
@@ -25,7 +25,7 @@ on:
     branches:
       - master
       - dev
-      - copilot/fix-dll-loading-error
+      - "**/build"
     paths:
       - "**.cpp"
       - "**.h"
