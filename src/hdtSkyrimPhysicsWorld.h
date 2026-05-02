@@ -22,6 +22,7 @@ namespace hdt
 		void doUpdate(float delta);
 		void doUpdate2ndStep(float delta, const float tick, const float remainingTimeStep);
 		void updateActiveState();
+		void setProfilerCapture(bool a_enabled, std::uint64_t a_sampleFrames = 240, std::uint64_t a_printFrames = 240);
 
 		void addSkinnedMeshSystem(SkinnedMeshSystem* system) override;
 		void removeSkinnedMeshSystem(SkinnedMeshSystem* system) override;
