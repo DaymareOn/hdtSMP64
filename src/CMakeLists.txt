@@ -81,6 +81,8 @@ set(SOURCE_FILES
 	"${SOURCE_DIR}/hdtAssetValidator.h"
 	"${SOURCE_DIR}/hdtXSDValidator.cpp"
 	"${SOURCE_DIR}/hdtXSDValidator.h"
+	"${SOURCE_DIR}/hdtSCHValidator.cpp"
+	"${SOURCE_DIR}/hdtSCHValidator.h"
 	"${SOURCE_DIR}/hdtNIFValidator.cpp"
 	"${SOURCE_DIR}/hdtNIFValidator.h"
 	"${SOURCE_DIR}/XmlInspector/CharactersReader.hpp"
@@ -197,6 +199,7 @@ find_package(Bullet CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
 find_package(xbyak REQUIRED CONFIG)
 find_package(TBB CONFIG REQUIRED)
+find_package(pugixml CONFIG REQUIRED)
 
 include_directories(${BULLET_INCLUDE_DIRS})
 
@@ -210,7 +213,8 @@ target_link_libraries(
 			debug
 			${DETOURS_LIBRARY_DEBUG}
 			${BULLET_LIBRARIES}
-			TBB::tbb)
+			TBB::tbb
+			pugixml::pugixml)
 
 target_precompile_headers("${PROJECT_NAME}" PRIVATE "${SOURCE_DIR}/PCH.h")
 
