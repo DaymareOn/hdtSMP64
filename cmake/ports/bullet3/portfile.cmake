@@ -101,6 +101,44 @@ string(
 			THREADS_CPP "${THREADS_CPP}")
 file(WRITE "${SOURCE_PATH}/src/LinearMath/btThreads.cpp" "${THREADS_CPP}")
 
+# Runtime profiler gate. Bullet still compiles the profiler support, but disabled BT_PROFILE scopes become a cheap
+# inline bool check instead of two indirect calls into empty profile callbacks.
+file(READ "${SOURCE_PATH}/src/LinearMath/btQuickprof.h" QUICKPROF_HEADER)
+string(
+	REPLACE
+		"void btSetCustomLeaveProfileZoneFunc(btLeaveProfileZoneFunc* leaveFunc);\n\n#ifndef BT_ENABLE_PROFILE"
+		"void btSetCustomLeaveProfileZoneFunc(btLeaveProfileZoneFunc* leaveFunc);\n\nvoid btEnterProfileZone(const char* name);\nvoid btLeaveProfileZone();\n\nextern bool gBtProfileEnabled;\nvoid btSetProfileEnabled(bool enabled);\nbool btGetProfileEnabled();\nSIMD_FORCE_INLINE bool btIsProfileEnabled()\n{\n\treturn gBtProfileEnabled;\n}\n\n#ifndef BT_ENABLE_PROFILE"
+		QUICKPROF_HEADER
+		"${QUICKPROF_HEADER}")
+string(
+	REPLACE
+		"void btSetCustomLeaveProfileZoneFunc(btLeaveProfileZoneFunc* leaveFunc);\n\nextern bool gBtProfileEnabled;"
+		"void btSetCustomLeaveProfileZoneFunc(btLeaveProfileZoneFunc* leaveFunc);\n\nvoid btEnterProfileZone(const char* name);\nvoid btLeaveProfileZone();\n\nextern bool gBtProfileEnabled;"
+		QUICKPROF_HEADER
+		"${QUICKPROF_HEADER}")
+string(
+	REPLACE
+		"class CProfileSample\n{\npublic:\n\tCProfileSample(const char* name);\n\n\t~CProfileSample(void);\n};"
+		"class CProfileSample\n{\npublic:\n\tCProfileSample(const char* name) :\n\t\tm_enabled(btIsProfileEnabled())\n\t{\n\t\tif (m_enabled)\n\t\t{\n\t\t\tbtEnterProfileZone(name);\n\t\t}\n\t}\n\n\t~CProfileSample(void)\n\t{\n\t\tif (m_enabled)\n\t\t{\n\t\t\tbtLeaveProfileZone();\n\t\t}\n\t}\n\nprivate:\n\tbool m_enabled;\n};"
+		QUICKPROF_HEADER
+		"${QUICKPROF_HEADER}")
+file(WRITE "${SOURCE_PATH}/src/LinearMath/btQuickprof.h" "${QUICKPROF_HEADER}")
+
+file(READ "${SOURCE_PATH}/src/LinearMath/btQuickprof.cpp" QUICKPROF_CPP)
+string(
+	REPLACE
+		"static btEnterProfileZoneFunc* bts_enterFunc = btEnterProfileZoneDefault;\nstatic btLeaveProfileZoneFunc* bts_leaveFunc = btLeaveProfileZoneDefault;"
+		"bool gBtProfileEnabled = false;\n\nstatic btEnterProfileZoneFunc* bts_enterFunc = btEnterProfileZoneDefault;\nstatic btLeaveProfileZoneFunc* bts_leaveFunc = btLeaveProfileZoneDefault;"
+		QUICKPROF_CPP
+		"${QUICKPROF_CPP}")
+string(
+	REPLACE
+		"void btSetCustomLeaveProfileZoneFunc(btLeaveProfileZoneFunc* leaveFunc)\n{\n\tbts_leaveFunc = leaveFunc;\n}\n\nCProfileSample::CProfileSample(const char* name)\n{\n\tbtEnterProfileZone(name);\n}\n\nCProfileSample::~CProfileSample(void)\n{\n\tbtLeaveProfileZone();\n}\n"
+		"void btSetCustomLeaveProfileZoneFunc(btLeaveProfileZoneFunc* leaveFunc)\n{\n\tbts_leaveFunc = leaveFunc;\n}\n\nvoid btSetProfileEnabled(bool enabled)\n{\n\tgBtProfileEnabled = enabled;\n}\n\nbool btGetProfileEnabled()\n{\n\treturn gBtProfileEnabled;\n}\n"
+		QUICKPROF_CPP
+		"${QUICKPROF_CPP}")
+file(WRITE "${SOURCE_PATH}/src/LinearMath/btQuickprof.cpp" "${QUICKPROF_CPP}")
+
 file(REMOVE_RECURSE "${SOURCE_PATH}/examples/ThirdPartyLibs")
 
 vcpkg_check_features(
@@ -141,13 +179,10 @@ string(COMPARE EQUAL "${VCPKG_CRT_LINKAGE}" "dynamic" USE_MSVC_RUNTIME_LIBRARY_D
 string(APPEND VCPKG_CXX_FLAGS " /DBT_USE_SSE_IN_API")
 string(APPEND VCPKG_C_FLAGS " /DBT_USE_SSE_IN_API")
 
-# This builds with profiling permanently enabled - however since we gate the stubs in hdtSkyrimPhysicsWorld.cpp it has
-# virtually no performance impact. The profile function would just be empty The only thing /DBT_ENABLE_PROFILE does is
-# compile the CProfileManager classes into the .lib
-if("profile" IN_LIST FEATURES)
-	string(APPEND VCPKG_CXX_FLAGS " /DBT_ENABLE_PROFILE")
-	string(APPEND VCPKG_C_FLAGS " /DBT_ENABLE_PROFILE")
-endif()
+# Build Bullet's profiler symbols into every configuration. Runtime profiling stays disabled by default through the
+# btQuickprof gate above, so normal builds only pay the inline bool check in BT_PROFILE scopes.
+string(APPEND VCPKG_CXX_FLAGS " /DBT_ENABLE_PROFILE")
+string(APPEND VCPKG_C_FLAGS " /DBT_ENABLE_PROFILE")
 
 vcpkg_cmake_configure(
 	SOURCE_PATH
