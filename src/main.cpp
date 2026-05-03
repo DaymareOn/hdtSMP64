@@ -515,9 +515,15 @@ extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* a_s
 	hdt::loadConfig();
 	hdt::logConfig();
 
-	if (!hdt::ValidateAllPhysicsAssets()) {
-		logger::warn("Validation issues detected. See hdtSMP64_validation_*.log for details");
-		// Non-blocking: continue loading even when issues are found
+	try {
+		if (!hdt::ValidateAllPhysicsAssets()) {
+			logger::warn("Validation issues detected. See hdtSMP64_validation_*.log for details");
+			// Non-blocking: continue loading even when issues are found
+		}
+	} catch (const std::exception& e) {
+		logger::warn("Validation threw an exception (non-fatal): {}", e.what());
+	} catch (...) {
+		logger::warn("Validation threw an unknown exception (non-fatal)");
 	}
 
 	const auto messaging = SKSE::GetMessagingInterface();

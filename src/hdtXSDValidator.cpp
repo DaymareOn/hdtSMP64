@@ -174,10 +174,9 @@ namespace hdt
 	static const PhysicsSchema& getPhysicsSchema()
 	{
 		std::call_once(g_schemaOnce, []() {
-			auto bytes = readAllFile(kPhysicsXSDPath);
-			if (bytes.empty()) {
-				bytes = readAllFile2(kPhysicsXSDPath);
-			}
+			// Use readAllFile2 (direct filesystem) only: schema files are always on disk
+			// and readAllFile (BSA VFS) is unsafe before BSAs are mounted during SKSEPlugin_Load.
+			auto bytes = readAllFile2(kPhysicsXSDPath);
 
 			if (bytes.empty()) {
 				logger::warn("[XSDValidator] Could not load physics schema from '{}'; "
@@ -395,11 +394,9 @@ namespace hdt
 	{
 		XSDValidationResult result;
 
-		// Try VFS first (works for mod-managed files), then fall back to direct filesystem
-		auto bytes = readAllFile(xmlPath.c_str());
-		if (bytes.empty()) {
-			bytes = readAllFile2(xmlPath.c_str());
-		}
+		// Use readAllFile2 (direct filesystem) only: physics XML files are on disk
+		// and readAllFile (BSA VFS) is unsafe before BSAs are mounted during SKSEPlugin_Load.
+		auto bytes = readAllFile2(xmlPath.c_str());
 
 		if (bytes.empty()) {
 			result.isValid = false;

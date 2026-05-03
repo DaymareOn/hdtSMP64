@@ -10,7 +10,7 @@ namespace hdt
 		bool enabled = true;
 		bool strictMode = false;
 		bool reportFileEnabled = true;
-		bool scanDataFolder = true;
+		bool scanDataFolder = false;  // NIF scanning at plugin-load time is unsafe (BSAs not yet mounted)
 		int warnTriangleCount = 10000;
 	};
 

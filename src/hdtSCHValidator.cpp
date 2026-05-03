@@ -112,9 +112,9 @@ namespace hdt
     static const CompiledSchema& getCompiledSchema()
     {
         std::call_once(g_schemaOnce, []() {
-            std::string bytes = readAllFile(kPhysicsSCHPath);
-            if (bytes.empty())
-                bytes = readAllFile2(kPhysicsSCHPath);
+            // Use readAllFile2 (direct filesystem) only: schema files are always on disk
+            // and readAllFile (BSA VFS) is unsafe before BSAs are mounted during SKSEPlugin_Load.
+            std::string bytes = readAllFile2(kPhysicsSCHPath);
 
             if (bytes.empty()) {
                 logger::warn(
@@ -219,9 +219,7 @@ namespace hdt
         if (!schema.loaded)
             return result;
 
-        std::string bytes = readAllFile(xmlPath.c_str());
-        if (bytes.empty())
-            bytes = readAllFile2(xmlPath.c_str());
+        std::string bytes = readAllFile2(xmlPath.c_str());
         if (bytes.empty())
             return result;  // File-not-found is reported by the XSD validator
 
