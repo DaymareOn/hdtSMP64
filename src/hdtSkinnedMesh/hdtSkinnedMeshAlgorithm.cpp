@@ -440,6 +440,10 @@ namespace hdt
 			btManifoldPoint newPt(localA, localB, normal, depth);
 			newPt.m_positionWorldOnA = worldA;
 			newPt.m_positionWorldOnB = worldB;
+			// friction, rollingFriction, and restitution are applied even when one bone is
+			// kinematic (mass=0): the combined value uses both bones' rigid-body properties,
+			// so setting <friction> on a kinematic collision bone does affect how dynamic
+			// bones (hair, cloth) slide against it.
 			newPt.m_combinedFriction = rb0->m_rig.getFriction() * rb1->m_rig.getFriction();
 			newPt.m_combinedRestitution = rb0->m_rig.getRestitution() * rb1->m_rig.getRestitution();
 			newPt.m_combinedRollingFriction = rb0->m_rig.getRollingFriction() * rb1->m_rig.getRollingFriction();

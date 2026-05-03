@@ -666,6 +666,39 @@ namespace hdt
 			auto boneTemplate = getBoneTemplate(templateName);
 			if (readTemplate)
 				readBoneTemplate(boneTemplate);
+
+			// Kinematic bones (mass=0) are driven by animation; physics forces and damping have no
+			// effect on them. Warn if a config sets parameters that will be silently ignored.
+			// Note: friction, rollingFriction, and restitution ARE still effective for kinematic
+			// bones — they control contact response when colliding with dynamic bones.
+			if (boneTemplate.m_mass == 0.0f) {
+				constexpr float kEpsilon = 1e-6f;
+				// BoneTemplate defaults: m_gravityFactor = 1.0f, m_windFactor = 1.0f (full effect)
+				// Only warn when explicitly changed from the default — a non-default value signals
+				// the author intended to affect physics-force behavior, which kinematic bones ignore.
+				if (std::abs(boneTemplate.m_gravityFactor - 1.0f) > kEpsilon)
+					logger::warn(
+						"Bone '{}': gravity-factor has no effect on a kinematic bone (mass=0); "
+						"the bone is driven by animation, not physics forces",
+						bodyName.c_str());
+				if (std::abs(boneTemplate.m_windFactor - 1.0f) > kEpsilon)
+					logger::warn(
+						"Bone '{}': wind-factor has no effect on a kinematic bone (mass=0); "
+						"the bone is driven by animation, not physics forces",
+						bodyName.c_str());
+				// btRigidBodyConstructionInfo defaults: m_linearDamping = 0.0f, m_angularDamping = 0.0f
+				if (std::abs(boneTemplate.m_linearDamping) > kEpsilon)
+					logger::warn(
+						"Bone '{}': linearDamping has no effect on a kinematic bone (mass=0); "
+						"the bone is driven by animation, not physics forces",
+						bodyName.c_str());
+				if (std::abs(boneTemplate.m_angularDamping) > kEpsilon)
+					logger::warn(
+						"Bone '{}': angularDamping has no effect on a kinematic bone (mass=0); "
+						"the bone is driven by animation, not physics forces",
+						bodyName.c_str());
+			}
+
 			auto bone = new SkyrimBone(node->name.c_str(), node, this->m_skeleton, boneTemplate);
 			bone->m_localToRig = boneTemplate.m_centerOfMassTransform;
 			bone->m_rigToLocal = boneTemplate.m_centerOfMassTransform.inverse();
