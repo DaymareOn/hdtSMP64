@@ -6,12 +6,6 @@
 
 namespace hdt
 {
-	void SkinnedMeshSystem::resetTransformsToOriginal()
-	{
-		for (int i = 0; i < m_bones.size(); ++i)
-			m_bones[i]->resetTransformToOriginal();
-	}
-
 	void SkinnedMeshSystem::readTransform(float timeStep)
 	{
 		if (this->block_resetting)
