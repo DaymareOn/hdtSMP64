@@ -1,6 +1,7 @@
 #include "hdtAssetValidator.h"
 
 #include "hdtNIFValidator.h"
+#include "hdtSCHValidator.h"
 #include "hdtXSDValidator.h"
 #include "NetImmerseUtils.h"
 
@@ -162,36 +163,53 @@ namespace hdt
 	{
 		for (const auto& xmlPath : xmlPaths) {
 			auto xsdResult = ValidatePhysicsXML(xmlPath);
+			auto schResult = ValidatePhysicsXMLWithSCH(xmlPath);
 
 			PhysicsAsset asset;
 			asset.xmlPath = xmlPath;
-			asset.xmlExists = true;  // We found it on disk
+			asset.xmlExists = true;
 			report.assets.push_back(asset);
 			++report.totalXMLsFound;
 
-			if (xsdResult.isValid) {
-				++report.xmlPassCount;
-				out << "  [OK]   " << xmlPath << "\n";
+			bool fileHasErrors = !xsdResult.isValid || schResult.hasErrors;
 
-				// Phase 5: content warnings
-				if (!xsdResult.hasWeightThreshold) {
-					std::string warn = xmlPath + ": no <weight-threshold> defined (may impact performance)";
-					report.warnings.push_back(warn);
-					report.hasWarnings = true;
-					out << "    [WARN] No weight-threshold definitions\n";
-				}
-			} else {
+			if (fileHasErrors) {
 				++report.xmlErrorCount;
 				report.hasErrors = true;
-
 				out << "  [FAIL] " << xmlPath << "\n";
-				for (const auto& v : xsdResult.violations) {
-					std::string msg = xmlPath + ":" + std::to_string(v.line) + ": " +
-						v.elementPath + " - " + v.message;
+			} else {
+				++report.xmlPassCount;
+				out << "  [OK]   " << xmlPath << "\n";
+			}
+
+			// XSD violations
+			for (const auto& v : xsdResult.violations) {
+				std::string msg = xmlPath + ":" + std::to_string(v.line) + ": " +
+					v.elementPath + " - " + v.message;
+				report.errors.push_back(msg);
+				out << "    [ERROR] " << v.elementPath << " (line " << v.line << "): "
+					<< v.message << "\n";
+			}
+
+			// SCH violations
+			for (const auto& v : schResult.violations) {
+				std::string msg = xmlPath + ": " + v.location + " - " + v.message;
+				if (v.role == "error") {
 					report.errors.push_back(msg);
-					out << "    [ERROR] " << v.elementPath << " (line " << v.line << "): "
-						<< v.message << "\n";
+					out << "    [SCH-ERROR] " << v.location << ": " << v.message << "\n";
+				} else {
+					report.warnings.push_back(msg);
+					report.hasWarnings = true;
+					out << "    [SCH-WARN] " << v.location << ": " << v.message << "\n";
 				}
+			}
+
+			// Weight-threshold content warning (from XSD)
+			if (!fileHasErrors && !xsdResult.hasWeightThreshold) {
+				std::string warn = xmlPath + ": no <weight-threshold> defined (may impact performance)";
+				report.warnings.push_back(warn);
+				report.hasWarnings = true;
+				out << "    [WARN] No weight-threshold definitions\n";
 			}
 		}
 	}
@@ -215,7 +233,11 @@ namespace hdt
 
 				// Validate the referenced XML
 				auto xsdResult = ValidatePhysicsXML(asset.xmlPath);
-				if (!xsdResult.isValid) {
+				auto schResult = ValidatePhysicsXMLWithSCH(asset.xmlPath);
+
+				bool xmlHasErrors = !xsdResult.isValid || schResult.hasErrors;
+
+				if (xmlHasErrors) {
 					++report.xmlErrorCount;
 					report.hasErrors = true;
 					for (const auto& v : xsdResult.violations) {
@@ -225,9 +247,29 @@ namespace hdt
 						out << "    [ERROR] " << v.elementPath << " (line " << v.line
 							<< "): " << v.message << "\n";
 					}
+					for (const auto& v : schResult.violations) {
+						std::string msg = asset.xmlPath + ": " + v.location + " - " + v.message;
+						if (v.role == "error") {
+							report.errors.push_back(msg);
+							out << "    [SCH-ERROR] " << v.location << ": " << v.message << "\n";
+						} else {
+							report.warnings.push_back(msg);
+							report.hasWarnings = true;
+							out << "    [SCH-WARN] " << v.location << ": " << v.message << "\n";
+						}
+					}
 				} else {
 					++report.xmlPassCount;
 					++report.totalXMLsFound;
+
+					// SCH warnings on a passing file
+					for (const auto& v : schResult.violations) {
+						std::string msg = asset.xmlPath + ": " + v.location + " - " + v.message;
+						report.warnings.push_back(msg);
+						report.hasWarnings = true;
+						out << "    [SCH-WARN] " << v.location << ": " << v.message << "\n";
+					}
+
 					if (!xsdResult.hasWeightThreshold) {
 						std::string warn = asset.xmlPath + ": no <weight-threshold> defined";
 						report.warnings.push_back(warn);
