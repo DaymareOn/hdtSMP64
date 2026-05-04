@@ -369,11 +369,6 @@ namespace hdt
 		}
 	};
 
-	// ---- forward declarations ----
-
-	static void validateSystem(XMLReader& reader, ValidationContext& ctx);
-	static void validateNamedBody(XMLReader& reader, const std::string& tag, ValidationContext& ctx);
-
 	// ---- element validators ----
 
 	static void validateSystem(XMLReader& reader, ValidationContext& ctx)
@@ -393,7 +388,36 @@ namespace hdt
 			const PhysicsSchema& schema = getPhysicsSchema();
 
 			if (tag == schema.boneTag) {
-				validateNamedBody(reader, tag, ctx);
+				ctx.elementStack.push_back(tag);
+				if (!reader.hasAttribute("name")) {
+					ctx.addViolation(reader.GetRow(), reader.GetColumn(),
+						"<" + tag + "> is missing required attribute 'name'");
+				} else {
+					ctx.definedBones.insert(reader.getAttribute("name"));
+				}
+				while (reader.Inspect()) {
+					if (reader.GetInspected() == XMLReader::Inspected::EndTag) {
+						ctx.elementStack.pop_back();
+						break;
+					}
+					if (reader.GetInspected() != XMLReader::Inspected::StartTag) {
+						continue;
+					}
+					const std::string childTag = reader.GetLocalName();
+					ctx.elementStack.push_back(childTag);
+					if (childTag == "shared") {
+						const std::string val = reader.readText();
+						if (!schema.sharedValues.count(val)) {
+							ctx.addViolation(reader.GetRow(), reader.GetColumn(),
+								"<shared> has invalid value '" + val +
+									"' (see hdtSMP64.xsd <shared> for valid values: " +
+									joinSet(schema.sharedValues) + ")");
+						}
+					} else {
+						reader.skipCurrentElement();
+					}
+					ctx.elementStack.pop_back();
+				}
 			} else if (schema.constraintTags.count(tag)) {
 				ctx.elementStack.push_back(tag);
 				if (!reader.hasAttribute("bodyA")) {
@@ -432,52 +456,6 @@ namespace hdt
 			ctx.elementStack.pop_back();
 		}
 	}
-
-	static void validateNamedBody(XMLReader& reader, const std::string& tag, ValidationContext& ctx)
-	{
-		ctx.elementStack.push_back(tag);
-
-		if (!reader.hasAttribute("name")) {
-			ctx.addViolation(reader.GetRow(), reader.GetColumn(),
-				"<" + tag + "> is missing required attribute 'name'");
-		} else {
-			ctx.definedBones.insert(reader.getAttribute("name"));
-		}
-
-		while (reader.Inspect()) {
-			if (reader.GetInspected() == XMLReader::Inspected::EndTag) {
-				ctx.elementStack.pop_back();
-				return;
-			}
-			if (reader.GetInspected() != XMLReader::Inspected::StartTag) {
-				continue;
-			}
-
-			const std::string childTag = reader.GetLocalName();
-			ctx.elementStack.push_back(childTag);
-
-			const PhysicsSchema& schema = getPhysicsSchema();
-			if (childTag == "shared") {
-				// Read text and validate against allowed values from the schema
-				const std::string val = reader.readText();
-				if (!schema.sharedValues.count(val)) {
-					ctx.addViolation(reader.GetRow(), reader.GetColumn(),
-						"<shared> has invalid value '" + val +
-							"' (see hdtSMP64.xsd <shared> for valid values: " +
-							joinSet(schema.sharedValues) + ")");
-				}
-			} else {
-				reader.skipCurrentElement();
-			}
-
-			ctx.elementStack.pop_back();
-		}
-
-		if (!ctx.elementStack.empty() && ctx.elementStack.back() == tag) {
-			ctx.elementStack.pop_back();
-		}
-	}
-
 
 	// ---- public API ----
 
