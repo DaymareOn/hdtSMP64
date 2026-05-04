@@ -230,10 +230,10 @@ namespace hdt
 		return result;
 	}
 
-	// Find the element whose xs:complexType contains an xs:attribute named "bone"
-	// with use="required". In hdtSMP64.xsd this uniquely identifies the
-	// weight-threshold element by structure rather than by a hardcoded name.
-	static std::string parseWeightThresholdTag(std::string& bytes)
+	// Find the XSD element whose xs:complexType contains an xs:attribute with the given
+	// name and use="required". Used to identify elements by structural signature rather
+	// than by hardcoded name.
+	static std::string parseElementByRequiredAttr(std::string& bytes, const std::string& attrName)
 	{
 		XMLReader reader(reinterpret_cast<uint8_t*>(bytes.data()), bytes.size());
 
@@ -254,7 +254,7 @@ namespace hdt
 				} else {
 					++depth;
 					if (localName == "attribute" &&
-						reader.hasAttribute("name") && reader.getAttribute("name") == "bone" &&
+						reader.hasAttribute("name") && reader.getAttribute("name") == attrName &&
 						reader.hasAttribute("use") && reader.getAttribute("use") == "required") {
 						return currentElementName;
 					}
@@ -318,7 +318,9 @@ namespace hdt
 						g_physicsSchema.perMeshShapeTags = std::move(parsedShapeTags);
 					}
 				}
-				auto wtTag = parseWeightThresholdTag(bytes);
+				// weight-threshold tag — the element with a required attribute named after
+				// the bone tag (derived from XSD structure, not a hardcoded name).
+				auto wtTag = parseElementByRequiredAttr(bytes, g_physicsSchema.boneTag);
 				if (!wtTag.empty()) {
 					g_physicsSchema.weightThresholdTag = wtTag;
 				}
