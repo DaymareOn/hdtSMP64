@@ -25,11 +25,10 @@ namespace hdt
 		std::unordered_set<std::string> shapeTypes;
 		std::unordered_set<std::string> constraintTags;
 		// Derived from xs:key selectors and element structure inside hdtSMP64.xsd.
-		// Defaults act as fallback when the XSD file cannot be loaded.
-		std::string boneTag = "bone";
-		std::unordered_set<std::string> perMeshShapeTags = { "per-triangle-shape", "per-vertex-shape" };
-		std::string weightThresholdTag = "weight-threshold";
-		bool loaded = false;
+		std::string boneTag;
+		std::unordered_set<std::string> perMeshShapeTags;
+		std::string weightThresholdTag;
+		bool loaded = false;  // true only when the XSD was successfully parsed
 	};
 
 	// Build a comma-separated string from a set of strings (for error messages).
@@ -286,8 +285,8 @@ namespace hdt
 			auto bytes = readAllFile2(kPhysicsXSDPath);
 
 			if (bytes.empty()) {
-				logger::warn("[XSDValidator] Could not load physics schema from '{}'; "
-							 "shared/shape/constraint validation will be skipped.",
+				logger::error("[XSDValidator] Could not load physics schema from '{}'; "
+							  "physics XML validation will be skipped.",
 					kPhysicsXSDPath);
 				return;
 			}
@@ -442,7 +441,7 @@ namespace hdt
 			if (childTag == "shared") {
 				// Read text and validate against allowed values from the schema
 				const std::string val = reader.readText();
-				if (schema.loaded && !schema.sharedValues.count(val)) {
+				if (!schema.sharedValues.count(val)) {
 					ctx.addViolation(reader.GetRow(), reader.GetColumn(),
 						"<shared> has invalid value '" + val +
 							"' (see hdtSMP64.xsd <shared> for valid values: " +
@@ -493,7 +492,7 @@ namespace hdt
 		ctx.elementStack.push_back(tag);
 
 		const PhysicsSchema& schema = getPhysicsSchema();
-		if (schema.loaded && !schema.shapeTypes.count(tag) && !schema.perMeshShapeTags.count(tag)) {
+		if (!schema.shapeTypes.count(tag) && !schema.perMeshShapeTags.count(tag)) {
 			ctx.addViolation(reader.GetRow(), reader.GetColumn(),
 				"Unknown shape type <" + tag +
 					"> (see hdtSMP64.xsd shapeType for valid values: " +
@@ -526,6 +525,13 @@ namespace hdt
 	XSDValidationResult ValidatePhysicsXML(const std::string& xmlPath)
 	{
 		XSDValidationResult result;
+
+		// Skip validation entirely if the physics schema could not be loaded.
+		// The error was already logged once by getPhysicsSchema().
+		if (!getPhysicsSchema().loaded) {
+			result.isValid = true;
+			return result;
+		}
 
 		// Use readAllFile2 (direct filesystem) only: physics XML files are on disk
 		// and readAllFile (BSA VFS) is unsafe before BSAs are mounted during SKSEPlugin_Load.
