@@ -27,8 +27,6 @@ namespace hdt
 		std::unordered_map<std::string, std::unordered_set<std::string>> elementEnums;
 		// Root element tag — the first top-level xs:element in the XSD.
 		std::string rootTag;
-		// Derived from xs:key selectors nested inside the root element.
-		std::string keySourceTag;
 		std::unordered_set<std::string> perMeshShapeTags;
 		std::string weightThresholdTag;
 		// Required attributes per element — driven entirely by xs:attribute use="required".
@@ -356,13 +354,9 @@ namespace hdt
 				// element enums — all xs:element nodes with inline anonymous simpleType enumerations
 				g_physicsSchema.elementEnums = parseAllElementEnumerations(bytes);
 
-				// root tag, bone tag, per-mesh shape tags — derived from the top-level xs:element
-				// and its xs:key selectors.
+				// Root tag and per-mesh shape tags derived from the top-level xs:element and its xs:key selectors.
 				auto [rootTag, systemKeys] = parseSystemKeys(bytes);
 				g_physicsSchema.rootTag = rootTag;
-				if (systemKeys.count("boneKey")) {
-					g_physicsSchema.keySourceTag = systemKeys["boneKey"];
-				}
 				{
 					std::unordered_set<std::string> parsedShapeTags;
 					for (const auto& [keyName, selector] : systemKeys) {
@@ -375,21 +369,26 @@ namespace hdt
 						g_physicsSchema.perMeshShapeTags = std::move(parsedShapeTags);
 					}
 				}
-				// named simpleType enumerations — their values are element tag names
-				// (e.g. shapeType lists all valid shape element names).
+				// Named simpleType enumerations — their values are element tag names.
 				for (const auto& [typeName, values] : parseAllNamedSimpleTypeEnumerations(bytes)) {
 					g_physicsSchema.perMeshShapeTags.insert(values.begin(), values.end());
 				}
-				// key/unique/keyref constraints — drive generic referential integrity checks.
+				// Key/unique/keyref constraints — drive generic referential integrity checks.
 				parseKeyConstraints(bytes, g_physicsSchema.keyDefs, g_physicsSchema.keyRefDefs);
-				// required attributes per element — generic, read entirely from xs:attribute use="required".
+				// Required attributes per element — driven by xs:attribute use="required".
 				g_physicsSchema.requiredAttrs = parseAllRequiredAttrs(bytes);
-				// weight-threshold tag — the element that requires the bone tag as an attribute.
-				for (const auto& [elemName, attrs] : g_physicsSchema.requiredAttrs) {
-					if (std::find(attrs.begin(), attrs.end(), g_physicsSchema.keySourceTag) != attrs.end()) {
-						g_physicsSchema.weightThresholdTag = elemName;
-						break;
+				// Weight-threshold tag: the element that is a keyref target AND whose keyref field
+				// attribute is also declared as required. No element or attribute names hardcoded.
+				for (const auto& [refName, refDef] : g_physicsSchema.keyRefDefs) {
+					for (const auto& elem : refDef.elems) {
+						if (g_physicsSchema.requiredAttrs.count(elem)) {
+							const auto& attrs = g_physicsSchema.requiredAttrs.at(elem);
+							if (std::find(attrs.begin(), attrs.end(), refDef.fieldAttr) != attrs.end()) {
+								g_physicsSchema.weightThresholdTag = elem;
+							}
+						}
 					}
+					if (!g_physicsSchema.weightThresholdTag.empty()) break;
 				}
 
 				g_physicsSchema.loaded = true;
@@ -397,11 +396,11 @@ namespace hdt
 				logger::info(
 					"[XSDValidator] Loaded physics schema: root '{}', "
 					"{} enumerated element type(s), {} elements with required attr(s), "
-					"bone tag '{}', {} known shape tag(s), weight-threshold tag '{}'.",
+					"{} known shape tag(s), weight-threshold tag '{}'.",
 					g_physicsSchema.rootTag,
 					g_physicsSchema.elementEnums.size(),
 					g_physicsSchema.requiredAttrs.size(),
-					g_physicsSchema.keySourceTag, g_physicsSchema.perMeshShapeTags.size(),
+					g_physicsSchema.perMeshShapeTags.size(),
 					g_physicsSchema.weightThresholdTag);
 			} catch (const std::exception& e) {
 				logger::warn("[XSDValidator] Failed to parse physics schema '{}': {}",
@@ -494,29 +493,27 @@ namespace hdt
 				}
 			}
 
-			if (tag == schema.keySourceTag) {
-				while (reader.Inspect()) {
-					if (reader.GetInspected() == XMLReader::Inspected::EndTag) {
-						ctx.elementStack.pop_back();
-						break;
-					}
-					if (reader.GetInspected() != XMLReader::Inspected::StartTag) {
-						continue;
-					}
-					const std::string childTag = reader.GetLocalName();
-					ctx.elementStack.push_back(childTag);
-					if (schema.elementEnums.count(childTag)) {
-						checkEnumValue(childTag, reader.readText());
-					} else {
-						reader.skipCurrentElement();
-					}
+			// Detect presence of recommended elements.
+			if (tag == schema.weightThresholdTag) {
+				ctx.weightThresholdSeen = true;
+			}
+			// Recurse into children: validate any enum-constrained child elements.
+			// Elements with no enum children are simply skipped past.
+			while (reader.Inspect()) {
+				if (reader.GetInspected() == XMLReader::Inspected::EndTag) {
 					ctx.elementStack.pop_back();
+					break;
 				}
-			} else {
-				if (tag == schema.weightThresholdTag) {
-					ctx.weightThresholdSeen = true;
+				if (reader.GetInspected() != XMLReader::Inspected::StartTag) {
+					continue;
 				}
-				reader.skipCurrentElement();
+				const std::string childTag = reader.GetLocalName();
+				ctx.elementStack.push_back(childTag);
+				if (schema.elementEnums.count(childTag)) {
+					checkEnumValue(childTag, reader.readText());
+				} else {
+					reader.skipCurrentElement();
+				}
 				ctx.elementStack.pop_back();
 			}
 		}
