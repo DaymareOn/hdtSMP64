@@ -373,8 +373,6 @@ namespace hdt
 
 	static void validateSystem(XMLReader& reader, ValidationContext& ctx);
 	static void validateNamedBody(XMLReader& reader, const std::string& tag, ValidationContext& ctx);
-	static void validateConstraint(XMLReader& reader, const std::string& tag,
-		ValidationContext& ctx);
 
 	// ---- element validators ----
 
@@ -397,7 +395,21 @@ namespace hdt
 			if (tag == schema.boneTag) {
 				validateNamedBody(reader, tag, ctx);
 			} else if (schema.constraintTags.count(tag)) {
-				validateConstraint(reader, tag, ctx);
+				ctx.elementStack.push_back(tag);
+				if (!reader.hasAttribute("bodyA")) {
+					ctx.addViolation(reader.GetRow(), reader.GetColumn(),
+						"<" + tag + "> is missing required attribute 'bodyA'");
+				} else {
+					ctx.definedBodies.insert(reader.getAttribute("bodyA"));
+				}
+				if (!reader.hasAttribute("bodyB")) {
+					ctx.addViolation(reader.GetRow(), reader.GetColumn(),
+						"<" + tag + "> is missing required attribute 'bodyB'");
+				} else {
+					ctx.definedBodies.insert(reader.getAttribute("bodyB"));
+				}
+				reader.skipCurrentElement();
+				ctx.elementStack.pop_back();
 			} else if (schema.shapeTypes.count(tag) || schema.perMeshShapeTags.count(tag)) {
 				reader.skipCurrentElement();
 			} else if (tag == schema.weightThresholdTag) {
@@ -464,29 +476,6 @@ namespace hdt
 		if (!ctx.elementStack.empty() && ctx.elementStack.back() == tag) {
 			ctx.elementStack.pop_back();
 		}
-	}
-
-	static void validateConstraint(XMLReader& reader, const std::string& tag,
-		ValidationContext& ctx)
-	{
-		ctx.elementStack.push_back(tag);
-
-		if (!reader.hasAttribute("bodyA")) {
-			ctx.addViolation(reader.GetRow(), reader.GetColumn(),
-				"<" + tag + "> is missing required attribute 'bodyA'");
-		} else {
-			ctx.definedBodies.insert(reader.getAttribute("bodyA"));
-		}
-
-		if (!reader.hasAttribute("bodyB")) {
-			ctx.addViolation(reader.GetRow(), reader.GetColumn(),
-				"<" + tag + "> is missing required attribute 'bodyB'");
-		} else {
-			ctx.definedBodies.insert(reader.getAttribute("bodyB"));
-		}
-
-		reader.skipCurrentElement();
-		ctx.elementStack.pop_back();
 	}
 
 
