@@ -18,8 +18,9 @@ namespace hdt
 	struct XSDValidationResult
 	{
 		bool isValid = true;
-		bool hasWeightThreshold = false;
 		std::vector<XSDViolation> violations;
+		// Advisory warnings (not errors): missing recommended elements, performance hints, etc.
+		std::vector<XSDViolation> warnings;
 	};
 
 	// Validate an FSMP physics XML file against the hdtSMP64 XSD constraints.

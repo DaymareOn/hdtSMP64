@@ -204,12 +204,14 @@ namespace hdt
 				}
 			}
 
-			// Weight-threshold content warning (from XSD)
-			if (!fileHasErrors && !xsdResult.hasWeightThreshold) {
-				std::string warn = xmlPath + ": no <weight-threshold> defined (may impact performance)";
-				report.warnings.push_back(warn);
-				report.hasWarnings = true;
-				out << "    [WARN] No weight-threshold definitions\n";
+			// XSD advisory warnings (missing recommended elements, performance hints, etc.)
+			if (!fileHasErrors) {
+				for (const auto& w : xsdResult.warnings) {
+					std::string warn = xmlPath + ": " + w.elementPath + " - " + w.message;
+					report.warnings.push_back(warn);
+					report.hasWarnings = true;
+					out << "    [WARN] " << w.message << "\n";
+				}
 			}
 		}
 	}
@@ -270,11 +272,11 @@ namespace hdt
 						out << "    [SCH-WARN] " << v.location << ": " << v.message << "\n";
 					}
 
-					if (!xsdResult.hasWeightThreshold) {
-						std::string warn = asset.xmlPath + ": no <weight-threshold> defined";
+					for (const auto& w : xsdResult.warnings) {
+						std::string warn = asset.xmlPath + ": " + w.elementPath + " - " + w.message;
 						report.warnings.push_back(warn);
 						report.hasWarnings = true;
-						out << "    [WARN] No <weight-threshold> definitions\n";
+						out << "    [WARN] " << w.message << "\n";
 					}
 				}
 			} else {
