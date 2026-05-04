@@ -3,6 +3,7 @@
 #include "NetImmerseUtils.h"
 #include "XmlReader.h"
 
+#include <algorithm>
 #include <mutex>
 #include <string>
 #include <unordered_map>
@@ -24,13 +25,12 @@ namespace hdt
 	{
 		// Maps element tag names to their allowed values (inline anonymous simpleType enumerations).
 		std::unordered_map<std::string, std::unordered_set<std::string>> elementEnums;
-		std::unordered_set<std::string> constraintTags;
 		// Derived from xs:key selectors and element structure inside hdtSMP64.xsd.
 		std::string boneTag;
 		std::unordered_set<std::string> perMeshShapeTags;
 		std::string weightThresholdTag;
-		// Required attributes on constraint elements, parsed from the XSD.
-		std::vector<std::string> constraintBodyAttrs;
+		// Required attributes per element — driven entirely by xs:attribute use="required".
+		std::unordered_map<std::string, std::vector<std::string>> requiredAttrs;
 		// Key/unique and keyref definitions parsed from xsd:key, xsd:unique, xsd:keyref.
 		struct KeyDef { std::unordered_set<std::string> elems; std::string fieldAttr; };
 		struct KeyRefDef { std::string refer; std::unordered_set<std::string> elems; std::string fieldAttr; };
@@ -151,118 +151,12 @@ namespace hdt
 		return result;
 	}
 
-	// Collect constraint element names from the xs:element named "constraint-group".
-	// hdtSMP64.xsd defines a <constraint-group> whose <xs:choice> lists all valid
-	// constraint elements by ref. We collect ref values that end with "-constraint"
-	// (excluding "-constraint-default" variants).
-	// Suffix used to identify constraint element refs (excludes "-constraint-default").
-	static const std::string kConstraintSuffix = "-constraint";
-
-	static std::unordered_set<std::string> parseConstraintTypes(std::string& bytes)
+	// Build a map from every xs:element name to its list of xs:attribute use="required" names.
+	// This is fully generic: no element or attribute names are hardcoded.
+	static std::unordered_map<std::string, std::vector<std::string>>
+		parseAllRequiredAttrs(std::string& bytes)
 	{
-		std::unordered_set<std::string> result;
-		XMLReader reader(reinterpret_cast<uint8_t*>(bytes.data()), bytes.size());
-
-		bool inGroup = false;
-		int depth = 0;
-
-		while (reader.Inspect()) {
-			if (reader.GetInspected() == XMLReader::Inspected::StartTag) {
-				const std::string localName = reader.GetLocalName();
-
-				if (!inGroup) {
-					if (localName == "element" && reader.hasAttribute("name") &&
-						reader.getAttribute("name") == "constraint-group") {
-						inGroup = true;
-						depth = 0;
-					}
-				} else {
-					++depth;
-					if (localName == "element" && reader.hasAttribute("ref")) {
-						const std::string ref = reader.getAttribute("ref");
-						// Accept anything ending in "-constraint" but not "-constraint-default"
-						if (ref.size() > kConstraintSuffix.size() &&
-							ref.compare(ref.size() - kConstraintSuffix.size(),
-								kConstraintSuffix.size(), kConstraintSuffix) == 0) {
-							result.insert(ref);
-						}
-					}
-				}
-			} else if (reader.GetInspected() == XMLReader::Inspected::EndTag) {
-				if (inGroup) {
-					if (depth == 0) {
-						break;
-					}
-					--depth;
-				}
-			}
-		}
-
-		return result;
-	}
-
-	// Parse xs:key elements inside <element name="system"> and return a map of
-	// (key name → selector xpath value). xs:key entries capture the roles of
-	// uniquely-named element types: "boneKey" → "bone", "per-*-shapeKey" → shape names.
-	static std::unordered_map<std::string, std::string> parseSystemKeys(std::string& bytes)
-	{
-		std::unordered_map<std::string, std::string> result;
-		XMLReader reader(reinterpret_cast<uint8_t*>(bytes.data()), bytes.size());
-
-		bool inSystem = false;
-		bool inKey = false;
-		std::string currentKeyName;
-		int systemDepth = 0;
-		int keyDepth = 0;
-
-		while (reader.Inspect()) {
-			if (reader.GetInspected() == XMLReader::Inspected::StartTag) {
-				const std::string localName = reader.GetLocalName();
-
-				if (!inSystem) {
-					if (localName == "element" && reader.hasAttribute("name") &&
-						reader.getAttribute("name") == "system") {
-						inSystem = true;
-						systemDepth = 0;
-					}
-				} else if (!inKey) {
-					++systemDepth;
-					if (localName == "key" && reader.hasAttribute("name")) {
-						inKey = true;
-						currentKeyName = reader.getAttribute("name");
-						keyDepth = 0;
-					}
-				} else {
-					++keyDepth;
-					if (localName == "selector" && reader.hasAttribute("xpath")) {
-						result[currentKeyName] = reader.getAttribute("xpath");
-					}
-				}
-			} else if (reader.GetInspected() == XMLReader::Inspected::EndTag) {
-				if (inKey) {
-					if (keyDepth == 0) {
-						inKey = false;
-						--systemDepth;
-					} else {
-						--keyDepth;
-					}
-				} else if (inSystem) {
-					if (systemDepth == 0) {
-						break;
-					}
-					--systemDepth;
-				}
-			}
-		}
-
-		return result;
-	}
-
-	// Find the XSD element whose xs:complexType contains an xs:attribute with the given
-	// name and use="required". Used to identify elements by structural signature rather
-	// than by hardcoded name.
-	static std::string parseElementByRequiredAttr(std::string& bytes, const std::string& attrName)
-	{
+		std::unordered_map<std::string, std::vector<std::string>> result;
 		XMLReader reader(reinterpret_cast<uint8_t*>(bytes.data()), bytes.size());
 
 		bool inElement = false;
@@ -282,9 +176,9 @@ namespace hdt
 				} else {
 					++depth;
 					if (localName == "attribute" &&
-						reader.hasAttribute("name") && reader.getAttribute("name") == attrName &&
+						reader.hasAttribute("name") &&
 						reader.hasAttribute("use") && reader.getAttribute("use") == "required") {
-						return currentElementName;
+						result[currentElementName].push_back(reader.getAttribute("name"));
 					}
 				}
 			} else if (reader.GetInspected() == XMLReader::Inspected::EndTag) {
@@ -295,44 +189,6 @@ namespace hdt
 					} else {
 						--depth;
 					}
-				}
-			}
-		}
-
-		return {};
-	}
-
-	// Collect all xs:attribute use="required" names from the named XSD element.
-	static std::vector<std::string> parseRequiredAttrs(std::string& bytes, const std::string& elementName)
-	{
-		std::vector<std::string> result;
-		XMLReader reader(reinterpret_cast<uint8_t*>(bytes.data()), bytes.size());
-
-		bool inElement = false;
-		int depth = 0;
-
-		while (reader.Inspect()) {
-			if (reader.GetInspected() == XMLReader::Inspected::StartTag) {
-				const std::string localName = reader.GetLocalName();
-
-				if (!inElement) {
-					if (localName == "element" && reader.hasAttribute("name") &&
-						reader.getAttribute("name") == elementName) {
-						inElement = true;
-						depth = 0;
-					}
-				} else {
-					++depth;
-					if (localName == "attribute" &&
-						reader.hasAttribute("name") &&
-						reader.hasAttribute("use") && reader.getAttribute("use") == "required") {
-						result.push_back(reader.getAttribute("name"));
-					}
-				}
-			} else if (reader.GetInspected() == XMLReader::Inspected::EndTag) {
-				if (inElement) {
-					if (depth == 0) break;
-					--depth;
 				}
 			}
 		}
@@ -434,8 +290,6 @@ namespace hdt
 			try {
 				// element enums — all xs:element nodes with inline anonymous simpleType enumerations
 				g_physicsSchema.elementEnums = parseAllElementEnumerations(bytes);
-				// constraint element names — refs inside <element name="constraint-group">
-				g_physicsSchema.constraintTags = parseConstraintTypes(bytes);
 
 				// bone tag, per-mesh shape tags, and weight-threshold tag — derived
 				// from xs:key selectors and element structure inside <element name="system">.
@@ -462,27 +316,24 @@ namespace hdt
 				}
 				// key/unique/keyref constraints — drive generic referential integrity checks.
 				parseKeyConstraints(bytes, g_physicsSchema.keyDefs, g_physicsSchema.keyRefDefs);
-				// weight-threshold tag — the element with a required attribute named after
-				// the bone tag (derived from XSD structure, not a hardcoded name).
-				auto wtTag = parseElementByRequiredAttr(bytes, g_physicsSchema.boneTag);
-				if (!wtTag.empty()) {
-					g_physicsSchema.weightThresholdTag = wtTag;
-				}
-				// constraint required attributes — parsed from the first constraint element
-				// (all constraint elements share the same required attributes by convention).
-				if (!g_physicsSchema.constraintTags.empty()) {
-					g_physicsSchema.constraintBodyAttrs =
-						parseRequiredAttrs(bytes, *g_physicsSchema.constraintTags.begin());
+				// required attributes per element — generic, read entirely from xs:attribute use="required".
+				g_physicsSchema.requiredAttrs = parseAllRequiredAttrs(bytes);
+				// weight-threshold tag — the element that requires the bone tag as an attribute.
+				for (const auto& [elemName, attrs] : g_physicsSchema.requiredAttrs) {
+					if (std::find(attrs.begin(), attrs.end(), g_physicsSchema.boneTag) != attrs.end()) {
+						g_physicsSchema.weightThresholdTag = elemName;
+						break;
+					}
 				}
 
 				g_physicsSchema.loaded = true;
 
 				logger::info(
 					"[XSDValidator] Loaded physics schema: {} enumerated element type(s), "
-					"{} constraint type(s) with {} required attr(s), "
+					"{} elements with required attr(s), "
 					"bone tag '{}', {} known shape tag(s), weight-threshold tag '{}'.",
 					g_physicsSchema.elementEnums.size(),
-					g_physicsSchema.constraintTags.size(), g_physicsSchema.constraintBodyAttrs.size(),
+					g_physicsSchema.requiredAttrs.size(),
 					g_physicsSchema.boneTag, g_physicsSchema.perMeshShapeTags.size(),
 					g_physicsSchema.weightThresholdTag);
 			} catch (const std::exception& e) {
@@ -569,9 +420,15 @@ namespace hdt
 					ctx.keyRefPending[rn].emplace_back(reader.GetRow(), reader.getAttribute(rd.fieldAttr));
 			}
 
+			// Generic required attribute check (XSD-driven, no hardcoded names).
+			ctx.elementStack.push_back(tag);
+			if (schema.requiredAttrs.count(tag)) {
+				for (const auto& attr : schema.requiredAttrs.at(tag)) {
+					requireAttr(tag, attr);
+				}
+			}
+
 			if (tag == schema.boneTag) {
-				ctx.elementStack.push_back(tag);
-				requireAttr(tag, "name");
 				while (reader.Inspect()) {
 					if (reader.GetInspected() == XMLReader::Inspected::EndTag) {
 						ctx.elementStack.pop_back();
@@ -589,23 +446,12 @@ namespace hdt
 					}
 					ctx.elementStack.pop_back();
 				}
-			} else if (schema.constraintTags.count(tag)) {
-				ctx.elementStack.push_back(tag);
-				for (const auto& attr : schema.constraintBodyAttrs) {
-					requireAttr(tag, attr);
+			} else {
+				if (tag == schema.weightThresholdTag) {
+					ctx.hasWeightThreshold = true;
 				}
 				reader.skipCurrentElement();
 				ctx.elementStack.pop_back();
-			} else if (schema.perMeshShapeTags.count(tag)) {
-				reader.skipCurrentElement();
-			} else if (tag == schema.weightThresholdTag) {
-				ctx.elementStack.push_back(tag);
-				ctx.hasWeightThreshold = true;
-				requireAttr(tag, schema.boneTag);
-				reader.skipCurrentElement();
-				ctx.elementStack.pop_back();
-			} else {
-				reader.skipCurrentElement();
 			}
 		}
 
