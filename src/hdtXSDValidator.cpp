@@ -27,7 +27,6 @@ namespace hdt
 		std::unordered_map<std::string, std::unordered_set<std::string>> elementEnums;
 		// Root element tag — the first top-level xs:element in the XSD.
 		std::string rootTag;
-		std::string weightThresholdTag;
 		// Required attributes per element — driven entirely by xs:attribute use="required".
 		std::unordered_map<std::string, std::vector<std::string>> requiredAttrs;
 		// Key/unique and keyref definitions parsed from xsd:key, xsd:unique, xsd:keyref.
@@ -355,30 +354,14 @@ namespace hdt
 				parseKeyConstraints(bytes, g_physicsSchema.keyDefs, g_physicsSchema.keyRefDefs);
 				// Required attributes per element — driven by xs:attribute use="required".
 				g_physicsSchema.requiredAttrs = parseAllRequiredAttrs(bytes);
-				// Weight-threshold tag: the element that is a keyref target AND whose keyref field
-				// attribute is also declared as required. No element or attribute names hardcoded.
-				for (const auto& [refName, refDef] : g_physicsSchema.keyRefDefs) {
-					for (const auto& elem : refDef.elems) {
-						if (g_physicsSchema.requiredAttrs.count(elem)) {
-							const auto& attrs = g_physicsSchema.requiredAttrs.at(elem);
-							if (std::find(attrs.begin(), attrs.end(), refDef.fieldAttr) != attrs.end()) {
-								g_physicsSchema.weightThresholdTag = elem;
-							}
-						}
-					}
-					if (!g_physicsSchema.weightThresholdTag.empty()) break;
-				}
-
 				g_physicsSchema.loaded = true;
 
 				logger::info(
 					"[XSDValidator] Loaded physics schema: root '{}', "
-					"{} enumerated element type(s), {} elements with required attr(s), "
-					"weight-threshold tag '{}'.",
+					"{} enumerated element type(s), {} elements with required attr(s).",
 					g_physicsSchema.rootTag,
 					g_physicsSchema.elementEnums.size(),
-					g_physicsSchema.requiredAttrs.size(),
-					g_physicsSchema.weightThresholdTag);
+					g_physicsSchema.requiredAttrs.size());
 			} catch (const std::exception& e) {
 				logger::warn("[XSDValidator] Failed to parse physics schema '{}': {}",
 					kPhysicsXSDPath, e.what());
@@ -398,7 +381,6 @@ namespace hdt
 		std::string xmlPath;
 		std::vector<XSDViolation>& violations;
 		std::vector<std::string> elementStack;
-		bool weightThresholdSeen = false;
 		// Generic referential integrity tracking — driven by XSD key/unique/keyref.
 		// keyValues: key/unique name — set of declared values encountered during parsing.
 		// keyRefPending: keyref name — list of (line, value) pairs to verify after parsing.
@@ -470,10 +452,6 @@ namespace hdt
 				}
 			}
 
-			// Detect presence of recommended elements.
-			if (tag == schema.weightThresholdTag) {
-				ctx.weightThresholdSeen = true;
-			}
 			// Recurse into children: validate any enum-constrained child elements.
 			// Elements with no enum children are simply skipped past.
 			while (reader.Inspect()) {
@@ -574,11 +552,6 @@ namespace hdt
 
 			if (!foundSystem) {
 				result.violations.push_back({ xmlPath, 0, 0, "/", "No <" + schema.rootTag + "> root element found" });
-			}
-			// Emit advisory warnings for XSD-defined recommended elements that were absent.
-			if (foundSystem && !schema.weightThresholdTag.empty() && !ctx.weightThresholdSeen) {
-				result.warnings.push_back({ xmlPath, 0, 0, "/" + schema.rootTag,
-					"No <" + schema.weightThresholdTag + "> defined (may impact performance)" });
 			}
 		} catch (const std::exception& e) {
 			result.violations.push_back(

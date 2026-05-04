@@ -204,15 +204,6 @@ namespace hdt
 				}
 			}
 
-			// XSD advisory warnings (missing recommended elements, performance hints, etc.)
-			if (!fileHasErrors) {
-				for (const auto& w : xsdResult.warnings) {
-					std::string warn = xmlPath + ": " + w.elementPath + " - " + w.message;
-					report.warnings.push_back(warn);
-					report.hasWarnings = true;
-					out << "    [WARN] " << w.message << "\n";
-				}
-			}
 		}
 	}
 
@@ -272,12 +263,6 @@ namespace hdt
 						out << "    [SCH-WARN] " << v.location << ": " << v.message << "\n";
 					}
 
-					for (const auto& w : xsdResult.warnings) {
-						std::string warn = asset.xmlPath + ": " + w.elementPath + " - " + w.message;
-						report.warnings.push_back(warn);
-						report.hasWarnings = true;
-						out << "    [WARN] " << w.message << "\n";
-					}
 				}
 			} else {
 				out << "    [WARN] Could not determine XML path from NIF\n";
