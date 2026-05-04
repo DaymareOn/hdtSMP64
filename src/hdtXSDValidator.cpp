@@ -25,7 +25,9 @@ namespace hdt
 	{
 		// Maps element tag names to their allowed values (inline anonymous simpleType enumerations).
 		std::unordered_map<std::string, std::unordered_set<std::string>> elementEnums;
-		// Derived from xs:key selectors and element structure inside hdtSMP64.xsd.
+		// Root element tag — the first top-level xs:element in the XSD.
+		std::string rootTag;
+		// Derived from xs:key selectors nested inside the root element.
 		std::string boneTag;
 		std::unordered_set<std::string> perMeshShapeTags;
 		std::string weightThresholdTag;
@@ -215,6 +217,69 @@ namespace hdt
 		return result;
 	}
 
+	// Find the first top-level xs:element in the XSD (the root element of physics XML files)
+	// and collect its xs:key name — selector xpath pairs.
+	// Returns {rootElementName, {keyName: selectorXpath}} with no hardcoded names.
+	static std::pair<std::string, std::unordered_map<std::string, std::string>>
+		parseSystemKeys(std::string& bytes)
+	{
+		std::unordered_map<std::string, std::string> keys;
+		std::string rootTag;
+		XMLReader reader(reinterpret_cast<uint8_t*>(bytes.data()), bytes.size());
+
+		bool inSchema = false;
+		bool inRoot = false;
+		bool inKey = false;
+		int schemaDepth = 0; // depth inside xs:schema, outside the root element
+		int rootDepth = 0;   // depth inside the root element
+		int keyDepth = 0;    // depth inside a xs:key element
+		std::string currentKeyName;
+
+		while (reader.Inspect()) {
+			if (reader.GetInspected() == XMLReader::Inspected::StartTag) {
+				const std::string localName = reader.GetLocalName();
+
+				if (!inSchema) {
+					if (localName == "schema") inSchema = true;
+				} else if (!inRoot) {
+					// At depth 0 inside xs:schema: the first xs:element with a name is the root.
+					if (schemaDepth == 0 && localName == "element" && reader.hasAttribute("name")) {
+						rootTag = reader.getAttribute("name");
+						inRoot = true;
+						rootDepth = 0;
+					} else {
+						++schemaDepth; // skip non-root top-level constructs
+					}
+				} else if (!inKey) {
+					++rootDepth;
+					if (localName == "key" && reader.hasAttribute("name")) {
+						inKey = true;
+						currentKeyName = reader.getAttribute("name");
+						keyDepth = 0;
+					}
+				} else {
+					++keyDepth;
+					if (localName == "selector" && reader.hasAttribute("xpath")) {
+						keys[currentKeyName] = reader.getAttribute("xpath");
+					}
+				}
+			} else if (reader.GetInspected() == XMLReader::Inspected::EndTag) {
+				if (inKey) {
+					if (keyDepth == 0) { inKey = false; --rootDepth; }
+					else --keyDepth;
+				} else if (inRoot) {
+					if (rootDepth == 0) break; // done with root element
+					--rootDepth;
+				} else if (inSchema) {
+					if (schemaDepth == 0) break; // end of xs:schema
+					--schemaDepth;
+				}
+			}
+		}
+
+		return { rootTag, keys };
+	}
+
 	// Parse all xsd:key, xsd:unique, and xsd:keyref declarations from the XSD.
 	// key/unique declarations establish which attribute values are valid keys.
 	// keyref declarations establish which attributes must reference a declared key.
@@ -291,9 +356,10 @@ namespace hdt
 				// element enums — all xs:element nodes with inline anonymous simpleType enumerations
 				g_physicsSchema.elementEnums = parseAllElementEnumerations(bytes);
 
-				// bone tag, per-mesh shape tags, and weight-threshold tag — derived
-				// from xs:key selectors and element structure inside <element name="system">.
-				auto systemKeys = parseSystemKeys(bytes);
+				// root tag, bone tag, per-mesh shape tags — derived from the top-level xs:element
+				// and its xs:key selectors.
+				auto [rootTag, systemKeys] = parseSystemKeys(bytes);
+				g_physicsSchema.rootTag = rootTag;
 				if (systemKeys.count("boneKey")) {
 					g_physicsSchema.boneTag = systemKeys["boneKey"];
 				}
@@ -329,9 +395,10 @@ namespace hdt
 				g_physicsSchema.loaded = true;
 
 				logger::info(
-					"[XSDValidator] Loaded physics schema: {} enumerated element type(s), "
-					"{} elements with required attr(s), "
+					"[XSDValidator] Loaded physics schema: root '{}', "
+					"{} enumerated element type(s), {} elements with required attr(s), "
 					"bone tag '{}', {} known shape tag(s), weight-threshold tag '{}'.",
+					g_physicsSchema.rootTag,
 					g_physicsSchema.elementEnums.size(),
 					g_physicsSchema.requiredAttrs.size(),
 					g_physicsSchema.boneTag, g_physicsSchema.perMeshShapeTags.size(),
@@ -376,9 +443,8 @@ namespace hdt
 
 	static void validateSystem(XMLReader& reader, ValidationContext& ctx)
 	{
-		ctx.elementStack.push_back("system");
-
 		const PhysicsSchema& schema = getPhysicsSchema();
+		ctx.elementStack.push_back(schema.rootTag);
 
 		// Returns true and records the attribute value if present; logs a violation otherwise.
 		auto requireAttr = [&](const std::string& element,
@@ -455,7 +521,7 @@ namespace hdt
 			}
 		}
 
-		if (!ctx.elementStack.empty() && ctx.elementStack.back() == "system") {
+		if (!ctx.elementStack.empty() && ctx.elementStack.back() == schema.rootTag) {
 			ctx.elementStack.pop_back();
 		}
 	}
@@ -490,6 +556,7 @@ namespace hdt
 		strcpy_s(saved_locale, std::setlocale(LC_NUMERIC, nullptr));
 		std::setlocale(LC_NUMERIC, "C");
 
+		const PhysicsSchema& schema = getPhysicsSchema();
 		ValidationContext ctx{
 			xmlPath,
 			result.violations,
@@ -504,11 +571,10 @@ namespace hdt
 			while (reader.Inspect()) {
 				if (reader.GetInspected() == XMLReader::Inspected::StartTag) {
 					const std::string tag = reader.GetLocalName();
-					if (tag == "system") {
+					if (tag == schema.rootTag) {
 						foundSystem = true;
 						validateSystem(reader, ctx);
 						// Referential integrity — check all pending keyref values against declared keys.
-						const PhysicsSchema& schema = getPhysicsSchema();
 						const std::unordered_set<std::string> emptySet;
 						for (const auto& [refName, refDef] : schema.keyRefDefs) {
 							const auto pendIt = ctx.keyRefPending.find(refName);
@@ -519,7 +585,7 @@ namespace hdt
 							for (const auto& [line, val] : pendIt->second) {
 								if (!val.empty() && !declared.count(val)) {
 									result.violations.push_back({ xmlPath, line, 0,
-										"/system",
+										"/" + schema.rootTag,
 										"Undeclared reference '" + val + "' (must be declared in '" +
 											refDef.refer + "')" });
 								}
@@ -527,14 +593,14 @@ namespace hdt
 						}
 					} else {
 						ctx.addViolation(reader.GetRow(), reader.GetColumn(),
-							"Root element must be <system>, found <" + tag + ">");
+							"Root element must be <" + schema.rootTag + ">, found <" + tag + ">");
 						reader.skipCurrentElement();
 					}
 				}
 			}
 
 			if (!foundSystem) {
-				result.violations.push_back({ xmlPath, 0, 0, "/", "No <system> root element found" });
+				result.violations.push_back({ xmlPath, 0, 0, "/", "No <" + schema.rootTag + "> root element found" });
 			}
 		} catch (const std::exception& e) {
 			result.violations.push_back(
