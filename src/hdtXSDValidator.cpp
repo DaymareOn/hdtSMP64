@@ -422,7 +422,7 @@ namespace hdt
 		std::string xmlPath;
 		std::vector<XSDViolation>& violations;
 		std::vector<std::string> elementStack;
-		bool& hasWeightThreshold;
+		bool weightThresholdSeen = false;
 		// Generic referential integrity tracking — driven by XSD key/unique/keyref.
 		// keyValues: key/unique name — set of declared values encountered during parsing.
 		// keyRefPending: keyref name — list of (line, value) pairs to verify after parsing.
@@ -514,7 +514,7 @@ namespace hdt
 				}
 			} else {
 				if (tag == schema.weightThresholdTag) {
-					ctx.hasWeightThreshold = true;
+					ctx.weightThresholdSeen = true;
 				}
 				reader.skipCurrentElement();
 				ctx.elementStack.pop_back();
@@ -560,8 +560,7 @@ namespace hdt
 		ValidationContext ctx{
 			xmlPath,
 			result.violations,
-			{},
-			result.hasWeightThreshold
+			{}
 		};
 
 		try {
@@ -601,6 +600,11 @@ namespace hdt
 
 			if (!foundSystem) {
 				result.violations.push_back({ xmlPath, 0, 0, "/", "No <" + schema.rootTag + "> root element found" });
+			}
+			// Emit advisory warnings for XSD-defined recommended elements that were absent.
+			if (foundSystem && !schema.weightThresholdTag.empty() && !ctx.weightThresholdSeen) {
+				result.warnings.push_back({ xmlPath, 0, 0, "/" + schema.rootTag,
+					"No <" + schema.weightThresholdTag + "> defined (may impact performance)" });
 			}
 		} catch (const std::exception& e) {
 			result.violations.push_back(
