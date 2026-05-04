@@ -23,7 +23,6 @@ namespace hdt
 	{
 		// Maps element tag names to their allowed values (inline anonymous simpleType enumerations).
 		std::unordered_map<std::string, std::unordered_set<std::string>> elementEnums;
-		std::unordered_set<std::string> shapeTypes;
 		std::unordered_set<std::string> constraintTags;
 		// Derived from xs:key selectors and element structure inside hdtSMP64.xsd.
 		std::string boneTag;
@@ -45,39 +44,49 @@ namespace hdt
 		return result;
 	}
 
-	// Collect all xs:enumeration/@value from a *named* xs:simpleType.
-	// Used for hdtSMP64.xsd's top-level "shapeType" simpleType.
-	static std::unordered_set<std::string> parseNamedSimpleTypeEnumerations(
-		std::string& bytes, const std::string& typeName)
+	// Collect xs:enumeration/@value from every *named* xs:simpleType in the XSD.
+	// Returns a map from simpleType name to its set of enumerated values.
+	// No type names are hardcoded here; the validator discovers them structurally.
+	static std::unordered_map<std::string, std::unordered_set<std::string>>
+		parseAllNamedSimpleTypeEnumerations(std::string& bytes)
 	{
-		std::unordered_set<std::string> result;
+		std::unordered_map<std::string, std::unordered_set<std::string>> result;
 		XMLReader reader(reinterpret_cast<uint8_t*>(bytes.data()), bytes.size());
 
-		bool inTargetType = false;
+		std::string currentType;
+		bool inType = false;
 		int depth = 0;
+		std::unordered_set<std::string> currentEnums;
 
 		while (reader.Inspect()) {
 			if (reader.GetInspected() == XMLReader::Inspected::StartTag) {
 				const std::string localName = reader.GetLocalName();
 
-				if (!inTargetType) {
-					if (localName == "simpleType" && reader.hasAttribute("name") &&
-						reader.getAttribute("name") == typeName) {
-						inTargetType = true;
+				if (!inType) {
+					if (localName == "simpleType" && reader.hasAttribute("name")) {
+						inType = true;
+						currentType = reader.getAttribute("name");
 						depth = 0;
+						currentEnums.clear();
 					}
 				} else {
 					++depth;
 					if (localName == "enumeration" && reader.hasAttribute("value")) {
-						result.insert(reader.getAttribute("value"));
+						currentEnums.insert(reader.getAttribute("value"));
 					}
 				}
 			} else if (reader.GetInspected() == XMLReader::Inspected::EndTag) {
-				if (inTargetType) {
+				if (inType) {
 					if (depth == 0) {
-						break;
+						if (!currentEnums.empty()) {
+							result[currentType] = std::move(currentEnums);
+							currentEnums.clear();
+						}
+						inType = false;
+						currentType.clear();
+					} else {
+						--depth;
 					}
-					--depth;
 				}
 			}
 		}
@@ -343,9 +352,6 @@ namespace hdt
 			}
 
 			try {
-				// shapeType — named simpleType in hdtSMP64.xsd
-				g_physicsSchema.shapeTypes =
-					parseNamedSimpleTypeEnumerations(bytes, "shapeType");
 				// element enums — all xs:element nodes with inline anonymous simpleType enumerations
 				g_physicsSchema.elementEnums = parseAllElementEnumerations(bytes);
 				// constraint element names — refs inside <element name="constraint-group">
@@ -369,6 +375,11 @@ namespace hdt
 						g_physicsSchema.perMeshShapeTags = std::move(parsedShapeTags);
 					}
 				}
+				// named simpleType enumerations — their values are element tag names
+				// (e.g. shapeType lists all valid shape element names).
+				for (const auto& [typeName, values] : parseAllNamedSimpleTypeEnumerations(bytes)) {
+					g_physicsSchema.perMeshShapeTags.insert(values.begin(), values.end());
+				}
 				// weight-threshold tag — the element with a required attribute named after
 				// the bone tag (derived from XSD structure, not a hardcoded name).
 				auto wtTag = parseElementByRequiredAttr(bytes, g_physicsSchema.boneTag);
@@ -386,9 +397,9 @@ namespace hdt
 
 				logger::info(
 					"[XSDValidator] Loaded physics schema: {} enumerated element type(s), "
-					"{} shape type(s), {} constraint type(s) with {} required attr(s), "
-					"bone tag '{}', {} per-mesh shape type(s), weight-threshold tag '{}'.",
-					g_physicsSchema.elementEnums.size(), g_physicsSchema.shapeTypes.size(),
+					"{} constraint type(s) with {} required attr(s), "
+					"bone tag '{}', {} known shape tag(s), weight-threshold tag '{}'.",
+					g_physicsSchema.elementEnums.size(),
 					g_physicsSchema.constraintTags.size(), g_physicsSchema.constraintBodyAttrs.size(),
 					g_physicsSchema.boneTag, g_physicsSchema.perMeshShapeTags.size(),
 					g_physicsSchema.weightThresholdTag);
@@ -495,7 +506,7 @@ namespace hdt
 				}
 				reader.skipCurrentElement();
 				ctx.elementStack.pop_back();
-			} else if (schema.shapeTypes.count(tag) || schema.perMeshShapeTags.count(tag)) {
+			} else if (schema.perMeshShapeTags.count(tag)) {
 				reader.skipCurrentElement();
 			} else if (tag == schema.weightThresholdTag) {
 				ctx.elementStack.push_back(tag);
