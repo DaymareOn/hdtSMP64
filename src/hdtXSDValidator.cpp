@@ -377,8 +377,6 @@ namespace hdt
 		ValidationContext& ctx);
 	static void validateShape(XMLReader& reader, const std::string& tag,
 		ValidationContext& ctx);
-	static void validateWeightThreshold(XMLReader& reader, const std::string& tag,
-		ValidationContext& ctx);
 
 	// ---- element validators ----
 
@@ -405,7 +403,16 @@ namespace hdt
 			} else if (schema.shapeTypes.count(tag) || schema.perMeshShapeTags.count(tag)) {
 				validateShape(reader, tag, ctx);
 			} else if (tag == schema.weightThresholdTag) {
-				validateWeightThreshold(reader, tag, ctx);
+				ctx.elementStack.push_back(tag);
+				ctx.hasWeightThreshold = true;
+				if (!reader.hasAttribute(schema.boneTag)) {
+					ctx.addViolation(reader.GetRow(), reader.GetColumn(),
+						"<" + tag + "> is missing required attribute '" + schema.boneTag + "'");
+				} else {
+					ctx.weightThresholdBones.push_back(reader.getAttribute(schema.boneTag));
+				}
+				reader.skipCurrentElement();
+				ctx.elementStack.pop_back();
 			} else {
 				reader.skipCurrentElement();
 			}
@@ -505,22 +512,6 @@ namespace hdt
 		ctx.elementStack.pop_back();
 	}
 
-	static void validateWeightThreshold(XMLReader& reader, const std::string& tag,
-		ValidationContext& ctx)
-	{
-		ctx.elementStack.push_back(tag);
-		ctx.hasWeightThreshold = true;
-
-		if (!reader.hasAttribute("bone")) {
-			ctx.addViolation(reader.GetRow(), reader.GetColumn(),
-				"<" + tag + "> is missing required attribute 'bone'");
-		} else {
-			ctx.weightThresholdBones.push_back(reader.getAttribute("bone"));
-		}
-
-		reader.skipCurrentElement();
-		ctx.elementStack.pop_back();
-	}
 
 	// ---- public API ----
 
