@@ -375,8 +375,6 @@ namespace hdt
 	static void validateNamedBody(XMLReader& reader, const std::string& tag, ValidationContext& ctx);
 	static void validateConstraint(XMLReader& reader, const std::string& tag,
 		ValidationContext& ctx);
-	static void validateShape(XMLReader& reader, const std::string& tag,
-		ValidationContext& ctx);
 
 	// ---- element validators ----
 
@@ -401,7 +399,7 @@ namespace hdt
 			} else if (schema.constraintTags.count(tag)) {
 				validateConstraint(reader, tag, ctx);
 			} else if (schema.shapeTypes.count(tag) || schema.perMeshShapeTags.count(tag)) {
-				validateShape(reader, tag, ctx);
+				reader.skipCurrentElement();
 			} else if (tag == schema.weightThresholdTag) {
 				ctx.elementStack.push_back(tag);
 				ctx.hasWeightThreshold = true;
@@ -456,10 +454,6 @@ namespace hdt
 							"' (see hdtSMP64.xsd <shared> for valid values: " +
 							joinSet(schema.sharedValues) + ")");
 				}
-			} else if (schema.shapeTypes.count(childTag) || schema.perMeshShapeTags.count(childTag)) {
-				ctx.elementStack.pop_back();
-				validateShape(reader, childTag, ctx);
-				continue;  // validateShape manages its own stack entry
 			} else {
 				reader.skipCurrentElement();
 			}
@@ -489,23 +483,6 @@ namespace hdt
 				"<" + tag + "> is missing required attribute 'bodyB'");
 		} else {
 			ctx.definedBodies.insert(reader.getAttribute("bodyB"));
-		}
-
-		reader.skipCurrentElement();
-		ctx.elementStack.pop_back();
-	}
-
-	static void validateShape(XMLReader& reader, const std::string& tag,
-		ValidationContext& ctx)
-	{
-		ctx.elementStack.push_back(tag);
-
-		const PhysicsSchema& schema = getPhysicsSchema();
-		if (!schema.shapeTypes.count(tag) && !schema.perMeshShapeTags.count(tag)) {
-			ctx.addViolation(reader.GetRow(), reader.GetColumn(),
-				"Unknown shape type <" + tag +
-					"> (see hdtSMP64.xsd shapeType for valid values: " +
-					joinSet(schema.shapeTypes) + ")");
 		}
 
 		reader.skipCurrentElement();
