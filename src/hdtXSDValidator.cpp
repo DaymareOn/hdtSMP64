@@ -5,6 +5,7 @@
 
 #include <mutex>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
@@ -23,6 +24,11 @@ namespace hdt
 		std::unordered_set<std::string> sharedValues;
 		std::unordered_set<std::string> shapeTypes;
 		std::unordered_set<std::string> constraintTags;
+		// Derived from xs:key selectors and element structure inside hdtSMP64.xsd.
+		// Defaults act as fallback when the XSD file cannot be loaded.
+		std::string boneTag = "bone";
+		std::unordered_set<std::string> perMeshShapeTags = { "per-triangle-shape", "per-vertex-shape" };
+		std::string weightThresholdTag = "weight-threshold";
 		bool loaded = false;
 	};
 
@@ -168,6 +174,107 @@ namespace hdt
 		return result;
 	}
 
+	// Parse xs:key elements inside <element name="system"> and return a map of
+	// (key name → selector xpath value). xs:key entries capture the roles of
+	// uniquely-named element types: "boneKey" → "bone", "per-*-shapeKey" → shape names.
+	static std::unordered_map<std::string, std::string> parseSystemKeys(std::string& bytes)
+	{
+		std::unordered_map<std::string, std::string> result;
+		XMLReader reader(reinterpret_cast<uint8_t*>(bytes.data()), bytes.size());
+
+		bool inSystem = false;
+		bool inKey = false;
+		std::string currentKeyName;
+		int systemDepth = 0;
+		int keyDepth = 0;
+
+		while (reader.Inspect()) {
+			if (reader.GetInspected() == XMLReader::Inspected::StartTag) {
+				const std::string localName = reader.GetLocalName();
+
+				if (!inSystem) {
+					if (localName == "element" && reader.hasAttribute("name") &&
+						reader.getAttribute("name") == "system") {
+						inSystem = true;
+						systemDepth = 0;
+					}
+				} else if (!inKey) {
+					++systemDepth;
+					if (localName == "key" && reader.hasAttribute("name")) {
+						inKey = true;
+						currentKeyName = reader.getAttribute("name");
+						keyDepth = 0;
+					}
+				} else {
+					++keyDepth;
+					if (localName == "selector" && reader.hasAttribute("xpath")) {
+						result[currentKeyName] = reader.getAttribute("xpath");
+					}
+				}
+			} else if (reader.GetInspected() == XMLReader::Inspected::EndTag) {
+				if (inKey) {
+					if (keyDepth == 0) {
+						inKey = false;
+						--systemDepth;
+					} else {
+						--keyDepth;
+					}
+				} else if (inSystem) {
+					if (systemDepth == 0) {
+						break;
+					}
+					--systemDepth;
+				}
+			}
+		}
+
+		return result;
+	}
+
+	// Find the element whose xs:complexType contains an xs:attribute named "bone"
+	// with use="required". In hdtSMP64.xsd this uniquely identifies the
+	// weight-threshold element by structure rather than by a hardcoded name.
+	static std::string parseWeightThresholdTag(std::string& bytes)
+	{
+		XMLReader reader(reinterpret_cast<uint8_t*>(bytes.data()), bytes.size());
+
+		bool inElement = false;
+		std::string currentElementName;
+		int depth = 0;
+
+		while (reader.Inspect()) {
+			if (reader.GetInspected() == XMLReader::Inspected::StartTag) {
+				const std::string localName = reader.GetLocalName();
+
+				if (!inElement) {
+					if (localName == "element" && reader.hasAttribute("name")) {
+						inElement = true;
+						currentElementName = reader.getAttribute("name");
+						depth = 0;
+					}
+				} else {
+					++depth;
+					if (localName == "attribute" &&
+						reader.hasAttribute("name") && reader.getAttribute("name") == "bone" &&
+						reader.hasAttribute("use") && reader.getAttribute("use") == "required") {
+						return currentElementName;
+					}
+				}
+			} else if (reader.GetInspected() == XMLReader::Inspected::EndTag) {
+				if (inElement) {
+					if (depth == 0) {
+						inElement = false;
+						currentElementName.clear();
+					} else {
+						--depth;
+					}
+				}
+			}
+		}
+
+		return {};
+	}
+
 	static PhysicsSchema g_physicsSchema;
 	static std::once_flag g_schemaOnce;
 
@@ -193,13 +300,40 @@ namespace hdt
 				g_physicsSchema.sharedValues = parseElementEnumerations(bytes, "shared");
 				// constraint element names — refs inside <element name="constraint-group">
 				g_physicsSchema.constraintTags = parseConstraintTypes(bytes);
+
+				// bone tag, per-mesh shape tags, and weight-threshold tag — derived
+				// from xs:key selectors and element structure inside <element name="system">.
+				auto systemKeys = parseSystemKeys(bytes);
+				if (systemKeys.count("boneKey")) {
+					g_physicsSchema.boneTag = systemKeys["boneKey"];
+				}
+				{
+					std::unordered_set<std::string> parsedShapeTags;
+					for (const auto& [keyName, selector] : systemKeys) {
+						if (keyName.size() >= 8 &&
+							keyName.compare(keyName.size() - 8, 8, "shapeKey") == 0) {
+							parsedShapeTags.insert(selector);
+						}
+					}
+					if (!parsedShapeTags.empty()) {
+						g_physicsSchema.perMeshShapeTags = std::move(parsedShapeTags);
+					}
+				}
+				auto wtTag = parseWeightThresholdTag(bytes);
+				if (!wtTag.empty()) {
+					g_physicsSchema.weightThresholdTag = wtTag;
+				}
+
 				g_physicsSchema.loaded = true;
 
 				logger::info(
 					"[XSDValidator] Loaded physics schema: {} shared value(s), "
-					"{} shape type(s), {} constraint type(s).",
+					"{} shape type(s), {} constraint type(s), "
+					"bone tag '{}', {} per-mesh shape type(s), weight-threshold tag '{}'.",
 					g_physicsSchema.sharedValues.size(), g_physicsSchema.shapeTypes.size(),
-					g_physicsSchema.constraintTags.size());
+					g_physicsSchema.constraintTags.size(), g_physicsSchema.boneTag,
+					g_physicsSchema.perMeshShapeTags.size(),
+					g_physicsSchema.weightThresholdTag);
 			} catch (const std::exception& e) {
 				logger::warn("[XSDValidator] Failed to parse physics schema '{}': {}",
 					kPhysicsXSDPath, e.what());
@@ -237,12 +371,13 @@ namespace hdt
 	// ---- forward declarations ----
 
 	static void validateSystem(XMLReader& reader, ValidationContext& ctx);
-	static void validateBone(XMLReader& reader, ValidationContext& ctx);
+	static void validateBone(XMLReader& reader, const std::string& tag, ValidationContext& ctx);
 	static void validateConstraint(XMLReader& reader, const std::string& tag,
 		ValidationContext& ctx);
 	static void validateShape(XMLReader& reader, const std::string& tag,
 		ValidationContext& ctx);
-	static void validateWeightThreshold(XMLReader& reader, ValidationContext& ctx);
+	static void validateWeightThreshold(XMLReader& reader, const std::string& tag,
+		ValidationContext& ctx);
 
 	// ---- element validators ----
 
@@ -262,15 +397,14 @@ namespace hdt
 			const std::string tag = reader.GetLocalName();
 			const PhysicsSchema& schema = getPhysicsSchema();
 
-			if (tag == "bone") {
-				validateBone(reader, ctx);
+			if (tag == schema.boneTag) {
+				validateBone(reader, tag, ctx);
 			} else if (schema.constraintTags.count(tag)) {
 				validateConstraint(reader, tag, ctx);
-			} else if (schema.shapeTypes.count(tag) || tag == "per-triangle-shape" ||
-				tag == "per-vertex-shape") {
+			} else if (schema.shapeTypes.count(tag) || schema.perMeshShapeTags.count(tag)) {
 				validateShape(reader, tag, ctx);
-			} else if (tag == "weight-threshold") {
-				validateWeightThreshold(reader, ctx);
+			} else if (tag == schema.weightThresholdTag) {
+				validateWeightThreshold(reader, tag, ctx);
 			} else {
 				reader.skipCurrentElement();
 			}
@@ -281,13 +415,13 @@ namespace hdt
 		}
 	}
 
-	static void validateBone(XMLReader& reader, ValidationContext& ctx)
+	static void validateBone(XMLReader& reader, const std::string& tag, ValidationContext& ctx)
 	{
-		ctx.elementStack.push_back("bone");
+		ctx.elementStack.push_back(tag);
 
 		if (!reader.hasAttribute("name")) {
 			ctx.addViolation(reader.GetRow(), reader.GetColumn(),
-				"<bone> is missing required attribute 'name'");
+				"<" + tag + "> is missing required attribute 'name'");
 		} else {
 			ctx.definedBones.insert(reader.getAttribute("name"));
 		}
@@ -301,11 +435,11 @@ namespace hdt
 				continue;
 			}
 
-			const std::string tag = reader.GetLocalName();
-			ctx.elementStack.push_back(tag);
+			const std::string childTag = reader.GetLocalName();
+			ctx.elementStack.push_back(childTag);
 
 			const PhysicsSchema& schema = getPhysicsSchema();
-			if (tag == "shared") {
+			if (childTag == "shared") {
 				// Read text and validate against allowed values from the schema
 				const std::string val = reader.readText();
 				if (schema.loaded && !schema.sharedValues.count(val)) {
@@ -314,10 +448,9 @@ namespace hdt
 							"' (see hdtSMP64.xsd <shared> for valid values: " +
 							joinSet(schema.sharedValues) + ")");
 				}
-			} else if (schema.shapeTypes.count(tag) || tag == "per-triangle-shape" ||
-				tag == "per-vertex-shape") {
+			} else if (schema.shapeTypes.count(childTag) || schema.perMeshShapeTags.count(childTag)) {
 				ctx.elementStack.pop_back();
-				validateShape(reader, tag, ctx);
+				validateShape(reader, childTag, ctx);
 				continue;  // validateShape manages its own stack entry
 			} else {
 				reader.skipCurrentElement();
@@ -326,7 +459,7 @@ namespace hdt
 			ctx.elementStack.pop_back();
 		}
 
-		if (!ctx.elementStack.empty() && ctx.elementStack.back() == "bone") {
+		if (!ctx.elementStack.empty() && ctx.elementStack.back() == tag) {
 			ctx.elementStack.pop_back();
 		}
 	}
@@ -360,8 +493,7 @@ namespace hdt
 		ctx.elementStack.push_back(tag);
 
 		const PhysicsSchema& schema = getPhysicsSchema();
-		if (schema.loaded && !schema.shapeTypes.count(tag) && tag != "per-triangle-shape" &&
-			tag != "per-vertex-shape") {
+		if (schema.loaded && !schema.shapeTypes.count(tag) && !schema.perMeshShapeTags.count(tag)) {
 			ctx.addViolation(reader.GetRow(), reader.GetColumn(),
 				"Unknown shape type <" + tag +
 					"> (see hdtSMP64.xsd shapeType for valid values: " +
@@ -372,14 +504,15 @@ namespace hdt
 		ctx.elementStack.pop_back();
 	}
 
-	static void validateWeightThreshold(XMLReader& reader, ValidationContext& ctx)
+	static void validateWeightThreshold(XMLReader& reader, const std::string& tag,
+		ValidationContext& ctx)
 	{
-		ctx.elementStack.push_back("weight-threshold");
+		ctx.elementStack.push_back(tag);
 		ctx.hasWeightThreshold = true;
 
 		if (!reader.hasAttribute("bone")) {
 			ctx.addViolation(reader.GetRow(), reader.GetColumn(),
-				"<weight-threshold> is missing required attribute 'bone'");
+				"<" + tag + "> is missing required attribute 'bone'");
 		} else {
 			ctx.weightThresholdBones.push_back(reader.getAttribute("bone"));
 		}
