@@ -40,6 +40,10 @@ namespace hdt
 		stack.clear();
 		stack.push_back({ this, r, L });
 		while (!stack.empty()) {
+			if (ret.size() > MaxCollisionPairs) {
+				break;
+			}
+
 			auto e = stack.back();
 			stack.pop_back();
 
