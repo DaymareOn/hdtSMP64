@@ -28,7 +28,7 @@ namespace hdt
 		// Root element tag — the first top-level xs:element in the XSD.
 		std::string rootTag;
 		// Derived from xs:key selectors nested inside the root element.
-		std::string boneTag;
+		std::string keySourceTag;
 		std::unordered_set<std::string> perMeshShapeTags;
 		std::string weightThresholdTag;
 		// Required attributes per element — driven entirely by xs:attribute use="required".
@@ -361,7 +361,7 @@ namespace hdt
 				auto [rootTag, systemKeys] = parseSystemKeys(bytes);
 				g_physicsSchema.rootTag = rootTag;
 				if (systemKeys.count("boneKey")) {
-					g_physicsSchema.boneTag = systemKeys["boneKey"];
+					g_physicsSchema.keySourceTag = systemKeys["boneKey"];
 				}
 				{
 					std::unordered_set<std::string> parsedShapeTags;
@@ -386,7 +386,7 @@ namespace hdt
 				g_physicsSchema.requiredAttrs = parseAllRequiredAttrs(bytes);
 				// weight-threshold tag — the element that requires the bone tag as an attribute.
 				for (const auto& [elemName, attrs] : g_physicsSchema.requiredAttrs) {
-					if (std::find(attrs.begin(), attrs.end(), g_physicsSchema.boneTag) != attrs.end()) {
+					if (std::find(attrs.begin(), attrs.end(), g_physicsSchema.keySourceTag) != attrs.end()) {
 						g_physicsSchema.weightThresholdTag = elemName;
 						break;
 					}
@@ -401,7 +401,7 @@ namespace hdt
 					g_physicsSchema.rootTag,
 					g_physicsSchema.elementEnums.size(),
 					g_physicsSchema.requiredAttrs.size(),
-					g_physicsSchema.boneTag, g_physicsSchema.perMeshShapeTags.size(),
+					g_physicsSchema.keySourceTag, g_physicsSchema.perMeshShapeTags.size(),
 					g_physicsSchema.weightThresholdTag);
 			} catch (const std::exception& e) {
 				logger::warn("[XSDValidator] Failed to parse physics schema '{}': {}",
@@ -494,7 +494,7 @@ namespace hdt
 				}
 			}
 
-			if (tag == schema.boneTag) {
+			if (tag == schema.keySourceTag) {
 				while (reader.Inspect()) {
 					if (reader.GetInspected() == XMLReader::Inspected::EndTag) {
 						ctx.elementStack.pop_back();
