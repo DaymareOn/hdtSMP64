@@ -21,7 +21,8 @@ namespace hdt
 	// Parsed schema enumerations loaded once from hdtSMP64.xsd.
 	struct PhysicsSchema
 	{
-		std::unordered_set<std::string> sharedValues;
+		// Maps element tag names to their allowed values (inline anonymous simpleType enumerations).
+		std::unordered_map<std::string, std::unordered_set<std::string>> elementEnums;
 		std::unordered_set<std::string> shapeTypes;
 		std::unordered_set<std::string> constraintTags;
 		// Derived from xs:key selectors and element structure inside hdtSMP64.xsd.
@@ -84,40 +85,50 @@ namespace hdt
 		return result;
 	}
 
-	// Collect all xs:enumeration/@value from the *anonymous* simpleType nested
-	// inside a named xs:element. Used for hdtSMP64.xsd's <shared> element, which
-	// embeds its restriction inline rather than referencing a named simpleType.
-	static std::unordered_set<std::string> parseElementEnumerations(
-		std::string& bytes, const std::string& elementName)
+	// Collect all xs:enumeration/@value from every xs:element that embeds an
+	// anonymous simpleType with restrictions inline. Returns a map from element
+	// name to its set of allowed values. No element names are hardcoded here;
+	// the validator discovers them structurally from the XSD.
+	static std::unordered_map<std::string, std::unordered_set<std::string>>
+		parseAllElementEnumerations(std::string& bytes)
 	{
-		std::unordered_set<std::string> result;
+		std::unordered_map<std::string, std::unordered_set<std::string>> result;
 		XMLReader reader(reinterpret_cast<uint8_t*>(bytes.data()), bytes.size());
 
+		std::string currentElement;
 		bool inElement = false;
 		int depth = 0;
+		std::unordered_set<std::string> currentEnums;
 
 		while (reader.Inspect()) {
 			if (reader.GetInspected() == XMLReader::Inspected::StartTag) {
 				const std::string localName = reader.GetLocalName();
 
 				if (!inElement) {
-					if (localName == "element" && reader.hasAttribute("name") &&
-						reader.getAttribute("name") == elementName) {
+					if (localName == "element" && reader.hasAttribute("name")) {
 						inElement = true;
+						currentElement = reader.getAttribute("name");
 						depth = 0;
+						currentEnums.clear();
 					}
 				} else {
 					++depth;
 					if (localName == "enumeration" && reader.hasAttribute("value")) {
-						result.insert(reader.getAttribute("value"));
+						currentEnums.insert(reader.getAttribute("value"));
 					}
 				}
 			} else if (reader.GetInspected() == XMLReader::Inspected::EndTag) {
 				if (inElement) {
 					if (depth == 0) {
-						break;
+						if (!currentEnums.empty()) {
+							result[currentElement] = std::move(currentEnums);
+							currentEnums.clear();
+						}
+						inElement = false;
+						currentElement.clear();
+					} else {
+						--depth;
 					}
-					--depth;
 				}
 			}
 		}
@@ -335,8 +346,8 @@ namespace hdt
 				// shapeType — named simpleType in hdtSMP64.xsd
 				g_physicsSchema.shapeTypes =
 					parseNamedSimpleTypeEnumerations(bytes, "shapeType");
-				// shared values — anonymous simpleType inside <element name="shared">
-				g_physicsSchema.sharedValues = parseElementEnumerations(bytes, "shared");
+				// element enums — all xs:element nodes with inline anonymous simpleType enumerations
+				g_physicsSchema.elementEnums = parseAllElementEnumerations(bytes);
 				// constraint element names — refs inside <element name="constraint-group">
 				g_physicsSchema.constraintTags = parseConstraintTypes(bytes);
 
@@ -374,10 +385,10 @@ namespace hdt
 				g_physicsSchema.loaded = true;
 
 				logger::info(
-					"[XSDValidator] Loaded physics schema: {} shared value(s), "
+					"[XSDValidator] Loaded physics schema: {} enumerated element type(s), "
 					"{} shape type(s), {} constraint type(s) with {} required attr(s), "
 					"bone tag '{}', {} per-mesh shape type(s), weight-threshold tag '{}'.",
-					g_physicsSchema.sharedValues.size(), g_physicsSchema.shapeTypes.size(),
+					g_physicsSchema.elementEnums.size(), g_physicsSchema.shapeTypes.size(),
 					g_physicsSchema.constraintTags.size(), g_physicsSchema.constraintBodyAttrs.size(),
 					g_physicsSchema.boneTag, g_physicsSchema.perMeshShapeTags.size(),
 					g_physicsSchema.weightThresholdTag);
@@ -421,6 +432,8 @@ namespace hdt
 	{
 		ctx.elementStack.push_back("system");
 
+		const PhysicsSchema& schema = getPhysicsSchema();
+
 		// Returns true and records the attribute value if present; logs a violation otherwise.
 		auto requireAttr = [&](const std::string& element,
 			const std::string& attrName) -> bool {
@@ -428,6 +441,16 @@ namespace hdt
 			ctx.addViolation(reader.GetRow(), reader.GetColumn(),
 				"<" + element + "> is missing required attribute '" + attrName + "'");
 			return false;
+		};
+
+		// Logs a violation if val is not in the allowed set for elemTag.
+		auto checkEnumValue = [&](const std::string& elemTag, const std::string& val) {
+			const auto& allowed = schema.elementEnums.at(elemTag);
+			if (!allowed.count(val)) {
+				ctx.addViolation(reader.GetRow(), reader.GetColumn(),
+					"<" + elemTag + "> has invalid value '" + val +
+						"' (see hdtSMP64.xsd for valid values: " + joinSet(allowed) + ")");
+			}
 		};
 
 		while (reader.Inspect()) {
@@ -440,7 +463,6 @@ namespace hdt
 			}
 
 			const std::string tag = reader.GetLocalName();
-			const PhysicsSchema& schema = getPhysicsSchema();
 
 			if (tag == schema.boneTag) {
 				ctx.elementStack.push_back(tag);
@@ -457,14 +479,8 @@ namespace hdt
 					}
 					const std::string childTag = reader.GetLocalName();
 					ctx.elementStack.push_back(childTag);
-					if (childTag == "shared") {
-						const std::string val = reader.readText();
-						if (!schema.sharedValues.count(val)) {
-							ctx.addViolation(reader.GetRow(), reader.GetColumn(),
-								"<shared> has invalid value '" + val +
-									"' (see hdtSMP64.xsd <shared> for valid values: " +
-									joinSet(schema.sharedValues) + ")");
-						}
+					if (schema.elementEnums.count(childTag)) {
+						checkEnumValue(childTag, reader.readText());
 					} else {
 						reader.skipCurrentElement();
 					}
