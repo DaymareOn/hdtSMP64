@@ -7,6 +7,7 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 namespace hdt
@@ -30,6 +31,11 @@ namespace hdt
 		std::string weightThresholdTag;
 		// Required attributes on constraint elements, parsed from the XSD.
 		std::vector<std::string> constraintBodyAttrs;
+		// Key/unique and keyref definitions parsed from xsd:key, xsd:unique, xsd:keyref.
+		struct KeyDef { std::unordered_set<std::string> elems; std::string fieldAttr; };
+		struct KeyRefDef { std::string refer; std::unordered_set<std::string> elems; std::string fieldAttr; };
+		std::unordered_map<std::string, KeyDef> keyDefs;       // key/unique name — declared value sets
+		std::unordered_map<std::string, KeyRefDef> keyRefDefs; // keyref name — reference definitions
 		bool loaded = false;  // true only when the XSD was successfully parsed
 	};
 
@@ -334,6 +340,80 @@ namespace hdt
 		return result;
 	}
 
+	// Split an XSD xpath selector (e.g. "bone|bone-default") into a set of element names.
+	static std::unordered_set<std::string> parseXPathElems(const std::string& xpath)
+	{
+		std::unordered_set<std::string> result;
+		std::string token;
+		for (char c : xpath) {
+			if (c == '|') {
+				size_t start = token.find_first_not_of(" \t./");
+				if (start != std::string::npos) result.insert(token.substr(start));
+				token.clear();
+			} else {
+				token += c;
+			}
+		}
+		size_t start = token.find_first_not_of(" \t./");
+		if (start != std::string::npos) result.insert(token.substr(start));
+		return result;
+	}
+
+	// Parse all xsd:key, xsd:unique, and xsd:keyref declarations from the XSD.
+	// key/unique declarations establish which attribute values are valid keys.
+	// keyref declarations establish which attributes must reference a declared key.
+	static void parseKeyConstraints(
+		std::string& bytes,
+		std::unordered_map<std::string, PhysicsSchema::KeyDef>& keyDefs,
+		std::unordered_map<std::string, PhysicsSchema::KeyRefDef>& keyRefDefs)
+	{
+		XMLReader reader(reinterpret_cast<uint8_t*>(bytes.data()), bytes.size());
+		int mode = 0; // 0 = none, 1 = key/unique, 2 = keyref
+		int depth = 0;
+		std::string curName, curRefer, curSelector, curField;
+
+		while (reader.Inspect()) {
+			if (reader.GetInspected() == XMLReader::Inspected::StartTag) {
+				const std::string ln = reader.GetLocalName();
+				if (mode == 0) {
+					if ((ln == "key" || ln == "unique") && reader.hasAttribute("name")) {
+						mode = 1; depth = 0;
+						curName = reader.getAttribute("name");
+						curSelector.clear(); curField.clear();
+					} else if (ln == "keyref" &&
+							reader.hasAttribute("name") && reader.hasAttribute("refer")) {
+						mode = 2; depth = 0;
+						curName = reader.getAttribute("name");
+						curRefer = reader.getAttribute("refer");
+						curSelector.clear(); curField.clear();
+					}
+				} else {
+					++depth;
+					if (ln == "selector" && reader.hasAttribute("xpath"))
+						curSelector = reader.getAttribute("xpath");
+					else if (ln == "field" && reader.hasAttribute("xpath")) {
+						const std::string fp = reader.getAttribute("xpath");
+						curField = (!fp.empty() && fp[0] == '@') ? fp.substr(1) : fp;
+					}
+				}
+			} else if (reader.GetInspected() == XMLReader::Inspected::EndTag) {
+				if (mode != 0) {
+					if (depth == 0) {
+						if (!curSelector.empty() && !curField.empty()) {
+							if (mode == 1)
+								keyDefs[curName] = { parseXPathElems(curSelector), curField };
+							else
+								keyRefDefs[curName] = { curRefer, parseXPathElems(curSelector), curField };
+						}
+						mode = 0;
+					} else {
+						--depth;
+					}
+				}
+			}
+		}
+	}
+
 	static PhysicsSchema g_physicsSchema;
 	static std::once_flag g_schemaOnce;
 
@@ -380,6 +460,8 @@ namespace hdt
 				for (const auto& [typeName, values] : parseAllNamedSimpleTypeEnumerations(bytes)) {
 					g_physicsSchema.perMeshShapeTags.insert(values.begin(), values.end());
 				}
+				// key/unique/keyref constraints — drive generic referential integrity checks.
+				parseKeyConstraints(bytes, g_physicsSchema.keyDefs, g_physicsSchema.keyRefDefs);
 				// weight-threshold tag — the element with a required attribute named after
 				// the bone tag (derived from XSD structure, not a hardcoded name).
 				auto wtTag = parseElementByRequiredAttr(bytes, g_physicsSchema.boneTag);
@@ -422,10 +504,12 @@ namespace hdt
 		std::string xmlPath;
 		std::vector<XSDViolation>& violations;
 		std::vector<std::string> elementStack;
-		std::unordered_set<std::string>& definedBones;
-		std::unordered_set<std::string>& definedBodies;
-		std::vector<std::string>& weightThresholdBones;
 		bool& hasWeightThreshold;
+		// Generic referential integrity tracking — driven by XSD key/unique/keyref.
+		// keyValues: key/unique name — set of declared values encountered during parsing.
+		// keyRefPending: keyref name — list of (line, value) pairs to verify after parsing.
+		std::unordered_map<std::string, std::unordered_set<std::string>> keyValues;
+		std::unordered_map<std::string, std::vector<std::pair<uint64_t, std::string>>> keyRefPending;
 
 		void addViolation(uint64_t line, uint64_t col, const std::string& msg)
 		{
@@ -475,11 +559,19 @@ namespace hdt
 
 			const std::string tag = reader.GetLocalName();
 
+			// Generic key/keyref tracking (XSD-driven referential integrity).
+			for (const auto& [kn, kd] : schema.keyDefs) {
+				if (kd.elems.count(tag) && reader.hasAttribute(kd.fieldAttr))
+					ctx.keyValues[kn].insert(reader.getAttribute(kd.fieldAttr));
+			}
+			for (const auto& [rn, rd] : schema.keyRefDefs) {
+				if (rd.elems.count(tag) && reader.hasAttribute(rd.fieldAttr))
+					ctx.keyRefPending[rn].emplace_back(reader.GetRow(), reader.getAttribute(rd.fieldAttr));
+			}
+
 			if (tag == schema.boneTag) {
 				ctx.elementStack.push_back(tag);
-				if (requireAttr(tag, "name")) {
-					ctx.definedBones.insert(reader.getAttribute("name"));
-				}
+				requireAttr(tag, "name");
 				while (reader.Inspect()) {
 					if (reader.GetInspected() == XMLReader::Inspected::EndTag) {
 						ctx.elementStack.pop_back();
@@ -500,9 +592,7 @@ namespace hdt
 			} else if (schema.constraintTags.count(tag)) {
 				ctx.elementStack.push_back(tag);
 				for (const auto& attr : schema.constraintBodyAttrs) {
-					if (requireAttr(tag, attr)) {
-						ctx.definedBodies.insert(reader.getAttribute(attr));
-					}
+					requireAttr(tag, attr);
 				}
 				reader.skipCurrentElement();
 				ctx.elementStack.pop_back();
@@ -511,9 +601,7 @@ namespace hdt
 			} else if (tag == schema.weightThresholdTag) {
 				ctx.elementStack.push_back(tag);
 				ctx.hasWeightThreshold = true;
-				if (requireAttr(tag, schema.boneTag)) {
-					ctx.weightThresholdBones.push_back(reader.getAttribute(schema.boneTag));
-				}
+				requireAttr(tag, schema.boneTag);
 				reader.skipCurrentElement();
 				ctx.elementStack.pop_back();
 			} else {
@@ -560,9 +648,6 @@ namespace hdt
 			xmlPath,
 			result.violations,
 			{},
-			result.definedBones,
-			result.definedBodies,
-			result.weightThresholdBones,
 			result.hasWeightThreshold
 		};
 
@@ -576,6 +661,24 @@ namespace hdt
 					if (tag == "system") {
 						foundSystem = true;
 						validateSystem(reader, ctx);
+						// Referential integrity — check all pending keyref values against declared keys.
+						const PhysicsSchema& schema = getPhysicsSchema();
+						const std::unordered_set<std::string> emptySet;
+						for (const auto& [refName, refDef] : schema.keyRefDefs) {
+							const auto pendIt = ctx.keyRefPending.find(refName);
+							if (pendIt == ctx.keyRefPending.end()) continue;
+							const auto keyIt = ctx.keyValues.find(refDef.refer);
+							const auto& declared =
+								(keyIt != ctx.keyValues.end()) ? keyIt->second : emptySet;
+							for (const auto& [line, val] : pendIt->second) {
+								if (!val.empty() && !declared.count(val)) {
+									result.violations.push_back({ xmlPath, line, 0,
+										"/system",
+										"Undeclared reference '" + val + "' (must be declared in '" +
+											refDef.refer + "')" });
+								}
+							}
+						}
 					} else {
 						ctx.addViolation(reader.GetRow(), reader.GetColumn(),
 							"Root element must be <system>, found <" + tag + ">");

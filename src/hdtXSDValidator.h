@@ -2,7 +2,6 @@
 
 #include <cstdint>
 #include <string>
-#include <unordered_set>
 #include <vector>
 
 namespace hdt
@@ -21,9 +20,6 @@ namespace hdt
 		bool isValid = true;
 		bool hasWeightThreshold = false;
 		std::vector<XSDViolation> violations;
-		std::unordered_set<std::string> definedBones;
-		std::unordered_set<std::string> definedBodies;
-		std::vector<std::string> weightThresholdBones;
 	};
 
 	// Validate an FSMP physics XML file against the hdtSMP64 XSD constraints.
