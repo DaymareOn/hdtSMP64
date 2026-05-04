@@ -34,6 +34,9 @@ namespace hdt
 		struct KeyRefDef { std::string refer; std::unordered_set<std::string> elems; std::string fieldAttr; };
 		std::unordered_map<std::string, KeyDef> keyDefs;       // key/unique name — declared value sets
 		std::unordered_map<std::string, KeyRefDef> keyRefDefs; // keyref name — reference definitions
+		// Allowed children per element — maps each named xs:element to the set of child element
+		// tag names declared in its XSD content model (xs:choice/xs:all/xs:sequence).
+		std::unordered_map<std::string, std::unordered_set<std::string>> allowedChildren;
 		bool loaded = false;  // true only when the XSD was successfully parsed
 	};
 
@@ -327,6 +330,62 @@ namespace hdt
 		}
 	}
 
+	// Collect the set of allowed child element names for each named xs:element in the XSD.
+	// Walks the XSD content model (xs:choice/xs:all/xs:sequence inside xs:complexType) and
+	// records every xs:element[ref] or xs:element[name] at content-model depth (depth >= 2)
+	// as an allowed child of its enclosing top-level xs:element.  Generic — no domain knowledge
+	// required.  The depth counter follows the same pattern as parseAllRequiredAttrs:
+	// depth 0 = directly inside the xs:element body; depth N = N levels deeper.
+	static std::unordered_map<std::string, std::unordered_set<std::string>>
+		parseAllowedChildren(std::string& bytes)
+	{
+		std::unordered_map<std::string, std::unordered_set<std::string>> result;
+		XMLReader reader(reinterpret_cast<uint8_t*>(bytes.data()), bytes.size());
+
+		bool inElement = false;
+		std::string currentParent;
+		int depth = 0;
+
+		while (reader.Inspect()) {
+			if (reader.GetInspected() == XMLReader::Inspected::StartTag) {
+				const std::string ln = reader.GetLocalName();
+				if (!inElement) {
+					if (ln == "element" && reader.hasAttribute("name")) {
+						inElement = true;
+						currentParent = reader.getAttribute("name");
+						depth = 0;
+						result.emplace(currentParent, std::unordered_set<std::string>{});
+					}
+				} else {
+					if (ln == "element" && depth >= 2) {
+						// xs:element inside a content model — record as an allowed child.
+						std::string childName;
+						if (reader.hasAttribute("ref"))
+							childName = reader.getAttribute("ref");
+						else if (reader.hasAttribute("name"))
+							childName = reader.getAttribute("name");
+						if (!childName.empty())
+							result[currentParent].insert(childName);
+						reader.skipCurrentElement(); // consume child + subtree; do not increment depth
+					} else {
+						++depth;
+					}
+				}
+			} else if (reader.GetInspected() == XMLReader::Inspected::EndTag) {
+				if (inElement) {
+					if (depth == 0) {
+						inElement = false;
+						currentParent.clear();
+					} else {
+						--depth;
+					}
+				}
+			}
+		}
+
+		return result;
+	}
+
 	static PhysicsSchema g_physicsSchema;
 	static std::once_flag g_schemaOnce;
 
@@ -354,14 +413,18 @@ namespace hdt
 				parseKeyConstraints(bytes, g_physicsSchema.keyDefs, g_physicsSchema.keyRefDefs);
 				// Required attributes per element — driven by xs:attribute use="required".
 				g_physicsSchema.requiredAttrs = parseAllRequiredAttrs(bytes);
+				// Allowed children per element — driven by the XSD content model.
+				g_physicsSchema.allowedChildren = parseAllowedChildren(bytes);
 				g_physicsSchema.loaded = true;
 
 				logger::info(
 					"[XSDValidator] Loaded physics schema: root '{}', "
-					"{} enumerated element type(s), {} elements with required attr(s).",
+					"{} enumerated element type(s), {} elements with required attr(s), "
+					"{} elements with allowed-children constraint(s).",
 					g_physicsSchema.rootTag,
 					g_physicsSchema.elementEnums.size(),
-					g_physicsSchema.requiredAttrs.size());
+					g_physicsSchema.requiredAttrs.size(),
+					g_physicsSchema.allowedChildren.size());
 			} catch (const std::exception& e) {
 				logger::warn("[XSDValidator] Failed to parse physics schema '{}': {}",
 					kPhysicsXSDPath, e.what());
@@ -399,40 +462,30 @@ namespace hdt
 
 	// ---- element validators ----
 
-	static void validateSystem(XMLReader& reader, ValidationContext& ctx)
+	// Reads and validates all children of parentTag until its closing EndTag.
+	// Assumes the opening StartTag of parentTag has already been consumed.
+	// Validates child elements against the XSD-derived allowed-children set, tracks
+	// key/keyref referential integrity, enforces required attributes, and validates
+	// enum-constrained text content.  Fully recursive — handles arbitrary nesting depth.
+	static void validateChildren(
+		const std::string& parentTag, XMLReader& reader,
+		ValidationContext& ctx, const PhysicsSchema& schema)
 	{
-		const PhysicsSchema& schema = getPhysicsSchema();
-		ctx.elementStack.push_back(schema.rootTag);
-
-		// Returns true and records the attribute value if present; logs a violation otherwise.
-		auto requireAttr = [&](const std::string& element,
-			const std::string& attrName) -> bool {
-			if (reader.hasAttribute(attrName)) return true;
-			ctx.addViolation(reader.GetRow(), reader.GetColumn(),
-				"<" + element + "> is missing required attribute '" + attrName + "'");
-			return false;
-		};
-
-		// Logs a violation if val is not in the allowed set for elemTag.
-		auto checkEnumValue = [&](const std::string& elemTag, const std::string& val) {
-			const auto& allowed = schema.elementEnums.at(elemTag);
-			if (!allowed.count(val)) {
-				ctx.addViolation(reader.GetRow(), reader.GetColumn(),
-					"<" + elemTag + "> has invalid value '" + val +
-						"' (see hdtSMP64.xsd for valid values: " + joinSet(allowed) + ")");
-			}
-		};
-
 		while (reader.Inspect()) {
-			if (reader.GetInspected() == XMLReader::Inspected::EndTag) {
-				ctx.elementStack.pop_back();
-				return;
-			}
-			if (reader.GetInspected() != XMLReader::Inspected::StartTag) {
-				continue;
-			}
+			if (reader.GetInspected() == XMLReader::Inspected::EndTag) return;
+			if (reader.GetInspected() != XMLReader::Inspected::StartTag) continue;
 
 			const std::string tag = reader.GetLocalName();
+
+			// Check that this element is allowed inside parentTag (XSD content model).
+			const auto parentIt = schema.allowedChildren.find(parentTag);
+			if (parentIt != schema.allowedChildren.end() &&
+				!parentIt->second.count(tag)) {
+				ctx.addViolation(reader.GetRow(), reader.GetColumn(),
+					"<" + tag + "> is not allowed inside <" + parentTag + ">");
+				reader.skipCurrentElement();
+				continue;
+			}
 
 			// Generic key/keyref tracking (XSD-driven referential integrity).
 			for (const auto& [kn, kd] : schema.keyDefs) {
@@ -444,38 +497,40 @@ namespace hdt
 					ctx.keyRefPending[rn].emplace_back(reader.GetRow(), reader.getAttribute(rd.fieldAttr));
 			}
 
-			// Generic required attribute check (XSD-driven, no hardcoded names).
 			ctx.elementStack.push_back(tag);
+
+			// Generic required attribute check (XSD-driven, no hardcoded names).
 			if (schema.requiredAttrs.count(tag)) {
 				for (const auto& attr : schema.requiredAttrs.at(tag)) {
-					requireAttr(tag, attr);
+					if (!reader.hasAttribute(attr))
+						ctx.addViolation(reader.GetRow(), reader.GetColumn(),
+							"<" + tag + "> is missing required attribute '" + attr + "'");
 				}
 			}
 
-			// Recurse into children: validate any enum-constrained child elements.
-			// Elements with no enum children are simply skipped past.
-			while (reader.Inspect()) {
-				if (reader.GetInspected() == XMLReader::Inspected::EndTag) {
-					ctx.elementStack.pop_back();
-					break;
-				}
-				if (reader.GetInspected() != XMLReader::Inspected::StartTag) {
-					continue;
-				}
-				const std::string childTag = reader.GetLocalName();
-				ctx.elementStack.push_back(childTag);
-				if (schema.elementEnums.count(childTag)) {
-					checkEnumValue(childTag, reader.readText());
-				} else {
-					reader.skipCurrentElement();
-				}
-				ctx.elementStack.pop_back();
+			// Enum-constrained text content — read and validate; otherwise recurse into children.
+			if (schema.elementEnums.count(tag)) {
+				const uint64_t row = reader.GetRow(), col = reader.GetColumn();
+				const std::string val = reader.readText();
+				const auto& allowed = schema.elementEnums.at(tag);
+				if (!allowed.count(val))
+					ctx.addViolation(row, col,
+						"<" + tag + "> has invalid value '" + val +
+						"' (see hdtSMP64.xsd for valid values: " + joinSet(allowed) + ")");
+			} else {
+				validateChildren(tag, reader, ctx, schema);
 			}
-		}
 
-		if (!ctx.elementStack.empty() && ctx.elementStack.back() == schema.rootTag) {
 			ctx.elementStack.pop_back();
 		}
+	}
+
+	static void validateSystem(XMLReader& reader, ValidationContext& ctx)
+	{
+		const PhysicsSchema& schema = getPhysicsSchema();
+		ctx.elementStack.push_back(schema.rootTag);
+		validateChildren(schema.rootTag, reader, ctx, schema);
+		ctx.elementStack.pop_back();
 	}
 
 	// ---- public API ----
