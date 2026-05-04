@@ -1,9 +1,9 @@
 #include "hdtAssetValidator.h"
 
+#include "NetImmerseUtils.h"
 #include "hdtNIFValidator.h"
 #include "hdtSCHValidator.h"
 #include "hdtXSDValidator.h"
-#include "NetImmerseUtils.h"
 
 #include <chrono>
 #include <ctime>
@@ -42,9 +42,9 @@ namespace hdt
 
 	// XML file stems to skip – not physics config files
 	static const std::unordered_set<std::string> kSkippedXMLStems = {
-		"configs",    // main configuration file
+		"configs",      // main configuration file
 		"defaultbbps",  // shape-to-XML mapping (not a physics config)
-		"hdtsmp64",   // hdtSMP64.xsd physics schema (FSMP-Validator)
+		"hdtsmp64",     // hdtSMP64.xsd physics schema (FSMP-Validator)
 	};
 
 	// ---- Phase 1: XML discovery ----
@@ -185,7 +185,7 @@ namespace hdt
 			// XSD violations
 			for (const auto& v : xsdResult.violations) {
 				std::string msg = xmlPath + ":" + std::to_string(v.line) + ": " +
-					v.elementPath + " - " + v.message;
+				                  v.elementPath + " - " + v.message;
 				report.errors.push_back(msg);
 				out << "    [ERROR] " << v.elementPath << " (line " << v.line << "): "
 					<< v.message << "\n";
@@ -203,7 +203,6 @@ namespace hdt
 					out << "    [SCH-WARN] " << v.location << ": " << v.message << "\n";
 				}
 			}
-
 		}
 	}
 
@@ -217,7 +216,7 @@ namespace hdt
 
 			if (!asset.xmlExists && !asset.xmlPath.empty()) {
 				std::string err = "NIF " + asset.nifPath +
-					" references missing XML: " + asset.xmlPath;
+				                  " references missing XML: " + asset.xmlPath;
 				report.errors.push_back(err);
 				report.hasErrors = true;
 				out << "    [ERROR] Referenced XML not found: " << asset.xmlPath << "\n";
@@ -235,7 +234,7 @@ namespace hdt
 					report.hasErrors = true;
 					for (const auto& v : xsdResult.violations) {
 						std::string msg = asset.xmlPath + ":" + std::to_string(v.line) +
-							": " + v.elementPath + " - " + v.message;
+						                  ": " + v.elementPath + " - " + v.message;
 						report.errors.push_back(msg);
 						out << "    [ERROR] " << v.elementPath << " (line " << v.line
 							<< "): " << v.message << "\n";
@@ -262,7 +261,6 @@ namespace hdt
 						report.hasWarnings = true;
 						out << "    [SCH-WARN] " << v.location << ": " << v.message << "\n";
 					}
-
 				}
 			} else {
 				out << "    [WARN] Could not determine XML path from NIF\n";
@@ -374,8 +372,9 @@ namespace hdt
 
 		// Log summary to main log
 		if (report.hasErrors) {
-			logger::warn("[Validator] Validation complete: {} error(s), {} warning(s). "
-						 "See hdtSMP64_validation_{}.log for details.",
+			logger::warn(
+				"[Validator] Validation complete: {} error(s), {} warning(s). "
+				"See hdtSMP64_validation_{}.log for details.",
 				report.errors.size(), report.warnings.size(), timestamp);
 		} else if (report.hasWarnings) {
 			logger::info(

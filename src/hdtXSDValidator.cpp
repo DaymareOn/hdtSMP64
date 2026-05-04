@@ -24,7 +24,13 @@ namespace hdt
 	// All fields are populated from the XSD at load time -- no type names are hardcoded.
 	struct TypeConstraint
 	{
-		enum class Base { Any, Float, Boolean, Integer } base = Base::Any;
+		enum class Base
+		{
+			Any,
+			Float,
+			Boolean,
+			Integer
+		} base = Base::Any;
 		bool hasMin = false, hasMax = false;
 		double minInclusive = 0.0, maxInclusive = 0.0;
 	};
@@ -39,10 +45,19 @@ namespace hdt
 		// Required attributes per element — driven entirely by xs:attribute use="required".
 		std::unordered_map<std::string, std::vector<std::string>> requiredAttrs;
 		// Key/unique and keyref definitions parsed from xsd:key, xsd:unique, xsd:keyref.
-		struct KeyDef { std::unordered_set<std::string> elems; std::string fieldAttr; };
-		struct KeyRefDef { std::string refer; std::unordered_set<std::string> elems; std::string fieldAttr; };
-		std::unordered_map<std::string, KeyDef> keyDefs;       // key/unique name — declared value sets
-		std::unordered_map<std::string, KeyRefDef> keyRefDefs; // keyref name — reference definitions
+		struct KeyDef
+		{
+			std::unordered_set<std::string> elems;
+			std::string fieldAttr;
+		};
+		struct KeyRefDef
+		{
+			std::string refer;
+			std::unordered_set<std::string> elems;
+			std::string fieldAttr;
+		};
+		std::unordered_map<std::string, KeyDef> keyDefs;        // key/unique name — declared value sets
+		std::unordered_map<std::string, KeyRefDef> keyRefDefs;  // keyref name — reference definitions
 		// Allowed children per element — maps each named xs:element to the set of child element
 		// tag names declared in its XSD content model (xs:choice/xs:all/xs:sequence).
 		std::unordered_map<std::string, std::unordered_set<std::string>> allowedChildren;
@@ -58,7 +73,8 @@ namespace hdt
 	{
 		std::string result;
 		for (const auto& v : s) {
-			if (!result.empty()) result += ", ";
+			if (!result.empty())
+				result += ", ";
 			result += v;
 		}
 		return result;
@@ -103,7 +119,8 @@ namespace hdt
 							currentEnums.clear();
 							inType = false;
 							currentType.clear();
-						} else --depth;
+						} else
+							--depth;
 					}
 				}
 			}
@@ -111,7 +128,7 @@ namespace hdt
 
 		// Pass 2: collect inline enum values and type= references from xs:element.
 		std::unordered_map<std::string, std::unordered_set<std::string>> result;
-		std::unordered_map<std::string, std::string> typeRefs; // element name -> named type
+		std::unordered_map<std::string, std::string> typeRefs;  // element name -> named type
 		{
 			XMLReader reader(reinterpret_cast<uint8_t*>(bytes.data()), bytes.size());
 			bool inElement = false;
@@ -146,7 +163,8 @@ namespace hdt
 							currentEnums.clear();
 							inElement = false;
 							currentElement.clear();
-						} else --depth;
+						} else
+							--depth;
 					}
 				}
 			}
@@ -214,14 +232,16 @@ namespace hdt
 		for (char c : xpath) {
 			if (c == '|') {
 				size_t start = token.find_first_not_of(" \t./");
-				if (start != std::string::npos) result.insert(token.substr(start));
+				if (start != std::string::npos)
+					result.insert(token.substr(start));
 				token.clear();
 			} else {
 				token += c;
 			}
 		}
 		size_t start = token.find_first_not_of(" \t./");
-		if (start != std::string::npos) result.insert(token.substr(start));
+		if (start != std::string::npos)
+			result.insert(token.substr(start));
 		return result;
 	}
 
@@ -238,9 +258,9 @@ namespace hdt
 		bool inSchema = false;
 		bool inRoot = false;
 		bool inKey = false;
-		int schemaDepth = 0; // depth inside xs:schema, outside the root element
-		int rootDepth = 0;   // depth inside the root element
-		int keyDepth = 0;    // depth inside a xs:key element
+		int schemaDepth = 0;  // depth inside xs:schema, outside the root element
+		int rootDepth = 0;    // depth inside the root element
+		int keyDepth = 0;     // depth inside a xs:key element
 		std::string currentKeyName;
 
 		while (reader.Inspect()) {
@@ -248,7 +268,8 @@ namespace hdt
 				const std::string localName = reader.GetLocalName();
 
 				if (!inSchema) {
-					if (localName == "schema") inSchema = true;
+					if (localName == "schema")
+						inSchema = true;
 				} else if (!inRoot) {
 					// At depth 0 inside xs:schema: the first xs:element with a name is the root.
 					if (schemaDepth == 0 && localName == "element" && reader.hasAttribute("name")) {
@@ -256,7 +277,7 @@ namespace hdt
 						inRoot = true;
 						rootDepth = 0;
 					} else {
-						++schemaDepth; // skip non-root top-level constructs
+						++schemaDepth;  // skip non-root top-level constructs
 					}
 				} else if (!inKey) {
 					++rootDepth;
@@ -273,13 +294,18 @@ namespace hdt
 				}
 			} else if (reader.GetInspected() == XMLReader::Inspected::EndTag) {
 				if (inKey) {
-					if (keyDepth == 0) { inKey = false; --rootDepth; }
-					else --keyDepth;
+					if (keyDepth == 0) {
+						inKey = false;
+						--rootDepth;
+					} else
+						--keyDepth;
 				} else if (inRoot) {
-					if (rootDepth == 0) break; // done with root element
+					if (rootDepth == 0)
+						break;  // done with root element
 					--rootDepth;
 				} else if (inSchema) {
-					if (schemaDepth == 0) break; // end of xs:schema
+					if (schemaDepth == 0)
+						break;  // end of xs:schema
 					--schemaDepth;
 				}
 			}
@@ -297,7 +323,7 @@ namespace hdt
 		std::unordered_map<std::string, PhysicsSchema::KeyRefDef>& keyRefDefs)
 	{
 		XMLReader reader(reinterpret_cast<uint8_t*>(bytes.data()), bytes.size());
-		int mode = 0; // 0 = none, 1 = key/unique, 2 = keyref
+		int mode = 0;  // 0 = none, 1 = key/unique, 2 = keyref
 		int depth = 0;
 		std::string curName, curRefer, curSelector, curField;
 
@@ -306,15 +332,19 @@ namespace hdt
 				const std::string ln = reader.GetLocalName();
 				if (mode == 0) {
 					if ((ln == "key" || ln == "unique") && reader.hasAttribute("name")) {
-						mode = 1; depth = 0;
+						mode = 1;
+						depth = 0;
 						curName = reader.getAttribute("name");
-						curSelector.clear(); curField.clear();
+						curSelector.clear();
+						curField.clear();
 					} else if (ln == "keyref" &&
-							reader.hasAttribute("name") && reader.hasAttribute("refer")) {
-						mode = 2; depth = 0;
+							   reader.hasAttribute("name") && reader.hasAttribute("refer")) {
+						mode = 2;
+						depth = 0;
 						curName = reader.getAttribute("name");
 						curRefer = reader.getAttribute("refer");
-						curSelector.clear(); curField.clear();
+						curSelector.clear();
+						curField.clear();
 					}
 				} else {
 					++depth;
@@ -381,16 +411,26 @@ namespace hdt
 								childName = reader.getAttribute("ref");
 							else if (reader.hasAttribute("name"))
 								childName = reader.getAttribute("name");
-							if (!childName.empty()) { hasContentModel = true; children.insert(childName); }
+							if (!childName.empty()) {
+								hasContentModel = true;
+								children.insert(childName);
+							}
 							reader.skipCurrentElement();
-						} else { ++depth; }
+						} else {
+							++depth;
+						}
 					}
 				} else if (reader.GetInspected() == XMLReader::Inspected::EndTag) {
 					if (inType) {
 						if (depth == 0) {
-							if (hasContentModel) complexTypeChildren[currentType] = std::move(children);
-							children.clear(); inType = false; currentType.clear();
-						} else { --depth; }
+							if (hasContentModel)
+								complexTypeChildren[currentType] = std::move(children);
+							children.clear();
+							inType = false;
+							currentType.clear();
+						} else {
+							--depth;
+						}
 					}
 				}
 			}
@@ -419,7 +459,8 @@ namespace hdt
 							hasContentModel = false;
 							if (reader.hasAttribute("type")) {
 								typeRefs[currentParent] = reader.getAttribute("type");
-								reader.skipCurrentElement(); inElement = false;
+								reader.skipCurrentElement();
+								inElement = false;
 							}
 						}
 					} else {
@@ -429,16 +470,26 @@ namespace hdt
 								childName = reader.getAttribute("ref");
 							else if (reader.hasAttribute("name"))
 								childName = reader.getAttribute("name");
-							if (!childName.empty()) { hasContentModel = true; children.insert(childName); }
-							reader.skipCurrentElement(); // consume child + subtree; do not increment depth
-						} else { ++depth; }
+							if (!childName.empty()) {
+								hasContentModel = true;
+								children.insert(childName);
+							}
+							reader.skipCurrentElement();  // consume child + subtree; do not increment depth
+						} else {
+							++depth;
+						}
 					}
 				} else if (reader.GetInspected() == XMLReader::Inspected::EndTag) {
 					if (inElement) {
 						if (depth == 0) {
-							if (hasContentModel) result[currentParent] = std::move(children);
-							children.clear(); inElement = false; currentParent.clear();
-						} else { --depth; }
+							if (hasContentModel)
+								result[currentParent] = std::move(children);
+							children.clear();
+							inElement = false;
+							currentParent.clear();
+						} else {
+							--depth;
+						}
 					}
 				}
 			}
@@ -461,13 +512,13 @@ namespace hdt
 	{
 		TypeConstraint tc;
 		if (typeName == "xsd:float" || typeName == "xs:float" ||
-		    typeName == "xsd:double" || typeName == "xs:double")
+			typeName == "xsd:double" || typeName == "xs:double")
 			tc.base = TypeConstraint::Base::Float;
 		else if (typeName == "xsd:boolean" || typeName == "xs:boolean")
 			tc.base = TypeConstraint::Base::Boolean;
 		else if (typeName == "xsd:integer" || typeName == "xs:integer" ||
-		         typeName == "xsd:int" || typeName == "xs:int" ||
-		         typeName == "xsd:long" || typeName == "xs:long")
+				 typeName == "xsd:int" || typeName == "xs:int" ||
+				 typeName == "xsd:long" || typeName == "xs:long")
 			tc.base = TypeConstraint::Base::Integer;
 		return tc;
 	}
@@ -515,16 +566,27 @@ namespace hdt
 						if (ln == "restriction" && reader.hasAttribute("base"))
 							currentTc = builtinTypeConstraint(reader.getAttribute("base"));
 						else if (ln == "minInclusive" && reader.hasAttribute("value")) {
-							try { currentTc.minInclusive = std::stod(reader.getAttribute("value")); currentTc.hasMin = true; } catch (...) {}
+							try {
+								currentTc.minInclusive = std::stod(reader.getAttribute("value"));
+								currentTc.hasMin = true;
+							} catch (...) {}
 						} else if (ln == "maxInclusive" && reader.hasAttribute("value")) {
-							try { currentTc.maxInclusive = std::stod(reader.getAttribute("value")); currentTc.hasMax = true; } catch (...) {}
+							try {
+								currentTc.maxInclusive = std::stod(reader.getAttribute("value"));
+								currentTc.hasMax = true;
+							} catch (...) {}
 						}
 						++depth;
 					}
 				} else if (reader.GetInspected() == XMLReader::Inspected::EndTag) {
 					if (inType) {
-						if (depth == 0) { namedSimpleTypes[currentType] = currentTc; inType = false; currentType.clear(); }
-						else { --depth; }
+						if (depth == 0) {
+							namedSimpleTypes[currentType] = currentTc;
+							inType = false;
+							currentType.clear();
+						} else {
+							--depth;
+						}
 					}
 				}
 			}
@@ -557,8 +619,12 @@ namespace hdt
 					}
 				} else if (reader.GetInspected() == XMLReader::Inspected::EndTag) {
 					if (inType) {
-						if (depth == 0) { inType = false; currentType.clear(); }
-						else { --depth; }
+						if (depth == 0) {
+							inType = false;
+							currentType.clear();
+						} else {
+							--depth;
+						}
 					}
 				}
 			}
@@ -582,15 +648,18 @@ namespace hdt
 							if (reader.hasAttribute("type")) {
 								const std::string typeName = reader.getAttribute("type");
 								TypeConstraint tc = resolveTypeConstraint(typeName, namedSimpleTypes);
-								if (tc.base != TypeConstraint::Base::Any) elementTextConstraints[currentElem] = tc;
+								if (tc.base != TypeConstraint::Base::Any)
+									elementTextConstraints[currentElem] = tc;
 								const auto cit = namedComplexTypeAttrs.find(typeName);
-								if (cit != namedComplexTypeAttrs.end()) elementAttrConstraints[currentElem] = cit->second;
-								reader.skipCurrentElement(); inElement = false;
+								if (cit != namedComplexTypeAttrs.end())
+									elementAttrConstraints[currentElem] = cit->second;
+								reader.skipCurrentElement();
+								inElement = false;
 							}
 						}
 					} else {
 						if (ln == "element" && depth >= 2) {
-							reader.skipCurrentElement(); // content-model child, not an attr/text decl
+							reader.skipCurrentElement();  // content-model child, not an attr/text decl
 						} else {
 							if (ln == "attribute" && reader.hasAttribute("name") && reader.hasAttribute("type")) {
 								TypeConstraint tc = resolveTypeConstraint(reader.getAttribute("type"), namedSimpleTypes);
@@ -599,15 +668,20 @@ namespace hdt
 							}
 							if ((ln == "extension" || ln == "restriction") && reader.hasAttribute("base")) {
 								TypeConstraint tc = resolveTypeConstraint(reader.getAttribute("base"), namedSimpleTypes);
-								if (tc.base != TypeConstraint::Base::Any) elementTextConstraints[currentElem] = tc;
+								if (tc.base != TypeConstraint::Base::Any)
+									elementTextConstraints[currentElem] = tc;
 							}
 							++depth;
 						}
 					}
 				} else if (reader.GetInspected() == XMLReader::Inspected::EndTag) {
 					if (inElement) {
-						if (depth == 0) { inElement = false; currentElem.clear(); }
-						else { --depth; }
+						if (depth == 0) {
+							inElement = false;
+							currentElem.clear();
+						} else {
+							--depth;
+						}
 					}
 				}
 			}
@@ -625,8 +699,9 @@ namespace hdt
 			auto bytes = readAllFile2(kPhysicsXSDPath);
 
 			if (bytes.empty()) {
-				logger::error("[XSDValidator] Could not load physics schema from '{}'; "
-							  "physics XML validation will be skipped.",
+				logger::error(
+					"[XSDValidator] Could not load physics schema from '{}'; "
+					"physics XML validation will be skipped.",
 					kPhysicsXSDPath);
 				return;
 			}
@@ -709,9 +784,7 @@ namespace hdt
 		const auto e = rawVal.find_last_not_of(" \t\r\n");
 		const std::string val = (b == std::string::npos) ? "" : rawVal.substr(b, e - b + 1);
 
-		const std::string where = attrName.empty()
-			? "<" + tag + ">"
-			: "<" + tag + "> attribute '" + attrName + "'";
+		const std::string where = attrName.empty() ? "<" + tag + ">" : "<" + tag + "> attribute '" + attrName + "'";
 
 		if (tc.base == TypeConstraint::Base::Boolean) {
 			if (val != "true" && val != "false" && val != "1" && val != "0")
@@ -722,18 +795,20 @@ namespace hdt
 		if (tc.base == TypeConstraint::Base::Float || tc.base == TypeConstraint::Base::Integer) {
 			size_t idx = 0;
 			double dval = 0.0;
-			try { dval = std::stod(val, &idx); } catch (...) { idx = 0; }
+			try {
+				dval = std::stod(val, &idx);
+			} catch (...) {
+				idx = 0;
+			}
 			if (idx != val.size()) {
 				const std::string typeName = (tc.base == TypeConstraint::Base::Float) ? "float" : "integer";
 				ctx.addViolation(row, col, where + " has invalid " + typeName + " value '" + val + "'");
 				return;
 			}
 			if (tc.hasMin && dval < tc.minInclusive)
-				ctx.addViolation(row, col, where + " value " + val +
-					" is below minimum " + std::to_string(tc.minInclusive));
+				ctx.addViolation(row, col, where + " value " + val + " is below minimum " + std::to_string(tc.minInclusive));
 			if (tc.hasMax && dval > tc.maxInclusive)
-				ctx.addViolation(row, col, where + " value " + val +
-					" is above maximum " + std::to_string(tc.maxInclusive));
+				ctx.addViolation(row, col, where + " value " + val + " is above maximum " + std::to_string(tc.maxInclusive));
 		}
 	}
 
@@ -747,8 +822,10 @@ namespace hdt
 		ValidationContext& ctx, const PhysicsSchema& schema)
 	{
 		while (reader.Inspect()) {
-			if (reader.GetInspected() == XMLReader::Inspected::EndTag) return;
-			if (reader.GetInspected() != XMLReader::Inspected::StartTag) continue;
+			if (reader.GetInspected() == XMLReader::Inspected::EndTag)
+				return;
+			if (reader.GetInspected() != XMLReader::Inspected::StartTag)
+				continue;
 
 			const std::string tag = reader.GetLocalName();
 
@@ -801,7 +878,7 @@ namespace hdt
 				if (!allowed.count(val))
 					ctx.addViolation(row, col,
 						"<" + tag + "> has invalid value '" + val +
-						"' (see hdtSMP64.xsd for valid values: " + joinSet(allowed) + ")");
+							"' (see hdtSMP64.xsd for valid values: " + joinSet(allowed) + ")");
 			} else if (schema.elementTextConstraints.count(tag)) {
 				const uint64_t row = reader.GetRow(), col = reader.GetColumn();
 				const std::string val = reader.readText();
@@ -873,7 +950,8 @@ namespace hdt
 						const std::unordered_set<std::string> emptySet;
 						for (const auto& [refName, refDef] : schema.keyRefDefs) {
 							const auto pendIt = ctx.keyRefPending.find(refName);
-							if (pendIt == ctx.keyRefPending.end()) continue;
+							if (pendIt == ctx.keyRefPending.end())
+								continue;
 							const auto keyIt = ctx.keyValues.find(refDef.refer);
 							const auto& declared =
 								(keyIt != ctx.keyValues.end()) ? keyIt->second : emptySet;
@@ -911,4 +989,3 @@ namespace hdt
 	}
 
 }  // namespace hdt
-

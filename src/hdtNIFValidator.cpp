@@ -18,7 +18,8 @@ namespace hdt
 	class NifReader
 	{
 	public:
-		NifReader(const std::vector<uint8_t>& data) : m_data(data), m_pos(0) {}
+		NifReader(const std::vector<uint8_t>& data) :
+			m_data(data), m_pos(0) {}
 
 		bool canRead(size_t bytes) const { return m_pos + bytes <= m_data.size(); }
 		size_t pos() const { return m_pos; }
@@ -504,7 +505,7 @@ namespace hdt
 		// Phase 6.4: Root scale sanity check
 		if (root->world.scale > 1e-6f && std::abs(root->world.scale - 1.0f) > 0.5f) {
 			result.warnings.push_back(nifPath + ": root scale " +
-				std::to_string(root->world.scale) + " deviates significantly from 1.0");
+									  std::to_string(root->world.scale) + " deviates significantly from 1.0");
 		}
 
 		result.isValid = result.errors.empty();
