@@ -27,7 +27,6 @@ namespace hdt
 		std::unordered_map<std::string, std::unordered_set<std::string>> elementEnums;
 		// Root element tag — the first top-level xs:element in the XSD.
 		std::string rootTag;
-		std::unordered_set<std::string> perMeshShapeTags;
 		std::string weightThresholdTag;
 		// Required attributes per element — driven entirely by xs:attribute use="required".
 		std::unordered_map<std::string, std::vector<std::string>> requiredAttrs;
@@ -50,102 +49,98 @@ namespace hdt
 		return result;
 	}
 
-	// Collect xs:enumeration/@value from every *named* xs:simpleType in the XSD.
-	// Returns a map from simpleType name to its set of enumerated values.
-	// No type names are hardcoded here; the validator discovers them structurally.
+	// Collect all xs:element enum constraints from the XSD — both inline anonymous
+	// simpleType enumerations and elements with a type="..." attribute referencing
+	// a named simpleType that itself has enumeration constraints.
+	// Returns a map from element name to its set of allowed values.
+	// No element, type, or attribute names are hardcoded.
 	static std::unordered_map<std::string, std::unordered_set<std::string>>
-		parseAllNamedSimpleTypeEnumerations(std::string& bytes)
+		parseAllElementEnumerations(std::string& bytes)
 	{
-		std::unordered_map<std::string, std::unordered_set<std::string>> result;
-		XMLReader reader(reinterpret_cast<uint8_t*>(bytes.data()), bytes.size());
-
-		std::string currentType;
-		bool inType = false;
-		int depth = 0;
-		std::unordered_set<std::string> currentEnums;
-
-		while (reader.Inspect()) {
-			if (reader.GetInspected() == XMLReader::Inspected::StartTag) {
-				const std::string localName = reader.GetLocalName();
-
-				if (!inType) {
-					if (localName == "simpleType" && reader.hasAttribute("name")) {
-						inType = true;
-						currentType = reader.getAttribute("name");
-						depth = 0;
-						currentEnums.clear();
-					}
-				} else {
-					++depth;
-					if (localName == "enumeration" && reader.hasAttribute("value")) {
-						currentEnums.insert(reader.getAttribute("value"));
-					}
-				}
-			} else if (reader.GetInspected() == XMLReader::Inspected::EndTag) {
-				if (inType) {
-					if (depth == 0) {
-						if (!currentEnums.empty()) {
-							result[currentType] = std::move(currentEnums);
+		// Pass 1: collect named simpleType -> enum values.
+		std::unordered_map<std::string, std::unordered_set<std::string>> namedEnums;
+		{
+			XMLReader reader(reinterpret_cast<uint8_t*>(bytes.data()), bytes.size());
+			bool inType = false;
+			std::string currentType;
+			int depth = 0;
+			std::unordered_set<std::string> currentEnums;
+			while (reader.Inspect()) {
+				if (reader.GetInspected() == XMLReader::Inspected::StartTag) {
+					const std::string localName = reader.GetLocalName();
+					if (!inType) {
+						if (localName == "simpleType" && reader.hasAttribute("name")) {
+							inType = true;
+							currentType = reader.getAttribute("name");
+							depth = 0;
 							currentEnums.clear();
 						}
-						inType = false;
-						currentType.clear();
 					} else {
-						--depth;
+						++depth;
+						if (localName == "enumeration" && reader.hasAttribute("value"))
+							currentEnums.insert(reader.getAttribute("value"));
+					}
+				} else if (reader.GetInspected() == XMLReader::Inspected::EndTag) {
+					if (inType) {
+						if (depth == 0) {
+							if (!currentEnums.empty())
+								namedEnums[currentType] = std::move(currentEnums);
+							currentEnums.clear();
+							inType = false;
+							currentType.clear();
+						} else --depth;
 					}
 				}
 			}
 		}
 
-		return result;
-	}
-
-	// Collect all xs:enumeration/@value from every xs:element that embeds an
-	// anonymous simpleType with restrictions inline. Returns a map from element
-	// name to its set of allowed values. No element names are hardcoded here;
-	// the validator discovers them structurally from the XSD.
-	static std::unordered_map<std::string, std::unordered_set<std::string>>
-		parseAllElementEnumerations(std::string& bytes)
-	{
+		// Pass 2: collect inline enum values and type= references from xs:element.
 		std::unordered_map<std::string, std::unordered_set<std::string>> result;
-		XMLReader reader(reinterpret_cast<uint8_t*>(bytes.data()), bytes.size());
-
-		std::string currentElement;
-		bool inElement = false;
-		int depth = 0;
-		std::unordered_set<std::string> currentEnums;
-
-		while (reader.Inspect()) {
-			if (reader.GetInspected() == XMLReader::Inspected::StartTag) {
-				const std::string localName = reader.GetLocalName();
-
-				if (!inElement) {
-					if (localName == "element" && reader.hasAttribute("name")) {
-						inElement = true;
-						currentElement = reader.getAttribute("name");
-						depth = 0;
-						currentEnums.clear();
-					}
-				} else {
-					++depth;
-					if (localName == "enumeration" && reader.hasAttribute("value")) {
-						currentEnums.insert(reader.getAttribute("value"));
-					}
-				}
-			} else if (reader.GetInspected() == XMLReader::Inspected::EndTag) {
-				if (inElement) {
-					if (depth == 0) {
-						if (!currentEnums.empty()) {
-							result[currentElement] = std::move(currentEnums);
+		std::unordered_map<std::string, std::string> typeRefs; // element name -> named type
+		{
+			XMLReader reader(reinterpret_cast<uint8_t*>(bytes.data()), bytes.size());
+			bool inElement = false;
+			std::string currentElement;
+			int depth = 0;
+			std::unordered_set<std::string> currentEnums;
+			while (reader.Inspect()) {
+				if (reader.GetInspected() == XMLReader::Inspected::StartTag) {
+					const std::string localName = reader.GetLocalName();
+					if (!inElement) {
+						if (localName == "element" && reader.hasAttribute("name")) {
+							inElement = true;
+							currentElement = reader.getAttribute("name");
+							depth = 0;
 							currentEnums.clear();
+							if (reader.hasAttribute("type")) {
+								const std::string typeName = reader.getAttribute("type");
+								if (namedEnums.count(typeName))
+									typeRefs[currentElement] = typeName;
+							}
 						}
-						inElement = false;
-						currentElement.clear();
 					} else {
-						--depth;
+						++depth;
+						if (localName == "enumeration" && reader.hasAttribute("value"))
+							currentEnums.insert(reader.getAttribute("value"));
+					}
+				} else if (reader.GetInspected() == XMLReader::Inspected::EndTag) {
+					if (inElement) {
+						if (depth == 0) {
+							if (!currentEnums.empty())
+								result[currentElement] = std::move(currentEnums);
+							currentEnums.clear();
+							inElement = false;
+							currentElement.clear();
+						} else --depth;
 					}
 				}
 			}
+		}
+
+		// Resolve type= references: copy named simpleType enum values into result.
+		for (const auto& [elem, typeName] : typeRefs) {
+			const auto& vals = namedEnums.at(typeName);
+			result[elem].insert(vals.begin(), vals.end());
 		}
 
 		return result;
@@ -354,25 +349,8 @@ namespace hdt
 				// element enums — all xs:element nodes with inline anonymous simpleType enumerations
 				g_physicsSchema.elementEnums = parseAllElementEnumerations(bytes);
 
-				// Root tag and per-mesh shape tags derived from the top-level xs:element and its xs:key selectors.
-				auto [rootTag, systemKeys] = parseSystemKeys(bytes);
-				g_physicsSchema.rootTag = rootTag;
-				{
-					std::unordered_set<std::string> parsedShapeTags;
-					for (const auto& [keyName, selector] : systemKeys) {
-						if (keyName.size() >= 8 &&
-							keyName.compare(keyName.size() - 8, 8, "shapeKey") == 0) {
-							parsedShapeTags.insert(selector);
-						}
-					}
-					if (!parsedShapeTags.empty()) {
-						g_physicsSchema.perMeshShapeTags = std::move(parsedShapeTags);
-					}
-				}
-				// Named simpleType enumerations — their values are element tag names.
-				for (const auto& [typeName, values] : parseAllNamedSimpleTypeEnumerations(bytes)) {
-					g_physicsSchema.perMeshShapeTags.insert(values.begin(), values.end());
-				}
+				// Root tag derived from the first top-level xs:element in the XSD.
+				g_physicsSchema.rootTag = parseSystemKeys(bytes).first;
 				// Key/unique/keyref constraints — drive generic referential integrity checks.
 				parseKeyConstraints(bytes, g_physicsSchema.keyDefs, g_physicsSchema.keyRefDefs);
 				// Required attributes per element — driven by xs:attribute use="required".
@@ -396,11 +374,10 @@ namespace hdt
 				logger::info(
 					"[XSDValidator] Loaded physics schema: root '{}', "
 					"{} enumerated element type(s), {} elements with required attr(s), "
-					"{} known shape tag(s), weight-threshold tag '{}'.",
+					"weight-threshold tag '{}'.",
 					g_physicsSchema.rootTag,
 					g_physicsSchema.elementEnums.size(),
 					g_physicsSchema.requiredAttrs.size(),
-					g_physicsSchema.perMeshShapeTags.size(),
 					g_physicsSchema.weightThresholdTag);
 			} catch (const std::exception& e) {
 				logger::warn("[XSDValidator] Failed to parse physics schema '{}': {}",
