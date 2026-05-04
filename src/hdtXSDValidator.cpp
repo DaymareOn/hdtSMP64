@@ -370,7 +370,7 @@ namespace hdt
 	// ---- forward declarations ----
 
 	static void validateSystem(XMLReader& reader, ValidationContext& ctx);
-	static void validateBone(XMLReader& reader, const std::string& tag, ValidationContext& ctx);
+	static void validateNamedBody(XMLReader& reader, const std::string& tag, ValidationContext& ctx);
 	static void validateConstraint(XMLReader& reader, const std::string& tag,
 		ValidationContext& ctx);
 	static void validateShape(XMLReader& reader, const std::string& tag,
@@ -397,7 +397,7 @@ namespace hdt
 			const PhysicsSchema& schema = getPhysicsSchema();
 
 			if (tag == schema.boneTag) {
-				validateBone(reader, tag, ctx);
+				validateNamedBody(reader, tag, ctx);
 			} else if (schema.constraintTags.count(tag)) {
 				validateConstraint(reader, tag, ctx);
 			} else if (schema.shapeTypes.count(tag) || schema.perMeshShapeTags.count(tag)) {
@@ -414,7 +414,7 @@ namespace hdt
 		}
 	}
 
-	static void validateBone(XMLReader& reader, const std::string& tag, ValidationContext& ctx)
+	static void validateNamedBody(XMLReader& reader, const std::string& tag, ValidationContext& ctx)
 	{
 		ctx.elementStack.push_back(tag);
 
