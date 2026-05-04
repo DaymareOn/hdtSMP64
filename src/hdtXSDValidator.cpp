@@ -20,6 +20,15 @@ namespace hdt
 	static const char* kPhysicsXSDPath =
 		"data/skse/plugins/hdtSkinnedMeshConfigs/hdtSMP64.xsd";
 
+	// Generic value type constraint derived from xs:restriction facets in the XSD.
+	// All fields are populated from the XSD at load time -- no type names are hardcoded.
+	struct TypeConstraint
+	{
+		enum class Base { Any, Float, Boolean, Integer } base = Base::Any;
+		bool hasMin = false, hasMax = false;
+		double minInclusive = 0.0, maxInclusive = 0.0;
+	};
+
 	// Parsed schema enumerations loaded once from hdtSMP64.xsd.
 	struct PhysicsSchema
 	{
@@ -37,6 +46,10 @@ namespace hdt
 		// Allowed children per element — maps each named xs:element to the set of child element
 		// tag names declared in its XSD content model (xs:choice/xs:all/xs:sequence).
 		std::unordered_map<std::string, std::unordered_set<std::string>> allowedChildren;
+		// Per element: type constraint on its text content for non-enum typed elements.
+		std::unordered_map<std::string, TypeConstraint> elementTextConstraints;
+		// Per element: per-attribute type constraint on attribute values.
+		std::unordered_map<std::string, std::unordered_map<std::string, TypeConstraint>> elementAttrConstraints;
 		bool loaded = false;  // true only when the XSD was successfully parsed
 	};
 
@@ -331,59 +344,274 @@ namespace hdt
 	}
 
 	// Collect the set of allowed child element names for each named xs:element in the XSD.
-	// Walks the XSD content model (xs:choice/xs:all/xs:sequence inside xs:complexType) and
-	// records every xs:element[ref] or xs:element[name] at content-model depth (depth >= 2)
-	// as an allowed child of its enclosing top-level xs:element.  Generic — no domain knowledge
-	// required.  The depth counter follows the same pattern as parseAllRequiredAttrs:
-	// depth 0 = directly inside the xs:element body; depth N = N levels deeper.
+	// Two passes:
+	//   Pass 1 -- named xs:complexType content models -> child name sets.
+	//   Pass 2 -- named xs:element inline content models; resolves type= references from Pass 1
+	//             so elements like centerOfMassTransform (type="transform") correctly inherit
+	//             transform's content model instead of getting an empty set.
+	// Elements whose type= references a type with no content model get no entry -- permissive.
 	static std::unordered_map<std::string, std::unordered_set<std::string>>
 		parseAllowedChildren(std::string& bytes)
 	{
-		std::unordered_map<std::string, std::unordered_set<std::string>> result;
-		XMLReader reader(reinterpret_cast<uint8_t*>(bytes.data()), bytes.size());
+		// Pass 1: named xs:complexType -- collect content-model children.
+		std::unordered_map<std::string, std::unordered_set<std::string>> complexTypeChildren;
+		{
+			XMLReader reader(reinterpret_cast<uint8_t*>(bytes.data()), bytes.size());
+			bool inType = false;
+			std::string currentType;
+			std::unordered_set<std::string> children;
+			bool hasContentModel = false;
+			int depth = 0;
 
-		bool inElement = false;
-		std::string currentParent;
-		int depth = 0;
-
-		while (reader.Inspect()) {
-			if (reader.GetInspected() == XMLReader::Inspected::StartTag) {
-				const std::string ln = reader.GetLocalName();
-				if (!inElement) {
-					if (ln == "element" && reader.hasAttribute("name")) {
-						inElement = true;
-						currentParent = reader.getAttribute("name");
-						depth = 0;
-						result.emplace(currentParent, std::unordered_set<std::string>{});
-					}
-				} else {
-					if (ln == "element" && depth >= 2) {
-						// xs:element inside a content model — record as an allowed child.
-						std::string childName;
-						if (reader.hasAttribute("ref"))
-							childName = reader.getAttribute("ref");
-						else if (reader.hasAttribute("name"))
-							childName = reader.getAttribute("name");
-						if (!childName.empty())
-							result[currentParent].insert(childName);
-						reader.skipCurrentElement(); // consume child + subtree; do not increment depth
+			while (reader.Inspect()) {
+				if (reader.GetInspected() == XMLReader::Inspected::StartTag) {
+					const std::string ln = reader.GetLocalName();
+					if (!inType) {
+						if (ln == "complexType" && reader.hasAttribute("name")) {
+							inType = true;
+							currentType = reader.getAttribute("name");
+							depth = 0;
+							children.clear();
+							hasContentModel = false;
+						}
 					} else {
-						++depth;
+						if (ln == "element" && depth >= 1) {
+							std::string childName;
+							if (reader.hasAttribute("ref"))
+								childName = reader.getAttribute("ref");
+							else if (reader.hasAttribute("name"))
+								childName = reader.getAttribute("name");
+							if (!childName.empty()) { hasContentModel = true; children.insert(childName); }
+							reader.skipCurrentElement();
+						} else { ++depth; }
 					}
-				}
-			} else if (reader.GetInspected() == XMLReader::Inspected::EndTag) {
-				if (inElement) {
-					if (depth == 0) {
-						inElement = false;
-						currentParent.clear();
-					} else {
-						--depth;
+				} else if (reader.GetInspected() == XMLReader::Inspected::EndTag) {
+					if (inType) {
+						if (depth == 0) {
+							if (hasContentModel) complexTypeChildren[currentType] = std::move(children);
+							children.clear(); inType = false; currentType.clear();
+						} else { --depth; }
 					}
 				}
 			}
 		}
 
+		// Pass 2: named xs:elements -- inline content models + type= reference resolution.
+		std::unordered_map<std::string, std::unordered_set<std::string>> result;
+		std::unordered_map<std::string, std::string> typeRefs;
+		{
+			XMLReader reader(reinterpret_cast<uint8_t*>(bytes.data()), bytes.size());
+			bool inElement = false;
+			std::string currentParent;
+			std::unordered_set<std::string> children;
+			bool hasContentModel = false;
+			int depth = 0;
+
+			while (reader.Inspect()) {
+				if (reader.GetInspected() == XMLReader::Inspected::StartTag) {
+					const std::string ln = reader.GetLocalName();
+					if (!inElement) {
+						if (ln == "element" && reader.hasAttribute("name")) {
+							inElement = true;
+							currentParent = reader.getAttribute("name");
+							depth = 0;
+							children.clear();
+							hasContentModel = false;
+							if (reader.hasAttribute("type")) {
+								typeRefs[currentParent] = reader.getAttribute("type");
+								reader.skipCurrentElement(); inElement = false;
+							}
+						}
+					} else {
+						if (ln == "element" && depth >= 2) {
+							std::string childName;
+							if (reader.hasAttribute("ref"))
+								childName = reader.getAttribute("ref");
+							else if (reader.hasAttribute("name"))
+								childName = reader.getAttribute("name");
+							if (!childName.empty()) { hasContentModel = true; children.insert(childName); }
+							reader.skipCurrentElement(); // consume child + subtree; do not increment depth
+						} else { ++depth; }
+					}
+				} else if (reader.GetInspected() == XMLReader::Inspected::EndTag) {
+					if (inElement) {
+						if (depth == 0) {
+							if (hasContentModel) result[currentParent] = std::move(children);
+							children.clear(); inElement = false; currentParent.clear();
+						} else { --depth; }
+					}
+				}
+			}
+		}
+
+		// Resolve type= references: inherit content model from the named complexType.
+		for (const auto& [elemName, typeName] : typeRefs) {
+			const auto it = complexTypeChildren.find(typeName);
+			if (it != complexTypeChildren.end())
+				result[elemName] = it->second;
+			// else: type has no content model (simpleContent) -- no entry -> permissive
+		}
+
 		return result;
+	}
+
+	// Maps an XSD built-in type name (with namespace prefix) to a TypeConstraint.
+	// Returns Base::Any for unconstrained or unknown types.
+	static TypeConstraint builtinTypeConstraint(const std::string& typeName)
+	{
+		TypeConstraint tc;
+		if (typeName == "xsd:float" || typeName == "xs:float" ||
+		    typeName == "xsd:double" || typeName == "xs:double")
+			tc.base = TypeConstraint::Base::Float;
+		else if (typeName == "xsd:boolean" || typeName == "xs:boolean")
+			tc.base = TypeConstraint::Base::Boolean;
+		else if (typeName == "xsd:integer" || typeName == "xs:integer" ||
+		         typeName == "xsd:int" || typeName == "xs:int" ||
+		         typeName == "xsd:long" || typeName == "xs:long")
+			tc.base = TypeConstraint::Base::Integer;
+		return tc;
+	}
+
+	// Resolves a type name against named simpleTypes first, then built-in XSD types.
+	static TypeConstraint resolveTypeConstraint(
+		const std::string& typeName,
+		const std::unordered_map<std::string, TypeConstraint>& namedTypes)
+	{
+		const auto it = namedTypes.find(typeName);
+		return (it != namedTypes.end()) ? it->second : builtinTypeConstraint(typeName);
+	}
+
+	// Parse all value type constraints from the XSD -- three passes:
+	//   Pass 1: named xs:simpleType restrictions -> TypeConstraint (base type + optional range).
+	//   Pass 2: named xs:complexType attribute declarations -> { attr name -> TypeConstraint }.
+	//   Pass 3: named top-level xs:element declarations -> elementTextConstraints
+	//           and elementAttrConstraints (inline or inherited from complexType in Pass 2).
+	// Generic -- no element, type, or attribute names are hardcoded.
+	static void parseAllTypeConstraints(
+		std::string& bytes,
+		std::unordered_map<std::string, TypeConstraint>& elementTextConstraints,
+		std::unordered_map<std::string, std::unordered_map<std::string, TypeConstraint>>& elementAttrConstraints)
+	{
+		// Pass 1: named xs:simpleType -> TypeConstraint.
+		std::unordered_map<std::string, TypeConstraint> namedSimpleTypes;
+		{
+			XMLReader reader(reinterpret_cast<uint8_t*>(bytes.data()), bytes.size());
+			bool inType = false;
+			std::string currentType;
+			TypeConstraint currentTc;
+			int depth = 0;
+
+			while (reader.Inspect()) {
+				if (reader.GetInspected() == XMLReader::Inspected::StartTag) {
+					const std::string ln = reader.GetLocalName();
+					if (!inType) {
+						if (ln == "simpleType" && reader.hasAttribute("name")) {
+							inType = true;
+							currentType = reader.getAttribute("name");
+							currentTc = TypeConstraint{};
+							depth = 0;
+						}
+					} else {
+						if (ln == "restriction" && reader.hasAttribute("base"))
+							currentTc = builtinTypeConstraint(reader.getAttribute("base"));
+						else if (ln == "minInclusive" && reader.hasAttribute("value")) {
+							try { currentTc.minInclusive = std::stod(reader.getAttribute("value")); currentTc.hasMin = true; } catch (...) {}
+						} else if (ln == "maxInclusive" && reader.hasAttribute("value")) {
+							try { currentTc.maxInclusive = std::stod(reader.getAttribute("value")); currentTc.hasMax = true; } catch (...) {}
+						}
+						++depth;
+					}
+				} else if (reader.GetInspected() == XMLReader::Inspected::EndTag) {
+					if (inType) {
+						if (depth == 0) { namedSimpleTypes[currentType] = currentTc; inType = false; currentType.clear(); }
+						else { --depth; }
+					}
+				}
+			}
+		}
+
+		// Pass 2: named xs:complexType -> { attribute name -> TypeConstraint }.
+		std::unordered_map<std::string, std::unordered_map<std::string, TypeConstraint>> namedComplexTypeAttrs;
+		{
+			XMLReader reader(reinterpret_cast<uint8_t*>(bytes.data()), bytes.size());
+			bool inType = false;
+			std::string currentType;
+			int depth = 0;
+
+			while (reader.Inspect()) {
+				if (reader.GetInspected() == XMLReader::Inspected::StartTag) {
+					const std::string ln = reader.GetLocalName();
+					if (!inType) {
+						if (ln == "complexType" && reader.hasAttribute("name")) {
+							inType = true;
+							currentType = reader.getAttribute("name");
+							depth = 0;
+						}
+					} else {
+						if (ln == "attribute" && reader.hasAttribute("name") && reader.hasAttribute("type")) {
+							TypeConstraint tc = resolveTypeConstraint(reader.getAttribute("type"), namedSimpleTypes);
+							if (tc.base != TypeConstraint::Base::Any)
+								namedComplexTypeAttrs[currentType][reader.getAttribute("name")] = tc;
+						}
+						++depth;
+					}
+				} else if (reader.GetInspected() == XMLReader::Inspected::EndTag) {
+					if (inType) {
+						if (depth == 0) { inType = false; currentType.clear(); }
+						else { --depth; }
+					}
+				}
+			}
+		}
+
+		// Pass 3: named top-level xs:element declarations -> text and attr constraints.
+		{
+			XMLReader reader(reinterpret_cast<uint8_t*>(bytes.data()), bytes.size());
+			bool inElement = false;
+			std::string currentElem;
+			int depth = 0;
+
+			while (reader.Inspect()) {
+				if (reader.GetInspected() == XMLReader::Inspected::StartTag) {
+					const std::string ln = reader.GetLocalName();
+					if (!inElement) {
+						if (ln == "element" && reader.hasAttribute("name")) {
+							inElement = true;
+							currentElem = reader.getAttribute("name");
+							depth = 0;
+							if (reader.hasAttribute("type")) {
+								const std::string typeName = reader.getAttribute("type");
+								TypeConstraint tc = resolveTypeConstraint(typeName, namedSimpleTypes);
+								if (tc.base != TypeConstraint::Base::Any) elementTextConstraints[currentElem] = tc;
+								const auto cit = namedComplexTypeAttrs.find(typeName);
+								if (cit != namedComplexTypeAttrs.end()) elementAttrConstraints[currentElem] = cit->second;
+								reader.skipCurrentElement(); inElement = false;
+							}
+						}
+					} else {
+						if (ln == "element" && depth >= 2) {
+							reader.skipCurrentElement(); // content-model child, not an attr/text decl
+						} else {
+							if (ln == "attribute" && reader.hasAttribute("name") && reader.hasAttribute("type")) {
+								TypeConstraint tc = resolveTypeConstraint(reader.getAttribute("type"), namedSimpleTypes);
+								if (tc.base != TypeConstraint::Base::Any)
+									elementAttrConstraints[currentElem][reader.getAttribute("name")] = tc;
+							}
+							if ((ln == "extension" || ln == "restriction") && reader.hasAttribute("base")) {
+								TypeConstraint tc = resolveTypeConstraint(reader.getAttribute("base"), namedSimpleTypes);
+								if (tc.base != TypeConstraint::Base::Any) elementTextConstraints[currentElem] = tc;
+							}
+							++depth;
+						}
+					}
+				} else if (reader.GetInspected() == XMLReader::Inspected::EndTag) {
+					if (inElement) {
+						if (depth == 0) { inElement = false; currentElem.clear(); }
+						else { --depth; }
+					}
+				}
+			}
+		}
 	}
 
 	static PhysicsSchema g_physicsSchema;
@@ -415,16 +643,23 @@ namespace hdt
 				g_physicsSchema.requiredAttrs = parseAllRequiredAttrs(bytes);
 				// Allowed children per element — driven by the XSD content model.
 				g_physicsSchema.allowedChildren = parseAllowedChildren(bytes);
+				// Element text and attribute value constraints -- driven by XSD type system.
+				parseAllTypeConstraints(bytes,
+					g_physicsSchema.elementTextConstraints,
+					g_physicsSchema.elementAttrConstraints);
 				g_physicsSchema.loaded = true;
 
 				logger::info(
 					"[XSDValidator] Loaded physics schema: root '{}', "
 					"{} enumerated element type(s), {} elements with required attr(s), "
-					"{} elements with allowed-children constraint(s).",
+					"{} elements with allowed-children constraint(s), "
+					"{} with text type constraint(s), {} with attr type constraint(s).",
 					g_physicsSchema.rootTag,
 					g_physicsSchema.elementEnums.size(),
 					g_physicsSchema.requiredAttrs.size(),
-					g_physicsSchema.allowedChildren.size());
+					g_physicsSchema.allowedChildren.size(),
+					g_physicsSchema.elementTextConstraints.size(),
+					g_physicsSchema.elementAttrConstraints.size());
 			} catch (const std::exception& e) {
 				logger::warn("[XSDValidator] Failed to parse physics schema '{}': {}",
 					kPhysicsXSDPath, e.what());
@@ -461,6 +696,46 @@ namespace hdt
 	};
 
 	// ---- element validators ----
+
+	// Validates that val satisfies a TypeConstraint derived from the XSD.
+	// Trims leading/trailing whitespace before checking.  Reports a violation if the
+	// value does not parse as the expected base type or falls outside the declared range.
+	static void validateTypedValue(
+		const std::string& tag, const std::string& attrName,
+		const std::string& rawVal, const TypeConstraint& tc,
+		uint64_t row, uint64_t col, ValidationContext& ctx)
+	{
+		const auto b = rawVal.find_first_not_of(" \t\r\n");
+		const auto e = rawVal.find_last_not_of(" \t\r\n");
+		const std::string val = (b == std::string::npos) ? "" : rawVal.substr(b, e - b + 1);
+
+		const std::string where = attrName.empty()
+			? "<" + tag + ">"
+			: "<" + tag + "> attribute '" + attrName + "'";
+
+		if (tc.base == TypeConstraint::Base::Boolean) {
+			if (val != "true" && val != "false" && val != "1" && val != "0")
+				ctx.addViolation(row, col, where + " has invalid boolean value '" + val + "'");
+			return;
+		}
+
+		if (tc.base == TypeConstraint::Base::Float || tc.base == TypeConstraint::Base::Integer) {
+			size_t idx = 0;
+			double dval = 0.0;
+			try { dval = std::stod(val, &idx); } catch (...) { idx = 0; }
+			if (idx != val.size()) {
+				const std::string typeName = (tc.base == TypeConstraint::Base::Float) ? "float" : "integer";
+				ctx.addViolation(row, col, where + " has invalid " + typeName + " value '" + val + "'");
+				return;
+			}
+			if (tc.hasMin && dval < tc.minInclusive)
+				ctx.addViolation(row, col, where + " value " + val +
+					" is below minimum " + std::to_string(tc.minInclusive));
+			if (tc.hasMax && dval > tc.maxInclusive)
+				ctx.addViolation(row, col, where + " value " + val +
+					" is above maximum " + std::to_string(tc.maxInclusive));
+		}
+	}
 
 	// Reads and validates all children of parentTag until its closing EndTag.
 	// Assumes the opening StartTag of parentTag has already been consumed.
@@ -508,6 +783,16 @@ namespace hdt
 				}
 			}
 
+			// Attribute value type validation (XSD-driven, no hardcoded names).
+			const auto attrConstraintIt = schema.elementAttrConstraints.find(tag);
+			if (attrConstraintIt != schema.elementAttrConstraints.end()) {
+				const uint64_t row = reader.GetRow(), col = reader.GetColumn();
+				for (const auto& [attrName, tc] : attrConstraintIt->second) {
+					if (reader.hasAttribute(attrName))
+						validateTypedValue(tag, attrName, reader.getAttribute(attrName), tc, row, col, ctx);
+				}
+			}
+
 			// Enum-constrained text content — read and validate; otherwise recurse into children.
 			if (schema.elementEnums.count(tag)) {
 				const uint64_t row = reader.GetRow(), col = reader.GetColumn();
@@ -517,6 +802,10 @@ namespace hdt
 					ctx.addViolation(row, col,
 						"<" + tag + "> has invalid value '" + val +
 						"' (see hdtSMP64.xsd for valid values: " + joinSet(allowed) + ")");
+			} else if (schema.elementTextConstraints.count(tag)) {
+				const uint64_t row = reader.GetRow(), col = reader.GetColumn();
+				const std::string val = reader.readText();
+				validateTypedValue(tag, "", val, schema.elementTextConstraints.at(tag), row, col, ctx);
 			} else {
 				validateChildren(tag, reader, ctx, schema);
 			}
