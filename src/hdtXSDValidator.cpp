@@ -28,6 +28,8 @@ namespace hdt
 		std::string boneTag;
 		std::unordered_set<std::string> perMeshShapeTags;
 		std::string weightThresholdTag;
+		// Required attributes on constraint elements, parsed from the XSD.
+		std::vector<std::string> constraintBodyAttrs;
 		bool loaded = false;  // true only when the XSD was successfully parsed
 	};
 
@@ -274,6 +276,44 @@ namespace hdt
 		return {};
 	}
 
+	// Collect all xs:attribute use="required" names from the named XSD element.
+	static std::vector<std::string> parseRequiredAttrs(std::string& bytes, const std::string& elementName)
+	{
+		std::vector<std::string> result;
+		XMLReader reader(reinterpret_cast<uint8_t*>(bytes.data()), bytes.size());
+
+		bool inElement = false;
+		int depth = 0;
+
+		while (reader.Inspect()) {
+			if (reader.GetInspected() == XMLReader::Inspected::StartTag) {
+				const std::string localName = reader.GetLocalName();
+
+				if (!inElement) {
+					if (localName == "element" && reader.hasAttribute("name") &&
+						reader.getAttribute("name") == elementName) {
+						inElement = true;
+						depth = 0;
+					}
+				} else {
+					++depth;
+					if (localName == "attribute" &&
+						reader.hasAttribute("name") &&
+						reader.hasAttribute("use") && reader.getAttribute("use") == "required") {
+						result.push_back(reader.getAttribute("name"));
+					}
+				}
+			} else if (reader.GetInspected() == XMLReader::Inspected::EndTag) {
+				if (inElement) {
+					if (depth == 0) break;
+					--depth;
+				}
+			}
+		}
+
+		return result;
+	}
+
 	static PhysicsSchema g_physicsSchema;
 	static std::once_flag g_schemaOnce;
 
@@ -324,16 +364,22 @@ namespace hdt
 				if (!wtTag.empty()) {
 					g_physicsSchema.weightThresholdTag = wtTag;
 				}
+				// constraint required attributes — parsed from the first constraint element
+				// (all constraint elements share the same required attributes by convention).
+				if (!g_physicsSchema.constraintTags.empty()) {
+					g_physicsSchema.constraintBodyAttrs =
+						parseRequiredAttrs(bytes, *g_physicsSchema.constraintTags.begin());
+				}
 
 				g_physicsSchema.loaded = true;
 
 				logger::info(
 					"[XSDValidator] Loaded physics schema: {} shared value(s), "
-					"{} shape type(s), {} constraint type(s), "
+					"{} shape type(s), {} constraint type(s) with {} required attr(s), "
 					"bone tag '{}', {} per-mesh shape type(s), weight-threshold tag '{}'.",
 					g_physicsSchema.sharedValues.size(), g_physicsSchema.shapeTypes.size(),
-					g_physicsSchema.constraintTags.size(), g_physicsSchema.boneTag,
-					g_physicsSchema.perMeshShapeTags.size(),
+					g_physicsSchema.constraintTags.size(), g_physicsSchema.constraintBodyAttrs.size(),
+					g_physicsSchema.boneTag, g_physicsSchema.perMeshShapeTags.size(),
 					g_physicsSchema.weightThresholdTag);
 			} catch (const std::exception& e) {
 				logger::warn("[XSDValidator] Failed to parse physics schema '{}': {}",
@@ -375,6 +421,15 @@ namespace hdt
 	{
 		ctx.elementStack.push_back("system");
 
+		// Returns true and records the attribute value if present; logs a violation otherwise.
+		auto requireAttr = [&](const std::string& element,
+			const std::string& attrName) -> bool {
+			if (reader.hasAttribute(attrName)) return true;
+			ctx.addViolation(reader.GetRow(), reader.GetColumn(),
+				"<" + element + "> is missing required attribute '" + attrName + "'");
+			return false;
+		};
+
 		while (reader.Inspect()) {
 			if (reader.GetInspected() == XMLReader::Inspected::EndTag) {
 				ctx.elementStack.pop_back();
@@ -389,10 +444,7 @@ namespace hdt
 
 			if (tag == schema.boneTag) {
 				ctx.elementStack.push_back(tag);
-				if (!reader.hasAttribute("name")) {
-					ctx.addViolation(reader.GetRow(), reader.GetColumn(),
-						"<" + tag + "> is missing required attribute 'name'");
-				} else {
+				if (requireAttr(tag, "name")) {
 					ctx.definedBones.insert(reader.getAttribute("name"));
 				}
 				while (reader.Inspect()) {
@@ -420,17 +472,10 @@ namespace hdt
 				}
 			} else if (schema.constraintTags.count(tag)) {
 				ctx.elementStack.push_back(tag);
-				if (!reader.hasAttribute("bodyA")) {
-					ctx.addViolation(reader.GetRow(), reader.GetColumn(),
-						"<" + tag + "> is missing required attribute 'bodyA'");
-				} else {
-					ctx.definedBodies.insert(reader.getAttribute("bodyA"));
-				}
-				if (!reader.hasAttribute("bodyB")) {
-					ctx.addViolation(reader.GetRow(), reader.GetColumn(),
-						"<" + tag + "> is missing required attribute 'bodyB'");
-				} else {
-					ctx.definedBodies.insert(reader.getAttribute("bodyB"));
+				for (const auto& attr : schema.constraintBodyAttrs) {
+					if (requireAttr(tag, attr)) {
+						ctx.definedBodies.insert(reader.getAttribute(attr));
+					}
 				}
 				reader.skipCurrentElement();
 				ctx.elementStack.pop_back();
@@ -439,10 +484,7 @@ namespace hdt
 			} else if (tag == schema.weightThresholdTag) {
 				ctx.elementStack.push_back(tag);
 				ctx.hasWeightThreshold = true;
-				if (!reader.hasAttribute(schema.boneTag)) {
-					ctx.addViolation(reader.GetRow(), reader.GetColumn(),
-						"<" + tag + "> is missing required attribute '" + schema.boneTag + "'");
-				} else {
+				if (requireAttr(tag, schema.boneTag)) {
 					ctx.weightThresholdBones.push_back(reader.getAttribute(schema.boneTag));
 				}
 				reader.skipCurrentElement();
