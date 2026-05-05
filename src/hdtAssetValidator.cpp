@@ -74,6 +74,19 @@ namespace hdt
 				// Lowercase extension comparison
 				std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
 				if (ext == ".xml") {
+					// Skip the configsPresets subfolder — those are preset files, not physics configs.
+					bool inPresetsDir = false;
+					for (const auto& component : p) {
+						auto c = component.string();
+						std::transform(c.begin(), c.end(), c.begin(), ::tolower);
+						if (c == "configspresets") {
+							inPresetsDir = true;
+							break;
+						}
+					}
+					if (inPresetsDir)
+						continue;
+
 					// Skip non-physics-config files using the static exclusion list
 					auto stem = p.stem().string();
 					std::transform(stem.begin(), stem.end(), stem.begin(), ::tolower);
