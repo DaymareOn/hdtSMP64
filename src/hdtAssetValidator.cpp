@@ -100,7 +100,7 @@ namespace hdt
 		return result;
 	}
 
-	// ---- Phase 1b: NIF discovery (optional) ----
+	// ---- Phase 2: NIF discovery ----
 
 	// Scan the game data directory for NIF files that contain physics data.
 	static std::vector<PhysicsAsset> discoverPhysicsNIFs()
@@ -194,7 +194,7 @@ namespace hdt
 		return result;
 	}
 
-	// ---- Phase 2 + 3: XML validation ----
+	// ---- Phase 1: XML validation ----
 
 	// Validate all discovered XML files and build the report.
 	static void validateXMLFiles(const std::vector<std::string>& xmlPaths,
@@ -245,7 +245,7 @@ namespace hdt
 		}
 	}
 
-	// ---- Phase 3b: NIF-based validation ----
+	// ---- Phase 3: NIF-based validation ----
 
 	static void validateNIFAssets(const std::vector<PhysicsAsset>& nifAssets,
 		AssetValidationResult& report, std::ostream& out)
@@ -357,21 +357,23 @@ namespace hdt
 		reportStream << "Generated: " << timestamp << "\n";
 		reportStream << "========================================\n\n";
 
-		// Phase 1: XML discovery
-		reportStream << "== Phase 1-3: XML Configuration Validation ==\n";
+		// Phase 1: direct XML validation
+		reportStream << "== Phase 1: XML Configuration Validation ==\n";
 		auto xmlFiles = discoverXMLFiles();
 		logger::info("[Validator] Found {} physics XML files in config directory",
 			xmlFiles.size());
 
 		validateXMLFiles(xmlFiles, report, reportStream);
 
-		// Phase 1b + 3b: NIF discovery and validation (optional)
-		reportStream << "\n== Phase 1b: NIF File Discovery ==\n";
+		// Phase 2: NIF discovery
+		reportStream << "\n== Phase 2: NIF File Discovery ==\n";
 		auto nifAssets = discoverPhysicsNIFs();
 		report.totalNIFsScanned = (int)nifAssets.size();
+		reportStream << "  Found " << nifAssets.size() << " NIF file(s) referencing physics configs.\n";
 
+		// Phase 3: NIF-referenced XML validation
 		if (!nifAssets.empty()) {
-			reportStream << "\n== Phase 3b: NIF-Referenced XML Validation ==\n";
+			reportStream << "\n== Phase 3: NIF-Referenced XML Validation ==\n";
 			validateNIFAssets(nifAssets, report, reportStream);
 		}
 
