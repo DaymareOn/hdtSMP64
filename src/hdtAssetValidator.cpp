@@ -160,6 +160,7 @@ namespace hdt
 					PhysicsAsset asset;
 					asset.nifPath = pathStr;
 					asset.nifExists = true;
+					asset.allPhysicsXmlPaths = scanRes.allPhysicsXmlPaths;
 
 					if (!scanRes.physicsXmlPath.empty()) {
 						// Normalise path separator and make relative
@@ -256,6 +257,19 @@ namespace hdt
 
 		for (const auto& asset : nifAssets) {
 			out << "  [NIF]  " << asset.nifPath << "\n";
+
+			// Warn if multiple "HDT Skinned Mesh Physics Object" blocks found
+			if (asset.allPhysicsXmlPaths.size() > 1) {
+				std::string msg = asset.nifPath + ": has " +
+					std::to_string(asset.allPhysicsXmlPaths.size()) +
+					" \"HDT Skinned Mesh Physics Object\" blocks; only the first is used by the runtime.";
+				report.warnings.push_back(msg);
+				report.hasWarnings = true;
+				out << "    [WARNING] Multiple \"HDT Skinned Mesh Physics Object\" blocks found ("
+					<< asset.allPhysicsXmlPaths.size() << "); only the first is used:\n";
+				for (const auto& p : asset.allPhysicsXmlPaths)
+					out << "      - " << p << "\n";
+			}
 
 			if (!asset.xmlExists && !asset.xmlPath.empty()) {
 				std::string err = "NIF " + asset.nifPath +

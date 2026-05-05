@@ -19,6 +19,7 @@ namespace hdt
 	{
 		std::string nifPath;
 		std::string xmlPath;
+		std::vector<std::string> allPhysicsXmlPaths; // all "HDT Skinned Mesh Physics Object" blocks
 		bool nifExists = false;
 		bool xmlExists = false;
 	};

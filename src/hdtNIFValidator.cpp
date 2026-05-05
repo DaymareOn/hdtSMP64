@@ -187,8 +187,9 @@ namespace hdt
 		return info;
 	}
 
-	// Search string table for physics marker; extract XML path from matching NiStringExtraData.
-	static std::string findXmlPathInHeader(const NifHeaderInfo& info,
+	// Search string table for physics marker; extract XML paths from all matching NiStringExtraData blocks.
+	// Returns all found XML paths (duplicates indicate a misconfigured NIF).
+	static std::vector<std::string> findXmlPathsInHeader(const NifHeaderInfo& info,
 		const std::vector<uint8_t>& rawData)
 	{
 		// Find the string index of the physics marker
@@ -213,11 +214,12 @@ namespace hdt
 		if (niStrExtraTypeIdx < 0)
 			return {};
 
-		// Walk blocks, find NiStringExtraData with name == markerIdx
+		// Walk all blocks, collect every NiStringExtraData with name == markerIdx
 		// NiStringExtraData block layout (v20.2.0.7):
 		//   name_ref:     uint32 (string table index)
 		//   next_extra:   int32  (block ref, -1 = none)
 		//   string_data:  uint32 (string table index for the value)
+		std::vector<std::string> paths;
 		size_t blockOffset = info.blockDataOffset;
 		for (size_t i = 0; i < info.blockSizes.size(); ++i) {
 			uint32_t blockSize = info.blockSizes[i];
@@ -232,14 +234,14 @@ namespace hdt
 				std::memcpy(&valueIdx, rawData.data() + blockOffset + 8, 4);
 
 				if ((int)nameIdx == markerIdx && valueIdx < (uint32_t)info.strings.size()) {
-					return info.strings[valueIdx];
+					paths.push_back(info.strings[valueIdx]);
 				}
 			}
 
 			blockOffset += blockSize;
 		}
 
-		return {};
+		return paths;
 	}
 
 	// Fallback: raw byte search for the physics marker string.
@@ -346,7 +348,9 @@ namespace hdt
 
 				if (hasMarker) {
 					result.hasPhysicsData = true;
-					result.physicsXmlPath = findXmlPathInHeader(*headerInfo, data);
+					result.allPhysicsXmlPaths = findXmlPathsInHeader(*headerInfo, data);
+					if (!result.allPhysicsXmlPaths.empty())
+						result.physicsXmlPath = result.allPhysicsXmlPaths[0];
 				}
 				return result;
 			}
