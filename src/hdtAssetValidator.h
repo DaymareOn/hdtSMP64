@@ -10,7 +10,6 @@ namespace hdt
 		bool enabled = true;
 		bool strictMode = false;
 		bool reportFileEnabled = true;
-		bool scanDataFolder = true;   // NIF scanning is safe: validation runs at kDataLoaded, after all BSAs are mounted
 		int warnTriangleCount = 10000;
 	};
 

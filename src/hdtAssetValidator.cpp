@@ -315,15 +315,13 @@ namespace hdt
 		validateXMLFiles(xmlFiles, report, reportStream);
 
 		// Phase 1b + 3b: NIF discovery and validation (optional)
-		if (g_validationConfig.scanDataFolder) {
-			reportStream << "\n== Phase 1b: NIF File Discovery ==\n";
-			auto nifAssets = discoverPhysicsNIFs();
-			report.totalNIFsScanned = (int)nifAssets.size();
+		reportStream << "\n== Phase 1b: NIF File Discovery ==\n";
+		auto nifAssets = discoverPhysicsNIFs();
+		report.totalNIFsScanned = (int)nifAssets.size();
 
-			if (!nifAssets.empty()) {
-				reportStream << "\n== Phase 3b: NIF-Referenced XML Validation ==\n";
-				validateNIFAssets(nifAssets, report, reportStream);
-			}
+		if (!nifAssets.empty()) {
+			reportStream << "\n== Phase 3b: NIF-Referenced XML Validation ==\n";
+			validateNIFAssets(nifAssets, report, reportStream);
 		}
 
 		// Summary
@@ -331,9 +329,7 @@ namespace hdt
 		reportStream << "  XMLs found:    " << report.totalXMLsFound << "\n";
 		reportStream << "  XMLs passed:   " << report.xmlPassCount << "\n";
 		reportStream << "  XMLs failed:   " << report.xmlErrorCount << "\n";
-		if (g_validationConfig.scanDataFolder) {
-			reportStream << "  NIFs scanned:  " << report.totalNIFsScanned << "\n";
-		}
+		reportStream << "  NIFs scanned:  " << report.totalNIFsScanned << "\n";
 		reportStream << "  Warnings:      " << report.warnings.size() << "\n";
 		reportStream << "  Errors:        " << report.errors.size() << "\n";
 		reportStream << "\n";
