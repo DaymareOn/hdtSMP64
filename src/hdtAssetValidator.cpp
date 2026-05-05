@@ -311,7 +311,7 @@ namespace hdt
 		logger::info("[Validator] Found {} physics XML files in config directory",
 			xmlFiles.size());
 
-		validateXMLFiles(xmlFiles, report, reportStream);
+		validateXMLFiles(xmlFiles, report, bodyStream);
 
 		// Phase 1b + 3b: NIF discovery and validation (optional)
 		if (g_validationConfig.scanDataFolder) {
@@ -334,25 +334,11 @@ namespace hdt
 			reportStream << "  NIFs scanned:  " << report.totalNIFsScanned << "\n";
 		}
 		reportStream << "  Warnings:      " << report.warnings.size() << "\n";
-		reportStream << "  Errors:        " << report.errors.size() << "\n";
+		reportStream << "  Errors:        " << report.errors.size() << "\n\n";
+
+		reportStream << bodyStream.str();
 		reportStream << "\n";
-
-		if (!report.errors.empty()) {
-			reportStream << "== Errors ==\n";
-			for (const auto& e : report.errors) {
-				reportStream << "  [ERROR] " << e << "\n";
-			}
-			reportStream << "\n";
-		}
-
-		if (!report.warnings.empty()) {
-			reportStream << "== Warnings ==\n";
-			for (const auto& w : report.warnings) {
-				reportStream << "  [WARN] " << w << "\n";
-			}
-			reportStream << "\n";
-		}
-
+		reportStream << tailStream.str();
 		reportStream << "========================================\n";
 
 		// Write report to file
