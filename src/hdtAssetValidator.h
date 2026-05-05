@@ -42,4 +42,10 @@ namespace hdt
 	// Returns true if no errors were found (warnings are non-blocking).
 	bool ValidateAllPhysicsAssets();
 
+	// Run the full validation pipeline on demand (e.g. from the console command).
+	// Always writes the report file regardless of config.
+	// Populates outReportPath with the absolute path to the written report (empty on failure).
+	// Returns the full validation result.
+	AssetValidationResult ValidateAllPhysicsAssetsOnDemand(std::string& outReportPath);
+
 }  // namespace hdt

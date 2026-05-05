@@ -344,6 +344,24 @@ bool SMPDebug_Execute(
 		return true;
 	}
 
+	if (_strnicmp(buffer, "validate", MAX_PATH) == 0) {
+		RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Running physics XML validation...");
+		std::string reportPath;
+		auto result = hdt::ValidateAllPhysicsAssetsOnDemand(reportPath);
+
+		RE::ConsoleLog::GetSingleton()->Print(
+			"[HDT-SMP] Validation complete: %d XML(s) found, %d passed, %d failed, %d warning(s)",
+			result.totalXMLsFound, result.xmlPassCount, result.xmlErrorCount,
+			(int)result.warnings.size());
+
+		if (!reportPath.empty()) {
+			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Report written to: %s", reportPath.c_str());
+		} else {
+			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Warning: report file could not be written");
+		}
+		return true;
+	}
+
 	auto skeletons = hdt::ActorManager::instance()->getSkeletons();
 
 	size_t activeSkeletons = 0;

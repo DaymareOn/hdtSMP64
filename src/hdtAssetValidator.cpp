@@ -270,17 +270,15 @@ namespace hdt
 
 	// ---- report writing ----
 
-	static void writeReport(const std::string& reportContent,
+	// Write report content to a timestamped file in the log directory.
+	// Returns the full path to the written file, or empty string on failure.
+	static std::string writeReport(const std::string& reportContent,
 		const std::string& timestamp)
 	{
-		if (!g_validationConfig.reportFileEnabled) {
-			return;
-		}
-
 		auto logDir = logger::log_directory();
 		if (!logDir) {
 			logger::warn("[Validator] Could not determine log directory for report");
-			return;
+			return {};
 		}
 
 		auto reportPath = *logDir / ("hdtSMP64_validation_" + timestamp + ".log");
@@ -288,33 +286,26 @@ namespace hdt
 		std::ofstream out(reportPath, std::ios::out | std::ios::trunc);
 		if (!out.is_open()) {
 			logger::warn("[Validator] Could not open report file: {}", reportPath.string());
-			return;
+			return {};
 		}
 
 		out << reportContent;
 		logger::info("[Validator] Validation report written to: {}", reportPath.string());
+		return reportPath.string();
 	}
 
-	// ---- public entry point ----
+	// ---- core validation ----
 
-	bool ValidateAllPhysicsAssets()
+	// Runs all validation phases; populates report and reportStream.
+	// Returns the report content as a string.
+	static std::string runValidationCore(AssetValidationResult& report, const std::string& timestamp)
 	{
-		if (!g_validationConfig.enabled) {
-			logger::info("[Validator] Asset validation disabled by config");
-			return true;
-		}
-
-		logger::info("[Validator] Starting FSMP asset validation...");
-
 		std::ostringstream reportStream;
-		std::string timestamp = timestampString();
 
 		reportStream << "========================================\n";
 		reportStream << "FSMP Asset Validation Report\n";
 		reportStream << "Generated: " << timestamp << "\n";
 		reportStream << "========================================\n\n";
-
-		AssetValidationResult report;
 
 		// Phase 1: XML discovery
 		reportStream << "== Phase 1-3: XML Configuration Validation ==\n";
@@ -365,17 +356,32 @@ namespace hdt
 		}
 
 		reportStream << "========================================\n";
+		return reportStream.str();
+	}
 
-		// Write report to file
-		std::string reportContent = reportStream.str();
-		writeReport(reportContent, timestamp);
+	// ---- public entry points ----
 
-		// Log summary to main log
+	bool ValidateAllPhysicsAssets()
+	{
+		if (!g_validationConfig.enabled) {
+			logger::info("[Validator] Asset validation disabled by config");
+			return true;
+		}
+
+		logger::info("[Validator] Starting FSMP asset validation...");
+
+		AssetValidationResult report;
+		std::string timestamp = timestampString();
+		std::string reportContent = runValidationCore(report, timestamp);
+
+		if (g_validationConfig.reportFileEnabled) {
+			writeReport(reportContent, timestamp);
+		}
+
 		if (report.hasErrors) {
 			logger::warn(
-				"[Validator] Validation complete: {} error(s), {} warning(s). "
-				"See hdtSMP64_validation_{}.log for details.",
-				report.errors.size(), report.warnings.size(), timestamp);
+				"[Validator] Validation complete: {} error(s), {} warning(s).",
+				report.errors.size(), report.warnings.size());
 		} else if (report.hasWarnings) {
 			logger::info(
 				"[Validator] Validation complete: no errors, {} warning(s).", report.warnings.size());
@@ -384,12 +390,38 @@ namespace hdt
 				report.totalXMLsFound);
 		}
 
-		// In strict mode, errors cause a return of false (logged, not fatal)
 		if (g_validationConfig.strictMode && report.hasErrors) {
 			return false;
 		}
 
 		return !report.hasErrors;
+	}
+
+	AssetValidationResult ValidateAllPhysicsAssetsOnDemand(std::string& outReportPath)
+	{
+		logger::info("[Validator] Starting on-demand FSMP asset validation...");
+
+		AssetValidationResult report;
+		std::string timestamp = timestampString();
+		std::string reportContent = runValidationCore(report, timestamp);
+
+		// Always write the file for on-demand runs
+		outReportPath = writeReport(reportContent, timestamp);
+
+		if (report.hasErrors) {
+			logger::warn(
+				"[Validator] On-demand validation: {} error(s), {} warning(s).",
+				report.errors.size(), report.warnings.size());
+		} else if (report.hasWarnings) {
+			logger::info(
+				"[Validator] On-demand validation: no errors, {} warning(s).", report.warnings.size());
+		} else {
+			logger::info(
+				"[Validator] On-demand validation: all physics assets OK ({} XML file(s)).",
+				report.totalXMLsFound);
+		}
+
+		return report;
 	}
 
 }  // namespace hdt
