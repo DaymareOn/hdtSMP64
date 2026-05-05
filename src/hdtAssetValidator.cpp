@@ -5,6 +5,8 @@
 #include "hdtSCHValidator.h"
 #include "hdtXSDValidator.h"
 
+#include <pugixml.hpp>
+
 #include <chrono>
 #include <ctime>
 #include <filesystem>
@@ -46,6 +48,66 @@ namespace hdt
 		"defaultbbps",  // shape-to-XML mapping (not a physics config)
 		"hdtsmp64",     // hdtSMP64.xsd physics schema (FSMP-Validator)
 	};
+
+	// ---- Phase 0: DefaultBBP XML discovery ----
+
+	struct DefaultBBPEntry {
+		std::string shape;   // shape name from <map shape="...">
+		std::string xmlPath; // resolved filesystem path (data/...)
+		bool xmlExists = false;
+	};
+
+	// Parse defaultBBPs.xml and resolve the file path of each <map> entry.
+	static std::vector<DefaultBBPEntry> discoverDefaultBBPXMLs()
+	{
+		std::vector<DefaultBBPEntry> result;
+		namespace fs = std::filesystem;
+
+		fs::path bbpFile = "data/SKSE/Plugins/hdtSkinnedMeshConfigs/defaultBBPs.xml";
+		std::error_code ec;
+		if (!fs::exists(bbpFile, ec)) {
+			logger::info("[Validator] defaultBBPs.xml not found at {}, skipping Phase 0",
+				bbpFile.string());
+			return result;
+		}
+
+		pugi::xml_document doc;
+		auto parseResult = doc.load_file(bbpFile.string().c_str());
+		if (!parseResult) {
+			logger::warn("[Validator] Failed to parse defaultBBPs.xml: {}",
+				parseResult.description());
+			return result;
+		}
+
+		for (auto& map : doc.child("default-bbps").children("map")) {
+			std::string shape = map.attribute("shape").as_string();
+			std::string rawFile = map.attribute("file").as_string();
+			if (shape.empty() || rawFile.empty())
+				continue;
+
+			// Normalise path separators
+			std::replace(rawFile.begin(), rawFile.end(), '\\', '/');
+
+			// Build candidate paths: try "data/<path>" first, then as-is
+			DefaultBBPEntry entry;
+			entry.shape = shape;
+
+			fs::path candidate = "data/" + rawFile;
+			if (fs::exists(candidate, ec)) {
+				entry.xmlPath = candidate.string();
+				entry.xmlExists = true;
+			} else {
+				// Fall back to path as-is (in case it's already absolute or differently rooted)
+				candidate = rawFile;
+				entry.xmlPath = candidate.string();
+				entry.xmlExists = fs::exists(candidate, ec);
+			}
+
+			result.push_back(std::move(entry));
+		}
+
+		return result;
+	}
 
 	// ---- Phase 1: XML discovery ----
 
@@ -195,13 +257,90 @@ namespace hdt
 		return result;
 	}
 
+	// ---- Phase 0: DefaultBBP XML validation ----
+
+	// Validate each XML referenced in defaultBBPs.xml.
+	// Files already present in validatedXMLs are skipped (cross-phase dedup).
+	static void validateDefaultBBPXMLFiles(const std::vector<DefaultBBPEntry>& entries,
+		AssetValidationResult& report, std::ostream& out,
+		std::unordered_set<std::string>& validatedXMLs)
+	{
+		for (const auto& entry : entries) {
+			out << "  [BBP]  shape=" << entry.shape << " -> " << entry.xmlPath << "\n";
+
+			if (!entry.xmlExists) {
+				std::string err = "defaultBBPs.xml: shape '" + entry.shape +
+					"' references missing XML: " + entry.xmlPath;
+				report.errors.push_back(err);
+				report.hasErrors = true;
+				out << "    [ERROR] XML file not found\n";
+				continue;
+			}
+
+			auto normPath = normalisePath(entry.xmlPath);
+			if (validatedXMLs.count(normPath)) {
+				out << "    (already validated)\n";
+				continue;
+			}
+			validatedXMLs.insert(normPath);
+			++report.totalXMLsFound;
+
+			auto xsdResult = ValidatePhysicsXML(entry.xmlPath);
+			auto schResult = ValidatePhysicsXMLWithSCH(entry.xmlPath);
+
+			bool fileHasErrors = !xsdResult.isValid || schResult.hasErrors;
+
+			if (fileHasErrors) {
+				++report.xmlErrorCount;
+				report.hasErrors = true;
+				out << "    [FAIL]\n";
+			} else {
+				++report.xmlPassCount;
+				out << "    [OK]\n";
+			}
+
+			for (const auto& v : xsdResult.violations) {
+				std::string msg = entry.xmlPath + ":" + std::to_string(v.line) + ": " +
+				                  v.elementPath + " - " + v.message;
+				report.errors.push_back(msg);
+				out << "    [ERROR] " << v.elementPath << " (line " << v.line << "): "
+					<< v.message << "\n";
+			}
+
+			for (const auto& v : schResult.violations) {
+				std::string msg = entry.xmlPath + ":" + std::to_string(v.line) + ": " +
+				                  v.location + " - " + v.message;
+				if (v.role == "error") {
+					report.errors.push_back(msg);
+					out << "    [SCH-ERROR] " << v.location << " (line " << v.line << "): "
+						<< v.message << "\n";
+				} else {
+					report.warnings.push_back(msg);
+					report.hasWarnings = true;
+					out << "    [WARNING] " << v.location << " (line " << v.line << "): "
+						<< v.message << "\n";
+				}
+			}
+		}
+	}
+
 	// ---- Phase 1: XML validation ----
 
 	// Validate all discovered XML files and build the report.
+	// Files already present in validatedXMLs are skipped (cross-phase dedup).
 	static void validateXMLFiles(const std::vector<std::string>& xmlPaths,
-		AssetValidationResult& report, std::ostream& out)
+		AssetValidationResult& report, std::ostream& out,
+		std::unordered_set<std::string>& validatedXMLs)
 	{
 		for (const auto& xmlPath : xmlPaths) {
+			auto normPath = normalisePath(xmlPath);
+			if (validatedXMLs.count(normPath)) {
+				// Already validated by a prior phase (e.g., Phase 0 DefaultBBP validation)
+				out << "  [SKIP] " << xmlPath << " (already validated)\n";
+				continue;
+			}
+			validatedXMLs.insert(normPath);
+
 			auto xsdResult = ValidatePhysicsXML(xmlPath);
 			auto schResult = ValidatePhysicsXMLWithSCH(xmlPath);
 
@@ -366,13 +505,26 @@ namespace hdt
 
 		std::ostringstream bodyStream;
 
+		// Shared dedup set: tracks normalised paths already validated across phases 0 and 1
+		// (prevents double-counting and redundant XSD/SCH runs for files in both DefaultBBP and the config dir)
+		std::unordered_set<std::string> globalValidatedXMLs;
+
+		// Phase 0: DefaultBBP XML validation
+		auto bbpEntries = discoverDefaultBBPXMLs();
+		if (!bbpEntries.empty()) {
+			bodyStream << "== Phase 0: DefaultBBP XML Validation ==\n";
+			bodyStream << "  Found " << bbpEntries.size() << " map entries in defaultBBPs.xml.\n";
+			validateDefaultBBPXMLFiles(bbpEntries, report, bodyStream, globalValidatedXMLs);
+			bodyStream << "\n";
+		}
+
 		// Phase 1: direct XML validation
 		bodyStream << "== Phase 1: XML Configuration Validation ==\n";
 		auto xmlFiles = discoverXMLFiles();
 		logger::info("[Validator] Found {} physics XML files in config directory",
 			xmlFiles.size());
 
-		validateXMLFiles(xmlFiles, report, bodyStream);
+		validateXMLFiles(xmlFiles, report, bodyStream, globalValidatedXMLs);
 
 		// Phase 2: NIF discovery
 		bodyStream << "\n== Phase 2: NIF File Discovery ==\n";
