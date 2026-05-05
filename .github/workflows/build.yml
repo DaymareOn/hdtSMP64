@@ -241,6 +241,7 @@ jobs:
           mkdir -p validator_files
           cp temp-validator/LICENSE validator_files/
           cp temp-validator/skse/plugins/hdtSkinnedMeshConfigs/hdtSMP64.xsd validator_files/
+          cp temp-validator/skse/plugins/hdtSkinnedMeshConfigs/hdtSMP64.sch validator_files/
 
       - name: Fetch the FSMP MCM
         run: |
