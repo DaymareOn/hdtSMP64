@@ -463,6 +463,98 @@ namespace hdt
 		}
 	}
 
+	// ---- Phase 2.5: NIF _0/_1 pair consistency check ----
+
+	// For every NIF whose filename ends in _0.nif, check that the matching _1.nif:
+	//   1. exists in the same directory
+	//   2. references the same physics XML (same normalised path, or both missing)
+	//   3. references it at the same block position (same index in allPhysicsXmlPaths)
+	static void checkNIFPairs(const std::vector<PhysicsAsset>& nifAssets,
+		AssetValidationResult& report, std::ostream& out)
+	{
+		// Build a fast lookup: normalised nif path -> index in nifAssets
+		std::unordered_map<std::string, size_t> nifByNormPath;
+		nifByNormPath.reserve(nifAssets.size());
+		for (size_t i = 0; i < nifAssets.size(); ++i)
+			nifByNormPath[normalisePath(nifAssets[i].nifPath)] = i;
+
+		// Track _0.nif paths we've already checked (avoid reporting the same pair twice)
+		std::unordered_set<std::string> checked;
+
+		for (size_t i = 0; i < nifAssets.size(); ++i) {
+			const auto& asset = nifAssets[i];
+
+			// We only initiate checks from the _0.nif side
+			auto normPath = normalisePath(asset.nifPath);
+			if (!normPath.ends_with("_0.nif"))
+				continue;
+			if (checked.count(normPath))
+				continue;
+			checked.insert(normPath);
+
+			// Derive the expected _1.nif path
+			std::string norm1 = normPath.substr(0, normPath.size() - 6) + "_1.nif";
+
+			auto it1 = nifByNormPath.find(norm1);
+			if (it1 == nifByNormPath.end()) {
+				// _1.nif has no physics data or does not exist — only warn if _0 has physics
+				if (!asset.xmlPath.empty()) {
+					std::string msg = asset.nifPath + ": _0.nif has physics data but the matching _1.nif (" + norm1 + ") was not found or has no physics reference.";
+					report.warnings.push_back(msg);
+					report.hasWarnings = true;
+					out << "  [PAIR-WARN] " << asset.nifPath << "\n";
+					out << "    Matching _1.nif not found or has no physics reference: " << norm1 << "\n";
+				}
+				continue;
+			}
+
+			const auto& asset1 = nifAssets[it1->second];
+
+			// 1. Both must reference the same XML (normalised)
+			auto normXml0 = normalisePath(asset.xmlPath);
+			auto normXml1 = normalisePath(asset1.xmlPath);
+			if (normXml0 != normXml1) {
+				std::string msg = asset.nifPath + " and " + asset1.nifPath +
+					": _0/_1 NIF pair reference different physics XMLs: '" +
+					asset.xmlPath + "' vs '" + asset1.xmlPath + "'.";
+				report.errors.push_back(msg);
+				report.hasErrors = true;
+				out << "  [PAIR-ERROR] " << asset.nifPath << "\n";
+				out << "    _0.nif XML: " << (asset.xmlPath.empty() ? "(none)" : asset.xmlPath) << "\n";
+				out << "    _1.nif XML: " << (asset1.xmlPath.empty() ? "(none)" : asset1.xmlPath) << "\n";
+				out << "    _0/_1 NIF pair reference different physics XMLs.\n";
+			}
+
+			// 2. Both must have the same number of physics blocks at the same positions
+			const auto& paths0 = asset.allPhysicsXmlPaths;
+			const auto& paths1 = asset1.allPhysicsXmlPaths;
+			if (paths0.size() != paths1.size()) {
+				std::string msg = asset.nifPath + " and " + asset1.nifPath +
+					": _0/_1 NIF pair have a different number of physics XML blocks (" +
+					std::to_string(paths0.size()) + " vs " + std::to_string(paths1.size()) + ").";
+				report.errors.push_back(msg);
+				report.hasErrors = true;
+				out << "  [PAIR-ERROR] " << asset.nifPath << " vs " << asset1.nifPath << "\n";
+				out << "    Block count mismatch: _0.nif has " << paths0.size()
+					<< " block(s), _1.nif has " << paths1.size() << " block(s).\n";
+			} else {
+				for (size_t k = 0; k < paths0.size(); ++k) {
+					if (normalisePath(paths0[k]) != normalisePath(paths1[k])) {
+						std::string msg = asset.nifPath + " and " + asset1.nifPath +
+							": _0/_1 NIF pair have different physics XML at block index " +
+							std::to_string(k) + ": '" + paths0[k] + "' vs '" + paths1[k] + "'.";
+						report.errors.push_back(msg);
+						report.hasErrors = true;
+						out << "  [PAIR-ERROR] " << asset.nifPath << " vs " << asset1.nifPath << "\n";
+						out << "    Block " << k << " mismatch:\n";
+						out << "      _0.nif: " << paths0[k] << "\n";
+						out << "      _1.nif: " << paths1[k] << "\n";
+					}
+				}
+			}
+		}
+	}
+
 	// ---- Phase 3: NIF-based validation ----
 
 	static void validateNIFAssets(const std::vector<PhysicsAsset>& nifAssets,
@@ -625,6 +717,10 @@ namespace hdt
 		auto nifAssets = discoverPhysicsNIFs();
 		report.totalNIFsScanned = (int)nifAssets.size();
 		bodyStream << "  Found " << nifAssets.size() << " NIF file(s) referencing physics configs.\n";
+
+		// Phase 2.5: NIF _0/_1 pair consistency check
+		bodyStream << "\n== Phase 2.5: NIF Pair Consistency Check ==\n";
+		checkNIFPairs(nifAssets, report, bodyStream);
 
 		// Phase 3: NIF-referenced XML validation
 		if (!nifAssets.empty()) {
