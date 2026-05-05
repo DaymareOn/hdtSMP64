@@ -219,14 +219,14 @@ namespace hdt
 
 			// SCH violations
 			for (const auto& v : schResult.violations) {
-				std::string msg = xmlPath + ": " + v.location + " - " + v.message;
+				std::string msg = xmlPath + ":" + std::to_string(v.line) + ": " + v.location + " - " + v.message;
 				if (v.role == "error") {
 					report.errors.push_back(msg);
-					out << "    [SCH-ERROR] " << v.location << ": " << v.message << "\n";
+					out << "    [SCH-ERROR] " << v.location << " (line " << v.line << "): " << v.message << "\n";
 				} else {
 					report.warnings.push_back(msg);
 					report.hasWarnings = true;
-					out << "    [SCH-WARN] " << v.location << ": " << v.message << "\n";
+					out << "    [SCH-WARN] " << v.location << " (line " << v.line << "): " << v.message << "\n";
 				}
 			}
 		}
@@ -276,14 +276,14 @@ namespace hdt
 							<< "): " << v.message << "\n";
 					}
 					for (const auto& v : schResult.violations) {
-						std::string msg = asset.xmlPath + ": " + v.location + " - " + v.message;
+						std::string msg = asset.xmlPath + ":" + std::to_string(v.line) + ": " + v.location + " - " + v.message;
 						if (v.role == "error") {
 							report.errors.push_back(msg);
-							out << "    [SCH-ERROR] " << v.location << ": " << v.message << "\n";
+							out << "    [SCH-ERROR] " << v.location << " (line " << v.line << "): " << v.message << "\n";
 						} else {
 							report.warnings.push_back(msg);
 							report.hasWarnings = true;
-							out << "    [SCH-WARN] " << v.location << ": " << v.message << "\n";
+							out << "    [SCH-WARN] " << v.location << " (line " << v.line << "): " << v.message << "\n";
 						}
 					}
 				} else {
@@ -292,10 +292,10 @@ namespace hdt
 
 					// SCH warnings on a passing file
 					for (const auto& v : schResult.violations) {
-						std::string msg = asset.xmlPath + ": " + v.location + " - " + v.message;
+						std::string msg = asset.xmlPath + ":" + std::to_string(v.line) + ": " + v.location + " - " + v.message;
 						report.warnings.push_back(msg);
 						report.hasWarnings = true;
-						out << "    [SCH-WARN] " << v.location << ": " << v.message << "\n";
+						out << "    [SCH-WARN] " << v.location << " (line " << v.line << "): " << v.message << "\n";
 					}
 				}
 			} else {

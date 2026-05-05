@@ -11,6 +11,7 @@ namespace hdt
 		std::string location;  // e.g. "/system[1]/bone[1]/linearDamping[1]"
 		std::string message;
 		std::string role;  // "error" or "warning"
+		int line = 0;      // 1-based source line number, 0 if unknown
 	};
 
 	struct SCHValidationResult

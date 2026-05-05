@@ -209,6 +209,20 @@ namespace hdt
 		return path.empty() ? "/" : path;
 	}
 
+	// Convert a byte offset from pugi::xml_node::offset_debug() to a 1-based line number
+	// by counting newlines in the source buffer up to (but not including) the offset.
+	static int offsetToLine(const std::string& src, ptrdiff_t offset)
+	{
+		if (offset <= 0 || offset > static_cast<ptrdiff_t>(src.size()))
+			return 1;
+		int line = 1;
+		for (ptrdiff_t i = 0; i < offset; ++i) {
+			if (src[i] == '\n')
+				++line;
+		}
+		return line;
+	}
+
 	// ---- public API ----
 
 	SCHValidationResult ValidatePhysicsXMLWithSCH(const std::string& xmlPath)
@@ -250,6 +264,7 @@ namespace hdt
 				SCHViolation v;
 				v.xmlPath = xmlPath;
 				v.location = nodeLocation(xnode.node());
+				v.line = offsetToLine(bytes, xnode.node().offset_debug());
 				v.message = rule.message;
 				v.role = rule.role;
 
