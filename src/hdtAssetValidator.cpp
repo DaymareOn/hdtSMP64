@@ -117,19 +117,27 @@ namespace hdt
 
 			// path::string() throws std::system_error if the path contains characters
 			// that cannot be encoded in the system code page (e.g. non-ASCII mod names).
-			// Use the generic UTF-8 representation instead, which never throws.
+			// generic_u8string() is always safe but returns u8string (char8_t) in C++20;
+			// reinterpret the bytes into a plain std::string (valid since char8_t is unsigned char).
+			auto toStr = [](const std::filesystem::path& fp) -> std::string {
+				auto u8 = fp.generic_u8string();
+				return { reinterpret_cast<const char*>(u8.data()), u8.size() };
+			};
+
 			std::string pathStr;
 			try {
-				pathStr = p.generic_u8string();
+				pathStr = toStr(p);
 			} catch (const std::exception& e) {
 				logger::warn("[Validator] Skipping unrepresentable path: {}", e.what());
 				continue;
 			}
 
-			auto ext = p.extension().u8string();
-			std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-			if (ext != ".nif") {
-				continue;
+			{
+				auto ext = toStr(p.extension());
+				std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+				if (ext != ".nif") {
+					continue;
+				}
 			}
 
 			++scanned;
@@ -155,7 +163,7 @@ namespace hdt
 							// Try with data/ prefix
 							xmlFsPath = "data/" + xmlPath;
 						}
-						asset.xmlPath = xmlFsPath.u8string();
+						asset.xmlPath = toStr(xmlFsPath);
 						asset.xmlExists = fs::exists(xmlFsPath, ec);
 					}
 
