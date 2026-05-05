@@ -245,75 +245,6 @@ namespace hdt
 		return result;
 	}
 
-	// Find the first top-level xs:element in the XSD (the root element of physics XML files)
-	// and collect its xs:key name — selector xpath pairs.
-	// Returns {rootElementName, {keyName: selectorXpath}} with no hardcoded names.
-	static std::pair<std::string, std::unordered_map<std::string, std::string>>
-		parseSystemKeys(std::string& bytes)
-	{
-		std::unordered_map<std::string, std::string> keys;
-		std::string rootTag;
-		XMLReader reader(reinterpret_cast<uint8_t*>(bytes.data()), bytes.size());
-
-		bool inSchema = false;
-		bool inRoot = false;
-		bool inKey = false;
-		int schemaDepth = 0;  // depth inside xs:schema, outside the root element
-		int rootDepth = 0;    // depth inside the root element
-		int keyDepth = 0;     // depth inside a xs:key element
-		std::string currentKeyName;
-
-		while (reader.Inspect()) {
-			if (reader.GetInspected() == XMLReader::Inspected::StartTag) {
-				const std::string localName = reader.GetLocalName();
-
-				if (!inSchema) {
-					if (localName == "schema")
-						inSchema = true;
-				} else if (!inRoot) {
-					// At depth 0 inside xs:schema: the first xs:element with a name is the root.
-					if (schemaDepth == 0 && localName == "element" && reader.hasAttribute("name")) {
-						rootTag = reader.getAttribute("name");
-						inRoot = true;
-						rootDepth = 0;
-					} else {
-						++schemaDepth;  // skip non-root top-level constructs
-					}
-				} else if (!inKey) {
-					++rootDepth;
-					if (localName == "key" && reader.hasAttribute("name")) {
-						inKey = true;
-						currentKeyName = reader.getAttribute("name");
-						keyDepth = 0;
-					}
-				} else {
-					++keyDepth;
-					if (localName == "selector" && reader.hasAttribute("xpath")) {
-						keys[currentKeyName] = reader.getAttribute("xpath");
-					}
-				}
-			} else if (reader.GetInspected() == XMLReader::Inspected::EndTag) {
-				if (inKey) {
-					if (keyDepth == 0) {
-						inKey = false;
-						--rootDepth;
-					} else
-						--keyDepth;
-				} else if (inRoot) {
-					if (rootDepth == 0)
-						break;  // done with root element
-					--rootDepth;
-				} else if (inSchema) {
-					if (schemaDepth == 0)
-						break;  // end of xs:schema
-					--schemaDepth;
-				}
-			}
-		}
-
-		return { rootTag, keys };
-	}
-
 	// Parse all xsd:key, xsd:unique, and xsd:keyref declarations from the XSD.
 	// key/unique declarations establish which attribute values are valid keys.
 	// keyref declarations establish which attributes must reference a declared key.
@@ -710,8 +641,10 @@ namespace hdt
 				// element enums — all xs:element nodes with inline anonymous simpleType enumerations
 				g_physicsSchema.elementEnums = parseAllElementEnumerations(bytes);
 
-				// Root tag derived from the first top-level xs:element in the XSD.
-				g_physicsSchema.rootTag = parseSystemKeys(bytes).first;
+				// The root element of every physics XML is always <system>.
+				// Do not derive this from the XSD — other top-level xs:element declarations
+				// (e.g. angularBounce) appear before <system> and would be picked incorrectly.
+				g_physicsSchema.rootTag = "system";
 				// Key/unique/keyref constraints — drive generic referential integrity checks.
 				parseKeyConstraints(bytes, g_physicsSchema.keyDefs, g_physicsSchema.keyRefDefs);
 				// Required attributes per element — driven by xs:attribute use="required".
