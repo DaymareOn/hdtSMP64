@@ -11,9 +11,12 @@
 #include <ctime>
 #include <filesystem>
 #include <fstream>
+#include <future>
 #include <iomanip>
 #include <sstream>
 #include <string>
+#include <thread>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
@@ -48,6 +51,41 @@ namespace hdt
 		"defaultbbps",  // shape-to-XML mapping (not a physics config)
 		"hdtsmp64",     // hdtSMP64.xsd physics schema (FSMP-Validator)
 	};
+
+	// ---- Parallel XML validation helpers ----
+
+	using XMLValidationPair = std::pair<XSDValidationResult, SCHValidationResult>;
+
+	// Validate a list of XML file paths in parallel, returning results in the same order.
+	// Both ValidatePhysicsXML and ValidatePhysicsXMLWithSCH are thread-safe after
+	// their one-time schema loading (guarded by std::once_flag internally).
+	static std::vector<XMLValidationPair> parallelValidateXMLs(const std::vector<std::string>& paths)
+	{
+		std::vector<XMLValidationPair> results(paths.size());
+		if (paths.empty())
+			return results;
+
+		const unsigned nThreads = std::max(1u, std::thread::hardware_concurrency());
+		const size_t n = paths.size();
+		const size_t chunkSize = (n + nThreads - 1) / nThreads;
+
+		std::vector<std::future<void>> futures;
+		futures.reserve(nThreads);
+
+		for (size_t i = 0; i < n; i += chunkSize) {
+			size_t end = std::min(i + chunkSize, n);
+			futures.push_back(std::async(std::launch::async, [&paths, &results, i, end]() {
+				for (size_t j = i; j < end; ++j) {
+					results[j] = { ValidatePhysicsXML(paths[j]), ValidatePhysicsXMLWithSCH(paths[j]) };
+				}
+			}));
+		}
+
+		for (auto& f : futures)
+			f.get();
+
+		return results;
+	}
 
 	// ---- Phase 0: DefaultBBP XML discovery ----
 
@@ -165,95 +203,109 @@ namespace hdt
 	// ---- Phase 2: NIF discovery ----
 
 	// Scan the game data directory for NIF files that contain physics data.
+	// Two-step: serial directory walk to collect paths, then parallel binary scan.
 	static std::vector<PhysicsAsset> discoverPhysicsNIFs()
 	{
-		std::vector<PhysicsAsset> result;
-
 		namespace fs = std::filesystem;
 		fs::path meshDir = "data/meshes";
 
 		std::error_code ec;
 		if (!fs::exists(meshDir, ec) || !fs::is_directory(meshDir, ec)) {
 			logger::warn("[Validator] Meshes directory not found: {}", meshDir.string());
-			return result;
+			return {};
 		}
 
-		int scanned = 0;
+		auto toStr = [](const fs::path& fp) -> std::string {
+			auto u8 = fp.generic_u8string();
+			return { reinterpret_cast<const char*>(u8.data()), u8.size() };
+		};
+
+		// Step 1: serial directory walk — collect all .nif paths.
+		// Filesystem iteration is not required to be thread-safe, so keep it serial.
+		std::vector<std::string> nifPaths;
 		for (auto& entry : fs::recursive_directory_iterator(meshDir, ec)) {
 			if (ec) {
 				logger::warn("[Validator] Mesh directory iteration error: {}", ec.message());
 				break;
 			}
-			if (!entry.is_regular_file(ec) || ec) {
+			if (!entry.is_regular_file(ec) || ec)
 				continue;
-			}
-
 			auto& p = entry.path();
-
-			// path::string() throws std::system_error if the path contains characters
-			// that cannot be encoded in the system code page (e.g. non-ASCII mod names).
-			// generic_u8string() is always safe but returns u8string (char8_t) in C++20;
-			// reinterpret the bytes into a plain std::string (valid since char8_t is unsigned char).
-			auto toStr = [](const std::filesystem::path& fp) -> std::string {
-				auto u8 = fp.generic_u8string();
-				return { reinterpret_cast<const char*>(u8.data()), u8.size() };
-			};
-
-			std::string pathStr;
+			auto ext = toStr(p.extension());
+			std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+			if (ext != ".nif")
+				continue;
 			try {
-				pathStr = toStr(p);
+				nifPaths.push_back(toStr(p));
 			} catch (const std::exception& e) {
 				logger::warn("[Validator] Skipping unrepresentable path: {}", e.what());
-				continue;
-			}
-
-			{
-				auto ext = toStr(p.extension());
-				std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-				if (ext != ".nif") {
-					continue;
-				}
-			}
-
-			++scanned;
-			try {
-				auto scanRes = ScanNIFBinary(pathStr);
-				if (scanRes.hasPhysicsData) {
-					PhysicsAsset asset;
-					asset.nifPath = pathStr;
-					asset.nifExists = true;
-					asset.allPhysicsXmlPaths = scanRes.allPhysicsXmlPaths;
-
-					if (!scanRes.physicsXmlPath.empty()) {
-						// Normalise path separator and make relative
-						std::string xmlPath = scanRes.physicsXmlPath;
-						std::replace(xmlPath.begin(), xmlPath.end(), '\\', '/');
-
-						// FSMP XML paths in NIFs are typically relative to the game root
-						// e.g. "SKSE/Plugins/hdtSkinnedMeshConfigs/foo.xml"
-						// Check both as-is and under data/
-						auto normXml = normalisePath(xmlPath);
-
-						fs::path xmlFsPath = xmlPath;
-						if (!fs::exists(xmlFsPath, ec)) {
-							// Try with data/ prefix
-							xmlFsPath = "data/" + xmlPath;
-						}
-						asset.xmlPath = toStr(xmlFsPath);
-						asset.xmlExists = fs::exists(xmlFsPath, ec);
-					}
-
-					result.push_back(std::move(asset));
-				}
-			} catch (const std::exception& e) {
-				logger::warn("[Validator] Error scanning NIF {}: {}", pathStr, e.what());
-			} catch (...) {
-				logger::warn("[Validator] Unknown error scanning NIF {}", pathStr);
 			}
 		}
 
+		logger::info("[Validator] Found {} NIF files, scanning for physics data...", nifPaths.size());
+
+		// Step 2: parallel binary scan — each thread scans an independent chunk.
+		// ScanNIFBinary opens its own file handle and uses only local state → thread-safe.
+		const unsigned nThreads = std::max(1u, std::thread::hardware_concurrency());
+		const size_t n = nifPaths.size();
+		const size_t chunkSize = (n + nThreads - 1) / nThreads;
+
+		std::vector<std::optional<PhysicsAsset>> scanResults(n);
+		std::vector<std::future<void>> futures;
+		futures.reserve(nThreads);
+
+		for (size_t i = 0; i < n; i += chunkSize) {
+			size_t end = std::min(i + chunkSize, n);
+			futures.push_back(std::async(std::launch::async,
+				[&nifPaths, &scanResults, i, end, &toStr]() {
+					for (size_t j = i; j < end; ++j) {
+						const auto& pathStr = nifPaths[j];
+						try {
+							auto scanRes = ScanNIFBinary(pathStr);
+							if (!scanRes.hasPhysicsData)
+								continue;
+
+							PhysicsAsset asset;
+							asset.nifPath = pathStr;
+							asset.nifExists = true;
+							asset.allPhysicsXmlPaths = scanRes.allPhysicsXmlPaths;
+
+							if (!scanRes.physicsXmlPath.empty()) {
+								std::string xmlPath = scanRes.physicsXmlPath;
+								std::replace(xmlPath.begin(), xmlPath.end(), '\\', '/');
+
+								std::error_code ec2;
+								namespace fs2 = std::filesystem;
+								fs2::path xmlFsPath = xmlPath;
+								if (!fs2::exists(xmlFsPath, ec2))
+									xmlFsPath = "data/" + xmlPath;
+								asset.xmlPath = toStr(xmlFsPath);
+								asset.xmlExists = fs2::exists(xmlFsPath, ec2);
+							}
+
+							scanResults[j] = std::move(asset);
+						} catch (const std::exception& e) {
+							logger::warn("[Validator] Error scanning NIF {}: {}", pathStr, e.what());
+						} catch (...) {
+							logger::warn("[Validator] Unknown error scanning NIF {}", pathStr);
+						}
+					}
+				}));
+		}
+
+		for (auto& f : futures)
+			f.get();
+
+		// Collect physics-enabled NIFs, preserving discovery order.
+		std::vector<PhysicsAsset> result;
+		result.reserve(n);
+		for (auto& opt : scanResults) {
+			if (opt)
+				result.push_back(std::move(*opt));
+		}
+
 		logger::info("[Validator] Scanned {} NIF files, found {} physics-enabled NIFs",
-			scanned, result.size());
+			nifPaths.size(), result.size());
 		return result;
 	}
 
@@ -265,7 +317,27 @@ namespace hdt
 		AssetValidationResult& report, std::ostream& out,
 		std::unordered_set<std::string>& validatedXMLs)
 	{
-		for (const auto& entry : entries) {
+		// Pre-filter: determine which entries need validation (serial, cheap).
+		// validBatchIdx[i] = index into batch, or SIZE_MAX if skipped/missing.
+		std::vector<size_t> validBatchIdx(entries.size(), SIZE_MAX);
+		std::vector<std::string> batch;
+		for (size_t i = 0; i < entries.size(); ++i) {
+			if (!entries[i].xmlExists)
+				continue;
+			auto norm = normalisePath(entries[i].xmlPath);
+			if (validatedXMLs.count(norm))
+				continue;
+			validatedXMLs.insert(norm);
+			validBatchIdx[i] = batch.size();
+			batch.push_back(entries[i].xmlPath);
+		}
+
+		// Parallel validate the batch.
+		auto batchResults = parallelValidateXMLs(batch);
+
+		// Report results in original order (serial).
+		for (size_t i = 0; i < entries.size(); ++i) {
+			const auto& entry = entries[i];
 			out << "  [BBP]  shape=" << entry.shape << " -> " << entry.xmlPath << "\n";
 
 			if (!entry.xmlExists) {
@@ -277,17 +349,13 @@ namespace hdt
 				continue;
 			}
 
-			auto normPath = normalisePath(entry.xmlPath);
-			if (validatedXMLs.count(normPath)) {
+			if (validBatchIdx[i] == SIZE_MAX) {
 				out << "    (already validated)\n";
 				continue;
 			}
-			validatedXMLs.insert(normPath);
+
 			++report.totalXMLsFound;
-
-			auto xsdResult = ValidatePhysicsXML(entry.xmlPath);
-			auto schResult = ValidatePhysicsXMLWithSCH(entry.xmlPath);
-
+			const auto& [xsdResult, schResult] = batchResults[validBatchIdx[i]];
 			bool fileHasErrors = !xsdResult.isValid || schResult.hasErrors;
 
 			if (fileHasErrors) {
@@ -332,22 +400,32 @@ namespace hdt
 		AssetValidationResult& report, std::ostream& out,
 		std::unordered_set<std::string>& validatedXMLs)
 	{
-		for (const auto& xmlPath : xmlPaths) {
-			auto normPath = normalisePath(xmlPath);
-			if (validatedXMLs.count(normPath)) {
-				// Already validated by a prior phase (e.g., Phase 0 DefaultBBP validation)
+		// Pre-filter: determine which files need validation (serial, cheap).
+		// validBatchIdx[i] = index into batch, or SIZE_MAX if already done.
+		std::vector<size_t> validBatchIdx(xmlPaths.size(), SIZE_MAX);
+		std::vector<std::string> batch;
+		for (size_t i = 0; i < xmlPaths.size(); ++i) {
+			auto norm = normalisePath(xmlPaths[i]);
+			if (validatedXMLs.count(norm))
+				continue;
+			validatedXMLs.insert(norm);
+			validBatchIdx[i] = batch.size();
+			batch.push_back(xmlPaths[i]);
+		}
+
+		// Parallel validate the batch.
+		auto batchResults = parallelValidateXMLs(batch);
+
+		// Report results in original order (serial).
+		for (size_t i = 0; i < xmlPaths.size(); ++i) {
+			const auto& xmlPath = xmlPaths[i];
+
+			if (validBatchIdx[i] == SIZE_MAX) {
 				out << "  [SKIP] " << xmlPath << " (already validated)\n";
 				continue;
 			}
-			validatedXMLs.insert(normPath);
 
-			auto xsdResult = ValidatePhysicsXML(xmlPath);
-			auto schResult = ValidatePhysicsXMLWithSCH(xmlPath);
-
-			PhysicsAsset asset;
-			asset.xmlPath = xmlPath;
-			asset.xmlExists = true;
-			report.assets.push_back(asset);
+			const auto& [xsdResult, schResult] = batchResults[validBatchIdx[i]];
 			++report.totalXMLsFound;
 
 			bool fileHasErrors = !xsdResult.isValid || schResult.hasErrors;
@@ -390,9 +468,27 @@ namespace hdt
 	static void validateNIFAssets(const std::vector<PhysicsAsset>& nifAssets,
 		AssetValidationResult& report, std::ostream& out)
 	{
-		// Track already-validated XML paths to avoid re-running XSD/SCH on the same
-		// file multiple times when several NIFs share a single physics XML.
-		std::unordered_set<std::string> validatedXMLs;
+		// Pre-collect unique XML paths from all NIF assets (serial dedup).
+		// xmlToIdx maps normalised path → index in batch.
+		std::unordered_map<std::string, size_t> xmlToIdx;
+		std::vector<std::string> batch;
+		for (const auto& asset : nifAssets) {
+			if (asset.xmlPath.empty() || !asset.xmlExists)
+				continue;
+			auto norm = normalisePath(asset.xmlPath);
+			if (!xmlToIdx.count(norm)) {
+				xmlToIdx[norm] = batch.size();
+				batch.push_back(asset.xmlPath);
+			}
+		}
+
+		// Parallel validate all unique XMLs.
+		auto batchResults = parallelValidateXMLs(batch);
+
+		// Report per-NIF in original order (serial).
+		// reportedXMLs tracks which XMLs have already been reported within Phase 3
+		// (multiple NIFs often share the same physics XML).
+		std::unordered_set<std::string> reportedXMLs;
 
 		for (const auto& asset : nifAssets) {
 			out << "  [NIF]  " << asset.nifPath << "\n";
@@ -419,17 +515,15 @@ namespace hdt
 			} else if (!asset.xmlPath.empty()) {
 				out << "    -> " << asset.xmlPath << "\n";
 
-				if (validatedXMLs.count(asset.xmlPath)) {
+				auto norm = normalisePath(asset.xmlPath);
+				if (reportedXMLs.count(norm)) {
 					out << "    (already validated)\n";
 					continue;
 				}
-				validatedXMLs.insert(asset.xmlPath);
-			++report.totalXMLsFound;
+				reportedXMLs.insert(norm);
+				++report.totalXMLsFound;
 
-				// Validate the referenced XML
-				auto xsdResult = ValidatePhysicsXML(asset.xmlPath);
-				auto schResult = ValidatePhysicsXMLWithSCH(asset.xmlPath);
-
+				const auto& [xsdResult, schResult] = batchResults[xmlToIdx[norm]];
 				bool xmlHasErrors = !xsdResult.isValid || schResult.hasErrors;
 
 				if (xmlHasErrors) {
