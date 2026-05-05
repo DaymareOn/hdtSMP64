@@ -297,10 +297,7 @@ namespace hdt
 	// ---- core validation ----
 
 	// Runs all validation phases; populates report.
-	// forceNIFScan: if true, always scans data/meshes/ for NIF-referenced XMLs (safe when
-	// called in-game since BSAs are mounted; unsafe at plugin-load time).
-	static std::string runValidationCore(AssetValidationResult& report, const std::string& timestamp,
-		bool forceNIFScan = false)
+	static std::string runValidationCore(AssetValidationResult& report, const std::string& timestamp)
 	{
 		std::ostringstream reportStream;
 
@@ -317,8 +314,8 @@ namespace hdt
 
 		validateXMLFiles(xmlFiles, report, reportStream);
 
-		// Phase 1b + 3b: NIF discovery and validation (optional at startup, always on for on-demand)
-		if (g_validationConfig.scanDataFolder || forceNIFScan) {
+		// Phase 1b + 3b: NIF discovery and validation (optional)
+		if (g_validationConfig.scanDataFolder) {
 			reportStream << "\n== Phase 1b: NIF File Discovery ==\n";
 			auto nifAssets = discoverPhysicsNIFs();
 			report.totalNIFsScanned = (int)nifAssets.size();
@@ -334,7 +331,7 @@ namespace hdt
 		reportStream << "  XMLs found:    " << report.totalXMLsFound << "\n";
 		reportStream << "  XMLs passed:   " << report.xmlPassCount << "\n";
 		reportStream << "  XMLs failed:   " << report.xmlErrorCount << "\n";
-		if (g_validationConfig.scanDataFolder || forceNIFScan) {
+		if (g_validationConfig.scanDataFolder) {
 			reportStream << "  NIFs scanned:  " << report.totalNIFsScanned << "\n";
 		}
 		reportStream << "  Warnings:      " << report.warnings.size() << "\n";
@@ -405,11 +402,7 @@ namespace hdt
 
 		AssetValidationResult report;
 		std::string timestamp = timestampString();
-
-		// Always run NIF scan for on-demand calls: invoked from the in-game console, so all
-		// BSAs are mounted and NIF scanning is safe. This finds XMLs in data/meshes/ and
-		// other locations outside hdtSkinnedMeshConfigs/.
-		std::string reportContent = runValidationCore(report, timestamp, /*forceNIFScan=*/true);
+		std::string reportContent = runValidationCore(report, timestamp);
 
 		// Always write the file for on-demand runs
 		outReportPath = writeReport(reportContent, timestamp);
