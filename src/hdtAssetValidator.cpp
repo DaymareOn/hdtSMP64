@@ -106,39 +106,57 @@ namespace hdt
 			}
 
 			auto& p = entry.path();
-			auto ext = p.extension().string();
+
+			// path::string() throws std::system_error if the path contains characters
+			// that cannot be encoded in the system code page (e.g. non-ASCII mod names).
+			// Use the generic UTF-8 representation instead, which never throws.
+			std::string pathStr;
+			try {
+				pathStr = p.generic_u8string();
+			} catch (const std::exception& e) {
+				logger::warn("[Validator] Skipping unrepresentable path: {}", e.what());
+				continue;
+			}
+
+			auto ext = p.extension().u8string();
 			std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
 			if (ext != ".nif") {
 				continue;
 			}
 
 			++scanned;
-			auto scanRes = ScanNIFBinary(p.string());
-			if (scanRes.hasPhysicsData) {
-				PhysicsAsset asset;
-				asset.nifPath = p.string();
-				asset.nifExists = true;
+			try {
+				auto scanRes = ScanNIFBinary(pathStr);
+				if (scanRes.hasPhysicsData) {
+					PhysicsAsset asset;
+					asset.nifPath = pathStr;
+					asset.nifExists = true;
 
-				if (!scanRes.physicsXmlPath.empty()) {
-					// Normalise path separator and make relative
-					std::string xmlPath = scanRes.physicsXmlPath;
-					std::replace(xmlPath.begin(), xmlPath.end(), '\\', '/');
+					if (!scanRes.physicsXmlPath.empty()) {
+						// Normalise path separator and make relative
+						std::string xmlPath = scanRes.physicsXmlPath;
+						std::replace(xmlPath.begin(), xmlPath.end(), '\\', '/');
 
-					// FSMP XML paths in NIFs are typically relative to the game root
-					// e.g. "SKSE/Plugins/hdtSkinnedMeshConfigs/foo.xml"
-					// Check both as-is and under data/
-					auto normXml = normalisePath(xmlPath);
+						// FSMP XML paths in NIFs are typically relative to the game root
+						// e.g. "SKSE/Plugins/hdtSkinnedMeshConfigs/foo.xml"
+						// Check both as-is and under data/
+						auto normXml = normalisePath(xmlPath);
 
-					fs::path xmlFsPath = xmlPath;
-					if (!fs::exists(xmlFsPath, ec)) {
-						// Try with data/ prefix
-						xmlFsPath = "data/" + xmlPath;
+						fs::path xmlFsPath = xmlPath;
+						if (!fs::exists(xmlFsPath, ec)) {
+							// Try with data/ prefix
+							xmlFsPath = "data/" + xmlPath;
+						}
+						asset.xmlPath = xmlFsPath.u8string();
+						asset.xmlExists = fs::exists(xmlFsPath, ec);
 					}
-					asset.xmlPath = xmlFsPath.string();
-					asset.xmlExists = fs::exists(xmlFsPath, ec);
-				}
 
-				result.push_back(std::move(asset));
+					result.push_back(std::move(asset));
+				}
+			} catch (const std::exception& e) {
+				logger::warn("[Validator] Error scanning NIF {}: {}", pathStr, e.what());
+			} catch (...) {
+				logger::warn("[Validator] Unknown error scanning NIF {}", pathStr);
 			}
 		}
 
