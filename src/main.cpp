@@ -9,6 +9,9 @@
 #include "hdtAssetValidator.h"
 #include "hdtSkyrimPhysicsWorld.h"
 
+#include <atomic>
+#include <thread>
+
 void checkOldPlugins()
 {
 	auto framework = GetModuleHandleA("hdtSSEFramework");
@@ -345,29 +348,36 @@ bool SMPDebug_Execute(
 	}
 
 	if (_strnicmp(buffer, "validate", MAX_PATH) == 0) {
-		RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Running physics XML validation...");
-		try {
-			std::string reportPath;
-			auto result = hdt::ValidateAllPhysicsAssetsOnDemand(reportPath);
-
-			RE::ConsoleLog::GetSingleton()->Print(
-				"[HDT-SMP] Validation complete in %.2fs: %d XML(s) found, %d passed, %d failed, %d warning(s)",
-				result.elapsedSeconds,
-				result.totalXMLsFound, result.xmlPassCount, result.xmlErrorCount,
-				(int)result.warnings.size());
-
-			if (!reportPath.empty()) {
-				RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Report written to: %s", reportPath.c_str());
-			} else {
-				RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Warning: report file could not be written");
-			}
-		} catch (const std::exception& e) {
-			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Validation failed with error: %s", e.what());
-			logger::error("[Validator] smp validate threw: {}", e.what());
-		} catch (...) {
-			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Validation failed with an unknown error");
-			logger::error("[Validator] smp validate threw an unknown exception");
+		static std::atomic<bool> s_validationRunning{ false };
+		if (s_validationRunning.exchange(true)) {
+			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Validation is already running.");
+			return true;
 		}
+		RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Validation started in background. Results will appear when complete.");
+		std::thread([]() {
+			try {
+				std::string reportPath;
+				auto result = hdt::ValidateAllPhysicsAssetsOnDemand(reportPath);
+				auto* console = RE::ConsoleLog::GetSingleton();
+				console->Print(
+					"[HDT-SMP] Validation complete in %.2fs: %d XML(s) found, %d passed, %d failed, %d warning(s)",
+					result.elapsedSeconds,
+					result.totalXMLsFound, result.xmlPassCount, result.xmlErrorCount,
+					(int)result.warnings.size());
+				if (!reportPath.empty()) {
+					console->Print("[HDT-SMP] Report written to: %s", reportPath.c_str());
+				} else {
+					console->Print("[HDT-SMP] Warning: report file could not be written");
+				}
+			} catch (const std::exception& e) {
+				RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Validation failed with error: %s", e.what());
+				logger::error("[Validator] smp validate threw: {}", e.what());
+			} catch (...) {
+				RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Validation failed with an unknown error");
+				logger::error("[Validator] smp validate threw an unknown exception");
+			}
+			s_validationRunning.store(false);
+		}).detach();
 		return true;
 	}
 

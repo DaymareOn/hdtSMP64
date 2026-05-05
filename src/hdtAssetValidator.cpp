@@ -271,6 +271,7 @@ namespace hdt
 					continue;
 				}
 				validatedXMLs.insert(asset.xmlPath);
+			++report.totalXMLsFound;
 
 				// Validate the referenced XML
 				auto xsdResult = ValidatePhysicsXML(asset.xmlPath);
@@ -301,7 +302,6 @@ namespace hdt
 					}
 				} else {
 					++report.xmlPassCount;
-					++report.totalXMLsFound;
 
 					// SCH warnings on a passing file
 					for (const auto& v : schResult.violations) {
@@ -350,64 +350,67 @@ namespace hdt
 	{
 		auto wallStart = std::chrono::steady_clock::now();
 
-		std::ostringstream reportStream;
+		std::ostringstream bodyStream;
 
+		// Phase 1: direct XML validation
+		bodyStream << "== Phase 1: XML Configuration Validation ==\n";
+		auto xmlFiles = discoverXMLFiles();
+		logger::info("[Validator] Found {} physics XML files in config directory",
+			xmlFiles.size());
+
+		validateXMLFiles(xmlFiles, report, bodyStream);
+
+		// Phase 2: NIF discovery
+		bodyStream << "\n== Phase 2: NIF File Discovery ==\n";
+		auto nifAssets = discoverPhysicsNIFs();
+		report.totalNIFsScanned = (int)nifAssets.size();
+		bodyStream << "  Found " << nifAssets.size() << " NIF file(s) referencing physics configs.\n";
+
+		// Phase 3: NIF-referenced XML validation
+		if (!nifAssets.empty()) {
+			bodyStream << "\n== Phase 3: NIF-Referenced XML Validation ==\n";
+			validateNIFAssets(nifAssets, report, bodyStream);
+		}
+
+		// Stop timer
+		auto wallEnd = std::chrono::steady_clock::now();
+		double elapsedSec = std::chrono::duration<double>(wallEnd - wallStart).count();
+		report.elapsedSeconds = elapsedSec;
+
+		// Errors and warnings index (appended after body for quick reference)
+		std::ostringstream tailStream;
+		if (!report.errors.empty()) {
+			tailStream << "== Errors ==\n";
+			for (const auto& e : report.errors)
+				tailStream << "  [ERROR] " << e << "\n";
+			tailStream << "\n";
+		}
+		if (!report.warnings.empty()) {
+			tailStream << "== Warnings ==\n";
+			for (const auto& w : report.warnings)
+				tailStream << "  [WARN] " << w << "\n";
+			tailStream << "\n";
+		}
+
+		// Assemble final report: header + summary + body + tail
+		std::ostringstream reportStream;
 		reportStream << "========================================\n";
 		reportStream << "FSMP Asset Validation Report\n";
 		reportStream << "Generated: " << timestamp << "\n";
 		reportStream << "========================================\n\n";
 
-		// Phase 1: direct XML validation
-		reportStream << "== Phase 1: XML Configuration Validation ==\n";
-		auto xmlFiles = discoverXMLFiles();
-		logger::info("[Validator] Found {} physics XML files in config directory",
-			xmlFiles.size());
-
-		validateXMLFiles(xmlFiles, report, reportStream);
-
-		// Phase 2: NIF discovery
-		reportStream << "\n== Phase 2: NIF File Discovery ==\n";
-		auto nifAssets = discoverPhysicsNIFs();
-		report.totalNIFsScanned = (int)nifAssets.size();
-		reportStream << "  Found " << nifAssets.size() << " NIF file(s) referencing physics configs.\n";
-
-		// Phase 3: NIF-referenced XML validation
-		if (!nifAssets.empty()) {
-			reportStream << "\n== Phase 3: NIF-Referenced XML Validation ==\n";
-			validateNIFAssets(nifAssets, report, reportStream);
-		}
-
-		// Summary
-		auto wallEnd = std::chrono::steady_clock::now();
-		double elapsedSec = std::chrono::duration<double>(wallEnd - wallStart).count();
-		report.elapsedSeconds = elapsedSec;
-
-		reportStream << "\n== Summary ==\n";
+		reportStream << "== Summary ==\n";
 		reportStream << "  Duration:      " << std::fixed << std::setprecision(2) << elapsedSec << "s\n";
 		reportStream << "  XMLs found:    " << report.totalXMLsFound << "\n";
 		reportStream << "  XMLs passed:   " << report.xmlPassCount << "\n";
 		reportStream << "  XMLs failed:   " << report.xmlErrorCount << "\n";
 		reportStream << "  NIFs scanned:  " << report.totalNIFsScanned << "\n";
 		reportStream << "  Warnings:      " << report.warnings.size() << "\n";
-		reportStream << "  Errors:        " << report.errors.size() << "\n";
+		reportStream << "  Errors:        " << report.errors.size() << "\n\n";
+
+		reportStream << bodyStream.str();
 		reportStream << "\n";
-
-		if (!report.errors.empty()) {
-			reportStream << "== Errors ==\n";
-			for (const auto& e : report.errors) {
-				reportStream << "  [ERROR] " << e << "\n";
-			}
-			reportStream << "\n";
-		}
-
-		if (!report.warnings.empty()) {
-			reportStream << "== Warnings ==\n";
-			for (const auto& w : report.warnings) {
-				reportStream << "  [WARN] " << w << "\n";
-			}
-			reportStream << "\n";
-		}
-
+		reportStream << tailStream.str();
 		reportStream << "========================================\n";
 		return reportStream.str();
 	}
