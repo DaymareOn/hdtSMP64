@@ -500,9 +500,9 @@ namespace hdt
 				// _1.nif has no physics data or does not exist — only warn if _0 has physics
 				if (!asset.xmlPath.empty()) {
 					std::string msg = asset.nifPath + ": _0.nif has physics data but the matching _1.nif (" + norm1 + ") was not found or has no physics reference.";
-					report.warnings.push_back(msg);
-					report.hasWarnings = true;
-					out << "  [PAIR-WARN] " << asset.nifPath << "\n";
+					report.errors.push_back(msg);
+					report.hasErrors = true;
+					out << "  [PAIR-ERROR] " << asset.nifPath << "\n";
 					out << "    Matching _1.nif not found or has no physics reference: " << norm1 << "\n";
 				}
 				continue;
