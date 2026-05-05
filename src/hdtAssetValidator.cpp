@@ -239,7 +239,7 @@ namespace hdt
 				} else {
 					report.warnings.push_back(msg);
 					report.hasWarnings = true;
-					out << "    [SCH-WARN] " << v.location << " (line " << v.line << "): " << v.message << "\n";
+					out << "    [WARNING] " << v.location << " (line " << v.line << "): " << v.message << "\n";
 				}
 			}
 		}
@@ -296,7 +296,7 @@ namespace hdt
 						} else {
 							report.warnings.push_back(msg);
 							report.hasWarnings = true;
-							out << "    [SCH-WARN] " << v.location << " (line " << v.line << "): " << v.message << "\n";
+							out << "    [WARNING] " << v.location << " (line " << v.line << "): " << v.message << "\n";
 						}
 					}
 				} else {
@@ -308,7 +308,7 @@ namespace hdt
 						std::string msg = asset.xmlPath + ":" + std::to_string(v.line) + ": " + v.location + " - " + v.message;
 						report.warnings.push_back(msg);
 						report.hasWarnings = true;
-						out << "    [SCH-WARN] " << v.location << " (line " << v.line << "): " << v.message << "\n";
+						out << "    [WARNING] " << v.location << " (line " << v.line << "): " << v.message << "\n";
 					}
 				}
 			} else {
