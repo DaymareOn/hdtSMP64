@@ -32,6 +32,7 @@ namespace hdt
 		int xmlPassCount = 0;
 		int xmlErrorCount = 0;
 		int xmlWarningCount = 0;
+		double elapsedSeconds = 0.0;
 		std::vector<std::string> errors;
 		std::vector<std::string> warnings;
 		std::vector<PhysicsAsset> assets;

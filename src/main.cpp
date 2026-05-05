@@ -351,7 +351,8 @@ bool SMPDebug_Execute(
 			auto result = hdt::ValidateAllPhysicsAssetsOnDemand(reportPath);
 
 			RE::ConsoleLog::GetSingleton()->Print(
-				"[HDT-SMP] Validation complete: %d XML(s) found, %d passed, %d failed, %d warning(s)",
+				"[HDT-SMP] Validation complete in %.2fs: %d XML(s) found, %d passed, %d failed, %d warning(s)",
+				result.elapsedSeconds,
 				result.totalXMLsFound, result.xmlPassCount, result.xmlErrorCount,
 				(int)result.warnings.size());
 

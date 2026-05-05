@@ -237,6 +237,10 @@ namespace hdt
 	static void validateNIFAssets(const std::vector<PhysicsAsset>& nifAssets,
 		AssetValidationResult& report, std::ostream& out)
 	{
+		// Track already-validated XML paths to avoid re-running XSD/SCH on the same
+		// file multiple times when several NIFs share a single physics XML.
+		std::unordered_set<std::string> validatedXMLs;
+
 		for (const auto& asset : nifAssets) {
 			out << "  [NIF]  " << asset.nifPath << "\n";
 
@@ -248,6 +252,12 @@ namespace hdt
 				out << "    [ERROR] Referenced XML not found: " << asset.xmlPath << "\n";
 			} else if (!asset.xmlPath.empty()) {
 				out << "    -> " << asset.xmlPath << "\n";
+
+				if (validatedXMLs.count(asset.xmlPath)) {
+					out << "    (already validated)\n";
+					continue;
+				}
+				validatedXMLs.insert(asset.xmlPath);
 
 				// Validate the referenced XML
 				auto xsdResult = ValidatePhysicsXML(asset.xmlPath);
@@ -325,6 +335,8 @@ namespace hdt
 	// Runs all validation phases; populates report.
 	static std::string runValidationCore(AssetValidationResult& report, const std::string& timestamp)
 	{
+		auto wallStart = std::chrono::steady_clock::now();
+
 		std::ostringstream reportStream;
 
 		reportStream << "========================================\n";
@@ -351,7 +363,12 @@ namespace hdt
 		}
 
 		// Summary
+		auto wallEnd = std::chrono::steady_clock::now();
+		double elapsedSec = std::chrono::duration<double>(wallEnd - wallStart).count();
+		report.elapsedSeconds = elapsedSec;
+
 		reportStream << "\n== Summary ==\n";
+		reportStream << "  Duration:      " << std::fixed << std::setprecision(2) << elapsedSec << "s\n";
 		reportStream << "  XMLs found:    " << report.totalXMLsFound << "\n";
 		reportStream << "  XMLs passed:   " << report.xmlPassCount << "\n";
 		reportStream << "  XMLs failed:   " << report.xmlErrorCount << "\n";
@@ -401,14 +418,15 @@ namespace hdt
 
 		if (report.hasErrors) {
 			logger::warn(
-				"[Validator] Validation complete: {} error(s), {} warning(s).",
-				report.errors.size(), report.warnings.size());
+				"[Validator] Validation complete in {:.2f}s: {} error(s), {} warning(s).",
+				report.elapsedSeconds, report.errors.size(), report.warnings.size());
 		} else if (report.hasWarnings) {
 			logger::info(
-				"[Validator] Validation complete: no errors, {} warning(s).", report.warnings.size());
+				"[Validator] Validation complete in {:.2f}s: no errors, {} warning(s).",
+				report.elapsedSeconds, report.warnings.size());
 		} else {
-			logger::info("[Validator] Validation complete: all physics assets OK ({} XML file(s)).",
-				report.totalXMLsFound);
+			logger::info("[Validator] Validation complete in {:.2f}s: all physics assets OK ({} XML file(s)).",
+				report.elapsedSeconds, report.totalXMLsFound);
 		}
 
 		if (g_validationConfig.strictMode && report.hasErrors) {
@@ -431,15 +449,16 @@ namespace hdt
 
 		if (report.hasErrors) {
 			logger::warn(
-				"[Validator] On-demand validation: {} error(s), {} warning(s).",
-				report.errors.size(), report.warnings.size());
+				"[Validator] On-demand validation in {:.2f}s: {} error(s), {} warning(s).",
+				report.elapsedSeconds, report.errors.size(), report.warnings.size());
 		} else if (report.hasWarnings) {
 			logger::info(
-				"[Validator] On-demand validation: no errors, {} warning(s).", report.warnings.size());
+				"[Validator] On-demand validation in {:.2f}s: no errors, {} warning(s).",
+				report.elapsedSeconds, report.warnings.size());
 		} else {
 			logger::info(
-				"[Validator] On-demand validation: all physics assets OK ({} XML file(s)).",
-				report.totalXMLsFound);
+				"[Validator] On-demand validation in {:.2f}s: all physics assets OK ({} XML file(s)).",
+				report.elapsedSeconds, report.totalXMLsFound);
 		}
 
 		return report;
