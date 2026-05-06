@@ -367,11 +367,13 @@ bool SMPDebug_Execute(
 		}
 		std::thread([gearOnly]() {
 			try {
+				const char* validationLabel = gearOnly ? "Equipped-gear validation" : "Validation";
 				std::string reportPath;
 				auto result = gearOnly ? hdt::ValidateEquippedPhysicsAssetsOnDemand(reportPath) : hdt::ValidateAllPhysicsAssetsOnDemand(reportPath);
 				auto* console = RE::ConsoleLog::GetSingleton();
 				console->Print(
-					gearOnly ? "[HDT-SMP] Equipped-gear validation complete in %.2fs: %d XML(s) found, %d passed, %d failed, %d warning(s)" : "[HDT-SMP] Validation complete in %.2fs: %d XML(s) found, %d passed, %d failed, %d warning(s)",
+					"[HDT-SMP] %s complete in %.2fs: %d XML(s) found, %d passed, %d failed, %d warning(s)",
+					validationLabel,
 					result.elapsedSeconds,
 					result.totalXMLsFound, result.xmlPassCount, result.xmlErrorCount,
 					(int)result.warnings.size());
