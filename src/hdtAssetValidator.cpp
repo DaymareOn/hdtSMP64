@@ -371,6 +371,8 @@ namespace hdt
 				auto [xmlPath, xmlExists] = resolveXMLPath(armor.physicsFile.first);
 				const char* armorName = armor.armorWorn->name.c_str();
 				PhysicsAsset asset;
+				// For equipped-gear validation we don't have stable NIF file paths at runtime,
+				// so nifPath is used as a human-readable item identifier in the report output.
 				asset.nifPath = skeleton.name() + " [armor:" + std::string(armorName ? armorName : "<unnamed>") + "]";
 				asset.nifExists = true;
 				asset.xmlPath = std::move(xmlPath);
@@ -884,7 +886,7 @@ namespace hdt
 		reportStream << "  XMLs found:    " << report.totalXMLsFound << "\n";
 		reportStream << "  XMLs passed:   " << report.xmlPassCount << "\n";
 		reportStream << "  XMLs failed:   " << report.xmlErrorCount << "\n";
-		reportStream << "  Items scanned: " << report.totalNIFsScanned << "\n";
+		reportStream << "  NIFs scanned:  " << report.totalNIFsScanned << "\n";
 		reportStream << "  Warnings:      " << report.warnings.size() << "\n";
 		reportStream << "  Errors:        " << report.errors.size() << "\n";
 		reportStream << "\n";
