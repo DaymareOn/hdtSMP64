@@ -364,8 +364,7 @@ namespace hdt
 
 	// ---- NIF structural validator (runtime, requires loaded RE::NiNode*) ----
 
-	static void collectBones(RE::NiNode* node, std::vector<std::string>& boneNames,
-		std::vector<std::string>& errors)
+	static void collectBones(RE::NiNode* node, std::vector<std::string>& boneNames)
 	{
 		if (!node)
 			return;
@@ -380,7 +379,7 @@ namespace hdt
 				continue;
 			RE::NiNode* childNode = castNiNode(child.get());
 			if (childNode) {
-				collectBones(childNode, boneNames, errors);
+				collectBones(childNode, boneNames);
 			}
 		}
 	}
@@ -476,7 +475,7 @@ namespace hdt
 		}
 
 		// Phase 6.1: Collect skeleton hierarchy (bone names)
-		collectBones(root, result.boneNames, result.errors);
+		collectBones(root, result.boneNames);
 		result.boneCount = static_cast<uint32_t>(result.boneNames.size());
 
 		if (result.boneCount == 0) {

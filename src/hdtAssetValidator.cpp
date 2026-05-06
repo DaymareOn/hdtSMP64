@@ -53,9 +53,61 @@ namespace hdt
 		"hdtsmp64",     // hdtSMP64.xsd physics schema (FSMP-Validator)
 	};
 
-	// ---- Parallel XML validation helpers ----
+	// Launch chunkFn(begin, end) on hardware-concurrency threads for chunks of [0, n).
+	// Blocks until all chunks complete.
+	template <typename F>
+	static void parallelForChunks(size_t n, F chunkFn)
+	{
+		if (n == 0)
+			return;
+		const unsigned nThreads = std::max(1u, std::thread::hardware_concurrency());
+		const size_t chunkSize = (n + nThreads - 1) / nThreads;
+		std::vector<std::future<void>> futures;
+		futures.reserve(nThreads);
+		for (size_t i = 0; i < n; i += chunkSize) {
+			size_t end = std::min(i + chunkSize, n);
+			futures.push_back(std::async(std::launch::async, [&chunkFn, i, end]() {
+				chunkFn(i, end);
+			}));
+		}
+		for (auto& f : futures)
+			f.get();
+	}
 
 	using XMLValidationPair = std::pair<XSDValidationResult, SCHValidationResult>;
+
+	// Emit all XSD and SCH violations from a single validated XML file into the report
+	// and the output stream. Assumes the pass/fail header line has already been written.
+	static void reportXMLViolations(const XMLValidationPair& pair, const std::string& xmlPath,
+		AssetValidationResult& report, std::ostream& out)
+	{
+		const auto& [xsdResult, schResult] = pair;
+
+		for (const auto& v : xsdResult.violations) {
+			std::string msg = xmlPath + ":" + std::to_string(v.line) + ": " +
+			                  v.elementPath + " - " + v.message;
+			report.errors.push_back(msg);
+			out << "    [ERROR] " << v.elementPath << " (line " << v.line << "): "
+				<< v.message << "\n";
+		}
+
+		for (const auto& v : schResult.violations) {
+			std::string msg = xmlPath + ":" + std::to_string(v.line) + ": " +
+			                  v.location + " - " + v.message;
+			if (v.role == SCHRole::Error) {
+				report.errors.push_back(msg);
+				out << "    [SCH-ERROR] " << v.location << " (line " << v.line << "): "
+					<< v.message << "\n";
+			} else {
+				report.warnings.push_back(msg);
+				report.hasWarnings = true;
+				out << "    [WARNING] " << v.location << " (line " << v.line << "): "
+					<< v.message << "\n";
+			}
+		}
+	}
+
+	// ---- Parallel XML validation helpers ----
 
 	// Validate a list of XML file paths in parallel, returning results in the same order.
 	// Both ValidatePhysicsXML and ValidatePhysicsXMLWithSCH are thread-safe after
@@ -63,28 +115,10 @@ namespace hdt
 	static std::vector<XMLValidationPair> parallelValidateXMLs(const std::vector<std::string>& paths)
 	{
 		std::vector<XMLValidationPair> results(paths.size());
-		if (paths.empty())
-			return results;
-
-		const unsigned nThreads = std::max(1u, std::thread::hardware_concurrency());
-		const size_t n = paths.size();
-		const size_t chunkSize = (n + nThreads - 1) / nThreads;
-
-		std::vector<std::future<void>> futures;
-		futures.reserve(nThreads);
-
-		for (size_t i = 0; i < n; i += chunkSize) {
-			size_t end = std::min(i + chunkSize, n);
-			futures.push_back(std::async(std::launch::async, [&paths, &results, i, end]() {
-				for (size_t j = i; j < end; ++j) {
-					results[j] = { ValidatePhysicsXML(paths[j]), ValidatePhysicsXMLWithSCH(paths[j]) };
-				}
-			}));
-		}
-
-		for (auto& f : futures)
-			f.get();
-
+		parallelForChunks(paths.size(), [&](size_t begin, size_t end) {
+			for (size_t j = begin; j < end; ++j)
+				results[j] = { ValidatePhysicsXML(paths[j]), ValidatePhysicsXMLWithSCH(paths[j]) };
+		});
 		return results;
 	}
 
@@ -247,55 +281,43 @@ namespace hdt
 
 		// Step 2: parallel binary scan — each thread scans an independent chunk.
 		// ScanNIFBinary opens its own file handle and uses only local state → thread-safe.
-		const unsigned nThreads = std::max(1u, std::thread::hardware_concurrency());
 		const size_t n = nifPaths.size();
-		const size_t chunkSize = (n + nThreads - 1) / nThreads;
-
 		std::vector<std::optional<PhysicsAsset>> scanResults(n);
-		std::vector<std::future<void>> futures;
-		futures.reserve(nThreads);
 
-		for (size_t i = 0; i < n; i += chunkSize) {
-			size_t end = std::min(i + chunkSize, n);
-			futures.push_back(std::async(std::launch::async,
-				[&nifPaths, &scanResults, i, end, &toStr]() {
-					for (size_t j = i; j < end; ++j) {
-						const auto& pathStr = nifPaths[j];
-						try {
-							auto scanRes = ScanNIFBinary(pathStr);
-							if (!scanRes.hasPhysicsData)
-								continue;
+		parallelForChunks(n, [&](size_t begin, size_t end) {
+			for (size_t j = begin; j < end; ++j) {
+				const auto& pathStr = nifPaths[j];
+				try {
+					auto scanRes = ScanNIFBinary(pathStr);
+					if (!scanRes.hasPhysicsData)
+						continue;
 
-							PhysicsAsset asset;
-							asset.nifPath = pathStr;
-							asset.nifExists = true;
-							asset.allPhysicsXmlPaths = scanRes.allPhysicsXmlPaths;
+					PhysicsAsset asset;
+					asset.nifPath = pathStr;
+					asset.nifExists = true;
+					asset.allPhysicsXmlPaths = scanRes.allPhysicsXmlPaths;
 
-							if (!scanRes.physicsXmlPath.empty()) {
-								std::string xmlPath = scanRes.physicsXmlPath;
-								std::replace(xmlPath.begin(), xmlPath.end(), '\\', '/');
+					if (!scanRes.physicsXmlPath.empty()) {
+						std::string xmlPath = scanRes.physicsXmlPath;
+						std::replace(xmlPath.begin(), xmlPath.end(), '\\', '/');
 
-								std::error_code ec2;
-								namespace fs2 = std::filesystem;
-								fs2::path xmlFsPath = xmlPath;
-								if (!fs2::exists(xmlFsPath, ec2))
-									xmlFsPath = "data/" + xmlPath;
-								asset.xmlPath = toStr(xmlFsPath);
-								asset.xmlExists = fs2::exists(xmlFsPath, ec2);
-							}
-
-							scanResults[j] = std::move(asset);
-						} catch (const std::exception& e) {
-							logger::warn("[Validator] Error scanning NIF {}: {}", pathStr, e.what());
-						} catch (...) {
-							logger::warn("[Validator] Unknown error scanning NIF {}", pathStr);
-						}
+						std::error_code ec2;
+						namespace fs2 = std::filesystem;
+						fs2::path xmlFsPath = xmlPath;
+						if (!fs2::exists(xmlFsPath, ec2))
+							xmlFsPath = "data/" + xmlPath;
+						asset.xmlPath = toStr(xmlFsPath);
+						asset.xmlExists = fs2::exists(xmlFsPath, ec2);
 					}
-				}));
-		}
 
-		for (auto& f : futures)
-			f.get();
+					scanResults[j] = std::move(asset);
+				} catch (const std::exception& e) {
+					logger::warn("[Validator] Error scanning NIF {}: {}", pathStr, e.what());
+				} catch (...) {
+					logger::warn("[Validator] Unknown error scanning NIF {}", pathStr);
+				}
+			}
+		});
 
 		// Collect physics-enabled NIFs, preserving discovery order.
 		std::vector<PhysicsAsset> result;
@@ -356,8 +378,8 @@ namespace hdt
 			}
 
 			++report.totalXMLsFound;
-			const auto& [xsdResult, schResult] = batchResults[validBatchIdx[i]];
-			bool fileHasErrors = !xsdResult.isValid || schResult.hasErrors;
+			const auto& pair = batchResults[validBatchIdx[i]];
+			bool fileHasErrors = !pair.first.isValid || pair.second.hasErrors;
 
 			if (fileHasErrors) {
 				++report.xmlErrorCount;
@@ -368,28 +390,7 @@ namespace hdt
 				out << "    [OK]\n";
 			}
 
-			for (const auto& v : xsdResult.violations) {
-				std::string msg = entry.xmlPath + ":" + std::to_string(v.line) + ": " +
-				                  v.elementPath + " - " + v.message;
-				report.errors.push_back(msg);
-				out << "    [ERROR] " << v.elementPath << " (line " << v.line << "): "
-					<< v.message << "\n";
-			}
-
-			for (const auto& v : schResult.violations) {
-				std::string msg = entry.xmlPath + ":" + std::to_string(v.line) + ": " +
-				                  v.location + " - " + v.message;
-				if (v.role == "error") {
-					report.errors.push_back(msg);
-					out << "    [SCH-ERROR] " << v.location << " (line " << v.line << "): "
-						<< v.message << "\n";
-				} else {
-					report.warnings.push_back(msg);
-					report.hasWarnings = true;
-					out << "    [WARNING] " << v.location << " (line " << v.line << "): "
-						<< v.message << "\n";
-				}
-			}
+			reportXMLViolations(pair, entry.xmlPath, report, out);
 		}
 	}
 
@@ -426,10 +427,10 @@ namespace hdt
 				continue;
 			}
 
-			const auto& [xsdResult, schResult] = batchResults[validBatchIdx[i]];
+			const auto& pair = batchResults[validBatchIdx[i]];
 			++report.totalXMLsFound;
 
-			bool fileHasErrors = !xsdResult.isValid || schResult.hasErrors;
+			bool fileHasErrors = !pair.first.isValid || pair.second.hasErrors;
 
 			if (fileHasErrors) {
 				++report.xmlErrorCount;
@@ -440,27 +441,7 @@ namespace hdt
 				out << "  [OK]   " << xmlPath << "\n";
 			}
 
-			// XSD violations
-			for (const auto& v : xsdResult.violations) {
-				std::string msg = xmlPath + ":" + std::to_string(v.line) + ": " +
-				                  v.elementPath + " - " + v.message;
-				report.errors.push_back(msg);
-				out << "    [ERROR] " << v.elementPath << " (line " << v.line << "): "
-					<< v.message << "\n";
-			}
-
-			// SCH violations
-			for (const auto& v : schResult.violations) {
-				std::string msg = xmlPath + ":" + std::to_string(v.line) + ": " + v.location + " - " + v.message;
-				if (v.role == "error") {
-					report.errors.push_back(msg);
-					out << "    [SCH-ERROR] " << v.location << " (line " << v.line << "): " << v.message << "\n";
-				} else {
-					report.warnings.push_back(msg);
-					report.hasWarnings = true;
-					out << "    [WARNING] " << v.location << " (line " << v.line << "): " << v.message << "\n";
-				}
-			}
+			reportXMLViolations(pair, xmlPath, report, out);
 		}
 	}
 
@@ -616,41 +597,17 @@ namespace hdt
 				reportedXMLs.insert(norm);
 				++report.totalXMLsFound;
 
-				const auto& [xsdResult, schResult] = batchResults[xmlToIdx[norm]];
-				bool xmlHasErrors = !xsdResult.isValid || schResult.hasErrors;
+				const auto& pair = batchResults[xmlToIdx[norm]];
+				bool xmlHasErrors = !pair.first.isValid || pair.second.hasErrors;
 
 				if (xmlHasErrors) {
 					++report.xmlErrorCount;
 					report.hasErrors = true;
-					for (const auto& v : xsdResult.violations) {
-						std::string msg = asset.xmlPath + ":" + std::to_string(v.line) +
-						                  ": " + v.elementPath + " - " + v.message;
-						report.errors.push_back(msg);
-						out << "    [ERROR] " << v.elementPath << " (line " << v.line
-							<< "): " << v.message << "\n";
-					}
-					for (const auto& v : schResult.violations) {
-						std::string msg = asset.xmlPath + ":" + std::to_string(v.line) + ": " + v.location + " - " + v.message;
-						if (v.role == "error") {
-							report.errors.push_back(msg);
-							out << "    [SCH-ERROR] " << v.location << " (line " << v.line << "): " << v.message << "\n";
-						} else {
-							report.warnings.push_back(msg);
-							report.hasWarnings = true;
-							out << "    [WARNING] " << v.location << " (line " << v.line << "): " << v.message << "\n";
-						}
-					}
 				} else {
 					++report.xmlPassCount;
-
-					// SCH warnings on a passing file
-					for (const auto& v : schResult.violations) {
-						std::string msg = asset.xmlPath + ":" + std::to_string(v.line) + ": " + v.location + " - " + v.message;
-						report.warnings.push_back(msg);
-						report.hasWarnings = true;
-						out << "    [WARNING] " << v.location << " (line " << v.line << "): " << v.message << "\n";
-					}
 				}
+
+				reportXMLViolations(pair, asset.xmlPath, report, out);
 			} else {
 				out << "    [WARN] Could not determine XML path from NIF\n";
 			}
