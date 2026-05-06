@@ -4,6 +4,7 @@
 #include "hdtNIFValidator.h"
 #include "hdtSCHValidator.h"
 #include "hdtXSDValidator.h"
+#include "hdtXMLImprover.h"
 
 #include <pugixml.hpp>
 
@@ -728,6 +729,40 @@ namespace hdt
 			validateNIFAssets(nifAssets, report, bodyStream);
 		}
 
+		// Phase 4: Improved XML generation
+		// Collect all unique XML paths validated across all phases, then generate
+		// improved copies (unknown / misplaced elements removed) for each.
+		if (!g_validationConfig.outputDir.empty()) {
+			bodyStream << "\n== Phase 4: Improved XML Generation ==\n";
+			bodyStream << "  Output directory: " << g_validationConfig.outputDir << "\n";
+
+			std::unordered_set<std::string> improveNorm;
+			std::vector<std::string> improveQueue;
+
+			auto enqueue = [&](const std::string& path) {
+				if (path.empty()) return;
+				auto norm = normalisePath(path);
+				if (improveNorm.insert(norm).second)
+					improveQueue.push_back(path);
+			};
+
+			for (const auto& e : bbpEntries)
+				if (e.xmlExists) enqueue(e.xmlPath);
+			for (const auto& p : xmlFiles)
+				enqueue(p);
+			for (const auto& a : nifAssets)
+				if (a.xmlExists) enqueue(a.xmlPath);
+
+			for (const auto& xmlPath : improveQueue) {
+				if (GenerateImprovedXML(xmlPath, g_validationConfig.outputDir)) {
+					++report.xmlImprovedCount;
+					bodyStream << "  [IMPROVED] " << xmlPath << "\n";
+				}
+			}
+
+			bodyStream << "  " << report.xmlImprovedCount << " improved file(s) written.\n";
+		}
+
 		// Stop timer
 		auto wallEnd = std::chrono::steady_clock::now();
 		double elapsedSec = std::chrono::duration<double>(wallEnd - wallStart).count();
@@ -762,7 +797,10 @@ namespace hdt
 		reportStream << "  XMLs failed:   " << report.xmlErrorCount << "\n";
 		reportStream << "  NIFs scanned:  " << report.totalNIFsScanned << "\n";
 		reportStream << "  Warnings:      " << report.warnings.size() << "\n";
-		reportStream << "  Errors:        " << report.errors.size() << "\n\n";
+		reportStream << "  Errors:        " << report.errors.size() << "\n";
+		if (!g_validationConfig.outputDir.empty())
+			reportStream << "  XMLs improved: " << report.xmlImprovedCount << "\n";
+		reportStream << "\n";
 
 		reportStream << bodyStream.str();
 		reportStream << "\n";

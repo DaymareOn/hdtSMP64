@@ -11,6 +11,7 @@ namespace hdt
 		bool strictMode = false;
 		bool reportFileEnabled = true;
 		int warnTriangleCount = 10000;
+		std::string outputDir; // if set, improved XML copies are written here
 	};
 
 	extern ValidationConfig g_validationConfig;
@@ -33,6 +34,7 @@ namespace hdt
 		int xmlPassCount = 0;
 		int xmlErrorCount = 0;
 		int xmlWarningCount = 0;
+		int xmlImprovedCount = 0; // number of improved XML files written
 		double elapsedSeconds = 0.0;
 		std::vector<std::string> errors;
 		std::vector<std::string> warnings;

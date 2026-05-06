@@ -85,6 +85,8 @@ set(SOURCE_FILES
 	"${SOURCE_DIR}/hdtSCHValidator.h"
 	"${SOURCE_DIR}/hdtNIFValidator.cpp"
 	"${SOURCE_DIR}/hdtNIFValidator.h"
+	"${SOURCE_DIR}/hdtXMLImprover.cpp"
+	"${SOURCE_DIR}/hdtXMLImprover.h"
 	"${SOURCE_DIR}/XmlInspector/CharactersReader.hpp"
 	"${SOURCE_DIR}/XmlInspector/CharactersWriter.hpp"
 	"${SOURCE_DIR}/XmlInspector/XmlInspector.hpp"

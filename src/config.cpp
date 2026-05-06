@@ -131,6 +131,8 @@ namespace hdt
 					g_validationConfig.reportFileEnabled = reader.readBool();
 				} else if (reader.GetLocalName() == "warn-triangle-count") {
 					g_validationConfig.warnTriangleCount = reader.readInt();
+				} else if (reader.GetLocalName() == "output-dir") {
+					g_validationConfig.outputDir = reader.readText();
 				} else {
 					logger::warn("Unknown config : {}", reader.GetLocalName());
 					reader.skipCurrentElement();
