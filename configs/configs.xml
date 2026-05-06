@@ -276,13 +276,6 @@
     <enabled>true</enabled>
 
     <!--
-      strict-mode: (boolean) if true, treat validation errors as fatal and return
-      false from SKSEPlugin_Load. The game will still run; this is for diagnostics only.
-      If no value is set, default is false.
-    -->
-    <strict-mode>false</strict-mode>
-
-    <!--
       report-file-enabled: (boolean) write a detailed validation report file to the
       standard SKSE log directory (My Games/Skyrim Special Edition/SKSE/).
       If no value is set, default is true.
@@ -290,19 +283,18 @@
     <report-file-enabled>true</report-file-enabled>
 
     <!--
-      scan-data-folder: (boolean) if true, also scan Data/Meshes/ recursively for NIF
-      files that contain "HDT Skinned Mesh Physics Object" extra data and validate the
-      XML files they reference. This can be slow for large mod setups.
-      If no value is set, default is true.
-    -->
-    <scan-data-folder>true</scan-data-folder>
-
-    <!--
       warn-triangle-count: (int) warn when a physics-enabled NIF contains more than
       this many triangles. High triangle counts can impact simulation performance.
       If no value is set, default is 10000.
     -->
     <warn-triangle-count>10000</warn-triangle-count>
+
+    <!--
+      output-dir: (string) if set, improved copies of validated XML and NIF files are
+      written to this folder, replicating the original Data/ folder structure.
+      Leave empty to disable improved file generation.
+    -->
+    <output-dir></output-dir>
 
   </validation>
 </configs>
