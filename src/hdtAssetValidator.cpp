@@ -841,10 +841,6 @@ namespace hdt
 				report.elapsedSeconds, report.totalXMLsFound);
 		}
 
-		if (g_validationConfig.strictMode && report.hasErrors) {
-			return false;
-		}
-
 		return !report.hasErrors;
 	}
 
