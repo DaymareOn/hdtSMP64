@@ -246,7 +246,7 @@ jobs:
       - name: Fetch the FSMP MCM
         run: |
           echo "Cloning FSMP-MCM..."
-          git clone --depth 1 https://github.com/DaymareOn/FSMP-MCM.git temp-mcm
+          git clone --depth 1 https://github.com/DaymareOn/FSMP-MCM.git --branch=validation temp-mcm
           mkdir -p mcm_files
           cp temp-mcm/FSMP* mcm_files/
           cp temp-mcm/LICENSE mcm_files/
