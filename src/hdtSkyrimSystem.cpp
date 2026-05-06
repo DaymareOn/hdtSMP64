@@ -3,8 +3,8 @@
 
 #include "HavokUtils.h"
 #include "XmlReader.h"
-#include "hdtSkyrimPhysicsWorld.h"
 #include "hdtAssetValidator.h"
+#include "hdtSkyrimPhysicsWorld.h"
 
 // F16C isn't supported on super old processors. AVX2+ (AVX processors can have it, but not guaranteed)
 #if defined(__AVX2__) || defined(__AVX512F__)

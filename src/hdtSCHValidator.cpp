@@ -1,7 +1,7 @@
 #include "hdtSCHValidator.h"
 
-#include "hdtValidatorPaths.h"
 #include "NetImmerseUtils.h"
+#include "hdtValidatorPaths.h"
 
 #include <pugixml.hpp>
 

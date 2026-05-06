@@ -16,7 +16,7 @@ namespace hdt
 	{
 		bool hasPhysicsData = false;
 		std::string physicsXmlPath;
-		std::vector<std::string> allPhysicsXmlPaths; // all found, for duplicate detection
+		std::vector<std::string> allPhysicsXmlPaths;  // all found, for duplicate detection
 		bool hasGeometry = false;
 		bool hasSkinning = false;
 		uint32_t boneCount = 0;

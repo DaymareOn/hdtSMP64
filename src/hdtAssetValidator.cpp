@@ -3,8 +3,8 @@
 #include "NetImmerseUtils.h"
 #include "hdtNIFValidator.h"
 #include "hdtSCHValidator.h"
-#include "hdtXSDValidator.h"
 #include "hdtXMLImprover.h"
+#include "hdtXSDValidator.h"
 
 #include <pugixml.hpp>
 
@@ -124,9 +124,10 @@ namespace hdt
 
 	// ---- Phase 0: DefaultBBP XML discovery ----
 
-	struct DefaultBBPEntry {
-		std::string shape;   // shape name from <map shape="...">
-		std::string xmlPath; // resolved filesystem path (data/...)
+	struct DefaultBBPEntry
+	{
+		std::string shape;    // shape name from <map shape="...">
+		std::string xmlPath;  // resolved filesystem path (data/...)
 		bool xmlExists = false;
 	};
 
@@ -365,7 +366,7 @@ namespace hdt
 
 			if (!entry.xmlExists) {
 				std::string err = "defaultBBPs.xml: shape '" + entry.shape +
-					"' references missing XML: " + entry.xmlPath;
+				                  "' references missing XML: " + entry.xmlPath;
 				report.errors.push_back(err);
 				report.hasErrors = true;
 				out << "    [ERROR] XML file not found\n";
@@ -497,8 +498,8 @@ namespace hdt
 			auto normXml1 = normalisePath(asset1.xmlPath);
 			if (normXml0 != normXml1) {
 				std::string msg = asset.nifPath + " and " + asset1.nifPath +
-					": _0/_1 NIF pair reference different physics XMLs: '" +
-					asset.xmlPath + "' vs '" + asset1.xmlPath + "'.";
+				                  ": _0/_1 NIF pair reference different physics XMLs: '" +
+				                  asset.xmlPath + "' vs '" + asset1.xmlPath + "'.";
 				report.errors.push_back(msg);
 				report.hasErrors = true;
 				out << "  [PAIR-ERROR] " << asset.nifPath << "\n";
@@ -512,8 +513,8 @@ namespace hdt
 			const auto& paths1 = asset1.allPhysicsXmlPaths;
 			if (paths0.size() != paths1.size()) {
 				std::string msg = asset.nifPath + " and " + asset1.nifPath +
-					": _0/_1 NIF pair have a different number of physics XML blocks (" +
-					std::to_string(paths0.size()) + " vs " + std::to_string(paths1.size()) + ").";
+				                  ": _0/_1 NIF pair have a different number of physics XML blocks (" +
+				                  std::to_string(paths0.size()) + " vs " + std::to_string(paths1.size()) + ").";
 				report.errors.push_back(msg);
 				report.hasErrors = true;
 				out << "  [PAIR-ERROR] " << asset.nifPath << " vs " << asset1.nifPath << "\n";
@@ -523,8 +524,8 @@ namespace hdt
 				for (size_t k = 0; k < paths0.size(); ++k) {
 					if (normalisePath(paths0[k]) != normalisePath(paths1[k])) {
 						std::string msg = asset.nifPath + " and " + asset1.nifPath +
-							": _0/_1 NIF pair have different physics XML at block index " +
-							std::to_string(k) + ": '" + paths0[k] + "' vs '" + paths1[k] + "'.";
+						                  ": _0/_1 NIF pair have different physics XML at block index " +
+						                  std::to_string(k) + ": '" + paths0[k] + "' vs '" + paths1[k] + "'.";
 						report.errors.push_back(msg);
 						report.hasErrors = true;
 						out << "  [PAIR-ERROR] " << asset.nifPath << " vs " << asset1.nifPath << "\n";
@@ -570,8 +571,8 @@ namespace hdt
 			// Warn if multiple "HDT Skinned Mesh Physics Object" blocks found
 			if (asset.allPhysicsXmlPaths.size() > 1) {
 				std::string msg = asset.nifPath + ": has " +
-					std::to_string(asset.allPhysicsXmlPaths.size()) +
-					" \"HDT Skinned Mesh Physics Object\" blocks; only the first is used by the runtime.";
+				                  std::to_string(asset.allPhysicsXmlPaths.size()) +
+				                  " \"HDT Skinned Mesh Physics Object\" blocks; only the first is used by the runtime.";
 				report.warnings.push_back(msg);
 				report.hasWarnings = true;
 				out << "    [WARNING] Multiple \"HDT Skinned Mesh Physics Object\" blocks found ("
@@ -697,18 +698,21 @@ namespace hdt
 			std::vector<std::string> improveQueue;
 
 			auto enqueue = [&](const std::string& path) {
-				if (path.empty()) return;
+				if (path.empty())
+					return;
 				auto norm = normalisePath(path);
 				if (improveNorm.insert(norm).second)
 					improveQueue.push_back(path);
 			};
 
 			for (const auto& e : bbpEntries)
-				if (e.xmlExists) enqueue(e.xmlPath);
+				if (e.xmlExists)
+					enqueue(e.xmlPath);
 			for (const auto& p : xmlFiles)
 				enqueue(p);
 			for (const auto& a : nifAssets)
-				if (a.xmlExists) enqueue(a.xmlPath);
+				if (a.xmlExists)
+					enqueue(a.xmlPath);
 
 			for (const auto& xmlPath : improveQueue) {
 				if (GenerateImprovedXML(xmlPath, g_validationConfig.outputDir)) {

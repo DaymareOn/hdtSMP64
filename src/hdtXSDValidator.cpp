@@ -1,8 +1,8 @@
 #include "hdtXSDValidator.h"
 
-#include "hdtValidatorPaths.h"
 #include "NetImmerseUtils.h"
 #include "XmlReader.h"
+#include "hdtValidatorPaths.h"
 
 #include <pugixml.hpp>
 
@@ -91,12 +91,13 @@ namespace hdt
 		for (auto child : node.children()) {
 			const std::string_view tag = child.name();
 			if (tag == "xsd:element") {
-				const char* ref  = child.attribute("ref").as_string("");
+				const char* ref = child.attribute("ref").as_string("");
 				const char* name = child.attribute("name").as_string("");
-				if (ref[0])       children.insert(ref);
-				else if (name[0]) children.insert(name);
-			} else if (tag == "xsd:choice" || tag == "xsd:sequence" || tag == "xsd:all"
-					|| tag == "xsd:complexType" || tag == "xsd:complexContent") {
+				if (ref[0])
+					children.insert(ref);
+				else if (name[0])
+					children.insert(name);
+			} else if (tag == "xsd:choice" || tag == "xsd:sequence" || tag == "xsd:all" || tag == "xsd:complexType" || tag == "xsd:complexContent") {
 				walkContentModel(child, children);
 			}
 		}
@@ -108,7 +109,8 @@ namespace hdt
 		for (auto child : node.children()) {
 			if (std::string_view(child.name()) == "xsd:enumeration") {
 				const char* v = child.attribute("value").as_string("");
-				if (v[0]) out.insert(v);
+				if (v[0])
+					out.insert(v);
 			} else {
 				collectEnumerations(child, out);
 			}
@@ -122,7 +124,7 @@ namespace hdt
 			const std::string_view tag = child.name();
 			if (tag == "xsd:attribute") {
 				const char* name = child.attribute("name").as_string("");
-				const char* use  = child.attribute("use").as_string("");
+				const char* use = child.attribute("use").as_string("");
 				if (name[0] && std::string_view(use) == "required")
 					out.push_back(name);
 			} else if (tag != "xsd:element") {
@@ -156,7 +158,8 @@ namespace hdt
 		std::unordered_map<std::string, std::unordered_set<std::string>> namedEnums;
 		for (auto st : schema.children("xsd:simpleType")) {
 			const char* name = st.attribute("name").as_string("");
-			if (!name[0]) continue;
+			if (!name[0])
+				continue;
 			std::unordered_set<std::string> vals;
 			collectEnumerations(st, vals);
 			if (!vals.empty())
@@ -167,7 +170,8 @@ namespace hdt
 		std::unordered_map<std::string, std::unordered_set<std::string>> result;
 		for (auto elem : schema.children("xsd:element")) {
 			const char* name = elem.attribute("name").as_string("");
-			if (!name[0]) continue;
+			if (!name[0])
+				continue;
 			std::unordered_set<std::string> vals;
 			const char* typeName = elem.attribute("type").as_string("");
 			if (typeName[0]) {
@@ -191,7 +195,8 @@ namespace hdt
 		std::unordered_map<std::string, std::vector<std::string>> result;
 		for (auto elem : doc.first_child().children("xsd:element")) {
 			const char* name = elem.attribute("name").as_string("");
-			if (!name[0]) continue;
+			if (!name[0])
+				continue;
 			std::vector<std::string> attrs;
 			collectRequiredAttrs(elem, attrs);
 			if (!attrs.empty())
@@ -232,7 +237,10 @@ namespace hdt
 			const std::string_view tag = child.name();
 			if (tag == "xsd:key" || tag == "xsd:unique") {
 				const char* name = child.attribute("name").as_string("");
-				if (!name[0]) { collectKeyNodes(child, keyDefs, keyRefDefs); continue; }
+				if (!name[0]) {
+					collectKeyNodes(child, keyDefs, keyRefDefs);
+					continue;
+				}
 				std::string selector, field;
 				for (auto sub : child.children()) {
 					const std::string_view stag = sub.name();
@@ -246,9 +254,12 @@ namespace hdt
 				if (!selector.empty() && !field.empty())
 					keyDefs[name] = { parseXPathElems(selector), field };
 			} else if (tag == "xsd:keyref") {
-				const char* name  = child.attribute("name").as_string("");
+				const char* name = child.attribute("name").as_string("");
 				const char* refer = child.attribute("refer").as_string("");
-				if (!name[0] || !refer[0]) { collectKeyNodes(child, keyDefs, keyRefDefs); continue; }
+				if (!name[0] || !refer[0]) {
+					collectKeyNodes(child, keyDefs, keyRefDefs);
+					continue;
+				}
 				std::string selector, field;
 				for (auto sub : child.children()) {
 					const std::string_view stag = sub.name();
@@ -295,7 +306,8 @@ namespace hdt
 		std::unordered_map<std::string, std::unordered_set<std::string>> typeChildren;
 		for (auto ct : schema.children("xsd:complexType")) {
 			const char* typeName = ct.attribute("name").as_string("");
-			if (!typeName[0]) continue;
+			if (!typeName[0])
+				continue;
 			std::unordered_set<std::string> children;
 			walkContentModel(ct, children);
 			if (!children.empty()) {
@@ -309,7 +321,8 @@ namespace hdt
 		std::unordered_map<std::string, std::unordered_set<std::string>> result;
 		for (auto elem : schema.children("xsd:element")) {
 			const char* name = elem.attribute("name").as_string("");
-			if (!name[0]) continue;
+			if (!name[0])
+				continue;
 			knownElements.insert(name);  // Every top-level named element is "known".
 			const char* typeName = elem.attribute("type").as_string("");
 			if (typeName[0]) {
@@ -414,7 +427,8 @@ namespace hdt
 				collectTypeConstraints(child, true, elemName, namedSimpleTypes, textCons, attrCons);
 			} else if (tag == "xsd:element") {
 				// Content-model element references inside a compositor: skip.
-				if (inCompositor) continue;
+				if (inCompositor)
+					continue;
 				collectTypeConstraints(child, inCompositor, elemName, namedSimpleTypes, textCons, attrCons);
 			} else {
 				collectTypeConstraints(child, inCompositor, elemName, namedSimpleTypes, textCons, attrCons);
@@ -439,24 +453,31 @@ namespace hdt
 		std::unordered_map<std::string, TypeConstraint> namedSimpleTypes;
 		for (auto st : schema.children("xsd:simpleType")) {
 			const char* typeName = st.attribute("name").as_string("");
-			if (!typeName[0]) continue;
+			if (!typeName[0])
+				continue;
 			TypeConstraint tc;
 			for (auto child : st.children()) {
-				if (std::string_view(child.name()) != "xsd:restriction") continue;
+				if (std::string_view(child.name()) != "xsd:restriction")
+					continue;
 				const char* base = child.attribute("base").as_string("");
-				if (base[0]) tc = resolveTypeConstraint(base, namedSimpleTypes);
+				if (base[0])
+					tc = resolveTypeConstraint(base, namedSimpleTypes);
 				for (auto facet : child.children()) {
 					const std::string_view ftag = facet.name();
 					if (ftag == "xsd:minInclusive") {
 						std::string_view vstr(facet.attribute("value").as_string(""));
 						double v;
-						if (std::from_chars(vstr.data(), vstr.data() + vstr.size(), v).ec == std::errc{})
-							{ tc.minInclusive = v; tc.hasMin = true; }
+						if (std::from_chars(vstr.data(), vstr.data() + vstr.size(), v).ec == std::errc{}) {
+							tc.minInclusive = v;
+							tc.hasMin = true;
+						}
 					} else if (ftag == "xsd:maxInclusive") {
 						std::string_view vstr(facet.attribute("value").as_string(""));
 						double v;
-						if (std::from_chars(vstr.data(), vstr.data() + vstr.size(), v).ec == std::errc{})
-							{ tc.maxInclusive = v; tc.hasMax = true; }
+						if (std::from_chars(vstr.data(), vstr.data() + vstr.size(), v).ec == std::errc{}) {
+							tc.maxInclusive = v;
+							tc.hasMax = true;
+						}
 					}
 				}
 			}
@@ -467,7 +488,8 @@ namespace hdt
 		std::unordered_map<std::string, std::unordered_map<std::string, TypeConstraint>> namedComplexTypeAttrs;
 		for (auto ct : schema.children("xsd:complexType")) {
 			const char* typeName = ct.attribute("name").as_string("");
-			if (!typeName[0]) continue;
+			if (!typeName[0])
+				continue;
 			std::unordered_map<std::string, TypeConstraint> attrCons;
 			gatherComplexTypeAttrs(ct, namedSimpleTypes, attrCons);
 			if (!attrCons.empty())
@@ -477,7 +499,8 @@ namespace hdt
 		// Pass 3: named top-level xsd:element → text and attr constraints.
 		for (auto elem : schema.children("xsd:element")) {
 			const char* name = elem.attribute("name").as_string("");
-			if (!name[0]) continue;
+			if (!name[0])
+				continue;
 			const char* typeName = elem.attribute("type").as_string("");
 			if (typeName[0]) {
 				TypeConstraint tc = resolveTypeConstraint(typeName, namedSimpleTypes);
