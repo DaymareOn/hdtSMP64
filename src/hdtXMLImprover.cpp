@@ -11,270 +11,204 @@
 
 namespace hdt
 {
-	// ---- Schema-derived allowance tables ----
-	// Derived from hdtSMP64.xsd.  Each entry maps a parent element name to the
-	// set of child element names that the XSD permits inside it.
-	// Elements that appear in this map but have an empty allowed-children set are
-	// considered leaf nodes; any element child found inside them is invalid.
-	// Elements that do NOT appear in this map at all are also leaf nodes (simple
-	// types, or inline-defined elements with no element children).
+	static const char* kPhysicsXSDPath =
+		"data/skse/plugins/hdtSkinnedMeshConfigs/hdtSMP64.xsd";
 
 	using ChildSet = std::unordered_set<std::string>;
 	using ChildMap = std::unordered_map<std::string, ChildSet>;
 
-	static const ChildMap& allowedChildren()
+	// ---- XSD schema model ----
+
+	struct XSDSchema
 	{
-		// clang-format off
-		static const ChildMap map = {
-			// ---- document root ----
-			{"system", {
-				"bone", "bone-default",
-				"conetwist-constraint", "conetwist-constraint-default",
-				"constraint-group",
-				"generic-constraint", "generic-constraint-default",
-				"per-triangle-shape", "per-vertex-shape", "shape",
-				"stiffspring-constraint", "stiffspring-constraint-default",
-			}},
+		ChildMap allowedChildren; // parent element name → set of allowed child element names
+		ChildSet knownElements;   // all element names mentioned anywhere in the schema
+		bool     loaded = false;
+	};
 
-			// ---- bone / bone-default ----
-			{"bone", {
-				"mass", "inertia", "centerOfMassTransform",
-				"linearDamping", "angularDamping",
-				"gravity-factor", "wind-factor",
-				"friction", "rollingFriction", "restitution",
-				"margin-multiplier", "shape", "collision-filter",
-				"can-collide-with-bone", "no-collide-with-bone",
-			}},
-			{"bone-default", {
-				"mass", "inertia", "centerOfMassTransform",
-				"linearDamping", "angularDamping",
-				"gravity-factor", "wind-factor",
-				"friction", "rollingFriction", "restitution",
-				"margin-multiplier", "shape", "collision-filter",
-				"can-collide-with-bone", "no-collide-with-bone",
-			}},
+	// Recursively collects child element names from XSD compositor nodes
+	// (xsd:choice, xsd:sequence, xsd:all) and xsd:element nodes within them.
+	// ref= and name= values are inserted into `children` (allowed set for the
+	// current parent) and into `allKnown` (the global known-elements set).
+	// Inline elements that carry their own complexType are recursed into so that
+	// their locally-defined child names also land in `allKnown`.
+	static void collectElementChildren(
+		pugi::xml_node node,
+		ChildSet&      children,
+		ChildSet&      allKnown)
+	{
+		for (auto child = node.first_child(); child; child = child.next_sibling())
+		{
+			std::string tag = child.name();
 
-			// ---- compound shape child ----
-			{"child", {"transform", "shape"}},
-
-			// ---- conetwist constraints ----
-			{"conetwist-constraint", {
-				"frameInA", "frameInB", "frameInLerp", "angularOnly",
-				"swingSpan1", "swingSpan2", "twistSpan",
-				"coneLimit", "planeLimit", "twistLimit",
-				"limitX", "limitY", "limitZ",
-				"limitSoftness", "biasFactor", "relaxationFactor",
-			}},
-			{"conetwist-constraint-default", {
-				"frameInA", "frameInB", "frameInLerp", "angularOnly",
-				"swingSpan1", "swingSpan2", "twistSpan",
-				"coneLimit", "planeLimit", "twistLimit",
-				"limitX", "limitY", "limitZ",
-				"limitSoftness", "biasFactor", "relaxationFactor",
-			}},
-
-			// ---- constraint-group ----
-			{"constraint-group", {
-				"generic-constraint", "generic-constraint-default",
-				"stiffspring-constraint", "stiffspring-constraint-default",
-				"conetwist-constraint", "conetwist-constraint-default",
-			}},
-
-			// ---- generic constraints ----
-			{"generic-constraint", {
-				"angularBounce", "angularEquilibrium",
-				"angularLowerLimit", "angularUpperLimit", "angularStiffness",
-				"angularSpringFrequency", "angularStiffnessLimited",
-				"angularMotors", "angularServoMotors",
-				"angularTargetVelocity", "angularMaxMotorForce",
-				"angularNonHookeanDamping", "angularNonHookeanStiffness",
-				"linearBounce", "linearEquilibrium",
-				"linearLowerLimit", "linearUpperLimit", "linearStiffness",
-				"linearSpringFrequency", "linearStiffnessLimited",
-				"linearMotors", "linearServoMotors",
-				"linearTargetVelocity", "linearMaxMotorForce",
-				"linearNonHookeanDamping", "linearNonHookeanStiffness",
-				"frameInA", "frameInB", "frameInLerp",
-				"enableLinearSprings", "enableAngularSprings",
-				"useLinearReferenceFrameA",
-				"stopERP", "stopCFM", "motorERP", "motorCFM",
-				"springDampingLimited",
-				// vector3 versions of damping (distinct from the factor versions on bone)
-				"linearDamping", "angularDamping",
-			}},
-			{"generic-constraint-default", {
-				"angularBounce", "angularEquilibrium",
-				"angularLowerLimit", "angularUpperLimit", "angularStiffness",
-				"angularSpringFrequency", "angularStiffnessLimited",
-				"angularMotors", "angularServoMotors",
-				"angularTargetVelocity", "angularMaxMotorForce",
-				"angularNonHookeanDamping", "angularNonHookeanStiffness",
-				"linearBounce", "linearEquilibrium",
-				"linearLowerLimit", "linearUpperLimit", "linearStiffness",
-				"linearSpringFrequency", "linearStiffnessLimited",
-				"linearMotors", "linearServoMotors",
-				"linearTargetVelocity", "linearMaxMotorForce",
-				"linearNonHookeanDamping", "linearNonHookeanStiffness",
-				"frameInA", "frameInB", "frameInLerp",
-				"enableLinearSprings", "enableAngularSprings",
-				"useLinearReferenceFrameA",
-				"stopERP", "stopCFM", "motorERP", "motorCFM",
-				"springDampingLimited",
-				"linearDamping", "angularDamping",
-			}},
-
-			// ---- per-triangle-shape ----
-			{"per-triangle-shape", {
-				"margin", "prenetration", "penetration",
-				"tag", "shared",
-				"no-collide-with-tag", "no-collide-with-bone",
-				"can-collide-with-tag", "can-collide-with-bone",
-				"weight-threshold", "disable-tag", "disable-priority",
-			}},
-
-			// ---- per-vertex-shape (no penetration/prenetration) ----
-			{"per-vertex-shape", {
-				"margin",
-				"tag", "shared",
-				"no-collide-with-tag", "can-collide-with-tag",
-				"no-collide-with-bone", "can-collide-with-bone",
-				"weight-threshold", "disable-tag", "disable-priority",
-			}},
-
-			// ---- shape ----
-			{"shape", {"half-extend", "margin", "radius", "height", "point", "child"}},
-
-			// ---- stiffspring constraints ----
-			{"stiffspring-constraint", {
-				"minDistanceFactor", "maxDistanceFactor",
-				"stiffness", "damping", "equilibrium",
-			}},
-			{"stiffspring-constraint-default", {
-				"minDistanceFactor", "maxDistanceFactor",
-				"stiffness", "damping", "equilibrium",
-			}},
-
-			// ---- transform-typed elements (basis, basis-axis-angle, origin) ----
-			{"centerOfMassTransform", {"basis", "basis-axis-angle", "origin"}},
-			{"frameInA",             {"basis", "basis-axis-angle", "origin"}},
-			{"frameInB",             {"basis", "basis-axis-angle", "origin"}},
-			{"transform",            {"basis", "basis-axis-angle", "origin"}},
-
-			// ---- lerp-typed element ----
-			{"frameInLerp", {"translationLerp", "rotationLerp"}},
-		};
-		// clang-format on
-		return map;
+			if (tag == "xsd:element")
+			{
+				const char* ref  = child.attribute("ref").as_string("");
+				const char* name = child.attribute("name").as_string("");
+				if (ref[0])
+				{
+					children.insert(ref);
+					allKnown.insert(ref);
+				}
+				else if (name[0])
+				{
+					children.insert(name);
+					allKnown.insert(name);
+					// If this inline element owns a complexType, gather its
+					// element children into allKnown only — they belong to
+					// the inline element, not to the current parent.
+					for (auto inner = child.first_child(); inner; inner = inner.next_sibling())
+					{
+						if (std::string(inner.name()) == "xsd:complexType")
+						{
+							ChildSet innerChildren; // intentionally discarded
+							collectElementChildren(inner, innerChildren, allKnown);
+						}
+					}
+				}
+			}
+			else if (tag == "xsd:choice" || tag == "xsd:sequence" || tag == "xsd:all")
+			{
+				collectElementChildren(child, children, allKnown);
+			}
+			// xsd:annotation, xsd:attribute, xsd:simpleContent, etc. — ignored
+		}
 	}
 
-	// All element names that appear anywhere in hdtSMP64.xsd.
-	// An element whose name is NOT in this set is completely unknown and must
-	// be removed regardless of its position in the document.
-	static const ChildSet& knownElements()
+	static XSDSchema parseXSD()
 	{
-		// clang-format off
-		static const ChildSet set = {
-			// root
-			"system",
-			// complex elements
-			"bone", "bone-default", "child", "constraint-group",
-			"conetwist-constraint", "conetwist-constraint-default",
-			"generic-constraint", "generic-constraint-default",
-			"per-triangle-shape", "per-vertex-shape", "shape",
-			"stiffspring-constraint", "stiffspring-constraint-default",
-			// bone / bone-default properties
-			"mass", "inertia", "centerOfMassTransform",
-			"linearDamping", "angularDamping",
-			"gravity-factor", "wind-factor",
-			"friction", "rollingFriction", "restitution",
-			"margin-multiplier", "collision-filter",
-			"can-collide-with-bone", "no-collide-with-bone",
-			"can-collide-with-tag", "no-collide-with-tag",
-			// constraint frames
-			"frameInA", "frameInB", "frameInLerp", "transform",
-			// transform internals
-			"basis", "basis-axis-angle", "origin",
-			// lerp internals
-			"translationLerp", "rotationLerp",
-			// conetwist params
-			"angularOnly",
-			"swingSpan1", "swingSpan2", "twistSpan",
-			"coneLimit", "planeLimit", "twistLimit",
-			"limitX", "limitY", "limitZ",
-			"limitSoftness", "biasFactor", "relaxationFactor",
-			// generic-constraint params
-			"angularBounce", "angularEquilibrium",
-			"angularLowerLimit", "angularUpperLimit", "angularStiffness",
-			"angularSpringFrequency", "angularStiffnessLimited",
-			"angularMotors", "angularServoMotors",
-			"angularTargetVelocity", "angularMaxMotorForce",
-			"angularNonHookeanDamping", "angularNonHookeanStiffness",
-			"linearBounce", "linearEquilibrium",
-			"linearLowerLimit", "linearUpperLimit", "linearStiffness",
-			"linearSpringFrequency", "linearStiffnessLimited",
-			"linearMotors", "linearServoMotors",
-			"linearTargetVelocity", "linearMaxMotorForce",
-			"linearNonHookeanDamping", "linearNonHookeanStiffness",
-			"enableLinearSprings", "enableAngularSprings",
-			"useLinearReferenceFrameA",
-			"stopERP", "stopCFM", "motorERP", "motorCFM",
-			"springDampingLimited",
-			// shape params
-			"half-extend", "margin", "radius", "height", "point",
-			// per-triangle / per-vertex params
-			"prenetration", "penetration", "tag", "shared",
-			"weight-threshold", "disable-tag", "disable-priority",
-			// stiffspring params
-			"minDistanceFactor", "maxDistanceFactor",
-			"stiffness", "damping", "equilibrium",
-		};
-		// clang-format on
-		return set;
+		XSDSchema schema;
+
+		pugi::xml_document doc;
+		if (!doc.load_file(kPhysicsXSDPath))
+			return schema;
+
+		pugi::xml_node schemaRoot = doc.first_child(); // xsd:schema
+
+		// Phase 1 — named complexTypes (e.g. "transform" → {basis, basis-axis-angle, origin}).
+		// These define the allowed children for elements that reference them via type="...".
+		std::unordered_map<std::string, ChildSet> typeChildren;
+		for (auto node = schemaRoot.first_child(); node; node = node.next_sibling())
+		{
+			if (std::string(node.name()) != "xsd:complexType")
+				continue;
+			std::string typeName = node.attribute("name").as_string("");
+			if (typeName.empty())
+				continue;
+
+			ChildSet children;
+			collectElementChildren(node, children, schema.knownElements);
+			if (!children.empty())
+				typeChildren[typeName] = std::move(children);
+		}
+
+		// Phase 2 — global xsd:element declarations.
+		for (auto node = schemaRoot.first_child(); node; node = node.next_sibling())
+		{
+			if (std::string(node.name()) != "xsd:element")
+				continue;
+			std::string elemName = node.attribute("name").as_string("");
+			if (elemName.empty())
+				continue;
+
+			schema.knownElements.insert(elemName);
+
+			// Look for an inline xsd:complexType child.
+			pugi::xml_node ct;
+			for (auto child = node.first_child(); child; child = child.next_sibling())
+			{
+				if (std::string(child.name()) == "xsd:complexType")
+				{
+					ct = child;
+					break;
+				}
+			}
+
+			if (ct)
+			{
+				// Element has an inline complexType — collect its element children.
+				ChildSet children;
+				collectElementChildren(ct, children, schema.knownElements);
+				if (!children.empty())
+					schema.allowedChildren[elemName] = std::move(children);
+				// If children is empty (e.g. weight-threshold with simpleContent),
+				// the element is a leaf: not inserted into allowedChildren.
+			}
+			else
+			{
+				// No inline complexType — resolve the named type from Phase 1.
+				std::string typeName = node.attribute("type").as_string("");
+				auto        it       = typeChildren.find(typeName);
+				if (it != typeChildren.end())
+				{
+					schema.allowedChildren[elemName] = it->second;
+					for (const auto& c : it->second)
+						schema.knownElements.insert(c); // may already be present
+				}
+				// Built-in or simple types → leaf element, nothing more to do.
+			}
+		}
+
+		schema.loaded = true;
+		return schema;
+	}
+
+	static const XSDSchema& getXSDSchema()
+	{
+		static XSDSchema schema = parseXSD();
+		return schema;
 	}
 
 	// ---- DOM walker ----
 
 	// Recursively removes child elements that are either:
-	//   (a) not in knownElements() — completely unknown tag, or
+	//   (a) not in knownElements — completely unknown tag, or
 	//   (b) not in the allowed children set for their parent.
 	// Returns true if any element was removed at this level or below.
-	static bool cleanNode(pugi::xml_node node, const std::string& parentName)
+	static bool cleanNode(
+		pugi::xml_node     node,
+		const std::string& parentName,
+		const ChildMap&    allowed,
+		const ChildSet&    known)
 	{
-		const auto& allowed = allowedChildren();
-		const auto& known   = knownElements();
-
 		std::vector<pugi::xml_node> toRemove;
 
-		for (auto child = node.first_child(); child; child = child.next_sibling()) {
+		for (auto child = node.first_child(); child; child = child.next_sibling())
+		{
 			if (child.type() != pugi::node_element)
 				continue;
 
 			std::string childName = child.name();
 
 			// (a) completely unknown tag
-			if (!known.count(childName)) {
+			if (!known.count(childName))
+			{
 				toRemove.push_back(child);
 				continue;
 			}
 
 			// (b) not allowed in this parent
-			if (!parentName.empty()) {
+			if (!parentName.empty())
+			{
 				auto it = allowed.find(parentName);
-				if (it != allowed.end()) {
-					// parent is a known container — child must be in its list
-					if (!it->second.count(childName)) {
+				if (it != allowed.end())
+				{
+					if (!it->second.count(childName))
+					{
 						toRemove.push_back(child);
 						continue;
 					}
-				} else {
-					// parent is not in the map → it is a leaf element; no children allowed
+				}
+				else
+				{
+					// parent is a leaf element → no children allowed
 					toRemove.push_back(child);
 					continue;
 				}
 			}
 
 			// Valid child — recurse
-			cleanNode(child, childName);
+			cleanNode(child, childName, allowed, known);
 		}
 
 		for (auto& n : toRemove)
@@ -306,15 +240,20 @@ namespace hdt
 	{
 		namespace fs = std::filesystem;
 
+		const XSDSchema& schema = getXSDSchema();
+		if (!schema.loaded)
+			return false;
+
 		pugi::xml_document doc;
-		auto loadResult = doc.load_file(srcXMLPath.c_str());
-		if (!loadResult)
+		if (!doc.load_file(srcXMLPath.c_str()))
 			return false;
 
 		// Locate the root <system> element
 		pugi::xml_node sysNode;
-		for (auto child = doc.first_child(); child; child = child.next_sibling()) {
-			if (child.type() == pugi::node_element) {
+		for (auto child = doc.first_child(); child; child = child.next_sibling())
+		{
+			if (child.type() == pugi::node_element)
+			{
 				if (std::string(child.name()) != "system")
 					return false; // unexpected root — skip
 				sysNode = child;
@@ -324,14 +263,14 @@ namespace hdt
 		if (!sysNode)
 			return false;
 
-		// Clean the tree
-		bool changed = cleanNode(sysNode, "system");
+		// Clean the tree using schema data parsed from the XSD file
+		bool changed = cleanNode(sysNode, "system", schema.allowedChildren, schema.knownElements);
 		if (!changed)
 			return false;
 
 		// Compute output path: <outputDir>/<relative-from-data>
 		std::string relative = stripDataPrefix(srcXMLPath);
-		fs::path outPath = fs::path(outputDir) / relative;
+		fs::path    outPath  = fs::path(outputDir) / relative;
 
 		std::error_code ec;
 		fs::create_directories(outPath.parent_path(), ec);
