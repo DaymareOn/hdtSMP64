@@ -369,8 +369,9 @@ namespace hdt
 					continue;
 
 				auto [xmlPath, xmlExists] = resolveXMLPath(armor.physicsFile.first);
+				const char* armorName = armor.armorWorn->name.c_str();
 				PhysicsAsset asset;
-				asset.nifPath = skeleton.name() + " [armor:" + std::string(armor.armorWorn->name.c_str()) + "]";
+				asset.nifPath = skeleton.name() + " [armor:" + std::string(armorName ? armorName : "<unnamed>") + "]";
 				asset.nifExists = true;
 				asset.xmlPath = std::move(xmlPath);
 				asset.xmlExists = xmlExists;
@@ -388,8 +389,9 @@ namespace hdt
 					continue;
 
 				auto [xmlPath, xmlExists] = resolveXMLPath(headPart.physicsFile.first);
+				const char* headPartName = headPart.headPart->name.c_str();
 				PhysicsAsset asset;
-				asset.nifPath = skeleton.name() + " [headpart:" + std::string(headPart.headPart->name.c_str()) + "]";
+				asset.nifPath = skeleton.name() + " [headpart:" + std::string(headPartName ? headPartName : "<unnamed>") + "]";
 				asset.nifExists = true;
 				asset.xmlPath = std::move(xmlPath);
 				asset.xmlExists = xmlExists;
@@ -957,7 +959,7 @@ namespace hdt
 
 	AssetValidationResult ValidateEquippedPhysicsAssetsOnDemand(std::string& outReportPath)
 	{
-		logger::info("[Validator] Starting equipped-gear on-demand validation...");
+		logger::info("[Validator] Starting equipped gear on-demand validation...");
 
 		AssetValidationResult report;
 		std::string timestamp = timestampString();
@@ -967,15 +969,15 @@ namespace hdt
 
 		if (report.hasErrors) {
 			logger::warn(
-				"[Validator] Equipped-gear validation in {:.2f}s: {} error(s), {} warning(s).",
+				"[Validator] Equipped gear validation in {:.2f}s: {} error(s), {} warning(s).",
 				report.elapsedSeconds, report.errors.size(), report.warnings.size());
 		} else if (report.hasWarnings) {
 			logger::info(
-				"[Validator] Equipped-gear validation in {:.2f}s: no errors, {} warning(s).",
+				"[Validator] Equipped gear validation in {:.2f}s: no errors, {} warning(s).",
 				report.elapsedSeconds, report.warnings.size());
 		} else {
 			logger::info(
-				"[Validator] Equipped-gear validation in {:.2f}s: all equipped physics assets OK ({} XML file(s)).",
+				"[Validator] Equipped gear validation in {:.2f}s: all equipped physics assets OK ({} XML file(s)).",
 				report.elapsedSeconds, report.totalXMLsFound);
 		}
 

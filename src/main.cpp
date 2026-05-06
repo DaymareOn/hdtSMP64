@@ -361,13 +361,13 @@ bool SMPDebug_Execute(
 			return true;
 		}
 		if (gearOnly) {
-			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Equipped-gear validation started in background. Results will appear when complete.");
+			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Equipped gear validation started in background. Results will appear when complete.");
 		} else {
 			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Validation started in background. Results will appear when complete.");
 		}
 		std::thread([gearOnly]() {
 			try {
-				const char* validationLabel = gearOnly ? "Equipped-gear validation" : "Validation";
+				const char* validationLabel = gearOnly ? "Equipped gear validation" : "Validation";
 				std::string reportPath;
 				auto result = gearOnly ? hdt::ValidateEquippedPhysicsAssetsOnDemand(reportPath) : hdt::ValidateAllPhysicsAssetsOnDemand(reportPath);
 				auto* console = RE::ConsoleLog::GetSingleton();
