@@ -629,7 +629,7 @@ extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* a_s
 
 		unusedCommand->functionName = "SMPDebug";
 		unusedCommand->shortName = "smp";
-		unusedCommand->helpString = "smp <reset|validate [gear]>";
+		unusedCommand->helpString = "smp <reset|dumptree|detail|list|on|off|QueryOverride|validate [gear]>";
 		unusedCommand->referenceFunction = 0;
 		unusedCommand->numParams = 1;
 		unusedCommand->params = params;
