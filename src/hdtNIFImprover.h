@@ -13,4 +13,3 @@ namespace hdt
 	// Returns false — no changes, unsupported format, or I/O error.
 	bool GenerateImprovedNIF(const std::string& srcNIFPath, const std::string& outputDir);
 }
-

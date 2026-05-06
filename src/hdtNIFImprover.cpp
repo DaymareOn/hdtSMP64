@@ -406,7 +406,6 @@ namespace hdt
 
 			// Conservative outbound references: every aligned int32 in range.
 			std::vector<std::unordered_set<int32_t>> outbound(parsed.blocks.size());
-			outbound.reserve(parsed.blocks.size());
 			for (size_t i = 0; i < parsed.blocks.size(); ++i)
 				outbound[i] = collectPotentialRefs(parsed.blocks[i], numBlocks);
 
