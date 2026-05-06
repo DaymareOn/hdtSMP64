@@ -3,6 +3,7 @@
 #include "ActorManager.h"
 #include "NetImmerseUtils.h"
 #include "hdtNIFValidator.h"
+#include "hdtNIFImprover.h"
 #include "hdtSCHValidator.h"
 #include "hdtXMLImprover.h"
 #include "hdtXSDValidator.h"
@@ -796,6 +797,19 @@ namespace hdt
 			bodyStream << "  " << report.xmlImprovedCount << " improved file(s) written.\n";
 		}
 
+		// Phase 5: Improved NIF generation
+		if (!g_validationConfig.outputDir.empty() && g_validationConfig.improveNIFs && !nifAssets.empty()) {
+			bodyStream << "\n== Phase 5: Improved NIF Generation ==\n";
+			bodyStream << "  Output directory: " << g_validationConfig.outputDir << "\n";
+			for (const auto& asset : nifAssets) {
+				if (GenerateImprovedNIF(asset.nifPath, g_validationConfig.outputDir)) {
+					++report.nifImprovedCount;
+					bodyStream << "  [IMPROVED] " << asset.nifPath << "\n";
+				}
+			}
+			bodyStream << "  " << report.nifImprovedCount << " improved NIF file(s) written.\n";
+		}
+
 		// Stop timer
 		auto wallEnd = std::chrono::steady_clock::now();
 		double elapsedSec = std::chrono::duration<double>(wallEnd - wallStart).count();
@@ -833,6 +847,8 @@ namespace hdt
 		reportStream << "  Errors:        " << report.errors.size() << "\n";
 		if (!g_validationConfig.outputDir.empty())
 			reportStream << "  XMLs improved: " << report.xmlImprovedCount << "\n";
+		if (!g_validationConfig.outputDir.empty() && g_validationConfig.improveNIFs)
+			reportStream << "  NIFs improved: " << report.nifImprovedCount << "\n";
 		reportStream << "\n";
 
 		reportStream << bodyStream.str();
@@ -984,6 +1000,26 @@ namespace hdt
 		}
 
 		return report;
+	}
+
+	NIFImproveResult ImprovePhysicsNIFsOnDemand(const std::string& outputDir)
+	{
+		NIFImproveResult result;
+		if (outputDir.empty()) {
+			result.errors.push_back("Output directory is empty");
+			return result;
+		}
+
+		auto nifAssets = discoverPhysicsNIFs();
+		result.totalNIFsFound = static_cast<int>(nifAssets.size());
+
+		for (const auto& asset : nifAssets) {
+			if (GenerateImprovedNIF(asset.nifPath, outputDir)) {
+				++result.nifImprovedCount;
+			}
+		}
+
+		return result;
 	}
 
 }  // namespace hdt

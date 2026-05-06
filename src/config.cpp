@@ -129,6 +129,8 @@ namespace hdt
 					g_validationConfig.warnTriangleCount = reader.readInt();
 				} else if (reader.GetLocalName() == "output-dir") {
 					g_validationConfig.outputDir = reader.readText();
+				} else if (reader.GetLocalName() == "improve-nifs") {
+					g_validationConfig.improveNIFs = reader.readBool();
 				} else {
 					logger::warn("Unknown config : {}", reader.GetLocalName());
 					reader.skipCurrentElement();

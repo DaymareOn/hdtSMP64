@@ -296,5 +296,12 @@
     -->
     <output-dir></output-dir>
 
+    <!--
+      improve-nifs: (boolean) when true and output-dir is set, also generate
+      improved NIF files by removing bogus nodes.
+      If no value is set, default is false.
+    -->
+    <improve-nifs>false</improve-nifs>
+
   </validation>
 </configs>
