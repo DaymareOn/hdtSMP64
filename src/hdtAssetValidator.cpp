@@ -1,5 +1,6 @@
 #include "hdtAssetValidator.h"
 
+#include "ActorManager.h"
 #include "NetImmerseUtils.h"
 #include "hdtNIFValidator.h"
 #include "hdtSCHValidator.h"
@@ -44,6 +45,23 @@ namespace hdt
 			return c == '\\' ? '/' : (char)std::tolower(c);
 		});
 		return p;
+	}
+
+	static std::pair<std::string, bool> resolveXMLPath(const std::string& rawPath)
+	{
+		if (rawPath.empty())
+			return { {}, false };
+
+		std::string xmlPath = rawPath;
+		std::replace(xmlPath.begin(), xmlPath.end(), '\\', '/');
+
+		namespace fs = std::filesystem;
+		std::error_code ec;
+		fs::path xmlFsPath = xmlPath;
+		if (!fs::exists(xmlFsPath, ec))
+			xmlFsPath = "data/" + xmlPath;
+
+		return { xmlFsPath.string(), fs::exists(xmlFsPath, ec) };
 	}
 
 	// XML file stems to skip – not physics config files
@@ -330,6 +348,60 @@ namespace hdt
 
 		logger::info("[Validator] Scanned {} NIF files, found {} physics-enabled NIFs",
 			nifPaths.size(), result.size());
+		return result;
+	}
+
+	// ---- Equipped-gear discovery (runtime-only) ----
+
+	static std::vector<PhysicsAsset> discoverEquippedPhysicsAssets()
+	{
+		std::vector<PhysicsAsset> result;
+
+		auto* actorManager = ActorManager::instance();
+		auto lock = actorManager->lockGuard();
+		auto& skeletons = actorManager->getSkeletons();
+
+		for (auto& skeleton : skeletons) {
+			for (const auto& armor : skeleton.getArmors()) {
+				if (!armor.armorWorn || !armor.armorWorn->parent)
+					continue;
+				if (armor.physicsFile.first.empty())
+					continue;
+
+				auto [xmlPath, xmlExists] = resolveXMLPath(armor.physicsFile.first);
+				std::string armorName = armor.armorWorn->name.size() ? armor.armorWorn->name.c_str() : "<unnamed>";
+				PhysicsAsset asset;
+				// For equipped-gear validation we don't have stable NIF file paths at runtime,
+				// so nifPath is used as a human-readable item identifier in the report output.
+				asset.nifPath = skeleton.name() + " [armor:" + armorName + "]";
+				asset.nifExists = true;
+				asset.xmlPath = std::move(xmlPath);
+				asset.xmlExists = xmlExists;
+				asset.allPhysicsXmlPaths.push_back(armor.physicsFile.first);
+				result.push_back(std::move(asset));
+			}
+
+			if (!skeleton.head.headNode)
+				continue;
+
+			for (const auto& headPart : skeleton.head.headParts) {
+				if (!headPart.headPart || !headPart.headPart->parent)
+					continue;
+				if (headPart.physicsFile.first.empty())
+					continue;
+
+				auto [xmlPath, xmlExists] = resolveXMLPath(headPart.physicsFile.first);
+				std::string headPartName = headPart.headPart->name.size() ? headPart.headPart->name.c_str() : "<unnamed>";
+				PhysicsAsset asset;
+				asset.nifPath = skeleton.name() + " [headpart:" + headPartName + "]";
+				asset.nifExists = true;
+				asset.xmlPath = std::move(xmlPath);
+				asset.xmlExists = xmlExists;
+				asset.allPhysicsXmlPaths.push_back(headPart.physicsFile.first);
+				result.push_back(std::move(asset));
+			}
+		}
+
 		return result;
 	}
 
@@ -770,6 +842,62 @@ namespace hdt
 		return reportStream.str();
 	}
 
+	static std::string runEquippedValidationCore(AssetValidationResult& report, const std::string& timestamp)
+	{
+		auto wallStart = std::chrono::steady_clock::now();
+		std::ostringstream bodyStream;
+
+		bodyStream << "== Phase 1: Equipped Gear Discovery ==\n";
+		auto equippedAssets = discoverEquippedPhysicsAssets();
+		report.totalNIFsScanned = static_cast<int>(equippedAssets.size());
+		bodyStream << "  Found " << equippedAssets.size() << " equipped physics item(s).\n";
+
+		if (!equippedAssets.empty()) {
+			bodyStream << "\n== Phase 2: Equipped Gear XML Validation ==\n";
+			validateNIFAssets(equippedAssets, report, bodyStream);
+		}
+
+		auto wallEnd = std::chrono::steady_clock::now();
+		double elapsedSec = std::chrono::duration<double>(wallEnd - wallStart).count();
+		report.elapsedSeconds = elapsedSec;
+
+		std::ostringstream tailStream;
+		if (!report.errors.empty()) {
+			tailStream << "== Errors ==\n";
+			for (const auto& e : report.errors)
+				tailStream << "  [ERROR] " << e << "\n";
+			tailStream << "\n";
+		}
+		if (!report.warnings.empty()) {
+			tailStream << "== Warnings ==\n";
+			for (const auto& w : report.warnings)
+				tailStream << "  [WARN] " << w << "\n";
+			tailStream << "\n";
+		}
+
+		std::ostringstream reportStream;
+		reportStream << "========================================\n";
+		reportStream << "FSMP Equipped Gear Validation Report\n";
+		reportStream << "Generated: " << timestamp << "\n";
+		reportStream << "========================================\n\n";
+
+		reportStream << "== Summary ==\n";
+		reportStream << "  Duration:      " << std::fixed << std::setprecision(2) << elapsedSec << "s\n";
+		reportStream << "  XMLs found:    " << report.totalXMLsFound << "\n";
+		reportStream << "  XMLs passed:   " << report.xmlPassCount << "\n";
+		reportStream << "  XMLs failed:   " << report.xmlErrorCount << "\n";
+		reportStream << "  NIFs scanned:  " << report.totalNIFsScanned << "\n";
+		reportStream << "  Warnings:      " << report.warnings.size() << "\n";
+		reportStream << "  Errors:        " << report.errors.size() << "\n";
+		reportStream << "\n";
+
+		reportStream << bodyStream.str();
+		reportStream << "\n";
+		reportStream << tailStream.str();
+		reportStream << "========================================\n";
+		return reportStream.str();
+	}
+
 	// ---- public entry points ----
 
 	bool ValidateAllPhysicsAssets()
@@ -825,6 +953,33 @@ namespace hdt
 		} else {
 			logger::info(
 				"[Validator] On-demand validation in {:.2f}s: all physics assets OK ({} XML file(s)).",
+				report.elapsedSeconds, report.totalXMLsFound);
+		}
+
+		return report;
+	}
+
+	AssetValidationResult ValidateEquippedPhysicsAssetsOnDemand(std::string& outReportPath)
+	{
+		logger::info("[Validator] Starting equipped gear on-demand validation...");
+
+		AssetValidationResult report;
+		std::string timestamp = timestampString();
+		std::string reportContent = runEquippedValidationCore(report, timestamp);
+
+		outReportPath = writeReport(reportContent, timestamp);
+
+		if (report.hasErrors) {
+			logger::warn(
+				"[Validator] Equipped gear validation in {:.2f}s: {} error(s), {} warning(s).",
+				report.elapsedSeconds, report.errors.size(), report.warnings.size());
+		} else if (report.hasWarnings) {
+			logger::info(
+				"[Validator] Equipped gear validation in {:.2f}s: no errors, {} warning(s).",
+				report.elapsedSeconds, report.warnings.size());
+		} else {
+			logger::info(
+				"[Validator] Equipped gear validation in {:.2f}s: all equipped physics assets OK ({} XML file(s)).",
 				report.elapsedSeconds, report.totalXMLsFound);
 		}
 

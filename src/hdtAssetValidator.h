@@ -49,4 +49,10 @@ namespace hdt
 	// Returns the full validation result.
 	AssetValidationResult ValidateAllPhysicsAssetsOnDemand(std::string& outReportPath);
 
+	// Run validation only for currently equipped items on tracked skeletons (PC and instantiated NPCs).
+	// Always writes the report file regardless of config.
+	// Populates outReportPath with the absolute path to the written report (empty on failure).
+	// Returns the validation result for equipped gear only.
+	AssetValidationResult ValidateEquippedPhysicsAssetsOnDemand(std::string& outReportPath);
+
 }  // namespace hdt
