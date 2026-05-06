@@ -22,41 +22,34 @@ namespace hdt
 	//   (b) not in the allowed children set for their parent.
 	// Returns true if any element was removed at this level or below.
 	static bool cleanNode(
-		pugi::xml_node     node,
+		pugi::xml_node node,
 		const std::string& parentName,
-		const ChildMap&    allowed,
-		const ChildSet&    known)
+		const ChildMap& allowed,
+		const ChildSet& known)
 	{
 		std::vector<pugi::xml_node> toRemove;
 
-		for (auto child = node.first_child(); child; child = child.next_sibling())
-		{
+		for (auto child = node.first_child(); child; child = child.next_sibling()) {
 			if (child.type() != pugi::node_element)
 				continue;
 
 			std::string childName = child.name();
 
 			// (a) completely unknown tag
-			if (!known.count(childName))
-			{
+			if (!known.count(childName)) {
 				toRemove.push_back(child);
 				continue;
 			}
 
 			// (b) not allowed in this parent
-			if (!parentName.empty())
-			{
+			if (!parentName.empty()) {
 				auto it = allowed.find(parentName);
-				if (it != allowed.end())
-				{
-					if (!it->second.count(childName))
-					{
+				if (it != allowed.end()) {
+					if (!it->second.count(childName)) {
 						toRemove.push_back(child);
 						continue;
 					}
-				}
-				else
-				{
+				} else {
 					// parent is a leaf element → no children allowed
 					toRemove.push_back(child);
 					continue;
@@ -100,7 +93,7 @@ namespace hdt
 			return false;
 
 		const ChildMap& allowed = GetSchemaAllowedChildren();
-		const ChildSet& known   = GetSchemaKnownElements();
+		const ChildSet& known = GetSchemaKnownElements();
 
 		pugi::xml_document doc;
 		if (!doc.load_file(srcXMLPath.c_str()))
@@ -108,12 +101,10 @@ namespace hdt
 
 		// Locate the root <system> element
 		pugi::xml_node sysNode;
-		for (auto child = doc.first_child(); child; child = child.next_sibling())
-		{
-			if (child.type() == pugi::node_element)
-			{
+		for (auto child = doc.first_child(); child; child = child.next_sibling()) {
+			if (child.type() == pugi::node_element) {
 				if (std::string(child.name()) != "system")
-					return false; // unexpected root — skip
+					return false;  // unexpected root — skip
 				sysNode = child;
 				break;
 			}
@@ -128,7 +119,7 @@ namespace hdt
 
 		// Compute output path: <outputDir>/<relative-from-data>
 		std::string relative = stripDataPrefix(srcXMLPath);
-		fs::path    outPath  = fs::path(outputDir) / relative;
+		fs::path outPath = fs::path(outputDir) / relative;
 
 		std::error_code ec;
 		fs::create_directories(outPath.parent_path(), ec);
@@ -138,4 +129,4 @@ namespace hdt
 		return doc.save_file(outPath.string().c_str(), "  ", pugi::format_default);
 	}
 
-} // namespace hdt
+}  // namespace hdt
