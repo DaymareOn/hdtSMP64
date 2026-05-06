@@ -10,10 +10,10 @@
 #include "hdtSkyrimPhysicsWorld.h"
 
 #include <atomic>
-#include <thread>
 #include <charconv>
 #include <cstdint>
 #include <string_view>
+#include <thread>
 
 namespace
 {
