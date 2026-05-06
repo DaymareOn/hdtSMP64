@@ -348,19 +348,30 @@ bool SMPDebug_Execute(
 	}
 
 	if (_strnicmp(buffer, "validate", MAX_PATH) == 0) {
+		const bool gearOnly = _strnicmp(buffer2, "gear", MAX_PATH) == 0;
+		if (buffer2[0] != '\0' && !gearOnly) {
+			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Unknown validate mode: %s", buffer2);
+			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Usage: smp validate [gear]");
+			return true;
+		}
+
 		static std::atomic<bool> s_validationRunning{ false };
 		if (s_validationRunning.exchange(true)) {
 			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Validation is already running.");
 			return true;
 		}
-		RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Validation started in background. Results will appear when complete.");
-		std::thread([]() {
+		if (gearOnly) {
+			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Equipped-gear validation started in background. Results will appear when complete.");
+		} else {
+			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Validation started in background. Results will appear when complete.");
+		}
+		std::thread([gearOnly]() {
 			try {
 				std::string reportPath;
-				auto result = hdt::ValidateAllPhysicsAssetsOnDemand(reportPath);
+				auto result = gearOnly ? hdt::ValidateEquippedPhysicsAssetsOnDemand(reportPath) : hdt::ValidateAllPhysicsAssetsOnDemand(reportPath);
 				auto* console = RE::ConsoleLog::GetSingleton();
 				console->Print(
-					"[HDT-SMP] Validation complete in %.2fs: %d XML(s) found, %d passed, %d failed, %d warning(s)",
+					gearOnly ? "[HDT-SMP] Equipped-gear validation complete in %.2fs: %d XML(s) found, %d passed, %d failed, %d warning(s)" : "[HDT-SMP] Validation complete in %.2fs: %d XML(s) found, %d passed, %d failed, %d warning(s)",
 					result.elapsedSeconds,
 					result.totalXMLsFound, result.xmlPassCount, result.xmlErrorCount,
 					(int)result.warnings.size());
@@ -612,7 +623,7 @@ extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* a_s
 
 		unusedCommand->functionName = "SMPDebug";
 		unusedCommand->shortName = "smp";
-		unusedCommand->helpString = "smp <reset>";
+		unusedCommand->helpString = "smp <reset|validate [gear]>";
 		unusedCommand->referenceFunction = 0;
 		unusedCommand->numParams = 1;
 		unusedCommand->params = params;
