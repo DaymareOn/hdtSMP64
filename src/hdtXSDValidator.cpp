@@ -1,11 +1,13 @@
 #include "hdtXSDValidator.h"
 
+#include "hdtValidatorPaths.h"
 #include "NetImmerseUtils.h"
 #include "XmlReader.h"
 
 #include <pugixml.hpp>
 
 #include <algorithm>
+#include <charconv>
 #include <mutex>
 #include <string>
 #include <unordered_map>
@@ -15,12 +17,6 @@
 
 namespace hdt
 {
-	// Path to the hdtSMP64 XSD schema, relative to the game working directory.
-	// This is the same schema shipped with the FSMP-Validator tool and already
-	// present in users' data folders. The validator reads accepted enum values
-	// from it at startup so they never need to be hardcoded here.
-	static const char* kPhysicsXSDPath =
-		"data/skse/plugins/hdtSkinnedMeshConfigs/hdtSMP64.xsd";
 
 	// Generic value type constraint derived from xs:restriction facets in the XSD.
 	// All fields are populated from the XSD at load time -- no type names are hardcoded.
@@ -63,6 +59,8 @@ namespace hdt
 		// Allowed children per element — maps each named xs:element to the set of child element
 		// tag names declared in its XSD content model (xs:choice/xs:all/xs:sequence).
 		std::unordered_map<std::string, std::unordered_set<std::string>> allowedChildren;
+		// All element tag names mentioned anywhere in the schema (for unknown-element detection).
+		std::unordered_set<std::string> knownElements;
 		// Per element: type constraint on its text content for non-enum typed elements.
 		std::unordered_map<std::string, TypeConstraint> elementTextConstraints;
 		// Per element: per-attribute type constraint on attribute values.
@@ -70,11 +68,13 @@ namespace hdt
 		bool loaded = false;  // true only when the XSD was successfully parsed
 	};
 
-	// Build a comma-separated string from a set of strings (for error messages).
+	// Build a sorted, comma-separated string from a set of strings (for error messages).
 	static std::string joinSet(const std::unordered_set<std::string>& s)
 	{
+		std::vector<std::string> sorted(s.begin(), s.end());
+		std::sort(sorted.begin(), sorted.end());
 		std::string result;
-		for (const auto& v : s) {
+		for (const auto& v : sorted) {
 			if (!result.empty())
 				result += ", ";
 			result += v;
@@ -278,7 +278,8 @@ namespace hdt
 		collectKeyNodes(doc.first_child(), keyDefs, keyRefDefs);
 	}
 
-	// Collect the set of allowed child element names for each named xsd:element in the XSD.
+	// Collect the set of allowed child element names for each named xsd:element in the XSD,
+	// and populate `knownElements` with every element name mentioned anywhere in the schema.
 	// Two passes:
 	//   Pass 1 -- named xsd:complexType content models -> child name sets.
 	//   Pass 2 -- named xsd:element inline content models; resolves type= references from Pass 1
@@ -286,7 +287,7 @@ namespace hdt
 	//             transform's content model instead of getting an empty set.
 	// Elements whose type= references a type with no content model get no entry -- permissive.
 	static std::unordered_map<std::string, std::unordered_set<std::string>>
-		parseAllowedChildren(const pugi::xml_document& doc)
+		parseAllowedChildren(const pugi::xml_document& doc, std::unordered_set<std::string>& knownElements)
 	{
 		pugi::xml_node schema = doc.first_child();
 
@@ -297,8 +298,11 @@ namespace hdt
 			if (!typeName[0]) continue;
 			std::unordered_set<std::string> children;
 			walkContentModel(ct, children);
-			if (!children.empty())
+			if (!children.empty()) {
+				for (const auto& c : children)
+					knownElements.insert(c);
 				typeChildren[typeName] = std::move(children);
+			}
 		}
 
 		// Pass 2: named xsd:element → inline content model or type= reference resolution.
@@ -306,6 +310,7 @@ namespace hdt
 		for (auto elem : schema.children("xsd:element")) {
 			const char* name = elem.attribute("name").as_string("");
 			if (!name[0]) continue;
+			knownElements.insert(name);  // Every top-level named element is "known".
 			const char* typeName = elem.attribute("type").as_string("");
 			if (typeName[0]) {
 				const auto it = typeChildren.find(typeName);
@@ -316,8 +321,11 @@ namespace hdt
 			}
 			std::unordered_set<std::string> children;
 			walkContentModel(elem, children);
-			if (!children.empty())
+			if (!children.empty()) {
+				for (const auto& c : children)
+					knownElements.insert(c);
 				result[name] = std::move(children);
+			}
 		}
 
 		return result;
@@ -347,6 +355,27 @@ namespace hdt
 	{
 		const auto it = namedTypes.find(typeName);
 		return (it != namedTypes.end()) ? it->second : builtinTypeConstraint(typeName);
+	}
+
+	// Recursively gathers all xsd:attribute type constraints from a complexType subtree.
+	// Extracted from parseAllTypeConstraints to avoid a std::function recursive lambda.
+	static void gatherComplexTypeAttrs(
+		pugi::xml_node n,
+		const std::unordered_map<std::string, TypeConstraint>& namedSimpleTypes,
+		std::unordered_map<std::string, TypeConstraint>& attrCons)
+	{
+		for (auto child : n.children()) {
+			if (std::string_view(child.name()) == "xsd:attribute") {
+				const char* aName = child.attribute("name").as_string("");
+				const char* aType = child.attribute("type").as_string("");
+				if (aName[0] && aType[0]) {
+					TypeConstraint tc = resolveTypeConstraint(aType, namedSimpleTypes);
+					if (tc.base != TypeConstraint::Base::Any)
+						attrCons[aName] = tc;
+				}
+			}
+			gatherComplexTypeAttrs(child, namedSimpleTypes, attrCons);
+		}
 	}
 
 	// Definition of collectTypeConstraints (forward-declared above).
@@ -418,9 +447,15 @@ namespace hdt
 				for (auto facet : child.children()) {
 					const std::string_view ftag = facet.name();
 					if (ftag == "xsd:minInclusive") {
-						try { tc.minInclusive = std::stod(facet.attribute("value").as_string("")); tc.hasMin = true; } catch (...) {}
+						const char* vs = facet.attribute("value").as_string("");
+						double v;
+						if (std::from_chars(vs, vs + std::strlen(vs), v).ec == std::errc{})
+							{ tc.minInclusive = v; tc.hasMin = true; }
 					} else if (ftag == "xsd:maxInclusive") {
-						try { tc.maxInclusive = std::stod(facet.attribute("value").as_string("")); tc.hasMax = true; } catch (...) {}
+						const char* vs = facet.attribute("value").as_string("");
+						double v;
+						if (std::from_chars(vs, vs + std::strlen(vs), v).ec == std::errc{})
+							{ tc.maxInclusive = v; tc.hasMax = true; }
 					}
 				}
 			}
@@ -433,22 +468,7 @@ namespace hdt
 			const char* typeName = ct.attribute("name").as_string("");
 			if (!typeName[0]) continue;
 			std::unordered_map<std::string, TypeConstraint> attrCons;
-			// Recurse into the entire complexType subtree to find all xsd:attribute declarations.
-			std::function<void(pugi::xml_node)> gatherAttrs = [&](pugi::xml_node n) {
-				for (auto child : n.children()) {
-					if (std::string_view(child.name()) == "xsd:attribute") {
-						const char* aName = child.attribute("name").as_string("");
-						const char* aType = child.attribute("type").as_string("");
-						if (aName[0] && aType[0]) {
-							TypeConstraint tc = resolveTypeConstraint(aType, namedSimpleTypes);
-							if (tc.base != TypeConstraint::Base::Any)
-								attrCons[aName] = tc;
-						}
-					}
-					gatherAttrs(child);
-				}
-			};
-			gatherAttrs(ct);
+			gatherComplexTypeAttrs(ct, namedSimpleTypes, attrCons);
 			if (!attrCons.empty())
 				namedComplexTypeAttrs[typeName] = std::move(attrCons);
 		}
@@ -503,7 +523,9 @@ namespace hdt
 				// Required attributes per element — driven by xsd:attribute use="required".
 				g_physicsSchema.requiredAttrs = parseAllRequiredAttrs(doc);
 				// Allowed children per element — driven by the XSD content model.
-				g_physicsSchema.allowedChildren = parseAllowedChildren(doc);
+				// Also populates knownElements with all element names mentioned in the schema.
+				g_physicsSchema.allowedChildren =
+					parseAllowedChildren(doc, g_physicsSchema.knownElements);
 				// Element text and attribute value constraints -- driven by XSD type system.
 				parseAllTypeConstraints(doc,
 					g_physicsSchema.elementTextConstraints,
@@ -531,6 +553,23 @@ namespace hdt
 		});
 
 		return g_physicsSchema;
+	}
+
+	// ---- public schema accessors ----
+
+	bool IsPhysicsSchemaLoaded()
+	{
+		return getPhysicsSchema().loaded;
+	}
+
+	const std::unordered_map<std::string, std::unordered_set<std::string>>& GetSchemaAllowedChildren()
+	{
+		return getPhysicsSchema().allowedChildren;
+	}
+
+	const std::unordered_set<std::string>& GetSchemaKnownElements()
+	{
+		return getPhysicsSchema().knownElements;
 	}
 
 	// ---- validation context ----
@@ -579,14 +618,9 @@ namespace hdt
 		}
 
 		if (tc.base == TypeConstraint::Base::Float || tc.base == TypeConstraint::Base::Integer) {
-			size_t idx = 0;
 			double dval = 0.0;
-			try {
-				dval = std::stod(val, &idx);
-			} catch (...) {
-				idx = 0;
-			}
-			if (idx != val.size()) {
+			const auto [ptr, ec] = std::from_chars(val.data(), val.data() + val.size(), dval);
+			if (ec != std::errc{} || ptr != val.data() + val.size()) {
 				const std::string typeName = (tc.base == TypeConstraint::Base::Float) ? "float" : "integer";
 				ctx.addViolation(row, col, where + " has invalid " + typeName + " value '" + val + "'");
 				return;
@@ -708,13 +742,6 @@ namespace hdt
 			return result;
 		}
 
-		// Store original locale and switch to "C" for numeric parsing.
-		// "C" locale is guaranteed available on all systems and provides
-		// the same dot-as-decimal-separator behaviour needed for XML values.
-		char saved_locale[64];
-		strcpy_s(saved_locale, std::setlocale(LC_NUMERIC, nullptr));
-		std::setlocale(LC_NUMERIC, "C");
-
 		const PhysicsSchema& schema = getPhysicsSchema();
 		ValidationContext ctx{
 			xmlPath,
@@ -767,8 +794,6 @@ namespace hdt
 		} catch (...) {
 			result.violations.push_back({ xmlPath, 0, 0, "", "Unknown XML parse error" });
 		}
-
-		std::setlocale(LC_NUMERIC, saved_locale);
 
 		result.isValid = result.violations.empty();
 		return result;
