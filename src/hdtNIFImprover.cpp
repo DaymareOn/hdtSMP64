@@ -22,6 +22,10 @@ namespace hdt
 	// This is an independent clean-room reimplementation; no NifSkope source
 	// code is copied or derived here.
 
+	static constexpr uint32_t kVersion_20_2_0_7 = 0x14020007u;
+	static constexpr uint32_t kMaxStringLength = 4096u;
+	static constexpr std::streamoff kMaxNifFileSizeBytes = 256 * 1024 * 1024;
+
 	class NifReader
 	{
 	public:
@@ -68,7 +72,7 @@ namespace hdt
 		std::string readSizedStr()
 		{
 			uint32_t len = readU32();
-			if (len > 4096)
+			if (len > kMaxStringLength)
 				throw std::runtime_error("NIF improver: implausible string length");
 			if (!canRead(len))
 				throw std::runtime_error("NIF improver: string out of bounds");
@@ -114,8 +118,6 @@ namespace hdt
 		std::vector<uint32_t> groups;
 	};
 
-	static constexpr uint32_t kVersion_20_2_0_7 = 0x14020007u;
-
 	static std::optional<size_t> findHeaderEnd(const std::vector<uint8_t>& data)
 	{
 		size_t limit = std::min<size_t>(data.size(), 200);
@@ -139,7 +141,7 @@ namespace hdt
 
 		try {
 			ParsedNif parsed;
-			parsed.headerPrefix.assign(data.begin(), data.begin() + static_cast<std::ptrdiff_t>(headerEnd));
+			parsed.headerPrefix.assign(data.begin(), data.begin() + headerEnd);
 
 			NifReader r(data, headerEnd);
 			parsed.version = r.readU32();
@@ -362,7 +364,7 @@ namespace hdt
 		if (!in.is_open())
 			return false;
 		auto sz = in.tellg();
-		if (sz <= 0 || sz > 256 * 1024 * 1024)
+		if (sz <= 0 || sz > kMaxNifFileSizeBytes)
 			return false;
 		std::vector<uint8_t> data(static_cast<size_t>(sz));
 		in.seekg(0);
