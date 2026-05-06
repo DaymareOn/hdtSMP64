@@ -20,12 +20,6 @@ namespace hdt
 		this->m_forceUpdateType = hdt::ForceUpdateList::GetSingleton()->isAmong(m_name);
 	}
 
-	void SkyrimBone::resetTransformToOriginal()
-	{
-		m_node->local = convertBt(m_origTransform);
-		updateTransformUpDown(m_node.get(), false);
-	}
-
 	void SkyrimBone::readTransform(float timeStep)
 	{
 		auto oldScale = m_currentTransform.getScale();
@@ -57,8 +51,6 @@ namespace hdt
 		auto dest = m_currentTransform.asTransform() * m_localToRig;
 		if (timeStep <= RESET_PHYSICS) {
 			static const btVector3 zero(0, 0, 0);
-			m_origToSkeletonTransform = convertNi(m_skeleton->world).inverse() * m_currentTransform;
-			m_origTransform = convertNi(m_node->local);
 			m_rig.setWorldTransform(dest);
 			m_rig.setInterpolationWorldTransform(dest);
 			m_rig.setLinearVelocity(zero);

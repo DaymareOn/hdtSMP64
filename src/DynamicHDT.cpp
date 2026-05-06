@@ -63,8 +63,6 @@ void hdt::util::transferCurrentPosesBetweenSystems(hdt::SkyrimSystem* src, hdt::
 				b2->m_rig.setInterpolationWorldTransform(newRigTrans);
 
 				b2->m_currentTransform = b1->m_currentTransform;
-				b2->m_origToSkeletonTransform = b1->m_origToSkeletonTransform;
-				b2->m_origTransform = b1->m_origTransform;
 				btVector3 oldCoM = b1->m_rig.getWorldTransform().getOrigin();
 				btVector3 newCoM = newRigTrans.getOrigin();
 				btVector3 comShift = newCoM - oldCoM;

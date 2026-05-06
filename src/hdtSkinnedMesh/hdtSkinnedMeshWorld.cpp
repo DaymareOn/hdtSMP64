@@ -181,6 +181,8 @@ namespace hdt
 	// broadphase queries/collision, this optimization must be revisited.
 	void SkinnedMeshWorld::performDiscreteCollisionDetection()
 	{
+		BT_PROFILE("performDiscreteCollisionDetection");
+
 		for (auto& system : m_systems) {
 			system->internalUpdate();
 		}

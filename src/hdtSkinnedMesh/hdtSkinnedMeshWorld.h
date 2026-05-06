@@ -27,11 +27,6 @@ namespace hdt
 	protected:
 		std::vector<float> m_timeSteps;
 
-		void resetTransformsToOriginal()
-		{
-			for (int i = 0; i < m_systems.size(); ++i) m_systems[i]->resetTransformsToOriginal();
-		}
-
 		void readTransform(float timeStep)
 		{
 			const size_t n = m_systems.size();

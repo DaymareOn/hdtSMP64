@@ -21,7 +21,6 @@ namespace hdt
 		virtual ~SkinnedMeshSystem() = default;
 
 		virtual float prepareForRead(float timeStep) { return timeStep; }
-		virtual void resetTransformsToOriginal();
 		virtual void readTransform(float timeStep);
 		virtual void writeTransform();
 
