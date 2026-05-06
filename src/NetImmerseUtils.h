@@ -142,4 +142,9 @@ namespace hdt
 		const float cosTheta = std::cos(theta);
 		return (v * cosTheta) + (axis.Cross(v) * std::sin(theta)) + (axis * axis.Dot(v)) * (1.0f - cosTheta);
 	}
+
+	static inline bool isFirstPersonSkeleton(RE::NiNode* npc)
+	{
+		return (npc && findNode(npc, "Camera1st [Cam1]")) ? true : false;
+	}
 }

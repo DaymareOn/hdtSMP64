@@ -64,15 +64,6 @@ namespace hdt
 		RE::TESBoundObject*& _object;
 	};
 
-	bool isFirstPersonSkeleton(RE::NiNode* npc)
-	{
-		if (!npc) {
-			return false;
-		}
-
-		return findNode(npc, "Camera1st [Cam1]") ? true : false;
-	}
-
 	RE::NiNode* getNpcNode(RE::NiNode* skeleton)
 	{
 		// TODO: replace this with a generic skeleton fixing configuration option
@@ -637,9 +628,10 @@ namespace hdt
 			return *iter;
 		}
 
-		if (!isFirstPersonSkeleton(skeleton)) {
+		const bool isFP = isFirstPersonSkeleton(skeleton);
+		if (!isFP) {
 			auto ownerIter = std::find_if(m_skeletons.begin(), m_skeletons.end(), [=](Skeleton& i) {
-				return !isFirstPersonSkeleton(i.skeleton.get()) && i.skeletonOwner && skeleton->GetUserData() && i.skeletonOwner.get() == skeleton->GetUserData();
+				return !i.m_isFirstPerson && i.skeletonOwner && skeleton->GetUserData() && i.skeletonOwner.get() == skeleton->GetUserData();
 			});
 
 			if (ownerIter != m_skeletons.end()) {
@@ -650,6 +642,7 @@ namespace hdt
 
 		m_skeletons.push_back(Skeleton());
 		m_skeletons.back().skeleton = hdt::make_nismart(skeleton);
+		m_skeletons.back().m_isFirstPerson = isFP;
 		return m_skeletons.back();
 	}
 
@@ -657,7 +650,7 @@ namespace hdt
 	{
 		for (auto& i : m_skeletons) {
 			const auto owner = skyrim_cast<RE::Actor*>(i.skeletonOwner.get());
-			if (actor == owner && i.skeleton && !isFirstPersonSkeleton(i.skeleton.get())) {
+			if (actor == owner && i.skeleton && !i.m_isFirstPerson) {
 				return &i;
 			}
 		}
@@ -859,7 +852,7 @@ namespace hdt
 		armor.mustFixNameMap = true;
 		mustFixOneArmorMap = true;
 
-		if (!isFirstPersonSkeleton(skeleton.get())) {
+		if (!m_isFirstPerson) {
 			// FIXME we probably could simplify this by using findNode as surely we don't attach Armors to lurkers skeleton?
 			auto renameMap = armor.renameMap;
 			auto system = SkyrimSystemCreator().createOrUpdateSystem(getNpcNode(skeleton.get()), attachedNode, &armor.physicsFile, std::move(renameMap), nullptr);
@@ -1118,7 +1111,7 @@ namespace hdt
 	{
 		for (auto& i : armors) {
 			i.clearPhysics();
-			if (!isFirstPersonSkeleton(skeleton.get())) {
+			if (!m_isFirstPerson) {
 				auto renameMap = i.renameMap;
 				auto system = SkyrimSystemCreator().createOrUpdateSystem(npc.get(), i.armorWorn.get(), &i.physicsFile, std::move(renameMap), nullptr);
 				if (system) {
@@ -1137,7 +1130,7 @@ namespace hdt
 			RE::BSTSmartPointer<SkyrimSystem> oldSystem = item.m_physics;
 			item.clearPhysics();
 
-			if (!model || isFirstPersonSkeleton(skeleton.get()) || item.physicsFile.first.empty()) {
+			if (!model || m_isFirstPerson || item.physicsFile.first.empty()) {
 				return;
 			}
 
@@ -1160,7 +1153,7 @@ namespace hdt
 			reloadPhysicsItem(armor, armor.armorWorn.get(), armor.renameMap, isActive);
 		}
 
-		if (isFirstPersonSkeleton(skeleton.get()) || !head.headNode) {
+		if (m_isFirstPerson || !head.headNode) {
 			return;
 		}
 
@@ -1184,7 +1177,7 @@ namespace hdt
 
 	void ActorManager::Skeleton::scanHead()
 	{
-		if (isFirstPersonSkeleton(this->skeleton.get())) {
+		if (m_isFirstPerson) {
 			logger::debug("Not scanning head of first person skeleton.");
 			return;
 		}
