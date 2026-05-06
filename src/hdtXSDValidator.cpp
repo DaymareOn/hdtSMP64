@@ -365,7 +365,8 @@ namespace hdt
 		std::unordered_map<std::string, TypeConstraint>& attrCons)
 	{
 		for (auto child : n.children()) {
-			if (std::string_view(child.name()) == "xsd:attribute") {
+			const std::string_view childTag = child.name();
+			if (childTag == "xsd:attribute") {
 				const char* aName = child.attribute("name").as_string("");
 				const char* aType = child.attribute("type").as_string("");
 				if (aName[0] && aType[0]) {
@@ -447,14 +448,14 @@ namespace hdt
 				for (auto facet : child.children()) {
 					const std::string_view ftag = facet.name();
 					if (ftag == "xsd:minInclusive") {
-						const char* vs = facet.attribute("value").as_string("");
+						std::string_view vstr(facet.attribute("value").as_string(""));
 						double v;
-						if (std::from_chars(vs, vs + std::strlen(vs), v).ec == std::errc{})
+						if (std::from_chars(vstr.data(), vstr.data() + vstr.size(), v).ec == std::errc{})
 							{ tc.minInclusive = v; tc.hasMin = true; }
 					} else if (ftag == "xsd:maxInclusive") {
-						const char* vs = facet.attribute("value").as_string("");
+						std::string_view vstr(facet.attribute("value").as_string(""));
 						double v;
-						if (std::from_chars(vs, vs + std::strlen(vs), v).ec == std::errc{})
+						if (std::from_chars(vstr.data(), vstr.data() + vstr.size(), v).ec == std::errc{})
 							{ tc.maxInclusive = v; tc.hasMax = true; }
 					}
 				}

@@ -66,7 +66,7 @@ namespace hdt
 		futures.reserve(nThreads);
 		for (size_t i = 0; i < n; i += chunkSize) {
 			size_t end = std::min(i + chunkSize, n);
-			futures.push_back(std::async(std::launch::async, [&chunkFn, i, end]() {
+			futures.push_back(std::async(std::launch::async, [chunkFn, i, end]() {
 				chunkFn(i, end);
 			}));
 		}
