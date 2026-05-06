@@ -369,11 +369,11 @@ namespace hdt
 					continue;
 
 				auto [xmlPath, xmlExists] = resolveXMLPath(armor.physicsFile.first);
-				const char* armorName = armor.armorWorn->name.c_str();
+				std::string armorName = armor.armorWorn->name.size() ? armor.armorWorn->name.c_str() : "<unnamed>";
 				PhysicsAsset asset;
 				// For equipped-gear validation we don't have stable NIF file paths at runtime,
 				// so nifPath is used as a human-readable item identifier in the report output.
-				asset.nifPath = skeleton.name() + " [armor:" + std::string(armorName ? armorName : "<unnamed>") + "]";
+				asset.nifPath = skeleton.name() + " [armor:" + armorName + "]";
 				asset.nifExists = true;
 				asset.xmlPath = std::move(xmlPath);
 				asset.xmlExists = xmlExists;
@@ -391,9 +391,9 @@ namespace hdt
 					continue;
 
 				auto [xmlPath, xmlExists] = resolveXMLPath(headPart.physicsFile.first);
-				const char* headPartName = headPart.headPart->name.c_str();
+				std::string headPartName = headPart.headPart->name.size() ? headPart.headPart->name.c_str() : "<unnamed>";
 				PhysicsAsset asset;
-				asset.nifPath = skeleton.name() + " [headpart:" + std::string(headPartName ? headPartName : "<unnamed>") + "]";
+				asset.nifPath = skeleton.name() + " [headpart:" + headPartName + "]";
 				asset.nifExists = true;
 				asset.xmlPath = std::move(xmlPath);
 				asset.xmlExists = xmlExists;

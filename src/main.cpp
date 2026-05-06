@@ -348,11 +348,15 @@ bool SMPDebug_Execute(
 	}
 
 	if (_strnicmp(buffer, "validate", MAX_PATH) == 0) {
-		const bool gearOnly = _stricmp(buffer2, "gear") == 0;
-		if (buffer2[0] != '\0' && !gearOnly) {
-			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Unknown validate mode: %s", buffer2);
-			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Usage: smp validate [gear]");
-			return true;
+		bool gearOnly = false;
+		if (buffer2[0] != '\0') {
+			if (_stricmp(buffer2, "gear") == 0) {
+				gearOnly = true;
+			} else {
+				RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Unknown validate mode: %s", buffer2);
+				RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Usage: smp validate [gear]");
+				return true;
+			}
 		}
 
 		static std::atomic<bool> s_validationRunning{ false };
