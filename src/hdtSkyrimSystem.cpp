@@ -4,6 +4,7 @@
 #include "HavokUtils.h"
 #include "XmlReader.h"
 #include "hdtSkyrimPhysicsWorld.h"
+#include "hdtAssetValidator.h"
 
 // F16C isn't supported on super old processors. AVX2+ (AVX processors can have it, but not guaranteed)
 #if defined(__AVX2__) || defined(__AVX512F__)
@@ -935,6 +936,23 @@ namespace hdt
 			} else {
 				logger::warn("Shape {} has no skin data, skipped", entry.first.c_str());
 				return nullptr;
+			}
+		}
+
+		if (g_validationConfig.warnTriangleCount > 0) {
+			int totalTriangles = 0;
+			for (auto& entry : vertexOffsetMap) {
+				auto* g = castBSTriShape(findObject(m_model, entry.first.c_str()));
+				if (g && g->GetGeometryRuntimeData().skinInstance) {
+					RE::NiSkinPartition* skinPartition =
+						g->GetGeometryRuntimeData().skinInstance->skinPartition.get();
+					for (int i = 0; i < skinPartition->partitions.size(); ++i)
+						totalTriangles += skinPartition->partitions[i].triangles;
+				}
+			}
+			if (totalTriangles > g_validationConfig.warnTriangleCount) {
+				logger::warn("[Validator] per-triangle-shape '{}': triangle count {} exceeds threshold {}",
+					name.c_str(), totalTriangles, g_validationConfig.warnTriangleCount);
 			}
 		}
 

@@ -125,8 +125,6 @@ namespace hdt
 			case XMLReader::Inspected::StartTag:
 				if (reader.GetLocalName() == "enabled") {
 					g_validationConfig.enabled = reader.readBool();
-				} else if (reader.GetLocalName() == "report-file-enabled") {
-					g_validationConfig.reportFileEnabled = reader.readBool();
 				} else if (reader.GetLocalName() == "warn-triangle-count") {
 					g_validationConfig.warnTriangleCount = reader.readInt();
 				} else if (reader.GetLocalName() == "output-dir") {

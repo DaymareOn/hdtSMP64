@@ -824,9 +824,7 @@ namespace hdt
 		std::string timestamp = timestampString();
 		std::string reportContent = runValidationCore(report, timestamp);
 
-		if (g_validationConfig.reportFileEnabled) {
-			writeReport(reportContent, timestamp);
-		}
+		writeReport(reportContent, timestamp);
 
 		if (report.hasErrors) {
 			logger::warn(
