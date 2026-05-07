@@ -175,7 +175,7 @@ namespace hdt
 			});
 
 			for (int i = 0; i < 4; ++i) {
-				if (i < ordered.size()) {
+				if (static_cast<size_t>(i) < ordered.size()) {
 					keep.m_boneIdx[i] = ordered[i].first;
 					keep.m_weight[i] = ordered[i].second;
 				} else {
@@ -346,7 +346,8 @@ namespace hdt
 			std::vector<int>& incident)
 		{
 			incident.clear();
-			for (int ti = 0; ti < static_cast<int>(triangles.size()); ++ti) {
+			int triCount = static_cast<int>(triangles.size());
+			for (int ti = 0; ti < triCount; ++ti) {
 				const auto& t = triangles[ti];
 				if (!t.alive)
 					continue;

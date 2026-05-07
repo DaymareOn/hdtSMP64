@@ -833,7 +833,7 @@ namespace hdt
 			auto improveOne = [&](const PhysicsAsset& asset) {
 				if (GenerateImprovedNIF(asset.nifPath, g_validationConfig.outputDir, decimationOptions)) {
 					improvedCount.fetch_add(1);
-					std::lock_guard<decltype(improvedLock)> l(improvedLock);
+					std::lock_guard<std::mutex> l(improvedLock);
 					improvedPaths.push_back(asset.nifPath);
 				}
 			};
