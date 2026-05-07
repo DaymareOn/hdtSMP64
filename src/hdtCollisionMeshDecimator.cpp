@@ -611,6 +611,15 @@ namespace hdt
 			diag = (mx - mn).length();
 		}
 
+		// Normalize the QEM cost threshold by diag² so it becomes scale-invariant,
+		// matching the way shortEdgeRatio already self-normalizes via the mesh diagonal.
+		// A qemCostThreshold of 1.0 therefore permits collapses whose squared positional
+		// error is at most diag² (i.e. the full bounding-box diagonal), which is a
+		// mesh-size-relative quality bound rather than an absolute distance.
+		float scaledQemThreshold = 0.0f;
+		if (options.qemCostThreshold > 0.0f && diag > 0.0f)
+			scaledQemThreshold = options.qemCostThreshold * diag * diag;
+
 		recomputeEdgeFlags(vertices, triangles, options);
 		recomputeQuadrics(vertices, triangles);
 
@@ -670,7 +679,7 @@ namespace hdt
 
 			if (best.cost == std::numeric_limits<float>::max())
 				break;
-			if (options.qemCostThreshold > 0.0f && best.cost > options.qemCostThreshold)
+			if (scaledQemThreshold > 0.0f && best.cost > scaledQemThreshold)
 				break;
 
 			if (!validateCandidate(best, vertices, triangles, options, baseAbsVolume, out.stats)) {
