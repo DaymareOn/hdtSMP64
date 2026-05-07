@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cctype>
 #include <cstdint>
 #include <cstring>
@@ -356,9 +357,18 @@ namespace hdt
 		return false;
 	}
 
-	bool GenerateImprovedNIF(const std::string& srcNIFPath, const std::string& outputDir)
+	bool GenerateImprovedNIF(
+		const std::string& srcNIFPath,
+		const std::string& outputDir,
+		const NIFDecimationOptions& options)
 	{
 		namespace fs = std::filesystem;
+		static std::atomic<bool> s_warnedDecimationUnsupported{ false };
+
+		if (options.enableCollisionMeshDecimation && !s_warnedDecimationUnsupported.exchange(true)) {
+			logger::warn(
+				"[Validator] Offline collision mesh decimation is enabled, but this NIF improver pass currently performs conservative structural cleanup only.");
+		}
 
 		std::ifstream in(srcNIFPath, std::ios::binary | std::ios::ate);
 		if (!in.is_open())
@@ -455,5 +465,18 @@ namespace hdt
 			return false;
 
 		return writeNifFile(parsed, outPath.string());
+	}
+
+	bool CopyNIFToOutput(const std::string& srcNIFPath, const std::string& outputDir)
+	{
+		namespace fs = std::filesystem;
+		std::string relative = stripDataPrefix(srcNIFPath);
+		fs::path outPath = fs::path(outputDir) / relative;
+		std::error_code ec;
+		fs::create_directories(outPath.parent_path(), ec);
+		if (ec)
+			return false;
+		fs::copy_file(srcNIFPath, outPath, fs::copy_options::overwrite_existing, ec);
+		return !ec;
 	}
 }
