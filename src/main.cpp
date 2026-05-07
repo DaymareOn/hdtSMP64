@@ -445,6 +445,48 @@ bool SMPDebug_Execute(
 		return true;
 	}
 
+	if (_strnicmp(buffer, "fixnifs", MAX_PATH) == 0) {
+		std::string outputDir = buffer2[0] != '\0' ? std::string(buffer2) : hdt::g_validationConfig.outputDir;
+		if (outputDir.empty()) {
+			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Output directory not set. Usage: smp fixnifs <output_dir> or set <validation><output-dir> in config.");
+			return true;
+		}
+
+		static std::atomic<bool> s_nifFixRunning{ false };
+		if (s_nifFixRunning.exchange(true)) {
+			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] NIF cleanup is already running.");
+			return true;
+		}
+
+		RE::ConsoleLog::GetSingleton()->Print(
+			"[HDT-SMP] NIF cleanup started in background. Output directory: %s",
+			outputDir.c_str());
+
+		std::thread([outputDir = std::move(outputDir)]() {
+			try {
+				auto result = hdt::ImprovePhysicsNIFsOnDemand(outputDir);
+				auto* console = RE::ConsoleLog::GetSingleton();
+				console->Print("[HDT-SMP] NIF cleanup: %d NIF(s) processed, %d cleaned file(s) written to %s",
+					result.totalNIFsFound,
+					result.nifImprovedCount,
+					outputDir.c_str());
+				for (const auto& err : result.errors) {
+					console->Print("[HDT-SMP] NIF cleanup error: %s", err.c_str());
+				}
+				logger::info("[Validator] NIF cleanup done: {} NIF(s) processed, {} improved, output={}",
+					result.totalNIFsFound, result.nifImprovedCount, outputDir);
+			} catch (const std::exception& e) {
+				RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] NIF cleanup failed with error: %s", e.what());
+				logger::error("[Validator] smp fixnifs threw: {}", e.what());
+			} catch (...) {
+				RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] NIF cleanup failed with an unknown error");
+				logger::error("[Validator] smp fixnifs threw an unknown exception");
+			}
+			s_nifFixRunning.store(false);
+		}).detach();
+		return true;
+	}
+
 	auto skeletons = hdt::ActorManager::instance()->getSkeletons();
 
 	size_t activeSkeletons = 0;

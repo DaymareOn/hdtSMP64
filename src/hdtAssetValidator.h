@@ -10,6 +10,7 @@ namespace hdt
 		bool enabled = true;
 		int warnTriangleCount = 10000;
 		std::string outputDir;  // if set, improved XML copies are written here
+		bool improveNIFs = false;
 	};
 
 	extern ValidationConfig g_validationConfig;
@@ -33,6 +34,7 @@ namespace hdt
 		int xmlErrorCount = 0;
 		int xmlWarningCount = 0;
 		int xmlImprovedCount = 0;  // number of improved XML files written
+		int nifImprovedCount = 0;  // number of improved NIF files written
 		double elapsedSeconds = 0.0;
 		std::vector<std::string> errors;
 		std::vector<std::string> warnings;
@@ -54,5 +56,16 @@ namespace hdt
 	// Populates outReportPath with the absolute path to the written report (empty on failure).
 	// Returns the validation result for equipped gear only.
 	AssetValidationResult ValidateEquippedPhysicsAssetsOnDemand(std::string& outReportPath);
+
+	struct NIFImproveResult
+	{
+		int totalNIFsFound = 0;
+		int nifImprovedCount = 0;
+		std::vector<std::string> errors;
+	};
+
+	// Scan data/meshes for physics-enabled NIFs and write improved copies for
+	// files where bogus nodes can be removed.
+	NIFImproveResult ImprovePhysicsNIFsOnDemand(const std::string& outputDir);
 
 }  // namespace hdt
