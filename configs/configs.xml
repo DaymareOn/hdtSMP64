@@ -292,7 +292,10 @@
     <!--
       output-dir: (string) if set, improved copies of validated XML and NIF files are
       written to this folder, replicating the original Data/ folder structure.
-      Leave empty to disable improved file generation.
+      Used by startup validation improvement output, `smp fix xml`,
+      and `smp fix nif` when no explicit output directory is passed.
+      Leave empty to disable improved file generation and require an explicit
+      output directory for manual fix commands.
     -->
     <output-dir></output-dir>
 

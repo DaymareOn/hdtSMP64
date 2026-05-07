@@ -77,8 +77,27 @@ namespace hdt
 		std::vector<std::string> errors;
 	};
 
+	struct XMLImproveResult
+	{
+		int totalXMLsFound = 0;
+		int xmlImprovedCount = 0;
+		std::vector<std::string> errors;
+	};
+
+	// Scan all discovered physics XML sources and write improved copies for files
+	// where unknown or misplaced elements can be removed.
+	XMLImproveResult ImprovePhysicsXMLsOnDemand(const std::string& outputDir);
+
+	// Scan only currently equipped physics assets and write improved XML copies
+	// for their referenced XML files.
+	XMLImproveResult ImproveEquippedPhysicsXMLsOnDemand(const std::string& outputDir);
+
 	// Scan data/meshes for physics-enabled NIFs and write improved copies for
 	// files where bogus nodes can be removed.
 	NIFImproveResult ImprovePhysicsNIFsOnDemand(const std::string& outputDir);
+
+	// Scan only NIFs associated with currently equipped physics assets and write
+	// improved copies for files where bogus nodes can be removed.
+	NIFImproveResult ImproveEquippedPhysicsNIFsOnDemand(const std::string& outputDir);
 
 }  // namespace hdt
