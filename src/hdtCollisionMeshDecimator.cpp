@@ -38,7 +38,8 @@ namespace hdt
 		{
 			size_t operator()(const EdgeKey& e) const
 			{
-				return (static_cast<size_t>(e.a) << 32) ^ static_cast<size_t>(e.b);
+				uint64_t packed = (static_cast<uint64_t>(e.a) << 32) | static_cast<uint64_t>(e.b);
+				return std::hash<uint64_t>{}(packed);
 			}
 		};
 

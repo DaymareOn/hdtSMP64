@@ -1066,7 +1066,9 @@ namespace hdt
 		if (g_validationConfig.parallelNIFImprovement && nifAssets.size() > 1)
 			tbb::parallel_for_each(nifAssets.begin(), nifAssets.end(), improveOne);
 		else
-			for (const auto& asset : nifAssets) improveOne(asset);
+			for (const auto& asset : nifAssets) {
+				improveOne(asset);
+			}
 
 		result.nifImprovedCount = improvedCount.load();
 
