@@ -322,8 +322,8 @@ bool SMPDebug_Execute(
 	memset(buffer8, 0, MAX_PATH);
 
 	if (!RE::Script::ParseParameters(
-		    a_paramInfo, a_scriptData, a_opcodeOffsetPtr, a_thisObj, a_containingObj, a_scriptObj, a_locals,
-		    buffer, buffer2, buffer3, buffer4, buffer5, buffer6, buffer7, buffer8)) {
+			a_paramInfo, a_scriptData, a_opcodeOffsetPtr, a_thisObj, a_containingObj, a_scriptObj, a_locals,
+			buffer, buffer2, buffer3, buffer4, buffer5, buffer6, buffer7, buffer8)) {
 		return false;
 	}
 
