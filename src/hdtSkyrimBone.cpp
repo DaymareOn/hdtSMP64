@@ -99,6 +99,9 @@ namespace hdt
 
 		m_node->world.rotate = convertBt(transform.getBasis());
 		m_node->world.translate = convertBt(transform.getOrigin());
+		if (m_node->parent) {
+			m_node->local = m_node->parent->world.Invert() * m_node->world;
+		}
 		// Todo: Look into why the hell we're doing this lol?
 		m_node->world = m_node->world;
 
