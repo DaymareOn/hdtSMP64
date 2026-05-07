@@ -356,7 +356,7 @@ namespace hdt
 				if (!t.alive)
 					continue;
 				if (t.v[0] == vKeep || t.v[1] == vKeep || t.v[2] == vKeep ||
-				    t.v[0] == vRemove || t.v[1] == vRemove || t.v[2] == vRemove)
+					t.v[0] == vRemove || t.v[1] == vRemove || t.v[2] == vRemove)
 					incident.push_back(ti);
 			}
 			return !incident.empty();
@@ -550,7 +550,7 @@ namespace hdt
 				uint32_t b = output.oldToNewVertex[tri.v[1]];
 				uint32_t c = output.oldToNewVertex[tri.v[2]];
 				if (a == std::numeric_limits<uint32_t>::max() || b == std::numeric_limits<uint32_t>::max() ||
-				    c == std::numeric_limits<uint32_t>::max())
+					c == std::numeric_limits<uint32_t>::max())
 					return false;
 				if (a == b || b == c || c == a)
 					continue;
@@ -615,7 +615,7 @@ namespace hdt
 		recomputeQuadrics(vertices, triangles);
 
 		int targetByRatio = static_cast<int>(std::floor(static_cast<float>(out.stats.originalVertexCount) *
-			clamp01(options.targetVertexRatio)));
+														clamp01(options.targetVertexRatio)));
 		int targetVertices = out.stats.originalVertexCount;
 		if (options.targetVertexCount > 0)
 			targetVertices = std::min(targetVertices, options.targetVertexCount);
