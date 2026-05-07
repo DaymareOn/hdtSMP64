@@ -28,6 +28,7 @@ namespace hdt
 		const ChildSet& known)
 	{
 		std::vector<pugi::xml_node> toRemove;
+		bool changed = false;
 
 		for (auto child = node.first_child(); child; child = child.next_sibling()) {
 			if (child.type() != pugi::node_element)
@@ -57,13 +58,13 @@ namespace hdt
 			}
 
 			// Valid child — recurse
-			cleanNode(child, childName, allowed, known);
+			changed = cleanNode(child, childName, allowed, known) || changed;
 		}
 
 		for (auto& n : toRemove)
 			node.remove_child(n);
 
-		return !toRemove.empty();
+		return changed || !toRemove.empty();
 	}
 
 	// ---- Path helpers ----
