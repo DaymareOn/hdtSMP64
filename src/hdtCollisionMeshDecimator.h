@@ -15,7 +15,7 @@ namespace hdt
 		bool preserveFeatures = true;
 		int targetVertexCount = 0;
 		float targetVertexRatio = 1.0f;  // fraction of vertices to retain (0.99 => ~1% reduction)
-		float qemCostThreshold = 1.0f;  // scale-invariant: compared against QEM cost / diag² (0 = disabled)
+		float qemCostThreshold = 1.0f;  // scale-invariant: threshold is multiplied by diag² before comparison with QEM cost (0 = disabled)
 		float shortEdgeRatio = 0.01f;
 		float maxVolumeLossPercent = 1.0f;
 		float maxNormalDeviationDegrees = 25.0f;

@@ -14,7 +14,7 @@ namespace hdt
 		bool decimateCollisionMeshesOffline = false;
 		float decimationTargetVertexRatio = 0.99f;
 		int decimationTargetVertexCount = 0;
-		float decimationQemCostThreshold = 1.0f;
+		float decimationQemCostThreshold = 1.0f;  // scale-invariant: threshold is multiplied by diag² before comparison with QEM cost (0 = disabled)
 		float decimationShortEdgeRatio = 0.01f;
 		float decimationMaxVolumeLossPercent = 1.0f;
 		float decimationMaxLocalVolumeChangePercent = 1.0f;
