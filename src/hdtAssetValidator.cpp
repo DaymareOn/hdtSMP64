@@ -27,6 +27,24 @@ namespace hdt
 {
 	ValidationConfig g_validationConfig;
 
+	static NIFDecimationOptions makeNIFDecimationOptions()
+	{
+		NIFDecimationOptions o;
+		o.enableCollisionMeshDecimation = g_validationConfig.decimateCollisionMeshesOffline;
+		o.targetVertexRatio = g_validationConfig.decimationTargetVertexRatio;
+		o.targetVertexCount = g_validationConfig.decimationTargetVertexCount;
+		o.qemCostThreshold = g_validationConfig.decimationQemCostThreshold;
+		o.shortEdgeRatio = g_validationConfig.decimationShortEdgeRatio;
+		o.maxVolumeLossPercent = g_validationConfig.decimationMaxVolumeLossPercent;
+		o.maxLocalVolumeChangePercent = g_validationConfig.decimationMaxLocalVolumeChangePercent;
+		o.maxNormalDeviationDegrees = g_validationConfig.decimationMaxNormalDeviationDegrees;
+		o.maxPointRemovals = g_validationConfig.decimationMaxPointRemovals;
+		o.maxEdgeCollapses = g_validationConfig.decimationMaxEdgeCollapses;
+		o.preserveBoundary = g_validationConfig.decimationPreserveBoundary;
+		o.preserveFeatures = g_validationConfig.decimationPreserveFeatures;
+		return o;
+	}
+
 	// ---- helpers ----
 
 	static std::string timestampString()
@@ -801,11 +819,35 @@ namespace hdt
 		if (!g_validationConfig.outputDir.empty() && g_validationConfig.improveNIFs && !nifAssets.empty()) {
 			bodyStream << "\n== Phase 5: Improved NIF Generation ==\n";
 			bodyStream << "  Output directory: " << g_validationConfig.outputDir << "\n";
-			for (const auto& asset : nifAssets) {
-				if (GenerateImprovedNIF(asset.nifPath, g_validationConfig.outputDir)) {
-					++report.nifImprovedCount;
-					bodyStream << "  [IMPROVED] " << asset.nifPath << "\n";
+			if (g_validationConfig.decimateCollisionMeshesOffline) {
+				bodyStream << "  Collision mesh decimation: enabled (offline)\n";
+				bodyStream << "  Target vertex ratio: " << g_validationConfig.decimationTargetVertexRatio << "\n";
+				bodyStream << "  Max volume loss (%): " << g_validationConfig.decimationMaxVolumeLossPercent << "\n";
+			}
+
+			auto decimationOptions = makeNIFDecimationOptions();
+			std::atomic<int> improvedCount{ 0 };
+			std::vector<std::string> improvedPaths;
+			std::mutex improvedLock;
+
+			auto improveOne = [&](const PhysicsAsset& asset) {
+				if (GenerateImprovedNIF(asset.nifPath, g_validationConfig.outputDir, decimationOptions)) {
+					improvedCount.fetch_add(1);
+					std::lock_guard<decltype(improvedLock)> l(improvedLock);
+					improvedPaths.push_back(asset.nifPath);
 				}
+			};
+
+			if (g_validationConfig.parallelNIFImprovement && nifAssets.size() > 1) {
+				tbb::parallel_for_each(nifAssets.begin(), nifAssets.end(), improveOne);
+			} else {
+				for (const auto& asset : nifAssets)
+					improveOne(asset);
+			}
+
+			report.nifImprovedCount += improvedCount.load();
+			for (const auto& p : improvedPaths) {
+				bodyStream << "  [IMPROVED] " << p << "\n";
 			}
 			bodyStream << "  " << report.nifImprovedCount << " improved NIF file(s) written.\n";
 		}
@@ -1012,12 +1054,21 @@ namespace hdt
 
 		auto nifAssets = discoverPhysicsNIFs();
 		result.totalNIFsFound = static_cast<int>(nifAssets.size());
+		auto decimationOptions = makeNIFDecimationOptions();
 
-		for (const auto& asset : nifAssets) {
-			if (GenerateImprovedNIF(asset.nifPath, outputDir)) {
-				++result.nifImprovedCount;
+		std::atomic<int> improvedCount{ 0 };
+		auto improveOne = [&](const PhysicsAsset& asset) {
+			if (GenerateImprovedNIF(asset.nifPath, outputDir, decimationOptions)) {
+				improvedCount.fetch_add(1);
 			}
-		}
+		};
+
+		if (g_validationConfig.parallelNIFImprovement && nifAssets.size() > 1)
+			tbb::parallel_for_each(nifAssets.begin(), nifAssets.end(), improveOne);
+		else
+			for (const auto& asset : nifAssets) improveOne(asset);
+
+		result.nifImprovedCount = improvedCount.load();
 
 		return result;
 	}

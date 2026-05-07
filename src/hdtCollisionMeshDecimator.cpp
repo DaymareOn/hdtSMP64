@@ -2,6 +2,9 @@
 
 #include <cmath>
 #include <limits>
+#include <mutex>
+#include <unordered_map>
+#include <unordered_set>
 
 namespace hdt
 {
@@ -334,7 +337,6 @@ namespace hdt
 			uint32_t remove = 0;
 			btVector3 newPos = btVector3(0, 0, 0);
 			float cost = std::numeric_limits<float>::max();
-			float localVolumeDelta = 0.0f;
 		};
 
 		static bool gatherIncidentTriangles(
@@ -472,15 +474,6 @@ namespace hdt
 			int n = 0;
 			for (const auto& v : vertices)
 				if (v.alive)
-					++n;
-			return n;
-		}
-
-		static int aliveTriangleCount(const std::vector<Triangle>& triangles)
-		{
-			int n = 0;
-			for (const auto& t : triangles)
-				if (t.alive)
 					++n;
 			return n;
 		}
@@ -775,4 +768,3 @@ namespace hdt
 		return out;
 	}
 }
-

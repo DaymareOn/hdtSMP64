@@ -131,6 +131,32 @@ namespace hdt
 					g_validationConfig.outputDir = reader.readText();
 				} else if (reader.GetLocalName() == "improve-nifs") {
 					g_validationConfig.improveNIFs = reader.readBool();
+				} else if (reader.GetLocalName() == "parallel-nif-improvement") {
+					g_validationConfig.parallelNIFImprovement = reader.readBool();
+				} else if (reader.GetLocalName() == "decimate-collision-meshes-offline") {
+					g_validationConfig.decimateCollisionMeshesOffline = reader.readBool();
+				} else if (reader.GetLocalName() == "decimation-target-vertex-ratio") {
+					g_validationConfig.decimationTargetVertexRatio = reader.readFloat();
+				} else if (reader.GetLocalName() == "decimation-target-vertex-count") {
+					g_validationConfig.decimationTargetVertexCount = reader.readInt();
+				} else if (reader.GetLocalName() == "decimation-qem-cost-threshold") {
+					g_validationConfig.decimationQemCostThreshold = reader.readFloat();
+				} else if (reader.GetLocalName() == "decimation-short-edge-ratio") {
+					g_validationConfig.decimationShortEdgeRatio = reader.readFloat();
+				} else if (reader.GetLocalName() == "decimation-max-volume-loss-percent") {
+					g_validationConfig.decimationMaxVolumeLossPercent = reader.readFloat();
+				} else if (reader.GetLocalName() == "decimation-max-local-volume-change-percent") {
+					g_validationConfig.decimationMaxLocalVolumeChangePercent = reader.readFloat();
+				} else if (reader.GetLocalName() == "decimation-max-normal-deviation-degrees") {
+					g_validationConfig.decimationMaxNormalDeviationDegrees = reader.readFloat();
+				} else if (reader.GetLocalName() == "decimation-max-point-removals") {
+					g_validationConfig.decimationMaxPointRemovals = reader.readInt();
+				} else if (reader.GetLocalName() == "decimation-max-edge-collapses") {
+					g_validationConfig.decimationMaxEdgeCollapses = reader.readInt();
+				} else if (reader.GetLocalName() == "decimation-preserve-boundary") {
+					g_validationConfig.decimationPreserveBoundary = reader.readBool();
+				} else if (reader.GetLocalName() == "decimation-preserve-features") {
+					g_validationConfig.decimationPreserveFeatures = reader.readBool();
 				} else {
 					logger::warn("Unknown config : {}", reader.GetLocalName());
 					reader.skipCurrentElement();

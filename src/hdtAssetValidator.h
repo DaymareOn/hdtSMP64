@@ -11,6 +11,19 @@ namespace hdt
 		int warnTriangleCount = 10000;
 		std::string outputDir;  // if set, improved XML copies are written here
 		bool improveNIFs = false;
+		bool decimateCollisionMeshesOffline = false;
+		float decimationTargetVertexRatio = 0.99f;
+		int decimationTargetVertexCount = 0;
+		float decimationQemCostThreshold = 1.0f;
+		float decimationShortEdgeRatio = 0.01f;
+		float decimationMaxVolumeLossPercent = 1.0f;
+		float decimationMaxLocalVolumeChangePercent = 1.0f;
+		float decimationMaxNormalDeviationDegrees = 25.0f;
+		int decimationMaxPointRemovals = 256;
+		int decimationMaxEdgeCollapses = 4096;
+		bool decimationPreserveBoundary = true;
+		bool decimationPreserveFeatures = true;
+		bool parallelNIFImprovement = true;
 	};
 
 	extern ValidationConfig g_validationConfig;
