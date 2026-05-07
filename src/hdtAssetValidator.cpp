@@ -2,8 +2,8 @@
 
 #include "ActorManager.h"
 #include "NetImmerseUtils.h"
-#include "hdtNIFValidator.h"
 #include "hdtNIFImprover.h"
+#include "hdtNIFValidator.h"
 #include "hdtSCHValidator.h"
 #include "hdtXMLImprover.h"
 #include "hdtXSDValidator.h"
