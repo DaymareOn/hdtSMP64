@@ -458,10 +458,38 @@ bool SMPDebug_Execute(
 		return true;
 	}
 
-	if (_strnicmp(buffer, "fixnifs", MAX_PATH) == 0) {
-		std::string outputDir = buffer2[0] != '\0' ? std::string(buffer2) : hdt::g_validationConfig.outputDir;
+	const bool isFixNIFSplitAlias = _strnicmp(buffer, "fix", MAX_PATH) == 0 && _stricmp(buffer2, "nif") == 0;
+	if (isFixNIFSplitAlias) {
+		const char* arg1 = buffer3;
+		const char* arg2 = buffer4;
+		const bool hasTooManyArgs = buffer5[0] != '\0';
+
+		bool gearOnly = false;
+		std::string outputDir;
+
+		if (hasTooManyArgs) {
+			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Usage: smp fix nif [gear] [output_dir]");
+			return true;
+		}
+
+		if (arg1[0] != '\0') {
+			if (_stricmp(arg1, "gear") == 0) {
+				gearOnly = true;
+				if (arg2[0] != '\0')
+					outputDir = arg2;
+			} else {
+				outputDir = arg1;
+				if (arg2[0] != '\0') {
+					RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Usage: smp fix nif [gear] [output_dir]");
+					return true;
+				}
+			}
+		}
+
+		if (outputDir.empty())
+			outputDir = hdt::g_validationConfig.outputDir;
 		if (outputDir.empty()) {
-			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Output directory not set. Usage: smp fixnifs <output_dir> or set <validation><output-dir> in config.");
+			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Output directory not set. Usage: smp fix nif [gear] [output_dir] or set <validation><output-dir> in config.");
 			return true;
 		}
 
@@ -471,29 +499,33 @@ bool SMPDebug_Execute(
 			return true;
 		}
 
-		RE::ConsoleLog::GetSingleton()->Print(
-			"[HDT-SMP] NIF cleanup started in background. Output directory: %s",
-			outputDir.c_str());
+		const char* startMessage = gearOnly ?
+		                               "[HDT-SMP] Equipped gear NIF cleanup started in background. Output directory: %s" :
+		                               "[HDT-SMP] NIF cleanup started in background. Output directory: %s";
+		RE::ConsoleLog::GetSingleton()->Print(startMessage, outputDir.c_str());
 
-		std::thread([outputDir = std::move(outputDir)]() {
+		std::thread([gearOnly, outputDir = std::move(outputDir)]() {
 			try {
-				auto result = hdt::ImprovePhysicsNIFsOnDemand(outputDir);
+				auto result = gearOnly ?
+				                  hdt::ImproveEquippedPhysicsNIFsOnDemand(outputDir) :
+				                  hdt::ImprovePhysicsNIFsOnDemand(outputDir);
 				auto* console = RE::ConsoleLog::GetSingleton();
-				console->Print("[HDT-SMP] NIF cleanup: %d NIF(s) processed, %d cleaned file(s) written to %s",
+				console->Print("[HDT-SMP] %s NIF cleanup: %d NIF(s) processed, %d cleaned file(s) written to %s",
+					gearOnly ? "Equipped gear" : "Full",
 					result.totalNIFsFound,
 					result.nifImprovedCount,
 					outputDir.c_str());
 				for (const auto& err : result.errors) {
 					console->Print("[HDT-SMP] NIF cleanup error: %s", err.c_str());
 				}
-				logger::info("[Validator] NIF cleanup done: {} NIF(s) processed, {} improved, output={}",
-					result.totalNIFsFound, result.nifImprovedCount, outputDir);
+				logger::info("[Validator] NIF cleanup done: gearOnly={}, {} NIF(s) processed, {} improved, output={}",
+					gearOnly, result.totalNIFsFound, result.nifImprovedCount, outputDir);
 			} catch (const std::exception& e) {
 				RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] NIF cleanup failed with error: %s", e.what());
-				logger::error("[Validator] smp fixnifs threw: {}", e.what());
+				logger::error("[Validator] smp fix nif threw: {}", e.what());
 			} catch (...) {
 				RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] NIF cleanup failed with an unknown error");
-				logger::error("[Validator] smp fixnifs threw an unknown exception");
+				logger::error("[Validator] smp fix nif threw an unknown exception");
 			}
 			s_nifFixRunning.store(false);
 		}).detach();
@@ -809,7 +841,7 @@ extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* a_s
 
 		unusedCommand->functionName = "SMPDebug";
 		unusedCommand->shortName = "smp";
-		unusedCommand->helpString = "smp <reset|dumptree|detail|list|on|off|QueryOverride|validate [gear]|fix xml [gear] [output_dir]|fixnifs [output_dir]>";
+		unusedCommand->helpString = "smp <reset|dumptree|detail|list|on|off|QueryOverride|validate [gear]|fix xml [gear] [output_dir]|fix nif [gear] [output_dir]>";
 		unusedCommand->referenceFunction = 0;
 		unusedCommand->numParams = 8;
 		unusedCommand->params = params;

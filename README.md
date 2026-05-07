@@ -67,7 +67,7 @@ See [wiki](https://github.com/DaymareOn/hdtSMP64/wiki/6-%E2%80%90-How-to-compile
 
 - `smp validate [gear]` validates all discovered physics XMLs, or only currently equipped gear.
 - `smp fix xml [gear] [output_dir]` writes cleaned copies of physics XMLs without modifying originals.
-- `smp fixnifs [output_dir]` writes cleaned copies of physics-enabled NIFs without modifying originals.
+- `smp fix nif [gear] [output_dir]` writes cleaned copies of physics-enabled NIFs without modifying originals.
 
 ## Credits
 

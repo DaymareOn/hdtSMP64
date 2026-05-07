@@ -83,4 +83,8 @@ namespace hdt
 	// files where bogus nodes can be removed.
 	NIFImproveResult ImprovePhysicsNIFsOnDemand(const std::string& outputDir);
 
+	// Scan only NIFs associated with currently equipped physics assets and write
+	// improved copies for files where bogus nodes can be removed.
+	NIFImproveResult ImproveEquippedPhysicsNIFsOnDemand(const std::string& outputDir);
+
 }  // namespace hdt

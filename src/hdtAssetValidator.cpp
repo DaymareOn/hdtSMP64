@@ -1120,4 +1120,32 @@ namespace hdt
 		return result;
 	}
 
+	NIFImproveResult ImproveEquippedPhysicsNIFsOnDemand(const std::string& outputDir)
+	{
+		NIFImproveResult result;
+		if (outputDir.empty()) {
+			result.errors.push_back("Output directory is empty");
+			return result;
+		}
+
+		std::unordered_set<std::string> equippedXMLs;
+		for (const auto& xmlPath : collectEquippedPhysicsXMLPaths()) {
+			equippedXMLs.insert(normalisePath(xmlPath));
+		}
+
+		auto nifAssets = discoverPhysicsNIFs();
+		for (const auto& asset : nifAssets) {
+			if (!asset.xmlExists)
+				continue;
+			if (equippedXMLs.count(normalisePath(asset.xmlPath)) == 0)
+				continue;
+			++result.totalNIFsFound;
+			if (GenerateImprovedNIF(asset.nifPath, outputDir)) {
+				++result.nifImprovedCount;
+			}
+		}
+
+		return result;
+	}
+
 }  // namespace hdt
