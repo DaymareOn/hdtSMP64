@@ -79,6 +79,8 @@ set(SOURCE_FILES
 	"${SOURCE_DIR}/hdtConvertNi.h"
 	"${SOURCE_DIR}/hdtSkyrimSystem.cpp"
 	"${SOURCE_DIR}/hdtSkyrimSystem.h"
+	"${SOURCE_DIR}/hdtCollisionMeshDecimator.cpp"
+	"${SOURCE_DIR}/hdtCollisionMeshDecimator.h"
 	"${SOURCE_DIR}/hdtAssetValidator.cpp"
 	"${SOURCE_DIR}/hdtAssetValidator.h"
 	"${SOURCE_DIR}/hdtXSDValidator.cpp"
