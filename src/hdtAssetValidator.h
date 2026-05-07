@@ -19,8 +19,8 @@ namespace hdt
 		float decimationMaxVolumeLossPercent = 1.0f;
 		float decimationMaxLocalVolumeChangePercent = 1.0f;
 		float decimationMaxNormalDeviationDegrees = 25.0f;
-		int decimationMaxPointRemovals = 256;
-		int decimationMaxEdgeCollapses = 4096;
+		int decimationMaxPointRemovals = 256;   // legacy/no-op: retained for config compatibility
+		int decimationMaxEdgeCollapses = 4096;  // legacy/no-op: retained for config compatibility
 		bool decimationPreserveBoundary = true;
 		bool decimationPreserveFeatures = true;
 		bool parallelNIFImprovement = true;

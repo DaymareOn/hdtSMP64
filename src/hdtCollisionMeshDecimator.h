@@ -20,8 +20,8 @@ namespace hdt
 		float maxVolumeLossPercent = 1.0f;
 		float maxNormalDeviationDegrees = 25.0f;
 		float maxLocalVolumeChangePercent = 1.0f;
-		int maxPointRemovals = 256;
-		int maxEdgeCollapses = 4096;
+		int maxPointRemovals = 256;   // legacy/no-op: retained for config compatibility
+		int maxEdgeCollapses = 4096;  // legacy/no-op: retained for config compatibility
 	};
 
 	struct CollisionMeshDecimationStats
