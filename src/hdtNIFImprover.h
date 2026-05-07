@@ -31,4 +31,15 @@ namespace hdt
 		const std::string& srcNIFPath,
 		const std::string& outputDir,
 		const NIFDecimationOptions& options = {});
+
+	// Copies a NIF file unchanged to:
+	//   <outputDir>/<path-relative-to-data/>
+	// Used to keep _0/_1 NIF pairs consistent in the output directory when
+	// one member of the pair was improved but the other needed no changes.
+	//
+	// Returns true  — the file was successfully copied.
+	// Returns false — I/O error.
+	bool CopyNIFToOutput(
+		const std::string& srcNIFPath,
+		const std::string& outputDir);
 }

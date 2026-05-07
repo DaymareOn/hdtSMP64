@@ -466,4 +466,17 @@ namespace hdt
 
 		return writeNifFile(parsed, outPath.string());
 	}
+
+	bool CopyNIFToOutput(const std::string& srcNIFPath, const std::string& outputDir)
+	{
+		namespace fs = std::filesystem;
+		std::string relative = stripDataPrefix(srcNIFPath);
+		fs::path outPath = fs::path(outputDir) / relative;
+		std::error_code ec;
+		fs::create_directories(outPath.parent_path(), ec);
+		if (ec)
+			return false;
+		fs::copy_file(srcNIFPath, outPath, fs::copy_options::overwrite_existing, ec);
+		return !ec;
+	}
 }

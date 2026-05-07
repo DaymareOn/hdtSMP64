@@ -10,6 +10,7 @@
 
 #include <pugixml.hpp>
 
+#include <algorithm>
 #include <chrono>
 #include <ctime>
 #include <filesystem>
@@ -19,6 +20,7 @@
 #include <sstream>
 #include <string>
 #include <thread>
+#include <map>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -830,19 +832,58 @@ namespace hdt
 			std::vector<std::string> improvedPaths;
 			std::mutex improvedLock;
 
-			auto improveOne = [&](const PhysicsAsset& asset) {
-				if (GenerateImprovedNIF(asset.nifPath, g_validationConfig.outputDir, decimationOptions)) {
-					improvedCount.fetch_add(1);
-					std::lock_guard<std::mutex> l(improvedLock);
-					improvedPaths.push_back(asset.nifPath);
+			// Group assets by base stem so _0/_1 pairs are processed atomically:
+			// if one member of a pair is improved, the other is also written to the
+			// output directory (as a plain copy if it needed no changes) so the game
+			// never sees a half-updated pair.
+			auto nifBaseStem = [&](const std::string& normPath) -> std::string {
+				if (normPath.size() > 6 &&
+				    (normPath.substr(normPath.size() - 6) == "_0.nif" ||
+				     normPath.substr(normPath.size() - 6) == "_1.nif"))
+					return normPath.substr(0, normPath.size() - 6);
+				return normPath.size() > 4 ? normPath.substr(0, normPath.size() - 4) : normPath;
+			};
+
+			std::map<std::string, std::vector<size_t>> stemGroups;
+			for (size_t i = 0; i < nifAssets.size(); ++i)
+				stemGroups[nifBaseStem(normalisePath(nifAssets[i].nifPath))].push_back(i);
+
+			std::vector<std::vector<size_t>> groups;
+			groups.reserve(stemGroups.size());
+			for (auto& [stem, indices] : stemGroups)
+				groups.push_back(std::move(indices));
+
+			auto improveGroup = [&](const std::vector<size_t>& indices) {
+				std::vector<bool> results;
+				results.reserve(indices.size());
+				for (size_t idx : indices)
+					results.push_back(GenerateImprovedNIF(nifAssets[idx].nifPath, g_validationConfig.outputDir, decimationOptions));
+
+				bool anyImproved = false;
+				for (bool r : results)
+					anyImproved = anyImproved || r;
+				if (!anyImproved)
+					return;
+
+				for (size_t k = 0; k < indices.size(); ++k) {
+					const std::string& path = nifAssets[indices[k]].nifPath;
+					if (results[k]) {
+						improvedCount.fetch_add(1);
+						std::lock_guard<std::mutex> l(improvedLock);
+						improvedPaths.push_back(path);
+					} else {
+						// Sibling was improved; copy this member unchanged so the
+						// pair is complete in the output directory.
+						CopyNIFToOutput(path, g_validationConfig.outputDir);
+					}
 				}
 			};
 
-			if (g_validationConfig.parallelNIFImprovement && nifAssets.size() > 1) {
-				tbb::parallel_for_each(nifAssets.begin(), nifAssets.end(), improveOne);
+			if (g_validationConfig.parallelNIFImprovement && groups.size() > 1) {
+				tbb::parallel_for_each(groups.begin(), groups.end(), improveGroup);
 			} else {
-				for (const auto& asset : nifAssets)
-					improveOne(asset);
+				for (const auto& g : groups)
+					improveGroup(g);
 			}
 
 			report.nifImprovedCount += improvedCount.load();
@@ -1056,19 +1097,49 @@ namespace hdt
 		result.totalNIFsFound = static_cast<int>(nifAssets.size());
 		auto decimationOptions = makeNIFDecimationOptions();
 
+		// Group by base stem so _0/_1 pairs are processed atomically (same as Phase 5).
+		auto nifBaseStem = [](const std::string& normPath) -> std::string {
+			if (normPath.size() > 6 &&
+			    (normPath.substr(normPath.size() - 6) == "_0.nif" ||
+			     normPath.substr(normPath.size() - 6) == "_1.nif"))
+				return normPath.substr(0, normPath.size() - 6);
+			return normPath.size() > 4 ? normPath.substr(0, normPath.size() - 4) : normPath;
+		};
+
+		std::map<std::string, std::vector<size_t>> stemGroups;
+		for (size_t i = 0; i < nifAssets.size(); ++i)
+			stemGroups[nifBaseStem(normalisePath(nifAssets[i].nifPath))].push_back(i);
+
+		std::vector<std::vector<size_t>> groups;
+		groups.reserve(stemGroups.size());
+		for (auto& [stem, indices] : stemGroups)
+			groups.push_back(std::move(indices));
+
 		std::atomic<int> improvedCount{ 0 };
-		auto improveOne = [&](const PhysicsAsset& asset) {
-			if (GenerateImprovedNIF(asset.nifPath, outputDir, decimationOptions)) {
-				improvedCount.fetch_add(1);
+		auto improveGroup = [&](const std::vector<size_t>& indices) {
+			std::vector<bool> results;
+			results.reserve(indices.size());
+			for (size_t idx : indices)
+				results.push_back(GenerateImprovedNIF(nifAssets[idx].nifPath, outputDir, decimationOptions));
+
+			bool anyImproved = false;
+			for (bool r : results)
+				anyImproved = anyImproved || r;
+			if (!anyImproved)
+				return;
+
+			improvedCount.fetch_add(static_cast<int>(std::count(results.begin(), results.end(), true)));
+			for (size_t k = 0; k < indices.size(); ++k) {
+				if (!results[k])
+					CopyNIFToOutput(nifAssets[indices[k]].nifPath, outputDir);
 			}
 		};
 
-		if (g_validationConfig.parallelNIFImprovement && nifAssets.size() > 1)
-			tbb::parallel_for_each(nifAssets.begin(), nifAssets.end(), improveOne);
+		if (g_validationConfig.parallelNIFImprovement && groups.size() > 1)
+			tbb::parallel_for_each(groups.begin(), groups.end(), improveGroup);
 		else
-			for (const auto& asset : nifAssets) {
-				improveOne(asset);
-			}
+			for (const auto& g : groups)
+				improveGroup(g);
 
 		result.nifImprovedCount = improvedCount.load();
 
