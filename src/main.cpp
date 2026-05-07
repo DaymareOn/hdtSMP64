@@ -500,19 +500,17 @@ bool SMPDebug_Execute(
 		return true;
 	}
 
-	const bool isFixXMLAlias = _strnicmp(buffer, "fixxml", MAX_PATH) == 0;
 	const bool isFixXMLSplitAlias = _strnicmp(buffer, "fix", MAX_PATH) == 0 && _stricmp(buffer2, "xml") == 0;
-	if (isFixXMLAlias || isFixXMLSplitAlias) {
-		const char* arg1 = isFixXMLAlias ? buffer2 : buffer3;
-		const char* arg2 = isFixXMLAlias ? buffer3 : buffer4;
-		const bool hasTooManyArgs = isFixXMLAlias ? buffer4[0] != '\0' : buffer5[0] != '\0';
+	if (isFixXMLSplitAlias) {
+		const char* arg1 = buffer3;
+		const char* arg2 = buffer4;
+		const bool hasTooManyArgs = buffer5[0] != '\0';
 
 		bool gearOnly = false;
 		std::string outputDir;
 
 		if (hasTooManyArgs) {
-			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Usage: smp fixxml [gear] [output_dir]");
-			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Alias forms: smp fix xml | smp fix xml gear | smp fix xml <output_dir> | smp fix xml gear <output_dir>");
+			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Usage: smp fix xml [gear] [output_dir]");
 			return true;
 		}
 
@@ -524,8 +522,7 @@ bool SMPDebug_Execute(
 			} else {
 				outputDir = arg1;
 				if (arg2[0] != '\0') {
-					RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Usage: smp fixxml [gear] [output_dir]");
-					RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Alias forms: smp fix xml | smp fix xml gear | smp fix xml <output_dir> | smp fix xml gear <output_dir>");
+					RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Usage: smp fix xml [gear] [output_dir]");
 					return true;
 				}
 			}
@@ -534,8 +531,7 @@ bool SMPDebug_Execute(
 		if (outputDir.empty())
 			outputDir = hdt::g_validationConfig.outputDir;
 		if (outputDir.empty()) {
-			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Output directory not set. Usage: smp fixxml [gear] [output_dir] or set <validation><output-dir> in config.");
-			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Alias forms: smp fix xml | smp fix xml gear | smp fix xml <output_dir> | smp fix xml gear <output_dir>");
+			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Output directory not set. Usage: smp fix xml [gear] [output_dir] or set <validation><output-dir> in config.");
 			return true;
 		}
 
@@ -570,10 +566,10 @@ bool SMPDebug_Execute(
 					gearOnly, result.totalXMLsFound, result.xmlImprovedCount, outputDir);
 			} catch (const std::exception& e) {
 				RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] XML cleanup failed with error: %s", e.what());
-				logger::error("[Validator] smp fixxml threw: {}", e.what());
+				logger::error("[Validator] smp fix xml threw: {}", e.what());
 			} catch (...) {
 				RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] XML cleanup failed with an unknown error");
-				logger::error("[Validator] smp fixxml threw an unknown exception");
+				logger::error("[Validator] smp fix xml threw an unknown exception");
 			}
 			s_xmlFixRunning.store(false);
 		}).detach();
@@ -813,7 +809,7 @@ extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* a_s
 
 		unusedCommand->functionName = "SMPDebug";
 		unusedCommand->shortName = "smp";
-		unusedCommand->helpString = "smp <reset|dumptree|detail|list|on|off|QueryOverride|validate [gear]|fixxml [gear] [output_dir]|fix xml [gear] [output_dir]|fixnifs [output_dir]>";
+		unusedCommand->helpString = "smp <reset|dumptree|detail|list|on|off|QueryOverride|validate [gear]|fix xml [gear] [output_dir]|fixnifs [output_dir]>";
 		unusedCommand->referenceFunction = 0;
 		unusedCommand->numParams = 8;
 		unusedCommand->params = params;
