@@ -614,20 +614,8 @@ namespace hdt
 		recomputeEdgeFlags(vertices, triangles, options);
 		recomputeQuadrics(vertices, triangles);
 
-		int targetByRatio = static_cast<int>(std::floor(static_cast<float>(out.stats.originalVertexCount) *
-														clamp01(options.targetVertexRatio)));
-		int targetVertices = out.stats.originalVertexCount;
-		if (options.targetVertexCount > 0)
-			targetVertices = std::min(targetVertices, options.targetVertexCount);
-		if (targetByRatio > 0)
-			targetVertices = std::min(targetVertices, targetByRatio);
-		targetVertices = std::max(targetVertices, 4);
-
 		// Pass A: short-edge point-decimation style removal.
-		for (int iter = 0; iter < options.maxPointRemovals; ++iter) {
-			if (aliveVertexCount(vertices) <= targetVertices)
-				break;
-
+		for (;;) {
 			std::vector<EdgeKey> edges;
 			collectCandidateEdges(vertices, triangles, edges);
 			if (edges.empty())
@@ -665,10 +653,7 @@ namespace hdt
 		}
 
 		// Pass B: constrained QEM edge collapse.
-		for (int iter = 0; iter < options.maxEdgeCollapses; ++iter) {
-			if (aliveVertexCount(vertices) <= targetVertices)
-				break;
-
+		for (;;) {
 			std::vector<EdgeKey> edges;
 			collectCandidateEdges(vertices, triangles, edges);
 			if (edges.empty())
