@@ -68,6 +68,18 @@ namespace hdt
 		return p;
 	}
 
+	// Returns the base stem of a NIF path by stripping the _0.nif or _1.nif
+	// suffix (or just the .nif extension for unpaired NIFs). Used to group
+	// _0/_1 pairs for atomic processing.
+	static std::string nifBaseStem(const std::string& normPath)
+	{
+		if (normPath.size() > 6 &&
+		    (normPath.substr(normPath.size() - 6) == "_0.nif" ||
+		     normPath.substr(normPath.size() - 6) == "_1.nif"))
+			return normPath.substr(0, normPath.size() - 6);
+		return normPath.size() > 4 ? normPath.substr(0, normPath.size() - 4) : normPath;
+	}
+
 	static std::pair<std::string, bool> resolveXMLPath(const std::string& rawPath)
 	{
 		if (rawPath.empty())
@@ -836,14 +848,6 @@ namespace hdt
 			// if one member of a pair is improved, the other is also written to the
 			// output directory (as a plain copy if it needed no changes) so the game
 			// never sees a half-updated pair.
-			auto nifBaseStem = [&](const std::string& normPath) -> std::string {
-				if (normPath.size() > 6 &&
-				    (normPath.substr(normPath.size() - 6) == "_0.nif" ||
-				     normPath.substr(normPath.size() - 6) == "_1.nif"))
-					return normPath.substr(0, normPath.size() - 6);
-				return normPath.size() > 4 ? normPath.substr(0, normPath.size() - 4) : normPath;
-			};
-
 			std::map<std::string, std::vector<size_t>> stemGroups;
 			for (size_t i = 0; i < nifAssets.size(); ++i)
 				stemGroups[nifBaseStem(normalisePath(nifAssets[i].nifPath))].push_back(i);
@@ -859,10 +863,7 @@ namespace hdt
 				for (size_t idx : indices)
 					results.push_back(GenerateImprovedNIF(nifAssets[idx].nifPath, g_validationConfig.outputDir, decimationOptions));
 
-				bool anyImproved = false;
-				for (bool r : results)
-					anyImproved = anyImproved || r;
-				if (!anyImproved)
+				if (!std::any_of(results.begin(), results.end(), [](bool r) { return r; }))
 					return;
 
 				for (size_t k = 0; k < indices.size(); ++k) {
@@ -874,7 +875,8 @@ namespace hdt
 					} else {
 						// Sibling was improved; copy this member unchanged so the
 						// pair is complete in the output directory.
-						CopyNIFToOutput(path, g_validationConfig.outputDir);
+						if (!CopyNIFToOutput(path, g_validationConfig.outputDir))
+							logger::warn("[Validator] Failed to copy unchanged NIF sibling to output: {}", path);
 					}
 				}
 			};
@@ -1098,14 +1100,6 @@ namespace hdt
 		auto decimationOptions = makeNIFDecimationOptions();
 
 		// Group by base stem so _0/_1 pairs are processed atomically (same as Phase 5).
-		auto nifBaseStem = [](const std::string& normPath) -> std::string {
-			if (normPath.size() > 6 &&
-			    (normPath.substr(normPath.size() - 6) == "_0.nif" ||
-			     normPath.substr(normPath.size() - 6) == "_1.nif"))
-				return normPath.substr(0, normPath.size() - 6);
-			return normPath.size() > 4 ? normPath.substr(0, normPath.size() - 4) : normPath;
-		};
-
 		std::map<std::string, std::vector<size_t>> stemGroups;
 		for (size_t i = 0; i < nifAssets.size(); ++i)
 			stemGroups[nifBaseStem(normalisePath(nifAssets[i].nifPath))].push_back(i);
@@ -1122,16 +1116,15 @@ namespace hdt
 			for (size_t idx : indices)
 				results.push_back(GenerateImprovedNIF(nifAssets[idx].nifPath, outputDir, decimationOptions));
 
-			bool anyImproved = false;
-			for (bool r : results)
-				anyImproved = anyImproved || r;
-			if (!anyImproved)
+			if (!std::any_of(results.begin(), results.end(), [](bool r) { return r; }))
 				return;
 
 			improvedCount.fetch_add(static_cast<int>(std::count(results.begin(), results.end(), true)));
 			for (size_t k = 0; k < indices.size(); ++k) {
-				if (!results[k])
-					CopyNIFToOutput(nifAssets[indices[k]].nifPath, outputDir);
+				if (!results[k]) {
+					if (!CopyNIFToOutput(nifAssets[indices[k]].nifPath, outputDir))
+						logger::warn("[Validator] Failed to copy unchanged NIF sibling to output: {}", nifAssets[indices[k]].nifPath);
+				}
 			}
 		};
 
