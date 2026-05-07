@@ -487,6 +487,79 @@ bool SMPDebug_Execute(
 		return true;
 	}
 
+	const bool isFixXMLAlias = _strnicmp(buffer, "fixxml", MAX_PATH) == 0;
+	const bool isFixXMLSplitAlias = _strnicmp(buffer, "fix", MAX_PATH) == 0 && _stricmp(buffer2, "xml") == 0;
+	if (isFixXMLAlias || isFixXMLSplitAlias) {
+		const char* arg1 = isFixXMLAlias ? buffer2 : buffer3;
+		const char* arg2 = isFixXMLAlias ? buffer3 : "";
+
+		bool gearOnly = false;
+		std::string outputDir;
+
+		if (arg1[0] != '\0') {
+			if (_stricmp(arg1, "gear") == 0) {
+				gearOnly = true;
+				if (arg2[0] != '\0')
+					outputDir = arg2;
+			} else {
+				outputDir = arg1;
+				if (arg2[0] != '\0') {
+					RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Usage: smp fixxml [gear] [output_dir]");
+					RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Alias: smp fix xml [gear|output_dir]");
+					return true;
+				}
+			}
+		}
+
+		if (outputDir.empty())
+			outputDir = hdt::g_validationConfig.outputDir;
+		if (outputDir.empty()) {
+			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Output directory not set. Usage: smp fixxml [gear] [output_dir] or set <validation><output-dir> in config.");
+			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Alias: smp fix xml [gear|output_dir]");
+			return true;
+		}
+
+		static std::atomic<bool> s_xmlFixRunning{ false };
+		if (s_xmlFixRunning.exchange(true)) {
+			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] XML cleanup is already running.");
+			return true;
+		}
+
+		const char* startMessage = gearOnly ?
+                                       "[HDT-SMP] Equipped gear XML cleanup started in background. Output directory: %s" :
+                                       "[HDT-SMP] XML cleanup started in background. Output directory: %s";
+		RE::ConsoleLog::GetSingleton()->Print(
+			startMessage,
+			outputDir.c_str());
+
+		std::thread([gearOnly, outputDir = std::move(outputDir)]() {
+			try {
+				auto result = gearOnly ?
+                                  hdt::ImproveEquippedPhysicsXMLsOnDemand(outputDir) :
+                                  hdt::ImprovePhysicsXMLsOnDemand(outputDir);
+				auto* console = RE::ConsoleLog::GetSingleton();
+				console->Print("[HDT-SMP] %s XML cleanup: %d XML(s) scanned, %d cleaned file(s) written to %s",
+					gearOnly ? "Equipped gear" : "Full",
+					result.totalXMLsFound,
+					result.xmlImprovedCount,
+					outputDir.c_str());
+				for (const auto& err : result.errors) {
+					console->Print("[HDT-SMP] XML cleanup error: %s", err.c_str());
+				}
+				logger::info("[Validator] XML cleanup done: gearOnly={}, {} XML(s) scanned, {} improved, output={}",
+					gearOnly, result.totalXMLsFound, result.xmlImprovedCount, outputDir);
+			} catch (const std::exception& e) {
+				RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] XML cleanup failed with error: %s", e.what());
+				logger::error("[Validator] smp fixxml threw: {}", e.what());
+			} catch (...) {
+				RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] XML cleanup failed with an unknown error");
+				logger::error("[Validator] smp fixxml threw an unknown exception");
+			}
+			s_xmlFixRunning.store(false);
+		}).detach();
+		return true;
+	}
+
 	auto skeletons = hdt::ActorManager::instance()->getSkeletons();
 
 	size_t activeSkeletons = 0;
@@ -724,7 +797,7 @@ extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* a_s
 
 		unusedCommand->functionName = "SMPDebug";
 		unusedCommand->shortName = "smp";
-		unusedCommand->helpString = "smp <reset|dumptree|detail|list|on|off|QueryOverride|validate [gear]>";
+		unusedCommand->helpString = "smp <reset|dumptree|detail|list|on|off|QueryOverride|validate [gear]|fixxml [gear] [output_dir]|fix xml [gear|output_dir]|fixnifs [output_dir]>";
 		unusedCommand->referenceFunction = 0;
 		unusedCommand->numParams = 3;
 		unusedCommand->params = params;

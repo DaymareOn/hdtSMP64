@@ -406,6 +406,86 @@ namespace hdt
 		return result;
 	}
 
+	static void enqueueUniqueXMLPath(const std::string& path,
+		std::unordered_set<std::string>& seen,
+		std::vector<std::string>& queue)
+	{
+		if (path.empty())
+			return;
+		auto norm = normalisePath(path);
+		if (seen.insert(norm).second)
+			queue.push_back(path);
+	}
+
+	static std::vector<std::string> collectAllPhysicsXMLPaths()
+	{
+		std::unordered_set<std::string> seen;
+		std::vector<std::string> queue;
+
+		auto bbpEntries = discoverDefaultBBPXMLs();
+		for (const auto& entry : bbpEntries)
+			if (entry.xmlExists)
+				enqueueUniqueXMLPath(entry.xmlPath, seen, queue);
+
+		auto xmlFiles = discoverXMLFiles();
+		for (const auto& xmlPath : xmlFiles)
+			enqueueUniqueXMLPath(xmlPath, seen, queue);
+
+		auto nifAssets = discoverPhysicsNIFs();
+		for (const auto& asset : nifAssets)
+			if (asset.xmlExists)
+				enqueueUniqueXMLPath(asset.xmlPath, seen, queue);
+
+		return queue;
+	}
+
+	static std::vector<std::string> collectEquippedPhysicsXMLPaths()
+	{
+		std::unordered_set<std::string> seen;
+		std::vector<std::string> queue;
+
+		auto equippedAssets = discoverEquippedPhysicsAssets();
+		for (const auto& asset : equippedAssets)
+			if (asset.xmlExists)
+				enqueueUniqueXMLPath(asset.xmlPath, seen, queue);
+
+		return queue;
+	}
+
+	static XMLImproveResult improveXMLPathsOnDemand(const std::vector<std::string>& xmlPaths,
+		const std::string& outputDir)
+	{
+		XMLImproveResult result;
+		if (outputDir.empty()) {
+			result.errors.push_back("Output directory is empty");
+			return result;
+		}
+
+		result.totalXMLsFound = static_cast<int>(xmlPaths.size());
+		if (xmlPaths.empty())
+			return result;
+
+		if (!IsPhysicsSchemaLoaded())
+			ValidatePhysicsXML(xmlPaths.front());
+		if (!IsPhysicsSchemaLoaded()) {
+			result.errors.push_back("Physics XML schema is not loaded");
+			return result;
+		}
+
+		for (const auto& xmlPath : xmlPaths) {
+			try {
+				if (GenerateImprovedXML(xmlPath, outputDir))
+					++result.xmlImprovedCount;
+			} catch (const std::exception& e) {
+				result.errors.push_back("Failed to improve XML " + xmlPath + ": " + e.what());
+			} catch (...) {
+				result.errors.push_back("Failed to improve XML " + xmlPath + ": unknown error");
+			}
+		}
+
+		return result;
+	}
+
 	// ---- Phase 0: DefaultBBP XML validation ----
 
 	// Validate each XML referenced in defaultBBPs.xml.
@@ -1000,6 +1080,24 @@ namespace hdt
 		}
 
 		return report;
+	}
+
+	XMLImproveResult ImprovePhysicsXMLsOnDemand(const std::string& outputDir)
+	{
+		logger::info("[Validator] Starting on-demand FSMP XML cleanup...");
+		auto result = improveXMLPathsOnDemand(collectAllPhysicsXMLPaths(), outputDir);
+		logger::info("[Validator] On-demand XML cleanup complete: {} XML(s) found, {} improved, {} error(s).",
+			result.totalXMLsFound, result.xmlImprovedCount, result.errors.size());
+		return result;
+	}
+
+	XMLImproveResult ImproveEquippedPhysicsXMLsOnDemand(const std::string& outputDir)
+	{
+		logger::info("[Validator] Starting equipped gear on-demand XML cleanup...");
+		auto result = improveXMLPathsOnDemand(collectEquippedPhysicsXMLPaths(), outputDir);
+		logger::info("[Validator] Equipped gear XML cleanup complete: {} XML(s) found, {} improved, {} error(s).",
+			result.totalXMLsFound, result.xmlImprovedCount, result.errors.size());
+		return result;
 	}
 
 	NIFImproveResult ImprovePhysicsNIFsOnDemand(const std::string& outputDir)
