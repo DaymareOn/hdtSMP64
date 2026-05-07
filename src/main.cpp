@@ -526,8 +526,8 @@ bool SMPDebug_Execute(
 		}
 
 		const char* startMessage = gearOnly ?
-                                       "[HDT-SMP] Equipped gear XML cleanup started in background. Output directory: %s" :
-                                       "[HDT-SMP] XML cleanup started in background. Output directory: %s";
+		                               "[HDT-SMP] Equipped gear XML cleanup started in background. Output directory: %s" :
+		                               "[HDT-SMP] XML cleanup started in background. Output directory: %s";
 		RE::ConsoleLog::GetSingleton()->Print(
 			startMessage,
 			outputDir.c_str());
@@ -535,8 +535,8 @@ bool SMPDebug_Execute(
 		std::thread([gearOnly, outputDir = std::move(outputDir)]() {
 			try {
 				auto result = gearOnly ?
-                                  hdt::ImproveEquippedPhysicsXMLsOnDemand(outputDir) :
-                                  hdt::ImprovePhysicsXMLsOnDemand(outputDir);
+				                  hdt::ImproveEquippedPhysicsXMLsOnDemand(outputDir) :
+				                  hdt::ImprovePhysicsXMLsOnDemand(outputDir);
 				auto* console = RE::ConsoleLog::GetSingleton();
 				console->Print("[HDT-SMP] %s XML cleanup: %d XML(s) scanned, %d cleaned file(s) written to %s",
 					gearOnly ? "Equipped gear" : "Full",
@@ -797,7 +797,7 @@ extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* a_s
 
 		unusedCommand->functionName = "SMPDebug";
 		unusedCommand->shortName = "smp";
-		unusedCommand->helpString = "smp <reset|dumptree|detail|list|on|off|QueryOverride|validate [gear]|fixxml [gear] [output_dir]|fix xml [gear|output_dir]|fixnifs [output_dir]>";
+		unusedCommand->helpString = "smp <reset|dumptree|detail|list|on|off|QueryOverride|validate [gear]|fixxml [gear] [output_dir]|fixnifs [output_dir]>";
 		unusedCommand->referenceFunction = 0;
 		unusedCommand->numParams = 3;
 		unusedCommand->params = params;
