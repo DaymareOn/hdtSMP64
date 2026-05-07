@@ -10,6 +10,9 @@ namespace hdt
 {
 	namespace
 	{
+		static constexpr float kMatrixSingularityEpsilon = 1e-9f;
+		static constexpr float kDegenerateAreaThreshold = 1e-7f;
+
 		struct EdgeKey
 		{
 			uint32_t a = 0;
@@ -205,7 +208,7 @@ namespace hdt
 						pivot = r;
 					}
 				}
-				if (maxAbs < 1e-9f)
+				if (maxAbs < kMatrixSingularityEpsilon)
 					return false;
 				if (pivot != col) {
 					for (int c = col; c < 4; ++c)
@@ -413,7 +416,7 @@ namespace hdt
 
 				float oldArea2 = triDoubleArea(oldP[0], oldP[1], oldP[2]);
 				float newArea2 = triDoubleArea(newP[0], newP[1], newP[2]);
-				if (newArea2 < 1e-7f || oldArea2 < 1e-7f) {
+				if (newArea2 < kDegenerateAreaThreshold || oldArea2 < kDegenerateAreaThreshold) {
 					++stats.rejectedDegenerate;
 					return false;
 				}
@@ -729,7 +732,7 @@ namespace hdt
 			const auto& a = out.vertices[tri[0]].m_skinPos;
 			const auto& b = out.vertices[tri[1]].m_skinPos;
 			const auto& c = out.vertices[tri[2]].m_skinPos;
-			if (triDoubleArea(btVector3(a.x(), a.y(), a.z()), btVector3(b.x(), b.y(), b.z()), btVector3(c.x(), c.y(), c.z())) < 1e-7f) {
+			if (triDoubleArea(btVector3(a.x(), a.y(), a.z()), btVector3(b.x(), b.y(), b.z()), btVector3(c.x(), c.y(), c.z())) < kDegenerateAreaThreshold) {
 				hasDegenerate = true;
 				break;
 			}

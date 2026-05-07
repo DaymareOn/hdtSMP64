@@ -14,12 +14,12 @@ namespace hdt
 		bool preserveBoundary = true;
 		bool preserveFeatures = true;
 		int targetVertexCount = 0;
-		float targetVertexRatio = 1.0f;
+		float targetVertexRatio = 1.0f;  // fraction of vertices to retain (0.99 => ~1% reduction)
 		float qemCostThreshold = 1.0f;
 		float shortEdgeRatio = 0.01f;
 		float maxVolumeLossPercent = 1.0f;
 		float maxNormalDeviationDegrees = 25.0f;
-		float maxLocalVolumeChangePercent = 0.5f;
+		float maxLocalVolumeChangePercent = 1.0f;
 		int maxPointRemovals = 256;
 		int maxEdgeCollapses = 4096;
 	};

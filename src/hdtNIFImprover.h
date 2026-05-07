@@ -7,7 +7,7 @@ namespace hdt
 	struct NIFDecimationOptions
 	{
 		bool enableCollisionMeshDecimation = false;
-		float targetVertexRatio = 0.99f;
+		float targetVertexRatio = 0.99f;  // fraction of vertices to retain (0.99 => ~1% reduction)
 		int targetVertexCount = 0;
 		float qemCostThreshold = 1.0f;
 		float shortEdgeRatio = 0.01f;
