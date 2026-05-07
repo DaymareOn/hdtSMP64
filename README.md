@@ -67,7 +67,7 @@ See [wiki](https://github.com/DaymareOn/hdtSMP64/wiki/6-%E2%80%90-How-to-compile
 
 - `smp validate [gear]` validates all discovered physics XMLs, or only currently equipped gear.
 - `smp fixxml [gear] [output_dir]` writes cleaned copies of physics XMLs without modifying originals.
-- `smp fix xml [gear|output_dir]` is a short alias for the XML cleanup command when only one extra argument is needed.
+- `smp fix xml`, `smp fix xml gear`, and `smp fix xml <output_dir>` are short alias forms for the XML cleanup command.
 - `smp fixnifs [output_dir]` writes cleaned copies of physics-enabled NIFs without modifying originals.
 
 ## Credits

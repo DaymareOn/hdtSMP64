@@ -505,7 +505,7 @@ bool SMPDebug_Execute(
 				outputDir = arg1;
 				if (arg2[0] != '\0') {
 					RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Usage: smp fixxml [gear] [output_dir]");
-					RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Alias: smp fix xml [gear|output_dir]");
+					RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Alias forms: smp fix xml | smp fix xml gear | smp fix xml <output_dir>");
 					return true;
 				}
 			}
@@ -515,7 +515,7 @@ bool SMPDebug_Execute(
 			outputDir = hdt::g_validationConfig.outputDir;
 		if (outputDir.empty()) {
 			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Output directory not set. Usage: smp fixxml [gear] [output_dir] or set <validation><output-dir> in config.");
-			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Alias: smp fix xml [gear|output_dir]");
+			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Alias forms: smp fix xml | smp fix xml gear | smp fix xml <output_dir>");
 			return true;
 		}
 
