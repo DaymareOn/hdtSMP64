@@ -151,6 +151,11 @@ namespace hdt
 		return std::bit_floor(lim);
 	}
 
+	inline btScalar clampScalar(btScalar value, btScalar low, btScalar high)
+	{
+		return std::clamp(value, low, high);
+	}
+
 	ATTRIBUTE_ALIGNED16(class)
 	btQsTransform
 	{
