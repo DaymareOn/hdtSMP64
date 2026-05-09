@@ -702,21 +702,6 @@ namespace
 void MessageHandler(SKSE::MessagingInterface::Message* a_msg)
 {
 	switch (a_msg->type) {
-	case SKSE::MessagingInterface::kDataLoaded:
-		{
-			// BSAs are fully mounted at this point — safe to scan data/meshes/ for NIF-referenced XMLs.
-			try {
-				if (!hdt::ValidateAllPhysicsAssets()) {
-					logger::warn("Validation issues detected. See hdtSMP64_validation_*.log for details");
-					// Non-blocking: continue loading even when issues are found
-				}
-			} catch (const std::exception& e) {
-				logger::warn("Validation threw an exception (non-fatal): {}", e.what());
-			} catch (...) {
-				logger::warn("Validation threw an unknown exception (non-fatal)");
-			}
-		}
-		break;
 	case SKSE::MessagingInterface::kInputLoaded:
 		Events::Register();
 		break;
