@@ -155,16 +155,49 @@ namespace hdt
 			v.sortWeight();
 		}
 
-		static void mergeSkin(Vertex& keep, const Vertex& remove)
+		static float collapseFactor(const btVector3& keepPos, const btVector3& removePos, const btVector3& newPos)
 		{
+			btVector3 edge = removePos - keepPos;
+			float len2 = edge.length2();
+			if (len2 < FLT_EPSILON)
+				return 0.5f;
+			return clamp01((newPos - keepPos).dot(edge) / len2);
+		}
+
+		static float skinDistanceL1(const Vertex& a, const Vertex& b)
+		{
+			std::unordered_map<uint32_t, float> delta;
+			delta.reserve(8);
+
+			for (int i = 0; i < 4; ++i) {
+				if (a.m_weight[i] > FLT_EPSILON)
+					delta[a.m_boneIdx[i]] += a.m_weight[i];
+			}
+			for (int i = 0; i < 4; ++i) {
+				if (b.m_weight[i] > FLT_EPSILON)
+					delta[b.m_boneIdx[i]] -= b.m_weight[i];
+			}
+
+			float l1 = 0.0f;
+			for (const auto& [_, v] : delta)
+				l1 += std::fabs(v);
+			return l1;
+		}
+
+		static void mergeSkin(Vertex& keep, const Vertex& remove, float t)
+		{
+			t = clamp01(t);
+			float kKeep = 1.0f - t;
+			float kRemove = t;
+
 			std::unordered_map<uint32_t, float> accum;
 			for (int i = 0; i < 4; ++i) {
 				if (keep.m_weight[i] > FLT_EPSILON)
-					accum[keep.m_boneIdx[i]] += keep.m_weight[i];
+					accum[keep.m_boneIdx[i]] += keep.m_weight[i] * kKeep;
 			}
 			for (int i = 0; i < 4; ++i) {
 				if (remove.m_weight[i] > FLT_EPSILON)
-					accum[remove.m_boneIdx[i]] += remove.m_weight[i];
+					accum[remove.m_boneIdx[i]] += remove.m_weight[i] * kRemove;
 			}
 
 			std::vector<std::pair<uint32_t, float>> ordered;
@@ -189,6 +222,13 @@ namespace hdt
 			}
 
 			normalizeTop4(keep);
+		}
+
+		static Vertex predictedMergedSkin(const Vertex& keep, const Vertex& remove, float t)
+		{
+			Vertex merged = keep;
+			mergeSkin(merged, remove, t);
+			return merged;
 		}
 
 		static bool solve3x3(const float A[9], const float b[3], btVector3& out)
@@ -341,6 +381,7 @@ namespace hdt
 			uint32_t remove = 0;
 			btVector3 newPos = btVector3(0, 0, 0);
 			float cost = std::numeric_limits<float>::max();
+			float skinDrift = 0.0f;
 		};
 
 		static bool gatherIncidentTriangles(
@@ -380,6 +421,11 @@ namespace hdt
 
 			if (options.preserveFeatures && (vk.feature || vr.feature)) {
 				++stats.rejectedFeature;
+				return false;
+			}
+
+			if (options.maxSkinWeightDrift > 0.0f && cand.skinDrift > options.maxSkinWeightDrift) {
+				++stats.rejectedSkin;
 				return false;
 			}
 
@@ -456,10 +502,12 @@ namespace hdt
 		{
 			auto& vk = vertices[cand.keep];
 			auto& vr = vertices[cand.remove];
+			btVector3 oldKeepPos = vk.pos;
+			float t = collapseFactor(oldKeepPos, vr.pos, cand.newPos);
 
 			vk.pos = cand.newPos;
 			vk.skin.m_skinPos.setValue(cand.newPos.x(), cand.newPos.y(), cand.newPos.z());
-			mergeSkin(vk.skin, vr.skin);
+			mergeSkin(vk.skin, vr.skin, t);
 			vr.alive = false;
 
 			for (auto& tri : triangles) {
@@ -512,7 +560,9 @@ namespace hdt
 		static Candidate makeCandidate(
 			uint32_t keep,
 			uint32_t remove,
-			const std::vector<WorkingVertex>& vertices)
+			const std::vector<WorkingVertex>& vertices,
+			const CollisionMeshDecimationOptions& options,
+			float diagSquared)
 		{
 			Candidate c;
 			c.keep = keep;
@@ -522,7 +572,18 @@ namespace hdt
 			q.add(vertices[remove].quadric);
 			btVector3 mid = (vertices[keep].pos + vertices[remove].pos) * 0.5f;
 			c.newPos = optimalPlacement(q, mid);
-			c.cost = q.evaluate(c.newPos);
+			float baseCost = q.evaluate(c.newPos);
+
+			float t = collapseFactor(vertices[keep].pos, vertices[remove].pos, c.newPos);
+			Vertex merged = predictedMergedSkin(vertices[keep].skin, vertices[remove].skin, t);
+			c.skinDrift = 0.5f * (
+				skinDistanceL1(merged, vertices[keep].skin) +
+				skinDistanceL1(merged, vertices[remove].skin));
+
+			float skinPenalty = options.skinWeightPenalty > 0.0f ?
+				(options.skinWeightPenalty * c.skinDrift * std::max(diagSquared, 1.0f)) : 0.0f;
+
+			c.cost = baseCost + skinPenalty;
 			return c;
 		}
 
@@ -619,12 +680,25 @@ namespace hdt
 		float scaledQemThreshold = 0.0f;
 		if (options.qemCostThreshold > 0.0f && diag > 0.0f)
 			scaledQemThreshold = options.qemCostThreshold * diag * diag;
+		const float diagSquared = diag > 0.0f ? (diag * diag) : 1.0f;
+
+		int targetVertexCount = static_cast<int>(inputVertices.size());
+		if (options.targetVertexCount > 0) {
+			targetVertexCount = std::max(3, std::min(static_cast<int>(inputVertices.size()), options.targetVertexCount));
+		} else if (options.targetVertexRatio > 0.0f && options.targetVertexRatio < 1.0f) {
+			targetVertexCount = std::max(3, static_cast<int>(std::ceil(options.targetVertexRatio * inputVertices.size())));
+		}
 
 		recomputeEdgeFlags(vertices, triangles, options);
 		recomputeQuadrics(vertices, triangles);
 
 		// Pass A: short-edge point-decimation style removal.
 		for (;;) {
+			if (aliveVertexCount(vertices) <= targetVertexCount)
+				break;
+			if (options.maxPointRemovals > 0 && out.stats.pointRemovals >= options.maxPointRemovals)
+				break;
+
 			std::vector<EdgeKey> edges;
 			collectCandidateEdges(vertices, triangles, edges);
 			if (edges.empty())
@@ -646,8 +720,8 @@ namespace hdt
 			if (bestLen2 == std::numeric_limits<float>::max())
 				break;
 
-			Candidate c0 = makeCandidate(best.a, best.b, vertices);
-			Candidate c1 = makeCandidate(best.b, best.a, vertices);
+			Candidate c0 = makeCandidate(best.a, best.b, vertices, options, diagSquared);
+			Candidate c1 = makeCandidate(best.b, best.a, vertices, options, diagSquared);
 			Candidate c = (c0.cost <= c1.cost) ? c0 : c1;
 
 			if (!validateCandidate(c, vertices, triangles, options, baseAbsVolume, out.stats)) {
@@ -657,12 +731,18 @@ namespace hdt
 
 			applyCandidate(c, vertices, triangles);
 			++out.stats.pointRemovals;
+			out.stats.maxAcceptedSkinDrift = std::max(out.stats.maxAcceptedSkinDrift, c.skinDrift);
 			recomputeEdgeFlags(vertices, triangles, options);
 			recomputeQuadrics(vertices, triangles);
 		}
 
 		// Pass B: constrained QEM edge collapse.
 		for (;;) {
+			if (aliveVertexCount(vertices) <= targetVertexCount)
+				break;
+			if (options.maxEdgeCollapses > 0 && out.stats.edgeCollapses >= options.maxEdgeCollapses)
+				break;
+
 			std::vector<EdgeKey> edges;
 			collectCandidateEdges(vertices, triangles, edges);
 			if (edges.empty())
@@ -670,8 +750,8 @@ namespace hdt
 
 			Candidate best;
 			for (const auto& e : edges) {
-				Candidate c0 = makeCandidate(e.a, e.b, vertices);
-				Candidate c1 = makeCandidate(e.b, e.a, vertices);
+				Candidate c0 = makeCandidate(e.a, e.b, vertices, options, diagSquared);
+				Candidate c1 = makeCandidate(e.b, e.a, vertices, options, diagSquared);
 				const Candidate& c = (c0.cost <= c1.cost) ? c0 : c1;
 				if (c.cost < best.cost)
 					best = c;
@@ -689,6 +769,7 @@ namespace hdt
 
 			applyCandidate(best, vertices, triangles);
 			++out.stats.edgeCollapses;
+			out.stats.maxAcceptedSkinDrift = std::max(out.stats.maxAcceptedSkinDrift, best.skinDrift);
 			recomputeEdgeFlags(vertices, triangles, options);
 			recomputeQuadrics(vertices, triangles);
 

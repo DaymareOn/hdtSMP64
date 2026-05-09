@@ -143,6 +143,10 @@ namespace hdt
 					g_validationConfig.decimationQemCostThreshold = reader.readFloat();
 				} else if (reader.GetLocalName() == "decimation-short-edge-ratio") {
 					g_validationConfig.decimationShortEdgeRatio = reader.readFloat();
+				} else if (reader.GetLocalName() == "decimation-skin-weight-penalty") {
+					g_validationConfig.decimationSkinWeightPenalty = reader.readFloat();
+				} else if (reader.GetLocalName() == "decimation-max-skin-weight-drift") {
+					g_validationConfig.decimationMaxSkinWeightDrift = reader.readFloat();
 				} else if (reader.GetLocalName() == "decimation-max-volume-loss-percent") {
 					g_validationConfig.decimationMaxVolumeLossPercent = reader.readFloat();
 				} else if (reader.GetLocalName() == "decimation-max-local-volume-change-percent") {

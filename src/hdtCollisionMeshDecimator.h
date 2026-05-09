@@ -17,6 +17,8 @@ namespace hdt
 		float targetVertexRatio = 1.0f;  // fraction of vertices to retain (0.99 => ~1% reduction)
 		float qemCostThreshold = 1.0f;  // scale-invariant: threshold is multiplied by diag² before comparison with QEM cost (0 = disabled)
 		float shortEdgeRatio = 0.01f;
+		float skinWeightPenalty = 0.0f;  // adds skin-influence drift penalty to collapse cost (0 = disabled)
+		float maxSkinWeightDrift = 0.0f; // hard reject collapses with drift above threshold (0 = disabled)
 		float maxVolumeLossPercent = 1.0f;
 		float maxNormalDeviationDegrees = 25.0f;
 		float maxLocalVolumeChangePercent = 1.0f;
@@ -38,9 +40,11 @@ namespace hdt
 		int rejectedBoundary = 0;
 		int rejectedFeature = 0;
 		int rejectedDegenerate = 0;
+		int rejectedSkin = 0;
 		float initialSignedVolume = 0.0f;
 		float outputSignedVolume = 0.0f;
 		float volumeDeltaPercent = 0.0f;
+		float maxAcceptedSkinDrift = 0.0f;
 		bool usedFallback = false;
 		std::string fallbackReason;
 	};

@@ -16,6 +16,8 @@ namespace hdt
 		int decimationTargetVertexCount = 0;
 		float decimationQemCostThreshold = 1.0f;  // scale-invariant: threshold is multiplied by diag² before comparison with QEM cost (0 = disabled)
 		float decimationShortEdgeRatio = 0.01f;
+		float decimationSkinWeightPenalty = 0.0f;
+		float decimationMaxSkinWeightDrift = 0.0f;
 		float decimationMaxVolumeLossPercent = 1.0f;
 		float decimationMaxLocalVolumeChangePercent = 1.0f;
 		float decimationMaxNormalDeviationDegrees = 25.0f;
@@ -32,6 +34,7 @@ namespace hdt
 	{
 		std::string nifPath;
 		std::string xmlPath;
+		std::vector<std::string> relatedTRIPaths;
 		std::vector<std::string> allPhysicsXmlPaths;  // all "HDT Skinned Mesh Physics Object" blocks
 		bool nifExists = false;
 		bool xmlExists = false;
@@ -73,7 +76,14 @@ namespace hdt
 	struct NIFImproveResult
 	{
 		int totalNIFsFound = 0;
+		int totalTRIFilesFound = 0;
 		int nifImprovedCount = 0;
+		int decimationCandidatesDiscovered = 0;
+		int decimationCandidatesAttempted = 0;
+		int decimationCandidatesApplied = 0;
+		int decimationCandidatesSkippedNoChange = 0;
+		int decimationCandidatesSkippedUnsafe = 0;
+		std::vector<std::string> decimationSkipReasonHistogram;
 		std::vector<std::string> errors;
 	};
 

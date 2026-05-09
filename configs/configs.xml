@@ -311,6 +311,8 @@
     <decimation-target-vertex-count>0</decimation-target-vertex-count>
     <decimation-qem-cost-threshold>1.0</decimation-qem-cost-threshold>
     <decimation-short-edge-ratio>0.01</decimation-short-edge-ratio>
+    <decimation-skin-weight-penalty>0.0</decimation-skin-weight-penalty>
+    <decimation-max-skin-weight-drift>0.0</decimation-max-skin-weight-drift>
     <decimation-max-volume-loss-percent>1.0</decimation-max-volume-loss-percent>
     <decimation-max-local-volume-change-percent>1.0</decimation-max-local-volume-change-percent>
     <decimation-max-normal-deviation-degrees>25.0</decimation-max-normal-deviation-degrees>

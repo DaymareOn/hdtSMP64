@@ -510,16 +510,36 @@ bool SMPDebug_Execute(
 				                  hdt::ImproveEquippedPhysicsNIFsOnDemand(outputDir) :
 				                  hdt::ImprovePhysicsNIFsOnDemand(outputDir);
 				auto* console = RE::ConsoleLog::GetSingleton();
-				console->Print("[HDT-SMP] %s NIF cleanup: %d NIF(s) processed, %d cleaned file(s) written to %s",
-					gearOnly ? "Equipped gear" : "Full",
+				console->Print("[HDT-SMP] %s NIF cleanup: %d NIF(s) processed, %d related TRI(s), %d cleaned file(s) written to %s",
+					gearOnly ? "Equipped gear" : "All",
 					result.totalNIFsFound,
+					result.totalTRIFilesFound,
 					result.nifImprovedCount,
 					outputDir.c_str());
+				if (result.decimationCandidatesAttempted > 0) {
+					console->Print("[HDT-SMP] NIF decimation bridge: discovered=%d attempted=%d applied=%d skipped-no-change=%d skipped-unsafe=%d",
+						result.decimationCandidatesDiscovered,
+						result.decimationCandidatesAttempted,
+						result.decimationCandidatesApplied,
+						result.decimationCandidatesSkippedNoChange,
+						result.decimationCandidatesSkippedUnsafe);
+					for (const auto& reason : result.decimationSkipReasonHistogram)
+						console->Print("[HDT-SMP] NIF decimation bridge skip-reason: %s", reason.c_str());
+				}
 				for (const auto& err : result.errors) {
 					console->Print("[HDT-SMP] NIF cleanup error: %s", err.c_str());
 				}
-				logger::info("[Validator] NIF cleanup done: gearOnly={}, {} NIF(s) processed, {} improved, output={}",
-					gearOnly, result.totalNIFsFound, result.nifImprovedCount, outputDir);
+				logger::info("[Validator] NIF cleanup done: gearOnly={}, nifs={}, tris={}, improved={}, decimation(discovered={},attempted={},applied={},skip-no-change={},skip-unsafe={}), output={}",
+					gearOnly,
+					result.totalNIFsFound,
+					result.totalTRIFilesFound,
+					result.nifImprovedCount,
+					result.decimationCandidatesDiscovered,
+					result.decimationCandidatesAttempted,
+					result.decimationCandidatesApplied,
+					result.decimationCandidatesSkippedNoChange,
+					result.decimationCandidatesSkippedUnsafe,
+					outputDir);
 			} catch (const std::exception& e) {
 				RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] NIF cleanup failed with error: %s", e.what());
 				logger::error("[Validator] smp fix nif threw: {}", e.what());

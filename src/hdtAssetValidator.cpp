@@ -11,6 +11,7 @@
 #include <pugixml.hpp>
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <ctime>
 #include <filesystem>
@@ -37,6 +38,8 @@ namespace hdt
 		o.targetVertexCount = g_validationConfig.decimationTargetVertexCount;
 		o.qemCostThreshold = g_validationConfig.decimationQemCostThreshold;
 		o.shortEdgeRatio = g_validationConfig.decimationShortEdgeRatio;
+		o.skinWeightPenalty = g_validationConfig.decimationSkinWeightPenalty;
+		o.maxSkinWeightDrift = g_validationConfig.decimationMaxSkinWeightDrift;
 		o.maxVolumeLossPercent = g_validationConfig.decimationMaxVolumeLossPercent;
 		o.maxLocalVolumeChangePercent = g_validationConfig.decimationMaxLocalVolumeChangePercent;
 		o.maxNormalDeviationDegrees = g_validationConfig.decimationMaxNormalDeviationDegrees;
@@ -78,6 +81,60 @@ namespace hdt
 		     normPath.substr(normPath.size() - 6) == "_1.nif"))
 			return normPath.substr(0, normPath.size() - 6);
 		return normPath.size() > 4 ? normPath.substr(0, normPath.size() - 4) : normPath;
+	}
+
+	// Find the TRI file related to a given NIF path.
+	// TRI files are canonical and not weight-variant split:
+	//   - foo.nif       -> foo.tri
+	//   - foo_0.nif     -> foo.tri
+	//   - foo_1.nif     -> foo.tri
+	// Returns the existing file when present; otherwise empty.
+	static std::vector<std::string> discoverRelatedTRIFiles(const std::string& nifPath)
+	{
+		namespace fs = std::filesystem;
+		auto toStr = [](const fs::path& fp) -> std::string {
+			auto u8 = fp.generic_u8string();
+			return { reinterpret_cast<const char*>(u8.data()), u8.size() };
+		};
+		auto hasSuffix = [](const std::string& s, const char* suffix) {
+			const size_t n = std::char_traits<char>::length(suffix);
+			return s.size() >= n && s.compare(s.size() - n, n, suffix) == 0;
+		};
+
+		std::vector<std::string> result;
+		std::unordered_set<std::string> seen;
+		std::error_code ec;
+
+		fs::path nifFsPath = nifPath;
+		if (!nifFsPath.has_extension())
+			return result;
+
+		auto ext = toStr(nifFsPath.extension());
+		std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+		if (ext != ".nif")
+			return result;
+
+		const fs::path parent = nifFsPath.parent_path();
+		const std::string stem = toStr(nifFsPath.stem());
+
+		std::string triStem = stem;
+		if (stem.size() > 2 && (hasSuffix(stem, "_0") || hasSuffix(stem, "_1")))
+			triStem = stem.substr(0, stem.size() - 2);
+
+		std::vector<fs::path> candidates;
+		candidates.push_back(parent / (triStem + ".tri"));
+
+		for (const auto& candidate : candidates) {
+			if (!fs::exists(candidate, ec) || ec || !fs::is_regular_file(candidate, ec) || ec)
+				continue;
+
+			auto pathStr = toStr(candidate);
+			auto norm = normalisePath(pathStr);
+			if (seen.insert(norm).second)
+				result.push_back(std::move(pathStr));
+		}
+
+		return result;
 	}
 
 	static std::pair<std::string, bool> resolveXMLPath(const std::string& rawPath)
@@ -294,6 +351,10 @@ namespace hdt
 	static std::vector<PhysicsAsset> discoverPhysicsNIFs()
 	{
 		namespace fs = std::filesystem;
+		auto toStr = [](const fs::path& fp) -> std::string {
+			auto u8 = fp.generic_u8string();
+			return { reinterpret_cast<const char*>(u8.data()), u8.size() };
+		};
 		fs::path meshDir = "data/meshes";
 
 		std::error_code ec;
@@ -301,11 +362,6 @@ namespace hdt
 			logger::warn("[Validator] Meshes directory not found: {}", meshDir.string());
 			return {};
 		}
-
-		auto toStr = [](const fs::path& fp) -> std::string {
-			auto u8 = fp.generic_u8string();
-			return { reinterpret_cast<const char*>(u8.data()), u8.size() };
-		};
 
 		// Step 1: serial directory walk — collect all .nif paths.
 		// Filesystem iteration is not required to be thread-safe, so keep it serial.
@@ -347,6 +403,7 @@ namespace hdt
 					PhysicsAsset asset;
 					asset.nifPath = pathStr;
 					asset.nifExists = true;
+					asset.relatedTRIPaths = discoverRelatedTRIFiles(pathStr);
 					asset.allPhysicsXmlPaths = scanRes.allPhysicsXmlPaths;
 
 					if (!scanRes.physicsXmlPath.empty()) {
@@ -860,7 +917,12 @@ namespace hdt
 		bodyStream << "\n== Phase 2: NIF File Discovery ==\n";
 		auto nifAssets = discoverPhysicsNIFs();
 		report.totalNIFsScanned = (int)nifAssets.size();
+		std::unordered_set<std::string> relatedTRINorm;
+		for (const auto& a : nifAssets)
+			for (const auto& tri : a.relatedTRIPaths)
+				relatedTRINorm.insert(normalisePath(tri));
 		bodyStream << "  Found " << nifAssets.size() << " NIF file(s) referencing physics configs.\n";
+		bodyStream << "  Identified " << relatedTRINorm.size() << " related TRI file(s).\n";
 
 		// Phase 2.5: NIF _0/_1 pair consistency check
 		bodyStream << "\n== Phase 2.5: NIF Pair Consistency Check ==\n";
@@ -916,12 +978,21 @@ namespace hdt
 			if (g_validationConfig.decimateCollisionMeshesOffline) {
 				bodyStream << "  Collision mesh decimation: enabled (offline)\n";
 				bodyStream << "  Target vertex ratio: " << g_validationConfig.decimationTargetVertexRatio << "\n";
+				bodyStream << "  Target vertex count: " << g_validationConfig.decimationTargetVertexCount << "\n";
+				bodyStream << "  Skin weight penalty: " << g_validationConfig.decimationSkinWeightPenalty << "\n";
+				bodyStream << "  Max skin weight drift: " << g_validationConfig.decimationMaxSkinWeightDrift << "\n";
 				bodyStream << "  Max volume loss (%): " << g_validationConfig.decimationMaxVolumeLossPercent << "\n";
 			}
 
 			auto decimationOptions = makeNIFDecimationOptions();
 			std::atomic<int> improvedCount{ 0 };
+			std::atomic<int> decCandidatesDiscovered{ 0 };
+			std::atomic<int> decCandidatesAttempted{ 0 };
+			std::atomic<int> decCandidatesApplied{ 0 };
+			std::atomic<int> decCandidatesSkippedNoChange{ 0 };
+			std::atomic<int> decCandidatesSkippedUnsafe{ 0 };
 			std::vector<std::string> improvedPaths;
+			std::map<std::string, int> decimationReasonCounts;
 			std::mutex improvedLock;
 
 			// Group assets by base stem so _0/_1 pairs are processed atomically:
@@ -940,8 +1011,20 @@ namespace hdt
 			auto improveGroup = [&](const std::vector<size_t>& indices) {
 				std::vector<bool> results;
 				results.reserve(indices.size());
-				for (size_t idx : indices)
-					results.push_back(GenerateImprovedNIF(nifAssets[idx].nifPath, g_validationConfig.outputDir, decimationOptions));
+				for (size_t idx : indices) {
+					NIFImproverDiagnostics d;
+					results.push_back(GenerateImprovedNIF(nifAssets[idx].nifPath, g_validationConfig.outputDir, decimationOptions, &d));
+					decCandidatesDiscovered.fetch_add(d.decimationCandidatesDiscovered);
+					decCandidatesAttempted.fetch_add(d.decimationCandidatesAttempted);
+					decCandidatesApplied.fetch_add(d.decimationCandidatesApplied);
+					decCandidatesSkippedNoChange.fetch_add(d.decimationCandidatesSkippedNoChange);
+					decCandidatesSkippedUnsafe.fetch_add(d.decimationCandidatesSkippedUnsafe);
+					if (!d.decimationSkipReasons.empty()) {
+						std::lock_guard<std::mutex> l(improvedLock);
+						for (const auto& rc : d.decimationSkipReasons)
+							decimationReasonCounts[rc.first] += rc.second;
+					}
+				}
 
 				if (!std::any_of(results.begin(), results.end(), [](bool r) { return r; }))
 					return;
@@ -973,6 +1056,16 @@ namespace hdt
 				bodyStream << "  [IMPROVED] " << p << "\n";
 			}
 			bodyStream << "  " << report.nifImprovedCount << " improved NIF file(s) written.\n";
+
+			if (g_validationConfig.decimateCollisionMeshesOffline) {
+				bodyStream << "  Decimation bridge candidates discovered: " << decCandidatesDiscovered.load() << "\n";
+				bodyStream << "  Decimation bridge candidates attempted: " << decCandidatesAttempted.load() << "\n";
+				bodyStream << "  Decimation bridge candidates applied: " << decCandidatesApplied.load() << "\n";
+				bodyStream << "  Decimation bridge candidates skipped (no change): " << decCandidatesSkippedNoChange.load() << "\n";
+				bodyStream << "  Decimation bridge candidates skipped (unsafe): " << decCandidatesSkippedUnsafe.load() << "\n";
+				for (const auto& [reason, count] : decimationReasonCounts)
+					bodyStream << "    [SKIP-REASON] " << reason << ": " << count << "\n";
+			}
 		}
 
 		// Stop timer
@@ -1195,6 +1288,11 @@ namespace hdt
 
 		auto nifAssets = discoverPhysicsNIFs();
 		result.totalNIFsFound = static_cast<int>(nifAssets.size());
+		std::unordered_set<std::string> relatedTRINorm;
+		for (const auto& a : nifAssets)
+			for (const auto& tri : a.relatedTRIPaths)
+				relatedTRINorm.insert(normalisePath(tri));
+		result.totalTRIFilesFound = static_cast<int>(relatedTRINorm.size());
 		auto decimationOptions = makeNIFDecimationOptions();
 
 		// Group by base stem so _0/_1 pairs are processed atomically (same as Phase 5).
@@ -1208,11 +1306,30 @@ namespace hdt
 			groups.push_back(std::move(indices));
 
 		std::atomic<int> improvedCount{ 0 };
+		std::atomic<int> decCandidatesDiscovered{ 0 };
+		std::atomic<int> decCandidatesAttempted{ 0 };
+		std::atomic<int> decCandidatesApplied{ 0 };
+		std::atomic<int> decCandidatesSkippedNoChange{ 0 };
+		std::atomic<int> decCandidatesSkippedUnsafe{ 0 };
+		std::mutex decimationReasonLock;
+		std::map<std::string, int> decimationReasonCounts;
 		auto improveGroup = [&](const std::vector<size_t>& indices) {
 			std::vector<bool> results;
 			results.reserve(indices.size());
-			for (size_t idx : indices)
-				results.push_back(GenerateImprovedNIF(nifAssets[idx].nifPath, outputDir, decimationOptions));
+			for (size_t idx : indices) {
+				NIFImproverDiagnostics d;
+				results.push_back(GenerateImprovedNIF(nifAssets[idx].nifPath, outputDir, decimationOptions, &d));
+				decCandidatesDiscovered.fetch_add(d.decimationCandidatesDiscovered);
+				decCandidatesAttempted.fetch_add(d.decimationCandidatesAttempted);
+				decCandidatesApplied.fetch_add(d.decimationCandidatesApplied);
+				decCandidatesSkippedNoChange.fetch_add(d.decimationCandidatesSkippedNoChange);
+				decCandidatesSkippedUnsafe.fetch_add(d.decimationCandidatesSkippedUnsafe);
+				if (!d.decimationSkipReasons.empty()) {
+					std::lock_guard<std::mutex> l(decimationReasonLock);
+					for (const auto& rc : d.decimationSkipReasons)
+						decimationReasonCounts[rc.first] += rc.second;
+				}
+			}
 
 			if (!std::any_of(results.begin(), results.end(), [](bool r) { return r; }))
 				return;
@@ -1233,6 +1350,13 @@ namespace hdt
 				improveGroup(g);
 
 		result.nifImprovedCount = improvedCount.load();
+		result.decimationCandidatesDiscovered = decCandidatesDiscovered.load();
+		result.decimationCandidatesAttempted = decCandidatesAttempted.load();
+		result.decimationCandidatesApplied = decCandidatesApplied.load();
+		result.decimationCandidatesSkippedNoChange = decCandidatesSkippedNoChange.load();
+		result.decimationCandidatesSkippedUnsafe = decCandidatesSkippedUnsafe.load();
+		for (const auto& [reason, count] : decimationReasonCounts)
+			result.decimationSkipReasonHistogram.push_back(reason + "=" + std::to_string(count));
 
 		return result;
 	}
