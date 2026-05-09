@@ -765,7 +765,7 @@ namespace hdt
 			for (uint32_t j = 0; j < skinPartition->vertexCount; ++j) {
 				RE::NiPoint3* vertexPos;
 
-				if (dynamicShape)
+				if (dynamicShape && dynamicVData)
 					vertexPos = reinterpret_cast<RE::NiPoint3*>(&dynamicVData[j * 16]);
 				else
 					vertexPos = reinterpret_cast<RE::NiPoint3*>(&vertexBlock[j * vSize]);
