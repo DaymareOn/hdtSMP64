@@ -60,8 +60,8 @@ namespace hdt
 
 		std::vector<RE::BSTSmartPointer<SkinnedMeshSystem>> m_systems;
 
-		btVector3 m_windSpeed;  // world windspeed
-		btScalar m_windTime = 0.0f; // wind simulation clock
+		btVector3 m_windSpeed;       // world windspeed
+		btScalar m_windTime = 0.0f;  // wind simulation clock
 
 	private:
 		std::vector<SkinnedMeshBody*> _bodies;
