@@ -6,7 +6,7 @@
 #include "config.h"
 #include "dhdtOverrideManager.h"
 #include "dhdtPapyrusFunctions.h"
-#include "hdtAssetValidator.h"
+#include "Validator/hdtAssetValidator.h"
 #include "hdtSkyrimPhysicsWorld.h"
 
 #include <atomic>

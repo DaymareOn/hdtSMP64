@@ -1,7 +1,7 @@
 #include "config.h"
 #include "Hooks.h"
 #include "XmlReader.h"
-#include "hdtAssetValidator.h"
+#include "Validator/hdtAssetValidator.h"
 #include "hdtSkyrimPhysicsWorld.h"
 
 namespace hdt
