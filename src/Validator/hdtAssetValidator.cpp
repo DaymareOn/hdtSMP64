@@ -2,13 +2,13 @@
 
 #include "ActorManager.h"
 #include "NetImmerseUtils.h"
-#include "hdtNIFImprover.h"
-#include "hdtNIFValidator.h"
-#include "hdtSCHValidator.h"
+#include "Improvers/hdtNIFImprover.h"
+#include "Validators/hdtNIFValidator.h"
+#include "Validators/hdtSCHValidator.h"
 #include "Utils/hdtStringUtils.h"
 #include "Utils/hdtTimeUtils.h"
-#include "hdtXMLImprover.h"
-#include "hdtXSDValidator.h"
+#include "Improvers/hdtXMLImprover.h"
+#include "Validators/hdtXSDValidator.h"
 
 #include <pugixml.hpp>
 

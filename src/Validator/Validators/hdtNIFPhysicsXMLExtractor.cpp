@@ -1,7 +1,7 @@
 #include "hdtNIFValidator.h"
 
-#include "Parser/hdtNIFBinaryParser.h"
-#include "Utils/hdtNIFBinaryUtils.h"
+#include "../Parser/hdtNIFBinaryParser.h"
+#include "../Utils/hdtNIFBinaryUtils.h"
 
 #include <algorithm>
 #include <fstream>

@@ -1,10 +1,10 @@
 #include "hdtSCHValidator.h"
 
 #include "NetImmerseUtils.h"
-#include "hdtSCHSchemaModel.h"
-#include "Parser/hdtSCHSchemaParser.h"
-#include "Config/hdtValidatorPaths.h"
-#include "Utils/hdtXMLUtils.h"
+#include "../hdtSCHSchemaModel.h"
+#include "../Parser/hdtSCHSchemaParser.h"
+#include "../Config/hdtValidatorPaths.h"
+#include "../Utils/hdtXMLUtils.h"
 
 #include <pugixml.hpp>
 

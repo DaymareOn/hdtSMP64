@@ -13,8 +13,8 @@ namespace hdt
 {
 	namespace
 	{
-		// Recursively collects allowed child element names from XSD compositor nodes
-		// (xsd:choice, xsd:sequence, xsd:all) and forwards into xsd:complexType/xsd:complexContent.
+		/// Recursively collects allowed child element names from XSD compositor nodes
+		/// and nested complex content sections.
 		void walkContentModel(pugi::xml_node node, std::unordered_set<std::string>& children)
 		{
 			for (auto child : node.children()) {
@@ -32,7 +32,7 @@ namespace hdt
 			}
 		}
 
-		// Recursively finds all xsd:enumeration[@value] descendants and adds them to `out`.
+		/// Recursively collects all xsd:enumeration values under node.
 		void collectEnumerations(pugi::xml_node node, std::unordered_set<std::string>& out)
 		{
 			for (auto child : node.children()) {
@@ -46,7 +46,7 @@ namespace hdt
 			}
 		}
 
-		// Recursively finds xsd:attribute[@use='required'] descendants, skipping xsd:element subtrees.
+		/// Recursively collects required attribute names, skipping nested element branches.
 		void collectRequiredAttrs(pugi::xml_node node, std::vector<std::string>& out)
 		{
 			for (auto child : node.children()) {
@@ -62,7 +62,7 @@ namespace hdt
 			}
 		}
 
-		// Maps an XSD built-in type name (with namespace prefix) to a TypeConstraint.
+		/// Maps known XSD built-in type names to validator type constraints.
 		TypeConstraint builtinTypeConstraint(const std::string& typeName)
 		{
 			TypeConstraint tc;
@@ -78,6 +78,7 @@ namespace hdt
 			return tc;
 		}
 
+		/// Resolves a type name to a constraint using named types first, then built-ins.
 		TypeConstraint resolveTypeConstraint(
 			const std::string& typeName,
 			const std::unordered_map<std::string, TypeConstraint>& namedTypes)
@@ -86,6 +87,7 @@ namespace hdt
 			return (it != namedTypes.end()) ? it->second : builtinTypeConstraint(typeName);
 		}
 
+		/// Recursively extracts element text and attribute type constraints for one element.
 		void collectTypeConstraints(
 			pugi::xml_node node, bool inCompositor,
 			const std::string& elemName,
@@ -123,6 +125,7 @@ namespace hdt
 			}
 		}
 
+		/// Recursively gathers typed attributes declared inside a complexType node.
 		void gatherComplexTypeAttrs(
 			pugi::xml_node n,
 			const std::unordered_map<std::string, TypeConstraint>& namedSimpleTypes,
@@ -143,6 +146,7 @@ namespace hdt
 			}
 		}
 
+		/// Parses all top-level elements and returns their allowed enumeration values.
 		std::unordered_map<std::string, std::unordered_set<std::string>>
 		parseAllElementEnumerations(const pugi::xml_document& doc)
 		{
@@ -179,6 +183,7 @@ namespace hdt
 			return result;
 		}
 
+		/// Parses required attributes per top-level element.
 		std::unordered_map<std::string, std::vector<std::string>>
 		parseAllRequiredAttrs(const pugi::xml_document& doc)
 		{
@@ -195,6 +200,7 @@ namespace hdt
 			return result;
 		}
 
+		/// Parses an XSD selector XPath into a set of element names for key/keyref checks.
 		std::unordered_set<std::string> parseXPathElems(const std::string& xpath)
 		{
 			std::unordered_set<std::string> result;
@@ -215,6 +221,7 @@ namespace hdt
 			return result;
 		}
 
+		/// Recursively collects xsd:key, xsd:unique, and xsd:keyref definitions.
 		void collectKeyNodes(
 			pugi::xml_node node,
 			std::unordered_map<std::string, PhysicsSchema::KeyDef>& keyDefs,
@@ -265,6 +272,7 @@ namespace hdt
 			}
 		}
 
+		/// Parses all key/keyref constraints from the schema document.
 		void parseKeyConstraints(
 			const pugi::xml_document& doc,
 			std::unordered_map<std::string, PhysicsSchema::KeyDef>& keyDefs,
@@ -273,6 +281,7 @@ namespace hdt
 			collectKeyNodes(doc.first_child(), keyDefs, keyRefDefs);
 		}
 
+		/// Builds allowed-children maps and the known-element set from XSD elements/types.
 		std::unordered_map<std::string, std::unordered_set<std::string>>
 		parseAllowedChildren(const pugi::xml_document& doc, std::unordered_set<std::string>& knownElements)
 		{
@@ -316,6 +325,7 @@ namespace hdt
 			return result;
 		}
 
+		/// Parses text and attribute type constraints for all top-level schema elements.
 		void parseAllTypeConstraints(
 			const pugi::xml_document& doc,
 			std::unordered_map<std::string, TypeConstraint>& elementTextConstraints,
@@ -387,6 +397,7 @@ namespace hdt
 		}
 	}  // namespace
 
+	/// Parses XSD-derived validation metadata into PhysicsSchema for runtime checks.
 	bool ParsePhysicsSchemaFromXSD(const pugi::xml_document& doc, PhysicsSchema& schema)
 	{
 		schema.elementEnums = parseAllElementEnumerations(doc);

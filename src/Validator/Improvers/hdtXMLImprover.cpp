@@ -1,6 +1,6 @@
 #include "hdtXMLImprover.h"
 
-#include "hdtXSDValidator.h"
+#include "../Validators/hdtXSDValidator.h"
 
 #include <pugixml.hpp>
 
@@ -17,10 +17,17 @@ namespace hdt
 
 	// ---- DOM walker ----
 
-	// Recursively removes child elements that are either:
-	//   (a) not in knownElements — completely unknown tag, or
-	//   (b) not in the allowed children set for their parent.
-	// Returns true if any element was removed at this level or below.
+	// Recursively removes child elements that are either not in knownElements (completely unknown
+	// tag) or not in the allowed children set for their parent. The order of remaining sibling
+	// elements is preserved in the DOM tree after removal.
+	//
+	// Arguments:
+	//   node:       The current XML node being cleaned (and whose children will be visited)
+	//   parentName: Name of the parent element (used to look up allowed children in schema)
+	//   allowed:    Map of parent element names to sets of allowed child element names
+	//   known:      Set of all known element names from the schema
+	//
+	// Returns: true if any element was removed at this level or below; false if no changes made
 	static bool cleanNode(
 		pugi::xml_node node,
 		const std::string& parentName,
@@ -69,7 +76,14 @@ namespace hdt
 
 	// ---- Path helpers ----
 
-	// Strip the leading "data/" prefix (case-insensitive, forward slashes).
+	// Strips the leading "data/" prefix from a file path using case-insensitive matching.
+	// Normalizes all backslashes to forward slashes before processing. If the path does not
+	// start with "data/", the normalized path is returned unchanged.
+	//
+	// Arguments:
+	//   path: The file path to process (may contain mixed slash types)
+	//
+	// Returns: The path with "data/" prefix removed (if present), or the normalized path
 	static std::string stripDataPrefix(const std::string& path)
 	{
 		std::string norm = path;
@@ -86,6 +100,21 @@ namespace hdt
 
 	// ---- Public entry point ----
 
+	// Generates an improved XML file by removing non-conforming elements according to the
+	// physics schema. Loads the source XML document, locates the root <system> element, and
+	// recursively removes any child elements that are either unknown (not defined in the schema)
+	// or not allowed by the schema for their parent element. The original order of remaining
+	// elements is strictly preserved in the output document.
+	//
+	// The output path is computed as <outputDir>/<relative-from-data>, where the relative path
+	// is derived by stripping the "data/" prefix from srcXMLPath.
+	//
+	// Arguments:
+	//   srcXMLPath: Absolute or relative path to the source XML file to clean
+	//   outputDir:  Directory where the improved XML file will be written
+	//
+	// Returns: true if the XML was successfully cleaned and saved to disk; false on parse error,
+	//          missing root element, I/O error, or if no elements were removed (document already valid)
 	bool GenerateImprovedXML(const std::string& srcXMLPath, const std::string& outputDir)
 	{
 		namespace fs = std::filesystem;

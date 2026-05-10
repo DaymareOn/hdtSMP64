@@ -34,12 +34,12 @@ namespace hdt
 		bool preserveFeatures = true;
 	};
 
-	// Removes obviously bogus NiNode blocks from NIF binaries and writes improved
-	// files to:
+	// Removes obviously bogus trailing NiNode blocks from NIF binaries first, then
+	// optionally applies supported collision mesh decimation, and writes improved files to:
 	//   <outputDir>/<path-relative-to-data/>
-	// only when at least one block was removed.
+	// only when at least one improvement was applied.
 	//
-	// Returns true  — a cleaned file was written.
+	// Returns true  — an improved file was written.
 	// Returns false — no changes, unsupported format, or I/O error.
 	bool GenerateImprovedNIF(
 		const std::string& srcNIFPath,

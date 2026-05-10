@@ -11,11 +11,8 @@ namespace hdt
 {
 	namespace
 	{
-		// Convert a Schematron context match pattern (after namespace stripping) to an
-		// absolute XPath expression for pugixml select_nodes().
-		//
-		// Handles the union-at-root form "(elem1 | elem2)/child[pred]" by expanding it to
-		// "//elem1/child[pred] | //elem2/child[pred]". All other patterns are prefixed with "//".
+		/// Converts a Schematron rule context into an absolute XPath used for node selection.
+		/// Expands root-level union forms like "(a | b)/c" into explicit XPath unions.
 		std::string contextToAbsoluteXPath(const std::string& rawContext, const std::string& schemaPrefix)
 		{
 			std::string ctx = TrimAsciiWhitespace(StripNamespacePrefix(rawContext, schemaPrefix));
@@ -54,6 +51,8 @@ namespace hdt
 		}
 	}  // namespace
 
+	/// Parses a Schematron document into compiled XPath/message/role rules.
+	/// Returns false only when the root is missing; otherwise schema.loaded is set true.
 	bool ParseCompiledSchemaFromSCH(const pugi::xml_document& schDoc, CompiledSchema& schema)
 	{
 		schema = CompiledSchema{};

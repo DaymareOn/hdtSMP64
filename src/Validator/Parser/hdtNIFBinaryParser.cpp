@@ -15,13 +15,17 @@ namespace hdt
 		class NifReader
 		{
 		public:
+			/// Creates a bounded binary reader over NIF bytes starting at startPos.
 			NifReader(const std::vector<uint8_t>& data, size_t startPos) :
 				m_data(data), m_pos(startPos)
 			{}
 
+			/// Returns true if bytes can be read without exceeding the input buffer.
 			bool canRead(size_t bytes) const { return m_pos + bytes <= m_data.size(); }
+			/// Returns the current absolute byte offset in the input buffer.
 			size_t pos() const { return m_pos; }
 
+			/// Reads one little-endian byte and advances the cursor.
 			uint8_t readU8()
 			{
 				if (!canRead(1))
@@ -29,6 +33,7 @@ namespace hdt
 				return m_data[m_pos++];
 			}
 
+			/// Reads a little-endian 16-bit unsigned integer and advances the cursor.
 			uint16_t readU16()
 			{
 				if (!canRead(2))
@@ -39,6 +44,7 @@ namespace hdt
 				return v;
 			}
 
+			/// Reads a little-endian 32-bit unsigned integer and advances the cursor.
 			uint32_t readU32()
 			{
 				if (!canRead(4))
@@ -49,6 +55,8 @@ namespace hdt
 				return v;
 			}
 
+			/// Reads a u32-length-prefixed string and advances the cursor.
+			/// Throws for implausible lengths or out-of-bounds reads.
 			std::string readSizedStr()
 			{
 				uint32_t len = readU32();
@@ -61,6 +69,7 @@ namespace hdt
 				return s;
 			}
 
+			/// Reads a u8-length-prefixed short string and advances the cursor.
 			std::string readShortSizedStr()
 			{
 				uint8_t len = readU8();
@@ -71,6 +80,7 @@ namespace hdt
 				return s;
 			}
 
+			/// Advances the cursor by bytes, throwing if it would cross the buffer end.
 			void skip(size_t bytes)
 			{
 				if (!canRead(bytes))
@@ -84,6 +94,9 @@ namespace hdt
 		};
 	}  // namespace
 
+	/// Parses the NIF v20.2.0.7 header payload beginning after the magic string.
+	/// Fills outInfo with type tables, string table, block layout, and quick feature flags.
+	/// Returns false for unsupported/invalid headers; throws only on malformed buffered reads.
 	bool ParseNifHeader(
 		const std::vector<uint8_t>& data,
 		size_t headerDataStartOffset,
@@ -160,6 +173,9 @@ namespace hdt
 		return true;
 	}
 
+	/// Scans parsed block metadata to collect XML path strings referenced by
+	/// NiStringExtraData entries named with the FSMP physics marker.
+	/// Returns all discovered paths (including duplicates if present in the file).
 	std::vector<std::string> FindXmlPathsInHeader(
 		const NifHeaderInfo& info,
 		const std::vector<uint8_t>& rawData)

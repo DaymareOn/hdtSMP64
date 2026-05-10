@@ -2,10 +2,10 @@
 
 #include "NetImmerseUtils.h"
 #include "XmlReader.h"
-#include "Config/hdtValidatorPaths.h"
-#include "hdtXSDSchemaModel.h"
-#include "Parser/hdtXSDSchemaParser.h"
-#include "Utils/hdtStringUtils.h"
+#include "../Config/hdtValidatorPaths.h"
+#include "../hdtXSDSchemaModel.h"
+#include "../Parser/hdtXSDSchemaParser.h"
+#include "../Utils/hdtStringUtils.h"
 
 #include <pugixml.hpp>
 
