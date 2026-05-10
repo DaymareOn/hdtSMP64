@@ -351,10 +351,10 @@ bool SMPDebug_Execute(
 		console->Print("    Disable SMP simulation.");
 		console->Print("  smp QueryOverride");
 		console->Print("    Print current dynamic override data.");
-		console->Print("  smp validate [gear] [short]");
+		console->Print("  smp report [gear] [error]");
 		console->Print("    Run validator in background and write report file.");
 		console->Print("    gear  = validate equipped gear only.");
-		console->Print("    short = write errors-only report (no warnings/info).");
+		console->Print("    error = write errors-only report (no warnings/info)");
 		console->Print("  smp fix xml [gear] [output_dir]");
 		console->Print("    Clean invalid XML tags and write improved XML copies.");
 		console->Print("  smp fix nif [gear] [output_dir]");
@@ -443,9 +443,9 @@ bool SMPDebug_Execute(
 		return true;
 	}
 
-	if (_strnicmp(buffer, "validate", MAX_PATH) == 0) {
+	if (_strnicmp(buffer, "report", MAX_PATH) == 0) {
 		bool gearOnly = false;
-		bool shortReport = false;
+		bool errorReport = false;
 		auto parseValidateModeArg = [&](const char* arg) {
 			if (arg[0] == '\0')
 				return true;
@@ -453,19 +453,19 @@ bool SMPDebug_Execute(
 				gearOnly = true;
 				return true;
 			}
-			if (_stricmp(arg, "short") == 0) {
-				shortReport = true;
+			if (_stricmp(arg, "error") == 0) {
+				errorReport = true;
 				return true;
 			}
-			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Unknown validate mode: %s", arg);
-			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Usage: smp validate [gear] [short]");
+			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Unknown report mode: %s", arg);
+			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Usage: smp report [gear] [error]");
 			return false;
 		};
 
 		if (!parseValidateModeArg(buffer2) || !parseValidateModeArg(buffer3))
 			return true;
 		if (buffer4[0] != '\0') {
-			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Usage: smp validate [gear] [short]");
+			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Usage: smp report [gear] [error]");
 			return true;
 		}
 
@@ -474,27 +474,27 @@ bool SMPDebug_Execute(
 			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Validation is already running.");
 			return true;
 		}
-		if (gearOnly && shortReport) {
-			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Equipped gear validation (short report) started in background. Results will appear when complete.");
+		if (gearOnly && errorReport) {
+			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Equipped gear report (error report) started in background. Results will appear when complete.");
 		} else if (gearOnly) {
-			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Equipped gear validation started in background. Results will appear when complete.");
-		} else if (shortReport) {
-			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Validation (short report) started in background. Results will appear when complete.");
+			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Equipped gear report started in background. Results will appear when complete.");
+		} else if (errorReport) {
+			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Report (error report) started in background. Results will appear when complete.");
 		} else {
-			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Validation started in background. Results will appear when complete.");
+			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Report started in background. Results will appear when complete.");
 		}
-		std::thread([gearOnly, shortReport]() {
+		std::thread([gearOnly, errorReport]() {
 			try {
-				const char* validationLabel = gearOnly ? "Equipped gear validation" : "Validation";
+				const char* validationLabel = gearOnly ? "Equipped gear report" : "Report";
 				std::string reportPath;
 				auto result = hdt::ValidatePhysicsAssets(
 					reportPath,
 					gearOnly,
-					shortReport ? hdt::ValidationReportMode::ErrorsOnly : hdt::ValidationReportMode::Full);
+					errorReport ? hdt::ValidationReportMode::ErrorsOnly : hdt::ValidationReportMode::Full);
 				auto* console = RE::ConsoleLog::GetSingleton();
-				if (shortReport) {
+				if (errorReport) {
 					console->Print(
-						"[HDT-SMP] %s complete in %.2fs: %d XML(s) found, %d failed (short report: errors only)",
+						"[HDT-SMP] %s complete in %.2fs: %d XML(s) found, %d failed (error report: errors only)",
 						validationLabel,
 						result.elapsedSeconds,
 						result.totalXMLsFound,
@@ -508,7 +508,7 @@ bool SMPDebug_Execute(
 						(int)result.warnings.size());
 				}
 				if (!reportPath.empty()) {
-					if (shortReport) {
+					if (errorReport) {
 						console->Print("[HDT-SMP] Errors-only report written to: %s", reportPath.c_str());
 					} else {
 						console->Print("[HDT-SMP] Report written to: %s", reportPath.c_str());
@@ -517,11 +517,11 @@ bool SMPDebug_Execute(
 					console->Print("[HDT-SMP] Warning: report file could not be written");
 				}
 			} catch (const std::exception& e) {
-				RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Validation failed with error: %s", e.what());
-				logger::error("[Validator] smp validate threw: {}", e.what());
+				RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Report failed with error: %s", e.what());
+				logger::error("[Validator] smp report threw: {}", e.what());
 			} catch (...) {
-				RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Validation failed with an unknown error");
-				logger::error("[Validator] smp validate threw an unknown exception");
+				RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Report failed with an unknown error");
+				logger::error("[Validator] smp report threw an unknown exception");
 			}
 			s_validationRunning.store(false);
 		}).detach();

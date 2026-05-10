@@ -5,6 +5,7 @@
 #include "Improvers/hdtNIFImprover.h"
 #include "Validators/hdtNIFValidator.h"
 #include "Validators/hdtSCHValidator.h"
+#include "Config/hdtValidatorPaths.h"
 #include "Utils/hdtStringUtils.h"
 #include "Utils/hdtTimeUtils.h"
 #include "Improvers/hdtXMLImprover.h"
@@ -147,6 +148,120 @@ namespace hdt
 		return { PathToUtf8(xmlFsPath), fs::exists(xmlFsPath, ec) };
 	}
 
+	static std::string stripXmlNamespacePrefix(std::string s)
+	{
+		auto pos = s.find(':');
+		if (pos != std::string::npos)
+			s.erase(0, pos + 1);
+		return s;
+	}
+
+	static std::string extractElementNameFromSchLocation(const std::string& location)
+	{
+		auto slash = location.rfind('/');
+		if (slash == std::string::npos)
+			return {};
+
+		auto start = slash + 1;
+		auto bracket = location.find('[', start);
+		if (bracket == std::string::npos)
+			bracket = location.size();
+		if (bracket <= start)
+			return {};
+
+		return location.substr(start, bracket - start);
+	}
+
+	static const std::unordered_set<std::string>& getUnitFactorElementNamesFromXsd()
+	{
+		static std::once_flag once;
+		static std::unordered_set<std::string> names;
+
+		std::call_once(once, []() {
+			pugi::xml_document doc;
+			auto loadResult = doc.load_file(kPhysicsXSDPath);
+			if (!loadResult) {
+				logger::warn("[Validator] Could not load XSD from '{}': {}; [0,1] factor detection disabled.",
+					kPhysicsXSDPath, loadResult.description());
+				return;
+			}
+
+			auto schema = doc.child("xsd:schema");
+			if (!schema)
+				schema = doc.child("schema");
+			if (!schema) {
+				logger::warn("[Validator] Could not find schema root in '{}'; [0,1] factor detection disabled.",
+					kPhysicsXSDPath);
+				return;
+			}
+
+			for (auto element : schema.children()) {
+				if (stripXmlNamespacePrefix(element.name()) != "element")
+					continue;
+
+				auto typeName = stripXmlNamespacePrefix(element.attribute("type").as_string());
+				if (typeName != "factor")
+					continue;
+
+				std::string elementName = element.attribute("name").as_string();
+				if (!elementName.empty())
+					names.insert(std::move(elementName));
+			}
+
+			logger::info("[Validator] Loaded {} unit-factor element name(s) from XSD.", names.size());
+		});
+
+		return names;
+	}
+
+	static std::vector<std::string> getCandidateNifDiskPathsForXml(const std::string& resolvedXmlPath)
+	{
+		namespace fs = std::filesystem;
+		auto toStr = [](const fs::path& fp) -> std::string {
+			auto u8 = fp.generic_u8string();
+			return { reinterpret_cast<const char*>(u8.data()), u8.size() };
+		};
+
+		std::vector<std::string> matches;
+		std::unordered_set<std::string> seen;
+		std::error_code ec;
+
+		fs::path xmlFs = resolvedXmlPath;
+		if (xmlFs.empty())
+			return matches;
+
+		// Fast heuristic: most XML paths map to sibling .nif / _0.nif / _1.nif.
+		// Avoid expensive full mesh scans during equipped validation.
+		xmlFs.replace_extension(".nif");
+		for (const auto& candidate : {
+			xmlFs,
+			xmlFs.parent_path() / (xmlFs.stem().string() + "_0.nif"),
+			xmlFs.parent_path() / (xmlFs.stem().string() + "_1.nif")
+		}) {
+			if (candidate.empty())
+				continue;
+			if (!fs::exists(candidate, ec) || ec || !fs::is_regular_file(candidate, ec) || ec)
+				continue;
+
+			auto pathStr = toStr(candidate);
+			auto norm = NormalizePathForComparison(pathStr);
+			if (seen.insert(norm).second)
+				matches.push_back(std::move(pathStr));
+		}
+
+		return matches;
+	}
+
+	static std::string formatNifDiskPathForViolation(const std::string& resolvedXmlPath)
+	{
+		const auto& matches = getCandidateNifDiskPathsForXml(resolvedXmlPath);
+		if (matches.empty())
+			return {};
+		if (matches.size() == 1)
+			return matches.front();
+		return matches.front() + " (+" + std::to_string(matches.size() - 1) + " more matching NIFs)";
+	}
+
 	/// Distributes work across available CPU threads, splitting [0, n) into chunks.
 	/// Each chunk is processed by a hardware-concurrency thread via std::async.
 	/// Blocks until all chunks complete.
@@ -193,6 +308,51 @@ namespace hdt
 		});
 	}
 
+	static bool isOutOfRangeUnitFactorSchViolation(const SCHViolation& v)
+	{
+		// Check if message indicates [0,1] range violation
+		const bool isUnitRangeMessage =
+			v.message.find("value '") != std::string::npos &&
+			v.message.find("is out of range: must be in [0, 1].") != std::string::npos;
+		if (!isUnitRangeMessage)
+			return false;
+
+		auto elementName = extractElementNameFromSchLocation(v.location);
+		if (elementName.empty())
+			return false;
+
+		const auto& factorNames = getUnitFactorElementNamesFromXsd();
+		return factorNames.find(elementName) != factorNames.end();
+	}
+
+	static std::string extractOutOfRangeClampTarget(const std::string& message)
+	{
+		const std::string markerStart = "value '";
+		const std::string markerEnd = "' is out of range";
+		auto start = message.find(markerStart);
+		if (start == std::string::npos)
+			return "1";
+		start += markerStart.size();
+		auto end = message.find(markerEnd, start);
+		if (end == std::string::npos || end <= start)
+			return "1";
+
+		try {
+			const auto raw = message.substr(start, end - start);
+			const float value = std::stof(raw);
+			return value <= 0.0f ? "0" : "1";
+		} catch (...) {
+			return "1";
+		}
+	}
+
+	static bool hasBlockingSchErrors(const SCHValidationResult& sch)
+	{
+		return std::any_of(sch.violations.begin(), sch.violations.end(), [](const SCHViolation& v) {
+			return v.role == SCHRole::Error && !isOutOfRangeUnitFactorSchViolation(v);
+		});
+	}
+
 	/// Reports all XSD and SCH violations from a validated XML file to the report and output stream.
 	/// Formats each violation with line number, element path, and message.
 	/// Assumes a pass/fail header line has already been written before calling this.
@@ -231,6 +391,20 @@ namespace hdt
 		}
 
 		for (const auto& v : schResult.violations) {
+			if (isOutOfRangeUnitFactorSchViolation(v)) {
+				auto clampTarget = extractOutOfRangeClampTarget(v.message);
+				std::string warningMsg = xmlPath + ":" + std::to_string(v.line) + ": " +
+				                         v.location + " - " + v.message +
+				                         " Runtime clamps this value to [0, 1]; effective value will be '" +
+				                         clampTarget + "'.";
+				report.warnings.push_back(warningMsg);
+				report.hasWarnings = true;
+				out << "    [WARNING] " << v.location << " (line " << v.line << "): "
+					<< v.message << "; runtime clamps this value to [0, 1], so the effective value will be '"
+					<< clampTarget << "'.\n";
+				continue;
+			}
+
 			std::string msg = xmlPath + ":" + std::to_string(v.line) + ": " +
 			                  v.location + " - " + v.message;
 			if (v.role == SCHRole::Error) {
@@ -366,7 +540,7 @@ namespace hdt
 					// so nifPath is used as a human-readable item identifier in the report output.
 					asset.nifPath = skeleton.name() + " [armor:" + armorName + "]";
 					asset.nifExists = true;
-					asset.xmlPath = std::move(xmlPath);
+					asset.xmlPath = xmlPath;
 					asset.xmlExists = xmlExists;
 					asset.allPhysicsXmlPaths.push_back(armor.physicsFile.first);
 					++equippedCount;
@@ -378,7 +552,9 @@ namespace hdt
 							for (const auto& warn : structural.warnings)
 								logger::warn("[Validator] Equipped NIF warning: {}", warn);
 						} else {
-							outNifScanViolations->push_back(asset.nifPath + ": equipped armor node is not a NiNode");
+							const auto nifDiskPath = formatNifDiskPathForViolation(asset.xmlPath);
+							if (!nifDiskPath.empty())
+								outNifScanViolations->push_back(nifDiskPath + ": equipped armor node is not a NiNode (physics XML: " + asset.xmlPath + ")");
 						}
 					}
 					result.push_back(std::move(asset));
@@ -398,7 +574,7 @@ namespace hdt
 					PhysicsAsset asset;
 					asset.nifPath = skeleton.name() + " [headpart:" + headPartName + "]";
 					asset.nifExists = true;
-					asset.xmlPath = std::move(xmlPath);
+					asset.xmlPath = xmlPath;
 					asset.xmlExists = xmlExists;
 					asset.allPhysicsXmlPaths.push_back(headPart.physicsFile.first);
 					++equippedCount;
@@ -410,7 +586,9 @@ namespace hdt
 							for (const auto& warn : structural.warnings)
 								logger::warn("[Validator] Equipped NIF warning: {}", warn);
 						} else {
-							outNifScanViolations->push_back(asset.nifPath + ": equipped headpart node is not a NiNode");
+							const auto nifDiskPath = formatNifDiskPathForViolation(asset.xmlPath);
+							if (!nifDiskPath.empty())
+								outNifScanViolations->push_back(nifDiskPath + ": equipped headpart node is not a NiNode (physics XML: " + asset.xmlPath + ")");
 						}
 					}
 					result.push_back(std::move(asset));
@@ -629,7 +807,7 @@ namespace hdt
 					std::string msg = asset.nifPath + ": _0.nif has physics data but the matching _1.nif (" + norm1 + ") was not found or has no physics reference.";
 					report.errors.push_back(msg);
 					report.hasErrors = true;
-					out << "  [PAIR-ERROR] " << asset.nifPath << "\n";
+					out << "  [ERROR] " << asset.nifPath << "\n";
 					out << "    Matching _1.nif not found or has no physics reference: " << norm1 << "\n";
 				}
 				continue;
@@ -646,7 +824,7 @@ namespace hdt
 				                  asset.xmlPath + "' vs '" + asset1.xmlPath + "'.";
 				report.errors.push_back(msg);
 				report.hasErrors = true;
-				out << "  [PAIR-ERROR] " << asset.nifPath << "\n";
+				out << "  [ERROR] " << asset.nifPath << "\n";
 				out << "    _0.nif XML: " << (asset.xmlPath.empty() ? "(none)" : asset.xmlPath) << "\n";
 				out << "    _1.nif XML: " << (asset1.xmlPath.empty() ? "(none)" : asset1.xmlPath) << "\n";
 				out << "    _0/_1 NIF pair reference different physics XMLs.\n";
@@ -661,7 +839,7 @@ namespace hdt
 				                  std::to_string(paths0.size()) + " vs " + std::to_string(paths1.size()) + ").";
 				report.errors.push_back(msg);
 				report.hasErrors = true;
-				out << "  [PAIR-ERROR] " << asset.nifPath << " vs " << asset1.nifPath << "\n";
+				out << "  [ERROR] " << asset.nifPath << " vs " << asset1.nifPath << "\n";
 				out << "    Block count mismatch: _0.nif has " << paths0.size()
 					<< " block(s), _1.nif has " << paths1.size() << " block(s).\n";
 			} else {
@@ -672,7 +850,7 @@ namespace hdt
 						                  std::to_string(k) + ": '" + paths0[k] + "' vs '" + paths1[k] + "'.";
 						report.errors.push_back(msg);
 						report.hasErrors = true;
-						out << "  [PAIR-ERROR] " << asset.nifPath << " vs " << asset1.nifPath << "\n";
+						out << "  [ERROR] " << asset.nifPath << " vs " << asset1.nifPath << "\n";
 						out << "    Block " << k << " mismatch:\n";
 						out << "      _0.nif: " << paths0[k] << "\n";
 						out << "      _1.nif: " << paths1[k] << "\n";
@@ -746,7 +924,7 @@ namespace hdt
 				++report.totalXMLsFound;
 
 				const auto& pair = batchResults[xmlToIdx[norm]];
-				bool xmlHasErrors = hasBlockingXsdErrors(pair.first) || pair.second.hasErrors;
+				bool xmlHasErrors = hasBlockingXsdErrors(pair.first) || hasBlockingSchErrors(pair.second);
 
 				if (xmlHasErrors) {
 					++report.xmlErrorCount;
