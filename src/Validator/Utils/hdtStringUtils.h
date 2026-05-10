@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <cctype>
 #include <string>
 #include <unordered_set>
 #include <vector>
@@ -59,6 +60,16 @@ namespace hdt
 			result += value;
 		}
 		return result;
+	}
+
+	// Normalize a filesystem-like path string for case-insensitive comparisons.
+	// Converts backslashes to forward slashes and lowercases all characters.
+	inline std::string NormalizePathForComparison(std::string path)
+	{
+		std::transform(path.begin(), path.end(), path.begin(), [](unsigned char c) {
+			return c == '\\' ? '/' : static_cast<char>(std::tolower(c));
+		});
+		return path;
 	}
 
 }  // namespace hdt

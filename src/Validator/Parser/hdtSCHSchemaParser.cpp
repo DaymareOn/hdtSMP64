@@ -1,7 +1,7 @@
 #include "hdtSCHSchemaParser.h"
 
-#include "hdtStringUtils.h"
-#include "hdtXMLUtils.h"
+#include "../Utils/hdtStringUtils.h"
+#include "../Utils/hdtXMLUtils.h"
 
 #include <string>
 #include <string_view>

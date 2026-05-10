@@ -5,6 +5,8 @@
 #include "hdtNIFImprover.h"
 #include "hdtNIFValidator.h"
 #include "hdtSCHValidator.h"
+#include "Utils/hdtStringUtils.h"
+#include "Utils/hdtTimeUtils.h"
 #include "hdtXMLImprover.h"
 #include "hdtXSDValidator.h"
 
@@ -53,26 +55,6 @@ namespace hdt
 	}
 
 	// ---- helpers ----
-
-	/// Generates a timestamp string in format YYYYMMDD_HHMMSS for use in log filenames.
-	static std::string timestampString()
-	{
-		auto t = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-		std::tm tmBuf{};
-		localtime_s(&tmBuf, &t);
-		std::ostringstream ss;
-		ss << std::put_time(&tmBuf, "%Y%m%d_%H%M%S");
-		return ss.str();
-	}
-
-	/// Normalizes a filesystem path to lowercase with forward slashes for case-insensitive comparison.
-	static std::string normalisePath(std::string p)
-	{
-		std::transform(p.begin(), p.end(), p.begin(), [](unsigned char c) {
-			return c == '\\' ? '/' : (char)std::tolower(c);
-		});
-		return p;
-	}
 
 	/// Extracts the base stem from a NIF filename, stripping weight-variant suffixes.
 	/// For files like "foo_0.nif" or "foo_1.nif", returns "foo".
@@ -132,7 +114,7 @@ namespace hdt
 				continue;
 
 			auto pathStr = toStr(candidate);
-			auto norm = normalisePath(pathStr);
+			auto norm = NormalizePathForComparison(pathStr);
 			if (seen.insert(norm).second)
 				result.push_back(std::move(pathStr));
 		}
@@ -298,11 +280,22 @@ namespace hdt
 	///   - Step 1 (serial): Recursive directory walk collects all .nif paths.
 	///   - Step 2 (parallel): Binary scan detects physics data in each NIF.
 	/// When equippedOnly=true: Iterates live actor skeletons to collect equipped armor and headparts.
-	static std::vector<PhysicsAsset> discoverPhysicsAssets(bool equippedOnly = false)
+	static std::vector<PhysicsAsset> discoverPhysicsAssets(bool equippedOnly = false,
+		std::vector<std::string>* outNifScanViolations = nullptr,
+		int* outFilesystemNifFilesDiscovered = nullptr,
+		int* outEquippedNifsDiscovered = nullptr)
 	{
+		if (outNifScanViolations)
+			outNifScanViolations->clear();
+		if (outFilesystemNifFilesDiscovered)
+			*outFilesystemNifFilesDiscovered = 0;
+		if (outEquippedNifsDiscovered)
+			*outEquippedNifsDiscovered = 0;
+
 		if (equippedOnly) {
 			// ---- Runtime-only: Equipped-gear discovery ----
 			std::vector<PhysicsAsset> result;
+			int equippedCount = 0;
 
 			auto* actorManager = ActorManager::instance();
 			auto lock = actorManager->lockGuard();
@@ -325,6 +318,18 @@ namespace hdt
 					asset.xmlPath = std::move(xmlPath);
 					asset.xmlExists = xmlExists;
 					asset.allPhysicsXmlPaths.push_back(armor.physicsFile.first);
+					++equippedCount;
+					if (outNifScanViolations) {
+						if (auto* armorRoot = castNiNode(armor.armorWorn.get())) {
+							auto structural = validateNIFStructure(armorRoot, asset.nifPath);
+							for (const auto& err : structural.errors)
+								outNifScanViolations->push_back(err);
+							for (const auto& warn : structural.warnings)
+								logger::warn("[Validator] Equipped NIF warning: {}", warn);
+						} else {
+							outNifScanViolations->push_back(asset.nifPath + ": equipped armor node is not a NiNode");
+						}
+					}
 					result.push_back(std::move(asset));
 				}
 
@@ -345,9 +350,23 @@ namespace hdt
 					asset.xmlPath = std::move(xmlPath);
 					asset.xmlExists = xmlExists;
 					asset.allPhysicsXmlPaths.push_back(headPart.physicsFile.first);
+					++equippedCount;
+					if (outNifScanViolations) {
+						if (auto* headRoot = castNiNode(headPart.headPart.get())) {
+							auto structural = validateNIFStructure(headRoot, asset.nifPath);
+							for (const auto& err : structural.errors)
+								outNifScanViolations->push_back(err);
+							for (const auto& warn : structural.warnings)
+								logger::warn("[Validator] Equipped NIF warning: {}", warn);
+						} else {
+							outNifScanViolations->push_back(asset.nifPath + ": equipped headpart node is not a NiNode");
+						}
+					}
 					result.push_back(std::move(asset));
 				}
 			}
+			if (outEquippedNifsDiscovered)
+				*outEquippedNifsDiscovered = equippedCount;
 
 			return result;
 		} else {
@@ -389,17 +408,23 @@ namespace hdt
 			}
 
 			logger::info("[Validator] Found {} NIF files, scanning for physics data...", nifPaths.size());
+			if (outFilesystemNifFilesDiscovered)
+				*outFilesystemNifFilesDiscovered = static_cast<int>(nifPaths.size());
 
 			// Step 2: parallel binary scan — each thread scans an independent chunk.
-			// ScanNIFBinary opens its own file handle and uses only local state → thread-safe.
+			// ExtractPhysicsXmlRefsFromNIFs opens its own file handle and uses only local state → thread-safe.
 			const size_t n = nifPaths.size();
 			std::vector<std::optional<PhysicsAsset>> scanResults(n);
+			std::vector<std::vector<std::string>> scanViolations(n);
 
 			parallelForChunks(n, [&](size_t begin, size_t end) {
 				for (size_t j = begin; j < end; ++j) {
 					const auto& pathStr = nifPaths[j];
 					try {
-						auto scanRes = ScanNIFBinary(pathStr);
+						auto scanRes = ExtractPhysicsXmlRefsFromNIFs(pathStr);
+						for (const auto& err : scanRes.errors)
+							scanViolations[j].push_back(err);
+
 						if (!scanRes.hasPhysicsData)
 							continue;
 
@@ -424,8 +449,10 @@ namespace hdt
 
 						scanResults[j] = std::move(asset);
 					} catch (const std::exception& e) {
+						scanViolations[j].push_back("Exception while scanning NIF '" + pathStr + "': " + e.what());
 						logger::warn("[Validator] Error scanning NIF {}: {}", pathStr, e.what());
 					} catch (...) {
+						scanViolations[j].push_back("Unknown exception while scanning NIF: " + pathStr);
 						logger::warn("[Validator] Unknown error scanning NIF {}", pathStr);
 					}
 				}
@@ -437,6 +464,11 @@ namespace hdt
 			for (auto& opt : scanResults) {
 				if (opt)
 					result.push_back(std::move(*opt));
+			}
+			if (outNifScanViolations) {
+				for (auto& errs : scanViolations)
+					for (auto& err : errs)
+						outNifScanViolations->push_back(std::move(err));
 			}
 
 			logger::info("[Validator] Scanned {} NIF files, found {} physics-enabled NIFs",
@@ -457,7 +489,7 @@ namespace hdt
 		auto enqueueUnique = [&](const std::string& path) {
 			if (path.empty())
 				return;
-			auto norm = normalisePath(path);
+			auto norm = NormalizePathForComparison(path);
 			if (seen.insert(norm).second)
 				queue.push_back(path);
 		};
@@ -520,7 +552,7 @@ namespace hdt
 		std::unordered_map<std::string, size_t> nifByNormPath;
 		nifByNormPath.reserve(nifAssets.size());
 		for (size_t i = 0; i < nifAssets.size(); ++i)
-			nifByNormPath[normalisePath(nifAssets[i].nifPath)] = i;
+			nifByNormPath[NormalizePathForComparison(nifAssets[i].nifPath)] = i;
 
 		// Track _0.nif paths we've already checked (avoid reporting the same pair twice)
 		std::unordered_set<std::string> checked;
@@ -529,7 +561,7 @@ namespace hdt
 			const auto& asset = nifAssets[i];
 
 			// We only initiate checks from the _0.nif side
-			auto normPath = normalisePath(asset.nifPath);
+			auto normPath = NormalizePathForComparison(asset.nifPath);
 			if (!normPath.ends_with("_0.nif"))
 				continue;
 			if (checked.count(normPath))
@@ -555,8 +587,8 @@ namespace hdt
 			const auto& asset1 = nifAssets[it1->second];
 
 			// 1. Both must reference the same XML (normalised)
-			auto normXml0 = normalisePath(asset.xmlPath);
-			auto normXml1 = normalisePath(asset1.xmlPath);
+			auto normXml0 = NormalizePathForComparison(asset.xmlPath);
+			auto normXml1 = NormalizePathForComparison(asset1.xmlPath);
 			if (normXml0 != normXml1) {
 				std::string msg = asset.nifPath + " and " + asset1.nifPath +
 				                  ": _0/_1 NIF pair reference different physics XMLs: '" +
@@ -583,7 +615,7 @@ namespace hdt
 					<< " block(s), _1.nif has " << paths1.size() << " block(s).\n";
 			} else {
 				for (size_t k = 0; k < paths0.size(); ++k) {
-					if (normalisePath(paths0[k]) != normalisePath(paths1[k])) {
+					if (NormalizePathForComparison(paths0[k]) != NormalizePathForComparison(paths1[k])) {
 						std::string msg = asset.nifPath + " and " + asset1.nifPath +
 						                  ": _0/_1 NIF pair have different physics XML at block index " +
 						                  std::to_string(k) + ": '" + paths0[k] + "' vs '" + paths1[k] + "'.";
@@ -614,7 +646,7 @@ namespace hdt
 		for (const auto& asset : nifAssets) {
 			if (asset.xmlPath.empty() || !asset.xmlExists)
 				continue;
-			auto norm = normalisePath(asset.xmlPath);
+			auto norm = NormalizePathForComparison(asset.xmlPath);
 			if (!xmlToIdx.count(norm)) {
 				xmlToIdx[norm] = batch.size();
 				batch.push_back(asset.xmlPath);
@@ -654,7 +686,7 @@ namespace hdt
 			} else if (!asset.xmlPath.empty()) {
 				out << "    -> " << asset.xmlPath << "\n";
 
-				auto norm = normalisePath(asset.xmlPath);
+				auto norm = NormalizePathForComparison(asset.xmlPath);
 				if (reportedXMLs.count(norm)) {
 					out << "    (already validated)\n";
 					continue;
@@ -723,9 +755,26 @@ namespace hdt
 		if (equippedOnly) {
 			// ---- Simplified: Equipped-only validation ----
 			bodyStream << "== Phase 1: Equipped Gear Discovery ==\n";
-			auto equippedAssets = discoverPhysicsAssets(true);
-			report.totalNIFsScanned = static_cast<int>(equippedAssets.size());
+			std::vector<std::string> nifScanViolations;
+			int equippedNifsDiscovered = 0;
+			auto equippedAssets = discoverPhysicsAssets(true, &nifScanViolations, nullptr, &equippedNifsDiscovered);
+			report.equippedNifsDiscovered = equippedNifsDiscovered;
+			report.filesystemNifFilesDiscovered = 0;
+			report.nifScanViolationCount = static_cast<int>(nifScanViolations.size());
+			report.totalNIFsScanned = report.equippedNifsDiscovered;
 			bodyStream << "  Found " << equippedAssets.size() << " equipped physics item(s).\n";
+			bodyStream << "  NIF discovery metrics: filesystem=0, equipped=" << report.equippedNifsDiscovered
+				<< ", scan violations=" << report.nifScanViolationCount << "\n";
+
+			if (!nifScanViolations.empty()) {
+				bodyStream << "\n  -- NIF Scan Violations --\n";
+				bodyStream << "  Count: " << nifScanViolations.size() << "\n";
+				for (const auto& violation : nifScanViolations) {
+					report.errors.push_back(violation);
+					report.hasErrors = true;
+					bodyStream << "    [NIF-ERROR] " << violation << "\n";
+				}
+			}
 
 			if (!equippedAssets.empty()) {
 				bodyStream << "\n== Phase 2: Equipped Gear XML Validation ==\n";
@@ -749,7 +798,7 @@ namespace hdt
 					if (entry.xmlPath.empty() || !entry.xmlExists)
 						continue;
 
-					auto norm = normalisePath(entry.xmlPath);
+					auto norm = NormalizePathForComparison(entry.xmlPath);
 					if (globalValidatedXMLs.count(norm))
 						continue;
 
@@ -799,14 +848,30 @@ namespace hdt
 
 			// Phase 2: NIF discovery
 			bodyStream << "\n== Phase 2: NIF File Discovery ==\n";
-			auto nifAssets = discoverPhysicsAssets();
-			report.totalNIFsScanned = (int)nifAssets.size();
+			std::vector<std::string> nifScanViolations;
+			int filesystemNifFilesDiscovered = 0;
+			auto nifAssets = discoverPhysicsAssets(false, &nifScanViolations, &filesystemNifFilesDiscovered, nullptr);
+			report.filesystemNifFilesDiscovered = filesystemNifFilesDiscovered;
+			report.equippedNifsDiscovered = 0;
+			report.nifScanViolationCount = static_cast<int>(nifScanViolations.size());
+			report.totalNIFsScanned = report.filesystemNifFilesDiscovered;
 			std::unordered_set<std::string> relatedTRINorm;
 			for (const auto& a : nifAssets)
 				for (const auto& tri : a.relatedTRIPaths)
-					relatedTRINorm.insert(normalisePath(tri));
+					relatedTRINorm.insert(NormalizePathForComparison(tri));
+			bodyStream << "  Scanned " << filesystemNifFilesDiscovered << " NIF file(s) in data/meshes.\n";
 			bodyStream << "  Found " << nifAssets.size() << " NIF file(s) referencing physics configs.\n";
 			bodyStream << "  Identified " << relatedTRINorm.size() << " related TRI file(s).\n";
+
+			if (!nifScanViolations.empty()) {
+				bodyStream << "\n  -- NIF Scan Violations --\n";
+				bodyStream << "  Count: " << nifScanViolations.size() << "\n";
+				for (const auto& violation : nifScanViolations) {
+					report.errors.push_back(violation);
+					report.hasErrors = true;
+					bodyStream << "    [NIF-ERROR] " << violation << "\n";
+				}
+			}
 
 			// Phase 2.5: NIF _0/_1 pair consistency check
 			bodyStream << "\n== Phase 2.5: NIF Pair Consistency Check ==\n";
@@ -831,7 +896,7 @@ namespace hdt
 				auto enqueue = [&](const std::string& path) {
 					if (path.empty())
 						return;
-					auto norm = normalisePath(path);
+					auto norm = NormalizePathForComparison(path);
 					if (improveNorm.insert(norm).second)
 						improveQueue.push_back(path);
 				};
@@ -883,7 +948,7 @@ namespace hdt
 				// never sees a half-updated pair.
 				std::map<std::string, std::vector<size_t>> stemGroups;
 				for (size_t i = 0; i < nifAssets.size(); ++i)
-					stemGroups[getNifPairBaseStem(normalisePath(nifAssets[i].nifPath))].push_back(i);
+					stemGroups[getNifPairBaseStem(NormalizePathForComparison(nifAssets[i].nifPath))].push_back(i);
 
 				std::vector<std::vector<size_t>> groups;
 				groups.reserve(stemGroups.size());
@@ -987,7 +1052,9 @@ namespace hdt
 		reportStream << "  XMLs found:    " << report.totalXMLsFound << "\n";
 		reportStream << "  XMLs passed:   " << report.xmlPassCount << "\n";
 		reportStream << "  XMLs failed:   " << report.xmlErrorCount << "\n";
-		reportStream << "  NIFs scanned:  " << report.totalNIFsScanned << "\n";
+		reportStream << "  NIF discovery: filesystem=" << report.filesystemNifFilesDiscovered
+			<< ", equipped=" << report.equippedNifsDiscovered
+			<< ", scan violations=" << report.nifScanViolationCount << "\n";
 		reportStream << "  Warnings:      " << report.warnings.size() << "\n";
 		reportStream << "  Errors:        " << report.errors.size() << "\n";
 		if (!equippedOnly) {
@@ -1015,7 +1082,7 @@ namespace hdt
 			equippedOnly ? "equipped gear" : "FSMP asset");
 
 		AssetValidationResult report;
-		std::string timestamp = timestampString();
+		std::string timestamp = BuildTimestampStringForFilenames();
 		std::string reportContent = runValidationCore(report, timestamp, equippedOnly);
 
 		// Always write the file for on-demand runs
@@ -1075,13 +1142,13 @@ namespace hdt
 		if (equippedOnly) {
 			std::unordered_set<std::string> equippedXMLs;
 			for (const auto& xmlPath : collectPhysicsXMLPaths(true))
-				equippedXMLs.insert(normalisePath(xmlPath));
+				equippedXMLs.insert(NormalizePathForComparison(xmlPath));
 
 			auto nifAssetsEquipped = discoverPhysicsAssets();
 			for (const auto& asset : nifAssetsEquipped) {
 				if (!asset.xmlExists)
 					continue;
-				if (equippedXMLs.count(normalisePath(asset.xmlPath)) == 0)
+				if (equippedXMLs.count(NormalizePathForComparison(asset.xmlPath)) == 0)
 					continue;
 				++result.totalNIFsFound;
 				if (GenerateImprovedNIF(asset.nifPath, outputDir))
@@ -1095,14 +1162,14 @@ namespace hdt
 		std::unordered_set<std::string> relatedTRINorm;
 		for (const auto& a : nifAssets)
 			for (const auto& tri : a.relatedTRIPaths)
-				relatedTRINorm.insert(normalisePath(tri));
+				relatedTRINorm.insert(NormalizePathForComparison(tri));
 		result.totalTRIFilesFound = static_cast<int>(relatedTRINorm.size());
 		auto decimationOptions = buildDecimationOptionsFromConfig();
 
 		// Group by base stem so _0/_1 pairs are processed atomically (same as Phase 5).
 		std::map<std::string, std::vector<size_t>> stemGroups;
 		for (size_t i = 0; i < nifAssets.size(); ++i)
-			stemGroups[getNifPairBaseStem(normalisePath(nifAssets[i].nifPath))].push_back(i);
+			stemGroups[getNifPairBaseStem(NormalizePathForComparison(nifAssets[i].nifPath))].push_back(i);
 
 		std::vector<std::vector<size_t>> groups;
 		groups.reserve(stemGroups.size());

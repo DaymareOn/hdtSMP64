@@ -1,6 +1,6 @@
 #pragma once
 
-#include "hdtXSDSchemaModel.h"
+#include "../hdtXSDSchemaModel.h"
 
 #include <pugixml.hpp>
 

@@ -23,10 +23,10 @@ namespace hdt
 		std::vector<std::string> errors;
 	};
 
-	// Scan a NIF binary file on disk for "HDT Skinned Mesh Physics Object" extra data.
-	// Parses the NIF string table and block list to locate NiStringExtraData entries.
-	// Returns the XML physics path referenced by the NIF, if found.
-	NIFScanResult ScanNIFBinary(const std::string& nifPath);
+	// Extract physics XML references from a NIF binary file on disk.
+	// Parses NIF header structures to locate "HDT Skinned Mesh Physics Object"
+	// NiStringExtraData links and records scanner/parsing failures in NIFScanResult::errors.
+	NIFScanResult ExtractPhysicsXmlRefsFromNIFs(const std::string& nifPath);
 
 	struct NIFStructuralResult
 	{
@@ -41,6 +41,6 @@ namespace hdt
 
 	// Validate NIF structural requirements for FSMP physics using a loaded NiNode*.
 	// Can be called at runtime when the NIF has been loaded by the game.
-	NIFStructuralResult ValidateNIFStructure(RE::NiNode* root, const std::string& nifPath);
+	NIFStructuralResult validateNIFStructure(RE::NiNode* root, const std::string& nifPath);
 
 }  // namespace hdt

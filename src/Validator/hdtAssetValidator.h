@@ -44,6 +44,9 @@ namespace hdt
 	{
 		bool hasErrors = false;
 		bool hasWarnings = false;
+		int filesystemNifFilesDiscovered = 0;
+		int equippedNifsDiscovered = 0;
+		int nifScanViolationCount = 0;
 		int totalNIFsScanned = 0;
 		int totalXMLsFound = 0;
 		int xmlPassCount = 0;
