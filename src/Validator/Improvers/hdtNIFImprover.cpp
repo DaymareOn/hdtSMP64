@@ -13,6 +13,12 @@ namespace hdt
 {
 	static constexpr std::streamoff kMaxNifFileSizeBytes = 256 * 1024 * 1024;
 
+	static std::string pathToUtf8(const std::filesystem::path& fp)
+	{
+		auto u8 = fp.generic_u8string();
+		return { reinterpret_cast<const char*>(u8.data()), u8.size() };
+	}
+
 	bool GenerateImprovedNIF(
 		const std::string& srcNIFPath,
 		const std::string& outputDir,
@@ -24,7 +30,7 @@ namespace hdt
 		if (outDiagnostics)
 			*outDiagnostics = {};
 
-		std::ifstream in(srcNIFPath, std::ios::binary | std::ios::ate);
+		std::ifstream in(std::filesystem::u8path(srcNIFPath), std::ios::binary | std::ios::ate);
 		if (!in.is_open())
 			return false;
 		auto sz = in.tellg();
@@ -79,7 +85,7 @@ namespace hdt
 		if (ec)
 			return false;
 
-		return writeNifFile(parsed, outPath.string());
+		return writeNifFile(parsed, pathToUtf8(outPath));
 	}
 
 	bool CopyNIFToOutput(const std::string& srcNIFPath, const std::string& outputDir)
@@ -91,7 +97,7 @@ namespace hdt
 		fs::create_directories(outPath.parent_path(), ec);
 		if (ec)
 			return false;
-		fs::copy_file(srcNIFPath, outPath, fs::copy_options::overwrite_existing, ec);
+		fs::copy_file(fs::u8path(srcNIFPath), outPath, fs::copy_options::overwrite_existing, ec);
 		return !ec;
 	}
 }

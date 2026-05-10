@@ -4,6 +4,7 @@
 #include <array>
 #include <cctype>
 #include <cstring>
+#include <filesystem>
 #include <fstream>
 #include <stdexcept>
 #include <utility>
@@ -306,7 +307,7 @@ namespace hdt
 			for (const auto& block : parsed.blocks)
 				out.insert(out.end(), block.begin(), block.end());
 
-			std::ofstream file(dstPath, std::ios::binary | std::ios::trunc);
+			std::ofstream file(std::filesystem::u8path(dstPath), std::ios::binary | std::ios::trunc);
 			if (!file.is_open())
 				return false;
 			file.write(reinterpret_cast<const char*>(out.data()), static_cast<std::streamsize>(out.size()));

@@ -11,6 +11,40 @@ namespace hdt
 {
 	namespace
 	{
+		/// Builds a message template from a <sch:assert> node.
+		/// Supports inline sch:name and sch:value-of placeholders.
+		static std::string buildAssertMessageTemplate(const pugi::xml_node& assertNode)
+		{
+			std::string msg;
+
+			for (auto child : assertNode.children()) {
+				switch (child.type()) {
+				case pugi::node_pcdata:
+				case pugi::node_cdata:
+					msg += child.value();
+					break;
+
+				case pugi::node_element: {
+					std::string_view localName = XmlLocalName(child.name());
+					if (localName == "name") {
+						msg += "{name}";
+					} else if (localName == "value-of") {
+						std::string selectExpr = TrimAsciiWhitespace(child.attribute("select").as_string());
+						if (selectExpr == "." || selectExpr == "text()") {
+							msg += "{value}";
+						}
+					}
+					break;
+				}
+
+				default:
+					break;
+				}
+			}
+
+			return TrimAsciiWhitespace(msg);
+		}
+
 		/// Converts a Schematron rule context into an absolute XPath used for node selection.
 		/// Expands root-level union forms like "(a | b)/c" into explicit XPath unions.
 		std::string contextToAbsoluteXPath(const std::string& rawContext, const std::string& schemaPrefix)
@@ -96,7 +130,7 @@ namespace hdt
 
 					std::string_view roleStr = assertNode.attribute("role").as_string("warning");
 					SCHRole role = (roleStr == "error") ? SCHRole::Error : SCHRole::Warning;
-					std::string message = TrimAsciiWhitespace(assertNode.text().as_string());
+					std::string message = buildAssertMessageTemplate(assertNode);
 					schema.rules.push_back({ xpathExpr, message, role });
 				}
 			}

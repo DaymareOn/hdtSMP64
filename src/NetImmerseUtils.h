@@ -1,5 +1,8 @@
 #pragma once
 
+#include <filesystem>
+#include <fstream>
+
 namespace hdt
 {
 
@@ -98,16 +101,19 @@ namespace hdt
 
 	static inline std::string readAllFile2(const char* path)
 	{
-		std::ifstream stream(path, std::ios::binary);
+		std::ifstream stream(std::filesystem::u8path(path), std::ios::binary);
 		if (!stream.is_open()) {
 			return "";
 		}
 
 		stream.seekg(0, std::ios::end);
 		auto size = stream.tellg();
+		if (size <= 0) {
+			return "";
+		}
 		stream.seekg(0, std::ios::beg);
 		std::string ret;
-		ret.resize(size);
+		ret.resize(static_cast<size_t>(size));
 		stream.read(&ret[0], size);
 		return ret;
 	}

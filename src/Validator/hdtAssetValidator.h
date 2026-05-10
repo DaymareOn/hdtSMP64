@@ -30,6 +30,12 @@ namespace hdt
 
 	extern ValidationConfig g_validationConfig;
 
+	enum class ValidationReportMode
+	{
+		Full,
+		ErrorsOnly
+	};
+
 	struct PhysicsAsset
 	{
 		std::string nifPath;
@@ -66,7 +72,10 @@ namespace hdt
 	// Always writes the report file regardless of config.
 	// Populates outReportPath with the absolute path to the written report (empty on failure).
 	// Returns the validation result for the selected scope.
-	AssetValidationResult ValidatePhysicsAssets(std::string& outReportPath, bool equippedOnly = false);
+	AssetValidationResult ValidatePhysicsAssets(
+		std::string& outReportPath,
+		bool equippedOnly = false,
+		ValidationReportMode reportMode = ValidationReportMode::Full);
 
 	struct NIFImproveResult
 	{

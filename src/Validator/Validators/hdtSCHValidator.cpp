@@ -4,6 +4,7 @@
 #include "../hdtSCHSchemaModel.h"
 #include "../Parser/hdtSCHSchemaParser.h"
 #include "../Config/hdtValidatorPaths.h"
+#include "../Utils/hdtStringUtils.h"
 #include "../Utils/hdtXMLUtils.h"
 
 #include <pugixml.hpp>
@@ -12,6 +13,29 @@
 
 namespace hdt
 {
+	namespace
+	{
+		static void replaceAllInPlace(std::string& s, const std::string& from, const std::string& to)
+		{
+			if (from.empty())
+				return;
+
+			size_t pos = 0;
+			while ((pos = s.find(from, pos)) != std::string::npos) {
+				s.replace(pos, from.size(), to);
+				pos += to.size();
+			}
+		}
+
+		/// Expands parser placeholders using the currently matched XML node.
+		static std::string resolveMessageTemplate(std::string msgTemplate, const pugi::xml_node& node)
+		{
+			replaceAllInPlace(msgTemplate, "{name}", std::string(XmlLocalName(node.name())));
+			replaceAllInPlace(msgTemplate, "{value}", TrimAsciiWhitespace(node.text().as_string()));
+			return msgTemplate;
+		}
+	}  // namespace
+
 	// ---- schema loading ----
 
 	static CompiledSchema g_compiledSchema;
@@ -100,7 +124,7 @@ namespace hdt
 				v.xmlPath = xmlPath;
 				v.location = BuildNodeLocationPath(xnode.node());
 				v.line = OffsetToLineNumber(bytes, xnode.node().offset_debug());
-				v.message = rule.message;
+				v.message = resolveMessageTemplate(rule.message, xnode.node());
 				v.role = rule.role;
 
 				if (rule.role == SCHRole::Error)

@@ -217,12 +217,17 @@ $TagVersion  = if ($Branch -eq "master") { $BaseVersion } else { "$BaseVersion-$
 $ZipName     = "FSMP-$TagVersion.zip"
 $ZipPath     = Join-Path (Split-Path $OutputDir -Parent) $ZipName
 
+if (Test-Path $ZipPath) {
+    $Timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
+    $ZipName = "FSMP-$TagVersion-$Timestamp.zip"
+    $ZipPath = Join-Path (Split-Path $OutputDir -Parent) $ZipName
+    Write-Warning "Archive already exists. Writing new archive as: $ZipName"
+}
+
 if ($SevenZip) {
-    if (Test-Path $ZipPath) { Remove-Item $ZipPath -Force }
     Invoke-Cmd $SevenZip @("a", "-tzip", "-mm=LZMA", "-mx=9", $ZipPath, ".") -WorkDir $OutputDir
 } else {
     Write-Warning "7z.exe not found - using Compress-Archive"
-    if (Test-Path $ZipPath) { Remove-Item $ZipPath -Force }
     Compress-Archive -Path (Join-Path $OutputDir "*") -DestinationPath $ZipPath
 }
 

@@ -32,6 +32,12 @@ namespace hdt
 {
 	ValidationConfig g_validationConfig;
 
+	static std::string PathToUtf8(const std::filesystem::path& fp)
+	{
+		auto u8 = fp.generic_u8string();
+		return { reinterpret_cast<const char*>(u8.data()), u8.size() };
+	}
+
 	/// Constructs a NIFDecimationOptions struct from the current global validation config.
 	/// Packages all mesh decimation settings for use by NIF improvers.
 	static NIFDecimationOptions buildDecimationOptionsFromConfig()
@@ -138,7 +144,7 @@ namespace hdt
 		if (!fs::exists(xmlFsPath, ec))
 			xmlFsPath = "data/" + xmlPath;
 
-		return { xmlFsPath.string(), fs::exists(xmlFsPath, ec) };
+		return { PathToUtf8(xmlFsPath), fs::exists(xmlFsPath, ec) };
 	}
 
 	/// Distributes work across available CPU threads, splitting [0, n) into chunks.
@@ -165,6 +171,28 @@ namespace hdt
 
 	using XMLValidationPair = std::pair<XSDValidationResult, SCHValidationResult>;
 
+	static bool isIgnoredDisallowedChildTagViolation(const XSDViolation& v)
+	{
+		return v.message.find(" is not allowed inside <") != std::string::npos;
+	}
+
+	static bool isIgnoredInvalidSharedValueViolation(const XSDViolation& v)
+	{
+		return v.message.find("<shared> has invalid value '") != std::string::npos;
+	}
+
+	static bool isNonBlockingXsdViolation(const XSDViolation& v)
+	{
+		return isIgnoredDisallowedChildTagViolation(v) || isIgnoredInvalidSharedValueViolation(v);
+	}
+
+	static bool hasBlockingXsdErrors(const XSDValidationResult& xsd)
+	{
+		return std::any_of(xsd.violations.begin(), xsd.violations.end(), [](const XSDViolation& v) {
+			return !isNonBlockingXsdViolation(v);
+		});
+	}
+
 	/// Reports all XSD and SCH violations from a validated XML file to the report and output stream.
 	/// Formats each violation with line number, element path, and message.
 	/// Assumes a pass/fail header line has already been written before calling this.
@@ -174,6 +202,27 @@ namespace hdt
 		const auto& [xsdResult, schResult] = pair;
 
 		for (const auto& v : xsdResult.violations) {
+			if (isIgnoredDisallowedChildTagViolation(v)) {
+				std::string msg = xmlPath + ":" + std::to_string(v.line) + ": " +
+				                  v.elementPath + " - " + v.message + " This tag will be ignored.";
+				report.warnings.push_back(msg);
+				report.hasWarnings = true;
+				out << "    [WARNING] " << v.elementPath << " (line " << v.line << "): "
+					<< v.message << "; this tag will be ignored." << "\n";
+				continue;
+			}
+
+			if (isIgnoredInvalidSharedValueViolation(v)) {
+				std::string msg = xmlPath + ":" + std::to_string(v.line) + ": " +
+				                  v.elementPath + " - " + v.message +
+				                  " This value will be ignored and replaced by the default value ('public').";
+				report.warnings.push_back(msg);
+				report.hasWarnings = true;
+				out << "    [WARNING] " << v.elementPath << " (line " << v.line << "): "
+					<< v.message << "; this value will be ignored and replaced by the default value ('public')." << "\n";
+				continue;
+			}
+
 			std::string msg = xmlPath + ":" + std::to_string(v.line) + ": " +
 			                  v.elementPath + " - " + v.message;
 			report.errors.push_back(msg);
@@ -186,7 +235,7 @@ namespace hdt
 			                  v.location + " - " + v.message;
 			if (v.role == SCHRole::Error) {
 				report.errors.push_back(msg);
-				out << "    [SCH-ERROR] " << v.location << " (line " << v.line << "): "
+				out << "    [ERROR] " << v.location << " (line " << v.line << "): "
 					<< v.message << "\n";
 			} else {
 				report.warnings.push_back(msg);
@@ -231,12 +280,14 @@ namespace hdt
 		std::error_code ec;
 		if (!fs::exists(bbpFile, ec)) {
 			logger::info("[Validator] defaultBBPs.xml not found at {}, skipping Phase 0",
-				bbpFile.string());
+				PathToUtf8(bbpFile));
 			return result;
 		}
 
 		pugi::xml_document doc;
-		auto parseResult = doc.load_file(bbpFile.string().c_str());
+		const std::string bbpPathUtf8 = PathToUtf8(bbpFile);
+		std::string bbpBytes = readAllFile2(bbpPathUtf8.c_str());
+		auto parseResult = doc.load_buffer(bbpBytes.data(), bbpBytes.size());
 		if (!parseResult) {
 			logger::warn("[Validator] Failed to parse defaultBBPs.xml: {}",
 				parseResult.description());
@@ -258,12 +309,12 @@ namespace hdt
 
 			fs::path candidate = "data/" + rawFile;
 			if (fs::exists(candidate, ec)) {
-				entry.xmlPath = candidate.string();
+				entry.xmlPath = PathToUtf8(candidate);
 				entry.xmlExists = true;
 			} else {
 				// Fall back to path as-is (in case it's already absolute or differently rooted)
 				candidate = rawFile;
-				entry.xmlPath = candidate.string();
+				entry.xmlPath = PathToUtf8(candidate);
 				entry.xmlExists = fs::exists(candidate, ec);
 			}
 
@@ -381,7 +432,7 @@ namespace hdt
 
 			std::error_code ec;
 			if (!fs::exists(meshDir, ec) || !fs::is_directory(meshDir, ec)) {
-				logger::warn("[Validator] Meshes directory not found: {}", meshDir.string());
+				logger::warn("[Validator] Meshes directory not found: {}", PathToUtf8(meshDir));
 				return {};
 			}
 
@@ -695,7 +746,7 @@ namespace hdt
 				++report.totalXMLsFound;
 
 				const auto& pair = batchResults[xmlToIdx[norm]];
-				bool xmlHasErrors = !pair.first.isValid || pair.second.hasErrors;
+				bool xmlHasErrors = hasBlockingXsdErrors(pair.first) || pair.second.hasErrors;
 
 				if (xmlHasErrors) {
 					++report.xmlErrorCount;
@@ -727,13 +778,13 @@ namespace hdt
 
 		std::ofstream out(reportPath, std::ios::out | std::ios::trunc);
 		if (!out.is_open()) {
-			logger::warn("[Validator] Could not open report file: {}", reportPath.string());
+			logger::warn("[Validator] Could not open report file: {}", PathToUtf8(reportPath));
 			return {};
 		}
 
 		out << reportContent;
-		logger::info("[Validator] Validation report written to: {}", reportPath.string());
-		return reportPath.string();
+		logger::info("[Validator] Validation report written to: {}", PathToUtf8(reportPath));
+		return PathToUtf8(reportPath);
 	}
 
 	// ---- core validation ----
@@ -772,7 +823,7 @@ namespace hdt
 				for (const auto& violation : nifScanViolations) {
 					report.errors.push_back(violation);
 					report.hasErrors = true;
-					bodyStream << "    [NIF-ERROR] " << violation << "\n";
+					bodyStream << "    [ERROR] " << violation << "\n";
 				}
 			}
 
@@ -869,7 +920,7 @@ namespace hdt
 				for (const auto& violation : nifScanViolations) {
 					report.errors.push_back(violation);
 					report.hasErrors = true;
-					bodyStream << "    [NIF-ERROR] " << violation << "\n";
+					bodyStream << "    [ERROR] " << violation << "\n";
 				}
 			}
 
@@ -1074,16 +1125,59 @@ namespace hdt
 
 	// ---- public entry points ----
 
+	static std::string buildErrorsOnlyReport(
+		const AssetValidationResult& report,
+		const std::string& timestamp,
+		bool equippedOnly)
+	{
+		std::ostringstream reportStream;
+		reportStream << "========================================\n";
+		if (equippedOnly) {
+			reportStream << "FSMP Equipped Gear Validation Report (Errors Only)\n";
+		} else {
+			reportStream << "FSMP Asset Validation Report (Errors Only)\n";
+		}
+		reportStream << "Generated: " << timestamp << "\n";
+		reportStream << "========================================\n\n";
+
+		reportStream << "== Summary ==\n";
+		reportStream << "  Duration:      " << std::fixed << std::setprecision(2) << report.elapsedSeconds << "s\n";
+		reportStream << "  XMLs found:    " << report.totalXMLsFound << "\n";
+		reportStream << "  XMLs failed:   " << report.xmlErrorCount << "\n";
+		reportStream << "  Errors:        " << report.errors.size() << "\n\n";
+
+		reportStream << "== Errors ==\n";
+		if (report.errors.empty()) {
+			reportStream << "  [OK] No errors found.\n";
+		} else {
+			for (const auto& e : report.errors)
+				reportStream << "  [ERROR] " << e << "\n";
+		}
+
+		reportStream << "\n========================================\n";
+		return reportStream.str();
+	}
+
 	/// Validates all physics assets (NIFs and XMLs) and writes a detailed report to disk.
 	/// Runs either the full pipeline (all NIFs) or equipped-only pipeline (equipped items only).
-	AssetValidationResult ValidatePhysicsAssets(std::string& outReportPath, bool equippedOnly)
+	AssetValidationResult ValidatePhysicsAssets(
+		std::string& outReportPath,
+		bool equippedOnly,
+		ValidationReportMode reportMode)
 	{
 		logger::info("[Validator] Starting {} on-demand validation...",
 			equippedOnly ? "equipped gear" : "FSMP asset");
 
 		AssetValidationResult report;
 		std::string timestamp = BuildTimestampStringForFilenames();
-		std::string reportContent = runValidationCore(report, timestamp, equippedOnly);
+		std::string fullReportContent = runValidationCore(report, timestamp, equippedOnly);
+
+		std::string reportContent;
+		if (reportMode == ValidationReportMode::ErrorsOnly) {
+			reportContent = buildErrorsOnlyReport(report, timestamp, equippedOnly);
+		} else {
+			reportContent = std::move(fullReportContent);
+		}
 
 		// Always write the file for on-demand runs
 		outReportPath = writeValidationReportFile(reportContent, timestamp);

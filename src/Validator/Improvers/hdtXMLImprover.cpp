@@ -1,10 +1,15 @@
 #include "hdtXMLImprover.h"
 
+#include "../../NetImmerseUtils.h"
 #include "../Validators/hdtXSDValidator.h"
 
 #include <pugixml.hpp>
 
+#include <algorithm>
+#include <cctype>
 #include <filesystem>
+#include <fstream>
+#include <sstream>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -123,7 +128,10 @@ namespace hdt
 		const ChildSet& known = GetSchemaKnownElements();
 
 		pugi::xml_document doc;
-		if (!doc.load_file(srcXMLPath.c_str()))
+		std::string srcBytes = readAllFile2(srcXMLPath.c_str());
+		if (srcBytes.empty())
+			return false;
+		if (!doc.load_buffer(srcBytes.data(), srcBytes.size()))
 			return false;
 
 		// Locate the root <system> element
@@ -153,7 +161,15 @@ namespace hdt
 		if (ec)
 			return false;
 
-		return doc.save_file(outPath.string().c_str(), "  ", pugi::format_default);
+		std::ostringstream oss;
+		doc.save(oss, "  ", pugi::format_default);
+		const std::string xmlOut = oss.str();
+
+		std::ofstream out(outPath, std::ios::binary | std::ios::trunc);
+		if (!out.is_open())
+			return false;
+		out.write(xmlOut.data(), static_cast<std::streamsize>(xmlOut.size()));
+		return out.good();
 	}
 
 }  // namespace hdt
