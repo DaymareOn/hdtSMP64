@@ -3,6 +3,7 @@
 #include <btBulletCollisionCommon.h>
 #include <btBulletDynamicsCommon.h>
 
+#include <algorithm>
 #include <bit>
 #include <cassert>
 #include <cfloat>

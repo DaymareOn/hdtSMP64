@@ -151,7 +151,7 @@ namespace hdt
 	{
 		applyGravity();
 		if (hdt::SkyrimPhysicsWorld::get()->m_enableWind)
-			applyWind(std::max(remainingTimeStep, fixedTimeStep));
+			applyWind(remainingTimeStep);
 
 		while (remainingTimeStep > fixedTimeStep) {
 			internalSingleStepSimulation(fixedTimeStep);
@@ -236,6 +236,8 @@ namespace hdt
 		constexpr btScalar kVerticalPhaseScale = 0.006f;
 		constexpr btScalar kPressureCenterOffset = 0.8f;
 
+		BT_PROFILE("HDTSMP_applyWind");
+
 		const btScalar windMagnitude = m_windSpeed.length();
 		if (btFuzzyZero(windMagnitude))
 			return;
@@ -253,6 +255,8 @@ namespace hdt
 			side.normalize();
 		}
 
+		const btScalar gustSpeed = clampScalar(windMagnitude * kGustSpeedPerForce, kMinGustSpeed, kMaxGustSpeed);
+
 		for (auto& i : m_systems) {
 			auto system = static_cast<SkyrimSystem*>(i.get());
 			if (btFuzzyZero(system->m_windFactor))  // skip any systems that aren't affected by wind
@@ -264,7 +268,6 @@ namespace hdt
 
 				const btScalar windFactor = j->m_windFactor * system->m_windFactor;
 				const btVector3 origin = body->getWorldTransform().getOrigin();
-				const btScalar gustSpeed = clampScalar(windMagnitude * kGustSpeedPerForce, kMinGustSpeed, kMaxGustSpeed);
 				// Move gust phases downwind so stronger wind carries the same gust across bones faster
 				const btScalar advectedTime = m_windTime - origin.dot(windDirection) / gustSpeed - origin.dot(side) * kCrosswindTimeScale;
 				const btScalar verticalPhase = origin.getZ() * kVerticalPhaseScale;
