@@ -1,16 +1,17 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-    Local build script for the full FSMP mod (DLL x4 + MCM + package).
+    Local build script for the full FSMP mod (DLL + MCM + package).
 .DESCRIPTION
     Mirrors the GitHub Actions build.yml pipeline for local development.
-    Builds all four AVX variants (noavx, avx, avx2, avx512) using local
-    CMake presets, compiles the Papyrus MCM scripts, and assembles the
-    final mod package.
+    Builds the AVX2 variant by default using local CMake presets, compiles
+    the Papyrus MCM scripts, and assembles the final mod package.
 
-    The DLL artifacts are placed in "raw-vs2022-*" directories inside the
+    The DLL artifacts are placed in "raw-vs2022-windows-avx2" directory inside the
     package, matching the names used by ModuleConfig.xml and the CI pipeline,
     even though locally they are built with VS 2026.
+
+    Only rebuilds what has changed (incremental builds).
 
     Prerequisites:
     - CMakeUserPresets.json defining local vs2026-windows* presets (gitignored)
@@ -18,7 +19,8 @@
     - FSMP-MCM submodules initialized (same command in the FSMP-MCM dir)
 
 .PARAMETER Variants
-    List of AVX variant suffixes to build. Defaults to all four.
+    List of AVX variant suffixes to build. Defaults to AVX2 only.
+    To build all variants, use: -Variants @("", "-avx", "-avx2", "-avx512")
     Each entry maps to a "vs2026-windows{suffix}" local preset and a
     "raw-vs2022-windows{suffix}" output directory in the package.
 .PARAMETER McmDir
@@ -30,10 +32,10 @@
 .EXAMPLE
     .\build-local.ps1
 .EXAMPLE
-    .\build-local.ps1 -Variants @("", "-avx2")
+    .\build-local.ps1 -Variants @("", "-avx", "-avx2", "-avx512")
 #>
 param(
-    [string[]]$Variants   = @("", "-avx", "-avx2", "-avx512"),
+    [string[]]$Variants   = @("-avx2"),
     [string]$McmDir       = (Join-Path (Split-Path $PSScriptRoot -Parent) "FSMP-MCM"),
     [string]$ValidatorDir = (Join-Path (Split-Path $PSScriptRoot -Parent) "FSMP-Validator"),
     [string]$OutputDir    = (Join-Path $PSScriptRoot "out\package")
@@ -74,6 +76,7 @@ if (-not (Test-Path "B:\CMakeLists.txt")) { throw "B:\\ not accessible or not ma
 # 1. Build all requested AVX variants (all run from B:\ for short paths)
 # ---------------------------------------------------------------------------
 $BuiltVariants = @()
+$ExpectedGenerator = "Visual Studio 18 2026"
 
 # The noavx triplet's bullet3 package contains the header; avx2/avx512 binary cache entries
 # are corrupted (missing btDiscreteCollisionDetectorInterface.h). Copy it after configure.
@@ -96,11 +99,11 @@ foreach ($Suffix in $Variants) {
     $CacheFile = Join-Path $BuildDir "CMakeCache.txt"
     if (Test-Path $CacheFile) {
         $CacheContent = Get-Content $CacheFile -Raw
-        if ($CacheContent -match "CMAKE_HOME_DIRECTORY:INTERNAL=C:") {
+        if ($CacheContent -match "CMAKE_HOME_DIRECTORY:INTERNAL=C:" -or $CacheContent -notmatch "CMAKE_GENERATOR:INTERNAL=$([regex]::Escape($ExpectedGenerator))") {
             Remove-Item $CacheFile -Force
             $CMakeFilesDir = Join-Path $BuildDir "CMakeFiles"
             if (Test-Path $CMakeFilesDir) { Remove-Item $CMakeFilesDir -Recurse -Force }
-            Write-Host "  Deleted stale CMakeCache (C:\\ paths -> regenerating with B:\\ paths)" -ForegroundColor Yellow
+            Write-Host "  Deleted stale CMakeCache (path/generator mismatch -> regenerating)" -ForegroundColor Yellow
         }
     }
 
