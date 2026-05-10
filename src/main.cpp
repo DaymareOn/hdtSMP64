@@ -433,7 +433,7 @@ bool SMPDebug_Execute(
 			try {
 				const char* validationLabel = gearOnly ? "Equipped gear validation" : "Validation";
 				std::string reportPath;
-				auto result = gearOnly ? hdt::ValidateEquippedPhysicsAssetsOnDemand(reportPath) : hdt::ValidateAllPhysicsAssetsOnDemand(reportPath);
+				auto result = hdt::ValidatePhysicsAssets(reportPath, gearOnly);
 				auto* console = RE::ConsoleLog::GetSingleton();
 				console->Print(
 					"[HDT-SMP] %s complete in %.2fs: %d XML(s) found, %d passed, %d failed, %d warning(s)",
@@ -506,9 +506,7 @@ bool SMPDebug_Execute(
 
 		std::thread([gearOnly, outputDir = std::move(outputDir)]() {
 			try {
-				auto result = gearOnly ?
-				                  hdt::ImproveEquippedPhysicsNIFsOnDemand(outputDir) :
-				                  hdt::ImprovePhysicsNIFsOnDemand(outputDir);
+				auto result = hdt::ImprovePhysicsNIFs(outputDir, gearOnly);
 				auto* console = RE::ConsoleLog::GetSingleton();
 				console->Print("[HDT-SMP] %s NIF cleanup: %d NIF(s) processed, %d related TRI(s), %d cleaned file(s) written to %s",
 					gearOnly ? "Equipped gear" : "All",
@@ -602,9 +600,7 @@ bool SMPDebug_Execute(
 
 		std::thread([gearOnly, outputDir = std::move(outputDir)]() {
 			try {
-				auto result = gearOnly ?
-				                  hdt::ImproveEquippedPhysicsXMLsOnDemand(outputDir) :
-				                  hdt::ImprovePhysicsXMLsOnDemand(outputDir);
+				auto result = hdt::ImprovePhysicsXMLs(outputDir, gearOnly);
 				auto* console = RE::ConsoleLog::GetSingleton();
 				console->Print("[HDT-SMP] %s XML cleanup: %d XML(s) scanned, %d cleaned file(s) written to %s",
 					gearOnly ? "Equipped gear" : "Full",

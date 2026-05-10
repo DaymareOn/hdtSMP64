@@ -30,7 +30,9 @@ namespace hdt
 {
 	ValidationConfig g_validationConfig;
 
-	static NIFDecimationOptions makeNIFDecimationOptions()
+	/// Constructs a NIFDecimationOptions struct from the current global validation config.
+	/// Packages all mesh decimation settings for use by NIF improvers.
+	static NIFDecimationOptions buildDecimationOptionsFromConfig()
 	{
 		NIFDecimationOptions o;
 		o.enableCollisionMeshDecimation = g_validationConfig.decimateCollisionMeshesOffline;
@@ -52,6 +54,7 @@ namespace hdt
 
 	// ---- helpers ----
 
+	/// Generates a timestamp string in format YYYYMMDD_HHMMSS for use in log filenames.
 	static std::string timestampString()
 	{
 		auto t = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
@@ -62,7 +65,7 @@ namespace hdt
 		return ss.str();
 	}
 
-	// Normalise a path to lowercase and forward slashes for comparisons
+	/// Normalizes a filesystem path to lowercase with forward slashes for case-insensitive comparison.
 	static std::string normalisePath(std::string p)
 	{
 		std::transform(p.begin(), p.end(), p.begin(), [](unsigned char c) {
@@ -71,10 +74,11 @@ namespace hdt
 		return p;
 	}
 
-	// Returns the base stem of a NIF path by stripping the _0.nif or _1.nif
-	// suffix (or just the .nif extension for unpaired NIFs). Used to group
-	// _0/_1 pairs for atomic processing.
-	static std::string nifBaseStem(const std::string& normPath)
+	/// Extracts the base stem from a NIF filename, stripping weight-variant suffixes.
+	/// For files like "foo_0.nif" or "foo_1.nif", returns "foo".
+	/// For unpaired NIFs like "foo.nif", returns "foo".
+	/// Used to group _0/_1 NIF pairs for atomic processing.
+	static std::string getNifPairBaseStem(const std::string& normPath)
 	{
 		if (normPath.size() > 6 &&
 		    (normPath.substr(normPath.size() - 6) == "_0.nif" ||
@@ -83,12 +87,11 @@ namespace hdt
 		return normPath.size() > 4 ? normPath.substr(0, normPath.size() - 4) : normPath;
 	}
 
-	// Find the TRI file related to a given NIF path.
-	// TRI files are canonical and not weight-variant split:
-	//   - foo.nif       -> foo.tri
-	//   - foo_0.nif     -> foo.tri
-	//   - foo_1.nif     -> foo.tri
-	// Returns the existing file when present; otherwise empty.
+	/// Discovers TRI collision files related to a given NIF.
+	/// TRI files are canonical and not weight-variant split:
+	///   - foo.nif       -> foo.tri
+	///   - foo_0.nif     -> foo.tri
+	///   - foo_1.nif     -> foo.tri
 	static std::vector<std::string> discoverRelatedTRIFiles(const std::string& nifPath)
 	{
 		namespace fs = std::filesystem;
@@ -137,6 +140,8 @@ namespace hdt
 		return result;
 	}
 
+	/// Resolves an XML path to a filesystem location, trying both prefixed and unprefixed variants.
+	/// First attempts the path as "data/<rawPath>"; if not found, tries the raw path as-is.
 	static std::pair<std::string, bool> resolveXMLPath(const std::string& rawPath)
 	{
 		if (rawPath.empty())
@@ -154,15 +159,9 @@ namespace hdt
 		return { xmlFsPath.string(), fs::exists(xmlFsPath, ec) };
 	}
 
-	// XML file stems to skip – not physics config files
-	static const std::unordered_set<std::string> kSkippedXMLStems = {
-		"configs",      // main configuration file
-		"defaultbbps",  // shape-to-XML mapping (not a physics config)
-		"hdtsmp64",     // hdtSMP64.xsd physics schema (FSMP-Validator)
-	};
-
-	// Launch chunkFn(begin, end) on hardware-concurrency threads for chunks of [0, n).
-	// Blocks until all chunks complete.
+	/// Distributes work across available CPU threads, splitting [0, n) into chunks.
+	/// Each chunk is processed by a hardware-concurrency thread via std::async.
+	/// Blocks until all chunks complete.
 	template <typename F>
 	static void parallelForChunks(size_t n, F chunkFn)
 	{
@@ -184,9 +183,10 @@ namespace hdt
 
 	using XMLValidationPair = std::pair<XSDValidationResult, SCHValidationResult>;
 
-	// Emit all XSD and SCH violations from a single validated XML file into the report
-	// and the output stream. Assumes the pass/fail header line has already been written.
-	static void reportXMLViolations(const XMLValidationPair& pair, const std::string& xmlPath,
+	/// Reports all XSD and SCH violations from a validated XML file to the report and output stream.
+	/// Formats each violation with line number, element path, and message.
+	/// Assumes a pass/fail header line has already been written before calling this.
+	static void appendXmlViolationsToReport(const XMLValidationPair& pair, const std::string& xmlPath,
 		AssetValidationResult& report, std::ostream& out)
 	{
 		const auto& [xsdResult, schResult] = pair;
@@ -217,15 +217,15 @@ namespace hdt
 
 	// ---- Parallel XML validation helpers ----
 
-	// Validate a list of XML file paths in parallel, returning results in the same order.
-	// Both ValidatePhysicsXML and ValidatePhysicsXMLWithSCH are thread-safe after
-	// their one-time schema loading (guarded by std::once_flag internally).
+	/// Validates multiple XML files in parallel, running both XSD and SCH validators on each.
+	/// Both validators use std::once_flag-protected schema loading, making this thread-safe.
+	/// Results are returned in the same order as input paths.
 	static std::vector<XMLValidationPair> parallelValidateXMLs(const std::vector<std::string>& paths)
 	{
 		std::vector<XMLValidationPair> results(paths.size());
 		parallelForChunks(paths.size(), [&](size_t begin, size_t end) {
 			for (size_t j = begin; j < end; ++j)
-				results[j] = { ValidatePhysicsXML(paths[j]), ValidatePhysicsXMLWithSCH(paths[j]) };
+				results[j] = { ValidatePhysicsXMLWithXSD(paths[j]), ValidatePhysicsXMLWithSchematron(paths[j]) };
 		});
 		return results;
 	}
@@ -291,257 +291,195 @@ namespace hdt
 		return result;
 	}
 
-	// ---- Phase 1: XML discovery ----
+	// ---- Physics asset discovery ----
 
-	// Scan the hdtSkinnedMeshConfigs directory for all XML files.
-	static std::vector<std::string> discoverXMLFiles()
+	/// Discovers physics-enabled assets from either filesystem or runtime.
+	/// When equippedOnly=false: Scans data/meshes for all NIF files with physics data.
+	///   - Step 1 (serial): Recursive directory walk collects all .nif paths.
+	///   - Step 2 (parallel): Binary scan detects physics data in each NIF.
+	/// When equippedOnly=true: Iterates live actor skeletons to collect equipped armor and headparts.
+	static std::vector<PhysicsAsset> discoverPhysicsAssets(bool equippedOnly = false)
 	{
-		std::vector<std::string> result;
+		if (equippedOnly) {
+			// ---- Runtime-only: Equipped-gear discovery ----
+			std::vector<PhysicsAsset> result;
 
-		namespace fs = std::filesystem;
-		fs::path configDir = "data/skse/plugins/hdtSkinnedMeshConfigs";
+			auto* actorManager = ActorManager::instance();
+			auto lock = actorManager->lockGuard();
+			auto& skeletons = actorManager->getSkeletons();
 
-		std::error_code ec;
-		if (!fs::exists(configDir, ec) || !fs::is_directory(configDir, ec)) {
-			logger::warn("[Validator] Config directory not found: {}", configDir.string());
+			for (auto& skeleton : skeletons) {
+				for (const auto& armor : skeleton.getArmors()) {
+					if (!armor.armorWorn || !armor.armorWorn->parent)
+						continue;
+					if (armor.physicsFile.first.empty())
+						continue;
+
+					auto [xmlPath, xmlExists] = resolveXMLPath(armor.physicsFile.first);
+					std::string armorName = armor.armorWorn->name.size() ? armor.armorWorn->name.c_str() : "<unnamed>";
+					PhysicsAsset asset;
+					// For equipped-gear validation we don't have stable NIF file paths at runtime,
+					// so nifPath is used as a human-readable item identifier in the report output.
+					asset.nifPath = skeleton.name() + " [armor:" + armorName + "]";
+					asset.nifExists = true;
+					asset.xmlPath = std::move(xmlPath);
+					asset.xmlExists = xmlExists;
+					asset.allPhysicsXmlPaths.push_back(armor.physicsFile.first);
+					result.push_back(std::move(asset));
+				}
+
+				if (!skeleton.head.headNode)
+					continue;
+
+				for (const auto& headPart : skeleton.head.headParts) {
+					if (!headPart.headPart || !headPart.headPart->parent)
+						continue;
+					if (headPart.physicsFile.first.empty())
+						continue;
+
+					auto [xmlPath, xmlExists] = resolveXMLPath(headPart.physicsFile.first);
+					std::string headPartName = headPart.headPart->name.size() ? headPart.headPart->name.c_str() : "<unnamed>";
+					PhysicsAsset asset;
+					asset.nifPath = skeleton.name() + " [headpart:" + headPartName + "]";
+					asset.nifExists = true;
+					asset.xmlPath = std::move(xmlPath);
+					asset.xmlExists = xmlExists;
+					asset.allPhysicsXmlPaths.push_back(headPart.physicsFile.first);
+					result.push_back(std::move(asset));
+				}
+			}
+
+			return result;
+		} else {
+			// ---- Filesystem: NIF discovery ----
+			// Two-step: serial directory walk to collect paths, then parallel binary scan.
+			namespace fs = std::filesystem;
+			auto toStr = [](const fs::path& fp) -> std::string {
+				auto u8 = fp.generic_u8string();
+				return { reinterpret_cast<const char*>(u8.data()), u8.size() };
+			};
+			fs::path meshDir = "data/meshes";
+
+			std::error_code ec;
+			if (!fs::exists(meshDir, ec) || !fs::is_directory(meshDir, ec)) {
+				logger::warn("[Validator] Meshes directory not found: {}", meshDir.string());
+				return {};
+			}
+
+			// Step 1: serial directory walk — collect all .nif paths.
+			// Filesystem iteration is not required to be thread-safe, so keep it serial.
+			std::vector<std::string> nifPaths;
+			for (auto& entry : fs::recursive_directory_iterator(meshDir, ec)) {
+				if (ec) {
+					logger::warn("[Validator] Mesh directory iteration error: {}", ec.message());
+					break;
+				}
+				if (!entry.is_regular_file(ec) || ec)
+					continue;
+				auto& p = entry.path();
+				auto ext = toStr(p.extension());
+				std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+				if (ext != ".nif")
+					continue;
+				try {
+					nifPaths.push_back(toStr(p));
+				} catch (const std::exception& e) {
+					logger::warn("[Validator] Skipping unrepresentable path: {}", e.what());
+				}
+			}
+
+			logger::info("[Validator] Found {} NIF files, scanning for physics data...", nifPaths.size());
+
+			// Step 2: parallel binary scan — each thread scans an independent chunk.
+			// ScanNIFBinary opens its own file handle and uses only local state → thread-safe.
+			const size_t n = nifPaths.size();
+			std::vector<std::optional<PhysicsAsset>> scanResults(n);
+
+			parallelForChunks(n, [&](size_t begin, size_t end) {
+				for (size_t j = begin; j < end; ++j) {
+					const auto& pathStr = nifPaths[j];
+					try {
+						auto scanRes = ScanNIFBinary(pathStr);
+						if (!scanRes.hasPhysicsData)
+							continue;
+
+						PhysicsAsset asset;
+						asset.nifPath = pathStr;
+						asset.nifExists = true;
+						asset.relatedTRIPaths = discoverRelatedTRIFiles(pathStr);
+						asset.allPhysicsXmlPaths = scanRes.allPhysicsXmlPaths;
+
+						if (!scanRes.physicsXmlPath.empty()) {
+							std::string xmlPath = scanRes.physicsXmlPath;
+							std::replace(xmlPath.begin(), xmlPath.end(), '\\', '/');
+
+							std::error_code ec2;
+							namespace fs2 = std::filesystem;
+							fs2::path xmlFsPath = xmlPath;
+							if (!fs2::exists(xmlFsPath, ec2))
+								xmlFsPath = "data/" + xmlPath;
+							asset.xmlPath = toStr(xmlFsPath);
+							asset.xmlExists = fs2::exists(xmlFsPath, ec2);
+						}
+
+						scanResults[j] = std::move(asset);
+					} catch (const std::exception& e) {
+						logger::warn("[Validator] Error scanning NIF {}: {}", pathStr, e.what());
+					} catch (...) {
+						logger::warn("[Validator] Unknown error scanning NIF {}", pathStr);
+					}
+				}
+			});
+
+			// Collect physics-enabled NIFs, preserving discovery order.
+			std::vector<PhysicsAsset> result;
+			result.reserve(n);
+			for (auto& opt : scanResults) {
+				if (opt)
+					result.push_back(std::move(*opt));
+			}
+
+			logger::info("[Validator] Scanned {} NIF files, found {} physics-enabled NIFs",
+				nifPaths.size(), result.size());
 			return result;
 		}
-
-		for (auto& entry : fs::recursive_directory_iterator(configDir, ec)) {
-			if (ec) {
-				logger::warn("[Validator] Directory iteration error: {}", ec.message());
-				break;
-			}
-			if (entry.is_regular_file(ec) && !ec) {
-				auto& p = entry.path();
-				auto ext = p.extension().string();
-				// Lowercase extension comparison
-				std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-				if (ext == ".xml") {
-					// Skip the configsPresets subfolder — those are preset files, not physics configs.
-					bool inPresetsDir = false;
-					for (const auto& component : p) {
-						auto c = component.string();
-						std::transform(c.begin(), c.end(), c.begin(), ::tolower);
-						if (c == "configspresets") {
-							inPresetsDir = true;
-							break;
-						}
-					}
-					if (inPresetsDir)
-						continue;
-
-					// Skip non-physics-config files using the static exclusion list
-					auto stem = p.stem().string();
-					std::transform(stem.begin(), stem.end(), stem.begin(), ::tolower);
-					if (!kSkippedXMLStems.count(stem)) {
-						result.push_back(p.string());
-					}
-				}
-			}
-		}
-
-		return result;
 	}
 
-	// ---- Phase 2: NIF discovery ----
-
-	// Scan the game data directory for NIF files that contain physics data.
-	// Two-step: serial directory walk to collect paths, then parallel binary scan.
-	static std::vector<PhysicsAsset> discoverPhysicsNIFs()
-	{
-		namespace fs = std::filesystem;
-		auto toStr = [](const fs::path& fp) -> std::string {
-			auto u8 = fp.generic_u8string();
-			return { reinterpret_cast<const char*>(u8.data()), u8.size() };
-		};
-		fs::path meshDir = "data/meshes";
-
-		std::error_code ec;
-		if (!fs::exists(meshDir, ec) || !fs::is_directory(meshDir, ec)) {
-			logger::warn("[Validator] Meshes directory not found: {}", meshDir.string());
-			return {};
-		}
-
-		// Step 1: serial directory walk — collect all .nif paths.
-		// Filesystem iteration is not required to be thread-safe, so keep it serial.
-		std::vector<std::string> nifPaths;
-		for (auto& entry : fs::recursive_directory_iterator(meshDir, ec)) {
-			if (ec) {
-				logger::warn("[Validator] Mesh directory iteration error: {}", ec.message());
-				break;
-			}
-			if (!entry.is_regular_file(ec) || ec)
-				continue;
-			auto& p = entry.path();
-			auto ext = toStr(p.extension());
-			std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-			if (ext != ".nif")
-				continue;
-			try {
-				nifPaths.push_back(toStr(p));
-			} catch (const std::exception& e) {
-				logger::warn("[Validator] Skipping unrepresentable path: {}", e.what());
-			}
-		}
-
-		logger::info("[Validator] Found {} NIF files, scanning for physics data...", nifPaths.size());
-
-		// Step 2: parallel binary scan — each thread scans an independent chunk.
-		// ScanNIFBinary opens its own file handle and uses only local state → thread-safe.
-		const size_t n = nifPaths.size();
-		std::vector<std::optional<PhysicsAsset>> scanResults(n);
-
-		parallelForChunks(n, [&](size_t begin, size_t end) {
-			for (size_t j = begin; j < end; ++j) {
-				const auto& pathStr = nifPaths[j];
-				try {
-					auto scanRes = ScanNIFBinary(pathStr);
-					if (!scanRes.hasPhysicsData)
-						continue;
-
-					PhysicsAsset asset;
-					asset.nifPath = pathStr;
-					asset.nifExists = true;
-					asset.relatedTRIPaths = discoverRelatedTRIFiles(pathStr);
-					asset.allPhysicsXmlPaths = scanRes.allPhysicsXmlPaths;
-
-					if (!scanRes.physicsXmlPath.empty()) {
-						std::string xmlPath = scanRes.physicsXmlPath;
-						std::replace(xmlPath.begin(), xmlPath.end(), '\\', '/');
-
-						std::error_code ec2;
-						namespace fs2 = std::filesystem;
-						fs2::path xmlFsPath = xmlPath;
-						if (!fs2::exists(xmlFsPath, ec2))
-							xmlFsPath = "data/" + xmlPath;
-						asset.xmlPath = toStr(xmlFsPath);
-						asset.xmlExists = fs2::exists(xmlFsPath, ec2);
-					}
-
-					scanResults[j] = std::move(asset);
-				} catch (const std::exception& e) {
-					logger::warn("[Validator] Error scanning NIF {}: {}", pathStr, e.what());
-				} catch (...) {
-					logger::warn("[Validator] Unknown error scanning NIF {}", pathStr);
-				}
-			}
-		});
-
-		// Collect physics-enabled NIFs, preserving discovery order.
-		std::vector<PhysicsAsset> result;
-		result.reserve(n);
-		for (auto& opt : scanResults) {
-			if (opt)
-				result.push_back(std::move(*opt));
-		}
-
-		logger::info("[Validator] Scanned {} NIF files, found {} physics-enabled NIFs",
-			nifPaths.size(), result.size());
-		return result;
-	}
-
-	// ---- Equipped-gear discovery (runtime-only) ----
-
-	static std::vector<PhysicsAsset> discoverEquippedPhysicsAssets()
-	{
-		std::vector<PhysicsAsset> result;
-
-		auto* actorManager = ActorManager::instance();
-		auto lock = actorManager->lockGuard();
-		auto& skeletons = actorManager->getSkeletons();
-
-		for (auto& skeleton : skeletons) {
-			for (const auto& armor : skeleton.getArmors()) {
-				if (!armor.armorWorn || !armor.armorWorn->parent)
-					continue;
-				if (armor.physicsFile.first.empty())
-					continue;
-
-				auto [xmlPath, xmlExists] = resolveXMLPath(armor.physicsFile.first);
-				std::string armorName = armor.armorWorn->name.size() ? armor.armorWorn->name.c_str() : "<unnamed>";
-				PhysicsAsset asset;
-				// For equipped-gear validation we don't have stable NIF file paths at runtime,
-				// so nifPath is used as a human-readable item identifier in the report output.
-				asset.nifPath = skeleton.name() + " [armor:" + armorName + "]";
-				asset.nifExists = true;
-				asset.xmlPath = std::move(xmlPath);
-				asset.xmlExists = xmlExists;
-				asset.allPhysicsXmlPaths.push_back(armor.physicsFile.first);
-				result.push_back(std::move(asset));
-			}
-
-			if (!skeleton.head.headNode)
-				continue;
-
-			for (const auto& headPart : skeleton.head.headParts) {
-				if (!headPart.headPart || !headPart.headPart->parent)
-					continue;
-				if (headPart.physicsFile.first.empty())
-					continue;
-
-				auto [xmlPath, xmlExists] = resolveXMLPath(headPart.physicsFile.first);
-				std::string headPartName = headPart.headPart->name.size() ? headPart.headPart->name.c_str() : "<unnamed>";
-				PhysicsAsset asset;
-				asset.nifPath = skeleton.name() + " [headpart:" + headPartName + "]";
-				asset.nifExists = true;
-				asset.xmlPath = std::move(xmlPath);
-				asset.xmlExists = xmlExists;
-				asset.allPhysicsXmlPaths.push_back(headPart.physicsFile.first);
-				result.push_back(std::move(asset));
-			}
-		}
-
-		return result;
-	}
-
-	static void enqueueUniqueXMLPath(const std::string& path,
-		std::unordered_set<std::string>& seen,
-		std::vector<std::string>& queue)
-	{
-		if (path.empty())
-			return;
-		auto norm = normalisePath(path);
-		if (seen.insert(norm).second)
-			queue.push_back(path);
-	}
-
-	static std::vector<std::string> collectAllPhysicsXMLPaths()
+	/// Collects unique physics XML paths from both DefaultBBP entries and discovered assets.
+	/// Deduplicates by normalized path to avoid processing the same file multiple times.
+	/// Only includes XMLs that exist on disk.
+	static std::vector<std::string> collectPhysicsXMLPaths(bool equippedOnly = false)
 	{
 		std::unordered_set<std::string> seen;
 		std::vector<std::string> queue;
 
+		// Inline dedup: enqueue unique paths only
+		auto enqueueUnique = [&](const std::string& path) {
+			if (path.empty())
+				return;
+			auto norm = normalisePath(path);
+			if (seen.insert(norm).second)
+				queue.push_back(path);
+		};
+
+		// Enqueue DefaultBBP XMLs
 		auto bbpEntries = discoverDefaultBBPXMLs();
 		for (const auto& entry : bbpEntries)
 			if (entry.xmlExists)
-				enqueueUniqueXMLPath(entry.xmlPath, seen, queue);
+				enqueueUnique(entry.xmlPath);
 
-		auto xmlFiles = discoverXMLFiles();
-		for (const auto& xmlPath : xmlFiles)
-			enqueueUniqueXMLPath(xmlPath, seen, queue);
-
-		auto nifAssets = discoverPhysicsNIFs();
-		for (const auto& asset : nifAssets)
+		// Enqueue physics asset XMLs (NIFs or equipped items)
+		auto physicsAssets = discoverPhysicsAssets(equippedOnly);
+		for (const auto& asset : physicsAssets)
 			if (asset.xmlExists)
-				enqueueUniqueXMLPath(asset.xmlPath, seen, queue);
+				enqueueUnique(asset.xmlPath);
 
 		return queue;
 	}
 
-	static std::vector<std::string> collectEquippedPhysicsXMLPaths()
-	{
-		std::unordered_set<std::string> seen;
-		std::vector<std::string> queue;
-
-		auto equippedAssets = discoverEquippedPhysicsAssets();
-		for (const auto& asset : equippedAssets)
-			if (asset.xmlExists)
-				enqueueUniqueXMLPath(asset.xmlPath, seen, queue);
-
-		return queue;
-	}
-
-	static XMLImproveResult improveXMLPathsOnDemand(const std::vector<std::string>& xmlPaths,
+	/// Generates improved versions of physics XML files in the output directory.
+	/// Removes unknown/misplaced elements and corrects formatting.
+	static XMLImproveResult improveXMLPaths(const std::vector<std::string>& xmlPaths,
 		const std::string& outputDir)
 	{
 		XMLImproveResult result;
@@ -553,13 +491,6 @@ namespace hdt
 		result.totalXMLsFound = static_cast<int>(xmlPaths.size());
 		if (xmlPaths.empty())
 			return result;
-
-		if (!IsPhysicsSchemaLoaded())
-			ValidatePhysicsXML(xmlPaths.front());
-		if (!IsPhysicsSchemaLoaded()) {
-			result.errors.push_back("Physics XML schema is not loaded");
-			return result;
-		}
 
 		for (const auto& xmlPath : xmlPaths) {
 			try {
@@ -577,124 +508,12 @@ namespace hdt
 
 	// ---- Phase 0: DefaultBBP XML validation ----
 
-	// Validate each XML referenced in defaultBBPs.xml.
-	// Files already present in validatedXMLs are skipped (cross-phase dedup).
-	static void validateDefaultBBPXMLFiles(const std::vector<DefaultBBPEntry>& entries,
-		AssetValidationResult& report, std::ostream& out,
-		std::unordered_set<std::string>& validatedXMLs)
-	{
-		// Pre-filter: determine which entries need validation (serial, cheap).
-		// validBatchIdx[i] = index into batch, or SIZE_MAX if skipped/missing.
-		std::vector<size_t> validBatchIdx(entries.size(), SIZE_MAX);
-		std::vector<std::string> batch;
-		for (size_t i = 0; i < entries.size(); ++i) {
-			if (!entries[i].xmlExists)
-				continue;
-			auto norm = normalisePath(entries[i].xmlPath);
-			if (validatedXMLs.count(norm))
-				continue;
-			validatedXMLs.insert(norm);
-			validBatchIdx[i] = batch.size();
-			batch.push_back(entries[i].xmlPath);
-		}
-
-		// Parallel validate the batch.
-		auto batchResults = parallelValidateXMLs(batch);
-
-		// Report results in original order (serial).
-		for (size_t i = 0; i < entries.size(); ++i) {
-			const auto& entry = entries[i];
-			out << "  [BBP]  shape=" << entry.shape << " -> " << entry.xmlPath << "\n";
-
-			if (!entry.xmlExists) {
-				std::string err = "defaultBBPs.xml: shape '" + entry.shape +
-				                  "' references missing XML: " + entry.xmlPath;
-				report.errors.push_back(err);
-				report.hasErrors = true;
-				out << "    [ERROR] XML file not found\n";
-				continue;
-			}
-
-			if (validBatchIdx[i] == SIZE_MAX) {
-				out << "    (already validated)\n";
-				continue;
-			}
-
-			++report.totalXMLsFound;
-			const auto& pair = batchResults[validBatchIdx[i]];
-			bool fileHasErrors = !pair.first.isValid || pair.second.hasErrors;
-
-			if (fileHasErrors) {
-				++report.xmlErrorCount;
-				report.hasErrors = true;
-				out << "    [FAIL]\n";
-			} else {
-				++report.xmlPassCount;
-				out << "    [OK]\n";
-			}
-
-			reportXMLViolations(pair, entry.xmlPath, report, out);
-		}
-	}
-
-	// ---- Phase 1: XML validation ----
-
-	// Validate all discovered XML files and build the report.
-	// Files already present in validatedXMLs are skipped (cross-phase dedup).
-	static void validateXMLFiles(const std::vector<std::string>& xmlPaths,
-		AssetValidationResult& report, std::ostream& out,
-		std::unordered_set<std::string>& validatedXMLs)
-	{
-		// Pre-filter: determine which files need validation (serial, cheap).
-		// validBatchIdx[i] = index into batch, or SIZE_MAX if already done.
-		std::vector<size_t> validBatchIdx(xmlPaths.size(), SIZE_MAX);
-		std::vector<std::string> batch;
-		for (size_t i = 0; i < xmlPaths.size(); ++i) {
-			auto norm = normalisePath(xmlPaths[i]);
-			if (validatedXMLs.count(norm))
-				continue;
-			validatedXMLs.insert(norm);
-			validBatchIdx[i] = batch.size();
-			batch.push_back(xmlPaths[i]);
-		}
-
-		// Parallel validate the batch.
-		auto batchResults = parallelValidateXMLs(batch);
-
-		// Report results in original order (serial).
-		for (size_t i = 0; i < xmlPaths.size(); ++i) {
-			const auto& xmlPath = xmlPaths[i];
-
-			if (validBatchIdx[i] == SIZE_MAX) {
-				out << "  [SKIP] " << xmlPath << " (already validated)\n";
-				continue;
-			}
-
-			const auto& pair = batchResults[validBatchIdx[i]];
-			++report.totalXMLsFound;
-
-			bool fileHasErrors = !pair.first.isValid || pair.second.hasErrors;
-
-			if (fileHasErrors) {
-				++report.xmlErrorCount;
-				report.hasErrors = true;
-				out << "  [FAIL] " << xmlPath << "\n";
-			} else {
-				++report.xmlPassCount;
-				out << "  [OK]   " << xmlPath << "\n";
-			}
-
-			reportXMLViolations(pair, xmlPath, report, out);
-		}
-	}
-
 	// ---- Phase 2.5: NIF _0/_1 pair consistency check ----
 
-	// For every NIF whose filename ends in _0.nif, check that the matching _1.nif:
-	//   1. exists in the same directory
-	//   2. references the same physics XML (same normalised path, or both missing)
-	//   3. references it at the same block position (same index in allPhysicsXmlPaths)
-	static void checkNIFPairs(const std::vector<PhysicsAsset>& nifAssets,
+	/// Validates that _0.nif and _1.nif NIF pairs reference the same physics XML at the same block positions.
+	/// For every _0.nif, checks that the matching _1.nif exists and references identical physics data.
+	/// Emits errors if pairs are missing or mismatched.
+	static void validateNifPairConsistency(const std::vector<PhysicsAsset>& nifAssets,
 		AssetValidationResult& report, std::ostream& out)
 	{
 		// Build a fast lookup: normalised nif path -> index in nifAssets
@@ -782,6 +601,9 @@ namespace hdt
 
 	// ---- Phase 3: NIF-based validation ----
 
+	/// Validates physics XMLs referenced by NIF assets with per-NIF error context.
+	/// Validates each unique XML, warns if NIFs reference missing XMLs or have multiple physics blocks,
+	/// and deduplicates validation results across NIFs sharing the same XML file.
 	static void validateNIFAssets(const std::vector<PhysicsAsset>& nifAssets,
 		AssetValidationResult& report, std::ostream& out)
 	{
@@ -850,7 +672,7 @@ namespace hdt
 					++report.xmlPassCount;
 				}
 
-				reportXMLViolations(pair, asset.xmlPath, report, out);
+				appendXmlViolationsToReport(pair, asset.xmlPath, report, out);
 			} else {
 				out << "    [WARN] Could not determine XML path from NIF\n";
 			}
@@ -859,9 +681,8 @@ namespace hdt
 
 	// ---- report writing ----
 
-	// Write report content to a timestamped file in the log directory.
-	// Returns the full path to the written file, or empty string on failure.
-	static std::string writeReport(const std::string& reportContent,
+	/// Writes validation report content to a timestamped file in the SKSE log directory.
+	static std::string writeValidationReportFile(const std::string& reportContent,
 		const std::string& timestamp)
 	{
 		auto logDir = logger::log_directory();
@@ -885,186 +706,248 @@ namespace hdt
 
 	// ---- core validation ----
 
-	// Runs all validation phases; populates report.
-	static std::string runValidationCore(AssetValidationResult& report, const std::string& timestamp)
+	/// Executes the complete validation pipeline (full or equipped-only) and generates a report.
+	/// Full pipeline (equippedOnly=false):
+	///   - Phase 0: Validates DefaultBBP XML entries.
+	///   - Phase 2: Discovers NIFs and validates _0/_1 pair consistency.
+	///   - Phase 3: Validates NIF-referenced XMLs with NIF context.
+	///   - Phase 4-5: Generates improved XMLs and NIFs if configured.
+	/// Equipped-only pipeline (equippedOnly=true):
+	///   - Discovers equipped armor and headparts.
+	///   - Validates their physics XMLs.
+	static std::string runValidationCore(AssetValidationResult& report, const std::string& timestamp, bool equippedOnly = false)
 	{
 		auto wallStart = std::chrono::steady_clock::now();
-
 		std::ostringstream bodyStream;
 
-		// Shared dedup set: tracks normalised paths already validated across phases 0 and 1
-		// (prevents double-counting and redundant XSD/SCH runs for files in both DefaultBBP and the config dir)
-		std::unordered_set<std::string> globalValidatedXMLs;
+		if (equippedOnly) {
+			// ---- Simplified: Equipped-only validation ----
+			bodyStream << "== Phase 1: Equipped Gear Discovery ==\n";
+			auto equippedAssets = discoverPhysicsAssets(true);
+			report.totalNIFsScanned = static_cast<int>(equippedAssets.size());
+			bodyStream << "  Found " << equippedAssets.size() << " equipped physics item(s).\n";
 
-		// Phase 0: DefaultBBP XML validation
-		auto bbpEntries = discoverDefaultBBPXMLs();
-		if (!bbpEntries.empty()) {
-			bodyStream << "== Phase 0: DefaultBBP XML Validation ==\n";
-			bodyStream << "  Found " << bbpEntries.size() << " map entries in defaultBBPs.xml.\n";
-			validateDefaultBBPXMLFiles(bbpEntries, report, bodyStream, globalValidatedXMLs);
-			bodyStream << "\n";
-		}
+			if (!equippedAssets.empty()) {
+				bodyStream << "\n== Phase 2: Equipped Gear XML Validation ==\n";
+				validateNIFAssets(equippedAssets, report, bodyStream);
+			}
+		} else {
+			// ---- Full: Comprehensive validation pipeline ----
+			// Shared dedup set for this run's XML validations.
+			std::unordered_set<std::string> globalValidatedXMLs;
 
-		// Phase 1: direct XML validation
-		bodyStream << "== Phase 1: XML Configuration Validation ==\n";
-		auto xmlFiles = discoverXMLFiles();
-		logger::info("[Validator] Found {} physics XML files in config directory",
-			xmlFiles.size());
+			// Phase 0: DefaultBBP XML validation
+			auto bbpEntries = discoverDefaultBBPXMLs();
+			if (!bbpEntries.empty()) {
+				bodyStream << "== Phase 0: DefaultBBP XML Validation ==\n";
+				bodyStream << "  Found " << bbpEntries.size() << " map entries in defaultBBPs.xml.\n";
 
-		validateXMLFiles(xmlFiles, report, bodyStream, globalValidatedXMLs);
+				std::vector<size_t> validBatchIdx(bbpEntries.size(), SIZE_MAX);
+				std::vector<std::string> batch;
+				for (size_t i = 0; i < bbpEntries.size(); ++i) {
+					const auto& entry = bbpEntries[i];
+					if (entry.xmlPath.empty() || !entry.xmlExists)
+						continue;
 
-		// Phase 2: NIF discovery
-		bodyStream << "\n== Phase 2: NIF File Discovery ==\n";
-		auto nifAssets = discoverPhysicsNIFs();
-		report.totalNIFsScanned = (int)nifAssets.size();
-		std::unordered_set<std::string> relatedTRINorm;
-		for (const auto& a : nifAssets)
-			for (const auto& tri : a.relatedTRIPaths)
-				relatedTRINorm.insert(normalisePath(tri));
-		bodyStream << "  Found " << nifAssets.size() << " NIF file(s) referencing physics configs.\n";
-		bodyStream << "  Identified " << relatedTRINorm.size() << " related TRI file(s).\n";
+					auto norm = normalisePath(entry.xmlPath);
+					if (globalValidatedXMLs.count(norm))
+						continue;
 
-		// Phase 2.5: NIF _0/_1 pair consistency check
-		bodyStream << "\n== Phase 2.5: NIF Pair Consistency Check ==\n";
-		checkNIFPairs(nifAssets, report, bodyStream);
-
-		// Phase 3: NIF-referenced XML validation
-		if (!nifAssets.empty()) {
-			bodyStream << "\n== Phase 3: NIF-Referenced XML Validation ==\n";
-			validateNIFAssets(nifAssets, report, bodyStream);
-		}
-
-		// Phase 4: Improved XML generation
-		// Collect all unique XML paths validated across all phases, then generate
-		// improved copies (unknown / misplaced elements removed) for each.
-		if (!g_validationConfig.outputDir.empty()) {
-			bodyStream << "\n== Phase 4: Improved XML Generation ==\n";
-			bodyStream << "  Output directory: " << g_validationConfig.outputDir << "\n";
-
-			std::unordered_set<std::string> improveNorm;
-			std::vector<std::string> improveQueue;
-
-			auto enqueue = [&](const std::string& path) {
-				if (path.empty())
-					return;
-				auto norm = normalisePath(path);
-				if (improveNorm.insert(norm).second)
-					improveQueue.push_back(path);
-			};
-
-			for (const auto& e : bbpEntries)
-				if (e.xmlExists)
-					enqueue(e.xmlPath);
-			for (const auto& p : xmlFiles)
-				enqueue(p);
-			for (const auto& a : nifAssets)
-				if (a.xmlExists)
-					enqueue(a.xmlPath);
-
-			for (const auto& xmlPath : improveQueue) {
-				if (GenerateImprovedXML(xmlPath, g_validationConfig.outputDir)) {
-					++report.xmlImprovedCount;
-					bodyStream << "  [IMPROVED] " << xmlPath << "\n";
+					globalValidatedXMLs.insert(norm);
+					validBatchIdx[i] = batch.size();
+					batch.push_back(entry.xmlPath);
 				}
-			}
 
-			bodyStream << "  " << report.xmlImprovedCount << " improved file(s) written.\n";
-		}
+				auto batchResults = parallelValidateXMLs(batch);
 
-		// Phase 5: Improved NIF generation
-		if (!g_validationConfig.outputDir.empty() && g_validationConfig.improveNIFs && !nifAssets.empty()) {
-			bodyStream << "\n== Phase 5: Improved NIF Generation ==\n";
-			bodyStream << "  Output directory: " << g_validationConfig.outputDir << "\n";
-			if (g_validationConfig.decimateCollisionMeshesOffline) {
-				bodyStream << "  Collision mesh decimation: enabled (offline)\n";
-				bodyStream << "  Target vertex ratio: " << g_validationConfig.decimationTargetVertexRatio << "\n";
-				bodyStream << "  Target vertex count: " << g_validationConfig.decimationTargetVertexCount << "\n";
-				bodyStream << "  Skin weight penalty: " << g_validationConfig.decimationSkinWeightPenalty << "\n";
-				bodyStream << "  Max skin weight drift: " << g_validationConfig.decimationMaxSkinWeightDrift << "\n";
-				bodyStream << "  Max volume loss (%): " << g_validationConfig.decimationMaxVolumeLossPercent << "\n";
-			}
+				for (size_t i = 0; i < bbpEntries.size(); ++i) {
+					const auto& entry = bbpEntries[i];
+					size_t batchIdx = validBatchIdx[i];
 
-			auto decimationOptions = makeNIFDecimationOptions();
-			std::atomic<int> improvedCount{ 0 };
-			std::atomic<int> decCandidatesDiscovered{ 0 };
-			std::atomic<int> decCandidatesAttempted{ 0 };
-			std::atomic<int> decCandidatesApplied{ 0 };
-			std::atomic<int> decCandidatesSkippedNoChange{ 0 };
-			std::atomic<int> decCandidatesSkippedUnsafe{ 0 };
-			std::vector<std::string> improvedPaths;
-			std::map<std::string, int> decimationReasonCounts;
-			std::mutex improvedLock;
+					bodyStream << "  [BBP]  shape=" << entry.shape << " -> " << entry.xmlPath << "\n";
 
-			// Group assets by base stem so _0/_1 pairs are processed atomically:
-			// if one member of a pair is improved, the other is also written to the
-			// output directory (as a plain copy if it needed no changes) so the game
-			// never sees a half-updated pair.
-			std::map<std::string, std::vector<size_t>> stemGroups;
-			for (size_t i = 0; i < nifAssets.size(); ++i)
-				stemGroups[nifBaseStem(normalisePath(nifAssets[i].nifPath))].push_back(i);
-
-			std::vector<std::vector<size_t>> groups;
-			groups.reserve(stemGroups.size());
-			for (auto& [stem, indices] : stemGroups)
-				groups.push_back(std::move(indices));
-
-			auto improveGroup = [&](const std::vector<size_t>& indices) {
-				std::vector<bool> results;
-				results.reserve(indices.size());
-				for (size_t idx : indices) {
-					NIFImproverDiagnostics d;
-					results.push_back(GenerateImprovedNIF(nifAssets[idx].nifPath, g_validationConfig.outputDir, decimationOptions, &d));
-					decCandidatesDiscovered.fetch_add(d.decimationCandidatesDiscovered);
-					decCandidatesAttempted.fetch_add(d.decimationCandidatesAttempted);
-					decCandidatesApplied.fetch_add(d.decimationCandidatesApplied);
-					decCandidatesSkippedNoChange.fetch_add(d.decimationCandidatesSkippedNoChange);
-					decCandidatesSkippedUnsafe.fetch_add(d.decimationCandidatesSkippedUnsafe);
-					if (!d.decimationSkipReasons.empty()) {
-						std::lock_guard<std::mutex> l(improvedLock);
-						for (const auto& rc : d.decimationSkipReasons)
-							decimationReasonCounts[rc.first] += rc.second;
+					if (!entry.xmlExists) {
+						std::string err = "defaultBBPs.xml: shape '" + entry.shape + "' references missing XML: " + entry.xmlPath;
+						report.errors.push_back(err);
+						report.hasErrors = true;
+						bodyStream << "    [ERROR] XML file not found\n";
+						continue;
 					}
-				}
 
-				if (!std::any_of(results.begin(), results.end(), [](bool r) { return r; }))
-					return;
+					if (batchIdx == SIZE_MAX) {
+						bodyStream << "    (already validated)\n";
+						continue;
+					}
 
-				for (size_t k = 0; k < indices.size(); ++k) {
-					const std::string& path = nifAssets[indices[k]].nifPath;
-					if (results[k]) {
-						improvedCount.fetch_add(1);
-						std::lock_guard<std::mutex> l(improvedLock);
-						improvedPaths.push_back(path);
+					++report.totalXMLsFound;
+					const auto& pair = batchResults[batchIdx];
+					bool fileHasErrors = !pair.first.isValid || pair.second.hasErrors;
+
+					if (fileHasErrors) {
+						++report.xmlErrorCount;
+						report.hasErrors = true;
+						bodyStream << "    [FAIL]\n";
 					} else {
-						// Sibling was improved; copy this member unchanged so the
-						// pair is complete in the output directory.
-						if (!CopyNIFToOutput(path, g_validationConfig.outputDir))
-							logger::warn("[Validator] Failed to copy unchanged NIF sibling to output: {}", path);
+						++report.xmlPassCount;
+						bodyStream << "    [OK]\n";
+					}
+
+					appendXmlViolationsToReport(pair, entry.xmlPath, report, bodyStream);
+				}
+				bodyStream << "\n";
+			}
+
+			// Phase 2: NIF discovery
+			bodyStream << "\n== Phase 2: NIF File Discovery ==\n";
+			auto nifAssets = discoverPhysicsAssets();
+			report.totalNIFsScanned = (int)nifAssets.size();
+			std::unordered_set<std::string> relatedTRINorm;
+			for (const auto& a : nifAssets)
+				for (const auto& tri : a.relatedTRIPaths)
+					relatedTRINorm.insert(normalisePath(tri));
+			bodyStream << "  Found " << nifAssets.size() << " NIF file(s) referencing physics configs.\n";
+			bodyStream << "  Identified " << relatedTRINorm.size() << " related TRI file(s).\n";
+
+			// Phase 2.5: NIF _0/_1 pair consistency check
+			bodyStream << "\n== Phase 2.5: NIF Pair Consistency Check ==\n";
+			validateNifPairConsistency(nifAssets, report, bodyStream);
+
+			// Phase 3: NIF-referenced XML validation
+			if (!nifAssets.empty()) {
+				bodyStream << "\n== Phase 3: NIF-Referenced XML Validation ==\n";
+				validateNIFAssets(nifAssets, report, bodyStream);
+			}
+
+			// Phase 4: Improved XML generation
+			// Collect all unique XML paths validated across all phases, then generate
+			// improved copies (unknown / misplaced elements removed) for each.
+			if (!g_validationConfig.outputDir.empty()) {
+				bodyStream << "\n== Phase 4: Improved XML Generation ==\n";
+				bodyStream << "  Output directory: " << g_validationConfig.outputDir << "\n";
+
+				std::unordered_set<std::string> improveNorm;
+				std::vector<std::string> improveQueue;
+
+				auto enqueue = [&](const std::string& path) {
+					if (path.empty())
+						return;
+					auto norm = normalisePath(path);
+					if (improveNorm.insert(norm).second)
+						improveQueue.push_back(path);
+				};
+
+				for (const auto& e : bbpEntries)
+					if (e.xmlExists)
+						enqueue(e.xmlPath);
+				for (const auto& a : nifAssets)
+					if (a.xmlExists)
+						enqueue(a.xmlPath);
+
+				for (const auto& xmlPath : improveQueue) {
+					if (GenerateImprovedXML(xmlPath, g_validationConfig.outputDir)) {
+						++report.xmlImprovedCount;
+						bodyStream << "  [IMPROVED] " << xmlPath << "\n";
 					}
 				}
-			};
 
-			if (g_validationConfig.parallelNIFImprovement && groups.size() > 1) {
-				tbb::parallel_for_each(groups.begin(), groups.end(), improveGroup);
-			} else {
-				for (const auto& g : groups)
-					improveGroup(g);
+				bodyStream << "  " << report.xmlImprovedCount << " improved file(s) written.\n";
 			}
 
-			report.nifImprovedCount += improvedCount.load();
-			for (const auto& p : improvedPaths) {
-				bodyStream << "  [IMPROVED] " << p << "\n";
-			}
-			bodyStream << "  " << report.nifImprovedCount << " improved NIF file(s) written.\n";
+			// Phase 5: Improved NIF generation
+			if (!g_validationConfig.outputDir.empty() && g_validationConfig.improveNIFs && !nifAssets.empty()) {
+				bodyStream << "\n== Phase 5: Improved NIF Generation ==\n";
+				bodyStream << "  Output directory: " << g_validationConfig.outputDir << "\n";
+				if (g_validationConfig.decimateCollisionMeshesOffline) {
+					bodyStream << "  Collision mesh decimation: enabled (offline)\n";
+					bodyStream << "  Target vertex ratio: " << g_validationConfig.decimationTargetVertexRatio << "\n";
+					bodyStream << "  Target vertex count: " << g_validationConfig.decimationTargetVertexCount << "\n";
+					bodyStream << "  Skin weight penalty: " << g_validationConfig.decimationSkinWeightPenalty << "\n";
+					bodyStream << "  Max skin weight drift: " << g_validationConfig.decimationMaxSkinWeightDrift << "\n";
+					bodyStream << "  Max volume loss (%): " << g_validationConfig.decimationMaxVolumeLossPercent << "\n";
+				}
 
-			if (g_validationConfig.decimateCollisionMeshesOffline) {
-				bodyStream << "  Decimation bridge candidates discovered: " << decCandidatesDiscovered.load() << "\n";
-				bodyStream << "  Decimation bridge candidates attempted: " << decCandidatesAttempted.load() << "\n";
-				bodyStream << "  Decimation bridge candidates applied: " << decCandidatesApplied.load() << "\n";
-				bodyStream << "  Decimation bridge candidates skipped (no change): " << decCandidatesSkippedNoChange.load() << "\n";
-				bodyStream << "  Decimation bridge candidates skipped (unsafe): " << decCandidatesSkippedUnsafe.load() << "\n";
-				for (const auto& [reason, count] : decimationReasonCounts)
-					bodyStream << "    [SKIP-REASON] " << reason << ": " << count << "\n";
+				auto decimationOptions = buildDecimationOptionsFromConfig();
+				std::atomic<int> improvedCount{ 0 };
+				std::atomic<int> decCandidatesDiscovered{ 0 };
+				std::atomic<int> decCandidatesAttempted{ 0 };
+				std::atomic<int> decCandidatesApplied{ 0 };
+				std::atomic<int> decCandidatesSkippedNoChange{ 0 };
+				std::atomic<int> decCandidatesSkippedUnsafe{ 0 };
+				std::vector<std::string> improvedPaths;
+				std::map<std::string, int> decimationReasonCounts;
+				std::mutex improvedLock;
+
+				// Group assets by base stem so _0/_1 pairs are processed atomically:
+				// if one member of a pair is improved, the other is also written to the
+				// output directory (as a plain copy if it needed no changes) so the game
+				// never sees a half-updated pair.
+				std::map<std::string, std::vector<size_t>> stemGroups;
+				for (size_t i = 0; i < nifAssets.size(); ++i)
+					stemGroups[getNifPairBaseStem(normalisePath(nifAssets[i].nifPath))].push_back(i);
+
+				std::vector<std::vector<size_t>> groups;
+				groups.reserve(stemGroups.size());
+				for (auto& [stem, indices] : stemGroups)
+					groups.push_back(std::move(indices));
+
+				auto improveGroup = [&](const std::vector<size_t>& indices) {
+					std::vector<bool> results;
+					results.reserve(indices.size());
+					for (size_t idx : indices) {
+						NIFImproverDiagnostics d;
+						results.push_back(GenerateImprovedNIF(nifAssets[idx].nifPath, g_validationConfig.outputDir, decimationOptions, &d));
+						decCandidatesDiscovered.fetch_add(d.decimationCandidatesDiscovered);
+						decCandidatesAttempted.fetch_add(d.decimationCandidatesAttempted);
+						decCandidatesApplied.fetch_add(d.decimationCandidatesApplied);
+						decCandidatesSkippedNoChange.fetch_add(d.decimationCandidatesSkippedNoChange);
+						decCandidatesSkippedUnsafe.fetch_add(d.decimationCandidatesSkippedUnsafe);
+						if (!d.decimationSkipReasons.empty()) {
+							std::lock_guard<std::mutex> l(improvedLock);
+							for (const auto& rc : d.decimationSkipReasons)
+								decimationReasonCounts[rc.first] += rc.second;
+						}
+					}
+
+					if (!std::any_of(results.begin(), results.end(), [](bool r) { return r; }))
+						return;
+
+					for (size_t k = 0; k < indices.size(); ++k) {
+						const std::string& path = nifAssets[indices[k]].nifPath;
+						if (results[k]) {
+							improvedCount.fetch_add(1);
+							std::lock_guard<std::mutex> l(improvedLock);
+							improvedPaths.push_back(path);
+						} else {
+							// Sibling was improved; copy this member unchanged so the
+							// pair is complete in the output directory.
+							if (!CopyNIFToOutput(path, g_validationConfig.outputDir))
+								logger::warn("[Validator] Failed to copy unchanged NIF sibling to output: {}", path);
+						}
+					}
+				};
+
+				if (g_validationConfig.parallelNIFImprovement && groups.size() > 1) {
+					tbb::parallel_for_each(groups.begin(), groups.end(), improveGroup);
+				} else {
+					for (const auto& g : groups)
+						improveGroup(g);
+				}
+
+				report.nifImprovedCount += improvedCount.load();
+				for (const auto& p : improvedPaths) {
+					bodyStream << "  [IMPROVED] " << p << "\n";
+				}
+				bodyStream << "  " << report.nifImprovedCount << " improved NIF file(s) written.\n";
+
+				if (g_validationConfig.decimateCollisionMeshesOffline) {
+					bodyStream << "  Decimation bridge candidates discovered: " << decCandidatesDiscovered.load() << "\n";
+					bodyStream << "  Decimation bridge candidates attempted: " << decCandidatesAttempted.load() << "\n";
+					bodyStream << "  Decimation bridge candidates applied: " << decCandidatesApplied.load() << "\n";
+					bodyStream << "  Decimation bridge candidates skipped (no change): " << decCandidatesSkippedNoChange.load() << "\n";
+					bodyStream << "  Decimation bridge candidates skipped (unsafe): " << decCandidatesSkippedUnsafe.load() << "\n";
+					for (const auto& [reason, count] : decimationReasonCounts)
+						bodyStream << "    [SKIP-REASON] " << reason << ": " << count << "\n";
+				}
 			}
 		}
 
@@ -1091,7 +974,11 @@ namespace hdt
 		// Assemble final report: header + summary + body + tail
 		std::ostringstream reportStream;
 		reportStream << "========================================\n";
-		reportStream << "FSMP Asset Validation Report\n";
+		if (equippedOnly) {
+			reportStream << "FSMP Equipped Gear Validation Report\n";
+		} else {
+			reportStream << "FSMP Asset Validation Report\n";
+		}
 		reportStream << "Generated: " << timestamp << "\n";
 		reportStream << "========================================\n\n";
 
@@ -1103,66 +990,12 @@ namespace hdt
 		reportStream << "  NIFs scanned:  " << report.totalNIFsScanned << "\n";
 		reportStream << "  Warnings:      " << report.warnings.size() << "\n";
 		reportStream << "  Errors:        " << report.errors.size() << "\n";
-		if (!g_validationConfig.outputDir.empty())
-			reportStream << "  XMLs improved: " << report.xmlImprovedCount << "\n";
-		if (!g_validationConfig.outputDir.empty() && g_validationConfig.improveNIFs)
-			reportStream << "  NIFs improved: " << report.nifImprovedCount << "\n";
-		reportStream << "\n";
-
-		reportStream << bodyStream.str();
-		reportStream << "\n";
-		reportStream << tailStream.str();
-		reportStream << "========================================\n";
-		return reportStream.str();
-	}
-
-	static std::string runEquippedValidationCore(AssetValidationResult& report, const std::string& timestamp)
-	{
-		auto wallStart = std::chrono::steady_clock::now();
-		std::ostringstream bodyStream;
-
-		bodyStream << "== Phase 1: Equipped Gear Discovery ==\n";
-		auto equippedAssets = discoverEquippedPhysicsAssets();
-		report.totalNIFsScanned = static_cast<int>(equippedAssets.size());
-		bodyStream << "  Found " << equippedAssets.size() << " equipped physics item(s).\n";
-
-		if (!equippedAssets.empty()) {
-			bodyStream << "\n== Phase 2: Equipped Gear XML Validation ==\n";
-			validateNIFAssets(equippedAssets, report, bodyStream);
+		if (!equippedOnly) {
+			if (!g_validationConfig.outputDir.empty())
+				reportStream << "  XMLs improved: " << report.xmlImprovedCount << "\n";
+			if (!g_validationConfig.outputDir.empty() && g_validationConfig.improveNIFs)
+				reportStream << "  NIFs improved: " << report.nifImprovedCount << "\n";
 		}
-
-		auto wallEnd = std::chrono::steady_clock::now();
-		double elapsedSec = std::chrono::duration<double>(wallEnd - wallStart).count();
-		report.elapsedSeconds = elapsedSec;
-
-		std::ostringstream tailStream;
-		if (!report.errors.empty()) {
-			tailStream << "== Errors ==\n";
-			for (const auto& e : report.errors)
-				tailStream << "  [ERROR] " << e << "\n";
-			tailStream << "\n";
-		}
-		if (!report.warnings.empty()) {
-			tailStream << "== Warnings ==\n";
-			for (const auto& w : report.warnings)
-				tailStream << "  [WARN] " << w << "\n";
-			tailStream << "\n";
-		}
-
-		std::ostringstream reportStream;
-		reportStream << "========================================\n";
-		reportStream << "FSMP Equipped Gear Validation Report\n";
-		reportStream << "Generated: " << timestamp << "\n";
-		reportStream << "========================================\n\n";
-
-		reportStream << "== Summary ==\n";
-		reportStream << "  Duration:      " << std::fixed << std::setprecision(2) << elapsedSec << "s\n";
-		reportStream << "  XMLs found:    " << report.totalXMLsFound << "\n";
-		reportStream << "  XMLs passed:   " << report.xmlPassCount << "\n";
-		reportStream << "  XMLs failed:   " << report.xmlErrorCount << "\n";
-		reportStream << "  NIFs scanned:  " << report.totalNIFsScanned << "\n";
-		reportStream << "  Warnings:      " << report.warnings.size() << "\n";
-		reportStream << "  Errors:        " << report.errors.size() << "\n";
 		reportStream << "\n";
 
 		reportStream << bodyStream.str();
@@ -1174,111 +1007,64 @@ namespace hdt
 
 	// ---- public entry points ----
 
-	bool ValidateAllPhysicsAssets()
+	/// Validates all physics assets (NIFs and XMLs) and writes a detailed report to disk.
+	/// Runs either the full pipeline (all NIFs) or equipped-only pipeline (equipped items only).
+	AssetValidationResult ValidatePhysicsAssets(std::string& outReportPath, bool equippedOnly)
 	{
-		if (!g_validationConfig.enabled) {
-			logger::info("[Validator] Asset validation disabled by config");
-			return true;
-		}
-
-		logger::info("[Validator] Starting FSMP asset validation...");
+		logger::info("[Validator] Starting {} on-demand validation...",
+			equippedOnly ? "equipped gear" : "FSMP asset");
 
 		AssetValidationResult report;
 		std::string timestamp = timestampString();
-		std::string reportContent = runValidationCore(report, timestamp);
-
-		writeReport(reportContent, timestamp);
-
-		if (report.hasErrors) {
-			logger::warn(
-				"[Validator] Validation complete in {:.2f}s: {} error(s), {} warning(s).",
-				report.elapsedSeconds, report.errors.size(), report.warnings.size());
-		} else if (report.hasWarnings) {
-			logger::info(
-				"[Validator] Validation complete in {:.2f}s: no errors, {} warning(s).",
-				report.elapsedSeconds, report.warnings.size());
-		} else {
-			logger::info("[Validator] Validation complete in {:.2f}s: all physics assets OK ({} XML file(s)).",
-				report.elapsedSeconds, report.totalXMLsFound);
-		}
-
-		return !report.hasErrors;
-	}
-
-	AssetValidationResult ValidateAllPhysicsAssetsOnDemand(std::string& outReportPath)
-	{
-		logger::info("[Validator] Starting on-demand FSMP asset validation...");
-
-		AssetValidationResult report;
-		std::string timestamp = timestampString();
-		std::string reportContent = runValidationCore(report, timestamp);
+		std::string reportContent = runValidationCore(report, timestamp, equippedOnly);
 
 		// Always write the file for on-demand runs
-		outReportPath = writeReport(reportContent, timestamp);
+		outReportPath = writeValidationReportFile(reportContent, timestamp);
 
 		if (report.hasErrors) {
 			logger::warn(
-				"[Validator] On-demand validation in {:.2f}s: {} error(s), {} warning(s).",
+				"[Validator] {} validation in {:.2f}s: {} error(s), {} warning(s).",
+				equippedOnly ? "Equipped gear" : "On-demand",
 				report.elapsedSeconds, report.errors.size(), report.warnings.size());
 		} else if (report.hasWarnings) {
 			logger::info(
-				"[Validator] On-demand validation in {:.2f}s: no errors, {} warning(s).",
+				"[Validator] {} validation in {:.2f}s: no errors, {} warning(s).",
+				equippedOnly ? "Equipped gear" : "On-demand",
 				report.elapsedSeconds, report.warnings.size());
 		} else {
-			logger::info(
-				"[Validator] On-demand validation in {:.2f}s: all physics assets OK ({} XML file(s)).",
-				report.elapsedSeconds, report.totalXMLsFound);
+			if (equippedOnly) {
+				logger::info(
+					"[Validator] Equipped gear validation in {:.2f}s: all equipped physics assets OK ({} XML file(s)).",
+					report.elapsedSeconds, report.totalXMLsFound);
+			} else {
+				logger::info(
+					"[Validator] On-demand validation in {:.2f}s: all physics assets OK ({} XML file(s)).",
+					report.elapsedSeconds, report.totalXMLsFound);
+			}
 		}
 
 		return report;
 	}
 
-	AssetValidationResult ValidateEquippedPhysicsAssetsOnDemand(std::string& outReportPath)
+	/// Generates improved versions of all physics XML files in the specified output directory.
+	/// Improves XMLs from all discovered assets (or equipped items only).
+	XMLImproveResult ImprovePhysicsXMLs(const std::string& outputDir, bool equippedOnly)
 	{
-		logger::info("[Validator] Starting equipped gear on-demand validation...");
-
-		AssetValidationResult report;
-		std::string timestamp = timestampString();
-		std::string reportContent = runEquippedValidationCore(report, timestamp);
-
-		outReportPath = writeReport(reportContent, timestamp);
-
-		if (report.hasErrors) {
-			logger::warn(
-				"[Validator] Equipped gear validation in {:.2f}s: {} error(s), {} warning(s).",
-				report.elapsedSeconds, report.errors.size(), report.warnings.size());
-		} else if (report.hasWarnings) {
-			logger::info(
-				"[Validator] Equipped gear validation in {:.2f}s: no errors, {} warning(s).",
-				report.elapsedSeconds, report.warnings.size());
-		} else {
-			logger::info(
-				"[Validator] Equipped gear validation in {:.2f}s: all equipped physics assets OK ({} XML file(s)).",
-				report.elapsedSeconds, report.totalXMLsFound);
-		}
-
-		return report;
-	}
-
-	XMLImproveResult ImprovePhysicsXMLsOnDemand(const std::string& outputDir)
-	{
-		logger::info("[Validator] Starting on-demand FSMP XML cleanup...");
-		auto result = improveXMLPathsOnDemand(collectAllPhysicsXMLPaths(), outputDir);
-		logger::info("[Validator] On-demand XML cleanup complete: {} XML(s) found, {} improved, {} error(s).",
+		logger::info("[Validator] Starting {} XML cleanup...",
+			equippedOnly ? "equipped gear" : "on-demand FSMP");
+		auto result = improveXMLPaths(
+			collectPhysicsXMLPaths(equippedOnly),
+			outputDir);
+		logger::info("[Validator] {} XML cleanup complete: {} XML(s) found, {} improved, {} error(s).",
+			equippedOnly ? "Equipped gear" : "On-demand",
 			result.totalXMLsFound, result.xmlImprovedCount, result.errors.size());
 		return result;
 	}
 
-	XMLImproveResult ImproveEquippedPhysicsXMLsOnDemand(const std::string& outputDir)
-	{
-		logger::info("[Validator] Starting equipped gear on-demand XML cleanup...");
-		auto result = improveXMLPathsOnDemand(collectEquippedPhysicsXMLPaths(), outputDir);
-		logger::info("[Validator] Equipped gear XML cleanup complete: {} XML(s) found, {} improved, {} error(s).",
-			result.totalXMLsFound, result.xmlImprovedCount, result.errors.size());
-		return result;
-	}
-
-	NIFImproveResult ImprovePhysicsNIFsOnDemand(const std::string& outputDir)
+	/// Generates improved versions of all physics NIF files in the specified output directory.
+	/// Applies decimation (if configured) and generates clean versions of NIFs.
+	/// Preserves _0/_1 NIF pair atomicity by copying unchanged siblings when one is improved.
+	NIFImproveResult ImprovePhysicsNIFs(const std::string& outputDir, bool equippedOnly)
 	{
 		NIFImproveResult result;
 		if (outputDir.empty()) {
@@ -1286,19 +1072,37 @@ namespace hdt
 			return result;
 		}
 
-		auto nifAssets = discoverPhysicsNIFs();
+		if (equippedOnly) {
+			std::unordered_set<std::string> equippedXMLs;
+			for (const auto& xmlPath : collectPhysicsXMLPaths(true))
+				equippedXMLs.insert(normalisePath(xmlPath));
+
+			auto nifAssetsEquipped = discoverPhysicsAssets();
+			for (const auto& asset : nifAssetsEquipped) {
+				if (!asset.xmlExists)
+					continue;
+				if (equippedXMLs.count(normalisePath(asset.xmlPath)) == 0)
+					continue;
+				++result.totalNIFsFound;
+				if (GenerateImprovedNIF(asset.nifPath, outputDir))
+					++result.nifImprovedCount;
+			}
+			return result;
+		}
+
+		auto nifAssets = discoverPhysicsAssets();
 		result.totalNIFsFound = static_cast<int>(nifAssets.size());
 		std::unordered_set<std::string> relatedTRINorm;
 		for (const auto& a : nifAssets)
 			for (const auto& tri : a.relatedTRIPaths)
 				relatedTRINorm.insert(normalisePath(tri));
 		result.totalTRIFilesFound = static_cast<int>(relatedTRINorm.size());
-		auto decimationOptions = makeNIFDecimationOptions();
+		auto decimationOptions = buildDecimationOptionsFromConfig();
 
 		// Group by base stem so _0/_1 pairs are processed atomically (same as Phase 5).
 		std::map<std::string, std::vector<size_t>> stemGroups;
 		for (size_t i = 0; i < nifAssets.size(); ++i)
-			stemGroups[nifBaseStem(normalisePath(nifAssets[i].nifPath))].push_back(i);
+			stemGroups[getNifPairBaseStem(normalisePath(nifAssets[i].nifPath))].push_back(i);
 
 		std::vector<std::vector<size_t>> groups;
 		groups.reserve(stemGroups.size());
@@ -1357,34 +1161,6 @@ namespace hdt
 		result.decimationCandidatesSkippedUnsafe = decCandidatesSkippedUnsafe.load();
 		for (const auto& [reason, count] : decimationReasonCounts)
 			result.decimationSkipReasonHistogram.push_back(reason + "=" + std::to_string(count));
-
-		return result;
-	}
-
-	NIFImproveResult ImproveEquippedPhysicsNIFsOnDemand(const std::string& outputDir)
-	{
-		NIFImproveResult result;
-		if (outputDir.empty()) {
-			result.errors.push_back("Output directory is empty");
-			return result;
-		}
-
-		std::unordered_set<std::string> equippedXMLs;
-		for (const auto& xmlPath : collectEquippedPhysicsXMLPaths()) {
-			equippedXMLs.insert(normalisePath(xmlPath));
-		}
-
-		auto nifAssets = discoverPhysicsNIFs();
-		for (const auto& asset : nifAssets) {
-			if (!asset.xmlExists)
-				continue;
-			if (equippedXMLs.count(normalisePath(asset.xmlPath)) == 0)
-				continue;
-			++result.totalNIFsFound;
-			if (GenerateImprovedNIF(asset.nifPath, outputDir)) {
-				++result.nifImprovedCount;
-			}
-		}
 
 		return result;
 	}

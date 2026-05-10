@@ -57,21 +57,13 @@ namespace hdt
 		std::vector<PhysicsAsset> assets;
 	};
 
-	// Run the full validation pipeline at startup.
-	// Returns true if no errors were found (warnings are non-blocking).
-	bool ValidateAllPhysicsAssets();
-
-	// Run the full validation pipeline on demand (e.g. from the console command).
+	// Run validation from the console command path.
+	// When equippedOnly is true, validates only currently equipped items on tracked
+	// skeletons (PC and instantiated NPCs).
 	// Always writes the report file regardless of config.
 	// Populates outReportPath with the absolute path to the written report (empty on failure).
-	// Returns the full validation result.
-	AssetValidationResult ValidateAllPhysicsAssetsOnDemand(std::string& outReportPath);
-
-	// Run validation only for currently equipped items on tracked skeletons (PC and instantiated NPCs).
-	// Always writes the report file regardless of config.
-	// Populates outReportPath with the absolute path to the written report (empty on failure).
-	// Returns the validation result for equipped gear only.
-	AssetValidationResult ValidateEquippedPhysicsAssetsOnDemand(std::string& outReportPath);
+	// Returns the validation result for the selected scope.
+	AssetValidationResult ValidatePhysicsAssets(std::string& outReportPath, bool equippedOnly = false);
 
 	struct NIFImproveResult
 	{
@@ -94,20 +86,15 @@ namespace hdt
 		std::vector<std::string> errors;
 	};
 
-	// Scan all discovered physics XML sources and write improved copies for files
-	// where unknown or misplaced elements can be removed.
-	XMLImproveResult ImprovePhysicsXMLsOnDemand(const std::string& outputDir);
+	// Scan physics XML sources and write improved copies for files where unknown
+	// or misplaced elements can be removed.
+	// When equippedOnly is true, scans only XML files referenced by currently
+	// equipped physics assets.
+	XMLImproveResult ImprovePhysicsXMLs(const std::string& outputDir, bool equippedOnly = false);
 
-	// Scan only currently equipped physics assets and write improved XML copies
-	// for their referenced XML files.
-	XMLImproveResult ImproveEquippedPhysicsXMLsOnDemand(const std::string& outputDir);
-
-	// Scan data/meshes for physics-enabled NIFs and write improved copies for
-	// files where bogus nodes can be removed.
-	NIFImproveResult ImprovePhysicsNIFsOnDemand(const std::string& outputDir);
-
-	// Scan only NIFs associated with currently equipped physics assets and write
-	// improved copies for files where bogus nodes can be removed.
-	NIFImproveResult ImproveEquippedPhysicsNIFsOnDemand(const std::string& outputDir);
+	// Scan NIFs and write improved copies for files where bogus nodes can be removed.
+	// When equippedOnly is true, scans only NIFs associated with currently equipped
+	// physics assets.
+	NIFImproveResult ImprovePhysicsNIFs(const std::string& outputDir, bool equippedOnly = false);
 
 }  // namespace hdt

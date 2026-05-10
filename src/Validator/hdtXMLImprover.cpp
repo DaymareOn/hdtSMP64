@@ -90,9 +90,6 @@ namespace hdt
 	{
 		namespace fs = std::filesystem;
 
-		if (!IsPhysicsSchemaLoaded())
-			return false;
-
 		const ChildMap& allowed = GetSchemaAllowedChildren();
 		const ChildSet& known = GetSchemaKnownElements();
 

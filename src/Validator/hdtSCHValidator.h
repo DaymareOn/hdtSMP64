@@ -29,6 +29,6 @@ namespace hdt
 
 	// Validate an FSMP physics XML file against the Schematron rules in hdtSMP64.sch.
 	// Rules are loaded once from disk at first call and cached for subsequent calls.
-	SCHValidationResult ValidatePhysicsXMLWithSCH(const std::string& xmlPath);
+	SCHValidationResult ValidatePhysicsXMLWithSchematron(const std::string& xmlPath);
 
 }  // namespace hdt
