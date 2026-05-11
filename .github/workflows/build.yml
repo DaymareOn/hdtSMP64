@@ -5,6 +5,7 @@ on:
       - master
       - dev
       - copilot/physics-xml-validation-xsd-sch
+      - copilot/reduce-collision-mesh-vertices
     paths:
       - "**.cpp"
       - "**.h"
@@ -26,6 +27,7 @@ on:
       - master
       - dev
       - copilot/physics-xml-validation-xsd-sch
+      - copilot/reduce-collision-mesh-vertices
     paths:
       - "**.cpp"
       - "**.h"
