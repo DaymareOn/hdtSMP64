@@ -570,8 +570,8 @@ bool SMPDebug_Execute(
 		}
 
 		const char* startMessage = gearOnly ?
-		                               "[HDT-SMP] Equipped gear NIF cleanup started in background. Output directory: %s" :
-		                               "[HDT-SMP] NIF cleanup started in background. Output directory: %s";
+		                               "[HDT-SMP] Equipped gear NIF cleanup started in background. Results will appear when complete. Output directory: %s" :
+		                               "[HDT-SMP] NIF cleanup started in background. Results will appear when complete. Output directory: %s";
 		RE::ConsoleLog::GetSingleton()->Print(startMessage, outputDir.c_str());
 
 		std::thread([gearOnly, outputDir = std::move(outputDir)]() {
@@ -662,8 +662,8 @@ bool SMPDebug_Execute(
 		}
 
 		const char* startMessage = gearOnly ?
-		                               "[HDT-SMP] Equipped gear XML cleanup started in background. Output directory: %s" :
-		                               "[HDT-SMP] XML cleanup started in background. Output directory: %s";
+		                               "[HDT-SMP] Equipped gear XML cleanup started in background. Results will appear when complete. Output directory: %s" :
+		                               "[HDT-SMP] XML cleanup started in background. Results will appear when complete. Output directory: %s";
 		RE::ConsoleLog::GetSingleton()->Print(
 			startMessage,
 			outputDir.c_str());

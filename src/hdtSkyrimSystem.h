@@ -170,6 +170,35 @@ namespace hdt
 			float relaxationFactor = 1.0f;
 		};
 
+		struct PerVertexShapeTemplate
+		{
+			float margin = 1.0f;
+			SkyrimBody::SharedType shared = SkyrimBody::SharedType::SHARED_PUBLIC;
+			std::vector<RE::BSFixedString> tags;
+			std::unordered_set<RE::BSFixedString> canCollideWithTags;
+			std::unordered_set<RE::BSFixedString> noCollideWithTags;
+			std::vector<RE::BSFixedString> canCollideWithBones;
+			std::vector<RE::BSFixedString> noCollideWithBones;
+			std::unordered_map<RE::BSFixedString, float> weightThresholdByBone;
+			RE::BSFixedString disableTag;
+			int disablePriority = 0;
+		};
+
+		struct PerTriangleShapeTemplate
+		{
+			float margin = 1.0f;
+			float penetration = 1.0f;
+			SkyrimBody::SharedType shared = SkyrimBody::SharedType::SHARED_PUBLIC;
+			std::vector<RE::BSFixedString> tags;
+			std::unordered_set<RE::BSFixedString> canCollideWithTags;
+			std::unordered_set<RE::BSFixedString> noCollideWithTags;
+			std::vector<RE::BSFixedString> canCollideWithBones;
+			std::vector<RE::BSFixedString> noCollideWithBones;
+			std::unordered_map<RE::BSFixedString, float> weightThresholdByBone;
+			RE::BSFixedString disableTag;
+			int disablePriority = 0;
+		};
+
 		using VertexOffsetMap = std::unordered_map<std::string, int>;
 
 		RE::BSFixedString getRenamedBone(const RE::BSFixedString& name);
@@ -189,6 +218,8 @@ namespace hdt
 		std::unordered_map<RE::BSFixedString, GenericConstraintTemplate> m_genericConstraintTemplates;
 		std::unordered_map<RE::BSFixedString, StiffSpringConstraintTemplate> m_stiffSpringConstraintTemplates;
 		std::unordered_map<RE::BSFixedString, ConeTwistConstraintTemplate> m_coneTwistConstraintTemplates;
+		std::unordered_map<RE::BSFixedString, PerVertexShapeTemplate> m_perVertexShapeTemplates;
+		std::unordered_map<RE::BSFixedString, PerTriangleShapeTemplate> m_perTriangleShapeTemplates;
 		std::unordered_map<RE::BSFixedString, std::shared_ptr<btCollisionShape>> m_shapes;
 		std::vector<std::shared_ptr<btCollisionShape>> m_shapeRefs;
 
@@ -202,11 +233,15 @@ namespace hdt
 		void readGenericConstraintTemplate(GenericConstraintTemplate& dest);
 		void readStiffSpringConstraintTemplate(StiffSpringConstraintTemplate& dest);
 		void readConeTwistConstraintTemplate(ConeTwistConstraintTemplate& dest);
+		void readPerVertexShapeTemplate(PerVertexShapeTemplate& dest);
+		void readPerTriangleShapeTemplate(PerTriangleShapeTemplate& dest);
 
 		const BoneTemplate& getBoneTemplate(const RE::BSFixedString& name);
 		const GenericConstraintTemplate& getGenericConstraintTemplate(const RE::BSFixedString& name);
 		const StiffSpringConstraintTemplate& getStiffSpringConstraintTemplate(const RE::BSFixedString& name);
 		const ConeTwistConstraintTemplate& getConeTwistConstraintTemplate(const RE::BSFixedString& name);
+		const PerVertexShapeTemplate& getPerVertexShapeTemplate(const RE::BSFixedString& name);
+		const PerTriangleShapeTemplate& getPerTriangleShapeTemplate(const RE::BSFixedString& name);
 
 		SkyrimBone* createBoneFromNodeName(const RE::BSFixedString& bodyName, const RE::BSFixedString& templateName = "", const bool readTemplate = false);
 		void readOrUpdateBone();

@@ -91,6 +91,8 @@ set(SOURCE_FILES
 	"${SOURCE_DIR}/Validator/Parser/hdtNIFBinaryParser.h"
 	"${SOURCE_DIR}/Validator/Parser/hdtNIFBinaryParser.cpp"
 	"${SOURCE_DIR}/Validator/Utils/hdtStringUtils.h"
+	"${SOURCE_DIR}/Validator/Utils/hdtTemplateDefaults.cpp"
+	"${SOURCE_DIR}/Validator/Utils/hdtTemplateDefaults.h"
 	"${SOURCE_DIR}/Validator/Utils/hdtTimeUtils.h"
 	"${SOURCE_DIR}/Validator/Utils/hdtXMLUtils.h"
 	"${SOURCE_DIR}/Validator/Utils/hdtNIFBinaryUtils.h"

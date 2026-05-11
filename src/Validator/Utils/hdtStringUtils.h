@@ -72,4 +72,24 @@ namespace hdt
 		return path;
 	}
 
+	// Strip the leading "data/" prefix using case-insensitive matching.
+	// Backslashes are normalized to forward slashes first.
+	inline std::string stripDataPrefix(std::string path)
+	{
+		std::replace(path.begin(), path.end(), '\\', '/');
+
+		if (path.size() >= 5) {
+			bool hasDataPrefix =
+				std::tolower(static_cast<unsigned char>(path[0])) == 'd' &&
+				std::tolower(static_cast<unsigned char>(path[1])) == 'a' &&
+				std::tolower(static_cast<unsigned char>(path[2])) == 't' &&
+				std::tolower(static_cast<unsigned char>(path[3])) == 'a' &&
+				path[4] == '/';
+			if (hasDataPrefix)
+				return path.substr(5);
+		}
+
+		return path;
+	}
+
 }  // namespace hdt

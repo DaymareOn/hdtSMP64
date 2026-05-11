@@ -7,7 +7,6 @@ namespace hdt
 {
 	struct ValidationConfig
 	{
-		bool enabled = true;
 		int warnTriangleCount = 10000;
 		std::string outputDir;  // if set, improved XML copies are written here
 		bool improveNIFs = false;

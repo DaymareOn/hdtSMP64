@@ -62,7 +62,6 @@ namespace hdt
 	void appendU32(std::vector<uint8_t>& out, uint32_t v);
 	void appendU64(std::vector<uint8_t>& out, uint64_t v);
 	void appendF32(std::vector<uint8_t>& out, float v);
-	std::string stripDataPrefix(const std::string& path);
 	std::unordered_set<int32_t> collectPotentialRefs(const std::vector<uint8_t>& blockData, int32_t numBlocks);
 	bool hasTypeName(const std::string& typeName, std::initializer_list<const char*> names);
 }

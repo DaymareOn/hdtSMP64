@@ -159,6 +159,21 @@ namespace hdt
 	{
 	}
 
+	static SkyrimBody::SharedType parseSharedType(const std::string& value, bool& ok)
+	{
+		ok = true;
+		if (value == "public")
+			return SkyrimBody::SharedType::SHARED_PUBLIC;
+		if (value == "internal")
+			return SkyrimBody::SharedType::SHARED_INTERNAL;
+		if (value == "external")
+			return SkyrimBody::SharedType::SHARED_EXTERNAL;
+		if (value == "private")
+			return SkyrimBody::SharedType::SHARED_PRIVATE;
+		ok = false;
+		return SkyrimBody::SharedType::SHARED_PUBLIC;
+	}
+
 	void SkyrimSystemCreator::indexBone(SkyrimBone* bone)
 	{
 		m_boneIndex.emplace(bone->m_name.data(), bone);
@@ -285,12 +300,24 @@ namespace hdt
 							m_mesh->m_meshes.push_back(shape);
 							shape->m_mesh = m_mesh.get();
 						}
+					} else if (name == "per-vertex-shape-default") {
+						auto clsname = m_reader->getAttribute("name", "");
+						auto extends = m_reader->getAttribute("extends", "");
+						auto defaultShapeTemplate = getPerVertexShapeTemplate(extends);
+						readPerVertexShapeTemplate(defaultShapeTemplate);
+						m_perVertexShapeTemplates[clsname] = defaultShapeTemplate;
 					} else if (name == "per-triangle-shape") {
 						auto shape = readPerTriangleShape(&meshNameMap);
 						if (shape && shape->m_vertices.size()) {
 							m_mesh->m_meshes.push_back(shape);
 							shape->m_mesh = m_mesh.get();
 						}
+					} else if (name == "per-triangle-shape-default") {
+						auto clsname = m_reader->getAttribute("name", "");
+						auto extends = m_reader->getAttribute("extends", "");
+						auto defaultShapeTemplate = getPerTriangleShapeTemplate(extends);
+						readPerTriangleShapeTemplate(defaultShapeTemplate);
+						m_perTriangleShapeTemplates[clsname] = defaultShapeTemplate;
 					} else if (name == "constraint-group") {
 						auto constraint = readConstraintGroup();
 						if (constraint)
@@ -815,6 +842,7 @@ namespace hdt
 	RE::BSTSmartPointer<SkyrimBody> SkyrimSystemCreator::readPerVertexShape(DefaultBBP::NameMap_t meshNameMap)
 	{
 		auto name = m_reader->getAttribute("name");
+		auto clsname = m_reader->getAttribute("template", "");
 		auto it = meshNameMap.find(name);
 		auto names = (it == meshNameMap.end()) ? DefaultBBP::NameSet_t({ name }) : it->second;
 
@@ -824,40 +852,82 @@ namespace hdt
 		}
 
 		auto shape = RE::make_smart<PerVertexShape>(body.get());
+		auto shapeTemplate = getPerVertexShapeTemplate(clsname);
+		shape->m_shapeProp.margin = shapeTemplate.margin;
+		body->m_shared = shapeTemplate.shared;
+		body->m_tags = shapeTemplate.tags;
+		body->m_canCollideWithTags = shapeTemplate.canCollideWithTags;
+		body->m_noCollideWithTags = shapeTemplate.noCollideWithTags;
+		body->m_canCollideWithBones.clear();
+		for (const auto& boneName : shapeTemplate.canCollideWithBones) {
+			auto bone = getOrCreateBone(boneName);
+			if (bone)
+				body->m_canCollideWithBones.insert(bone);
+		}
+		body->m_noCollideWithBones.clear();
+		for (const auto& boneName : shapeTemplate.noCollideWithBones) {
+			auto bone = getOrCreateBone(boneName);
+			if (bone)
+				body->m_noCollideWithBones.insert(bone);
+		}
+		for (const auto& [boneName, wt] : shapeTemplate.weightThresholdByBone) {
+			for (int i = 0; i < body->m_skinnedBones.size(); ++i) {
+				if (body->m_skinnedBones[i].ptr->m_name == getRenamedBone(boneName)) {
+					body->m_skinnedBones[i].weightThreshold = wt;
+					break;
+				}
+			}
+		}
+		body->m_disableTag = shapeTemplate.disableTag;
+		body->m_disablePriority = shapeTemplate.disablePriority;
+
+		bool clearTagCollide = true;
+		bool clearBoneCollide = true;
 
 		while (m_reader->Inspect()) {
 			if (m_reader->GetInspected() == XMLReader::Inspected::StartTag) {
 				auto nodeName = m_reader->GetName();
-				if (nodeName == "priority") {
-					logger::warn("priority is deprecated and no longer used");
-					m_reader->skipCurrentElement();
-				} else if (nodeName == "margin") {
+				if (nodeName == "margin") {
 					shape->m_shapeProp.margin = m_reader->readFloat();
 				} else if (nodeName == "shared") {
 					auto str = m_reader->readText();
-					if (str == "public") {
-						body->m_shared = SkyrimBody::SharedType::SHARED_PUBLIC;
-					} else if (str == "internal") {
-						body->m_shared = SkyrimBody::SharedType::SHARED_INTERNAL;
-					} else if (str == "external") {
-						body->m_shared = SkyrimBody::SharedType::SHARED_EXTERNAL;
-					} else if (str == "private") {
-						body->m_shared = SkyrimBody::SharedType::SHARED_PRIVATE;
-					} else {
+					bool ok = false;
+					body->m_shared = parseSharedType(str, ok);
+					if (!ok) {
 						logger::warn("unknown shared value, use default value \"public\"");
 						body->m_shared = SkyrimBody::SharedType::SHARED_PUBLIC;
 					}
 				} else if (nodeName == "tag") {
 					body->m_tags.push_back(m_reader->readText());
 				} else if (nodeName == "can-collide-with-tag") {
+					if (clearTagCollide) {
+						body->m_canCollideWithTags.clear();
+						body->m_noCollideWithTags.clear();
+						clearTagCollide = false;
+					}
 					body->m_canCollideWithTags.insert(m_reader->readText());
 				} else if (nodeName == "no-collide-with-tag") {
+					if (clearTagCollide) {
+						body->m_canCollideWithTags.clear();
+						body->m_noCollideWithTags.clear();
+						clearTagCollide = false;
+					}
 					body->m_noCollideWithTags.insert(m_reader->readText());
 				} else if (nodeName == "can-collide-with-bone") {
+					if (clearBoneCollide) {
+						body->m_canCollideWithBones.clear();
+						body->m_noCollideWithBones.clear();
+						clearBoneCollide = false;
+					}
 					auto bone = getOrCreateBone(m_reader->readText());
 					if (bone)
 						body->m_canCollideWithBones.insert(bone);
 				} else if (nodeName == "no-collide-with-bone") {
+					if (clearBoneCollide) {
+						body->m_canCollideWithBones.clear();
+						body->m_noCollideWithBones.clear();
+						clearBoneCollide = false;
+					}
 					auto bone = getOrCreateBone(m_reader->readText());
 					if (bone)
 						body->m_noCollideWithBones.insert(bone);
@@ -891,6 +961,7 @@ namespace hdt
 	RE::BSTSmartPointer<SkyrimBody> SkyrimSystemCreator::readPerTriangleShape(DefaultBBP::NameMap_t* meshNameMap)
 	{
 		auto name = m_reader->getAttribute("name");
+		auto clsname = m_reader->getAttribute("template", "");
 		auto it = meshNameMap->find(name);
 		auto names = (it == meshNameMap->end()) ? DefaultBBP::NameSet_t({ name }) : it->second;
 
@@ -901,6 +972,38 @@ namespace hdt
 			return nullptr;
 
 		auto shape = RE::make_smart<PerTriangleShape>(body.get());
+		auto shapeTemplate = getPerTriangleShapeTemplate(clsname);
+		shape->m_shapeProp.margin = shapeTemplate.margin;
+		shape->m_shapeProp.penetration = shapeTemplate.penetration;
+		body->m_shared = shapeTemplate.shared;
+		body->m_tags = shapeTemplate.tags;
+		body->m_canCollideWithTags = shapeTemplate.canCollideWithTags;
+		body->m_noCollideWithTags = shapeTemplate.noCollideWithTags;
+		body->m_canCollideWithBones.clear();
+		for (const auto& boneName : shapeTemplate.canCollideWithBones) {
+			auto bone = getOrCreateBone(boneName);
+			if (bone)
+				body->m_canCollideWithBones.insert(bone);
+		}
+		body->m_noCollideWithBones.clear();
+		for (const auto& boneName : shapeTemplate.noCollideWithBones) {
+			auto bone = getOrCreateBone(boneName);
+			if (bone)
+				body->m_noCollideWithBones.insert(bone);
+		}
+		for (const auto& [boneName, wt] : shapeTemplate.weightThresholdByBone) {
+			for (int i = 0; i < body->m_skinnedBones.size(); ++i) {
+				if (body->m_skinnedBones[i].ptr->m_name == getRenamedBone(boneName)) {
+					body->m_skinnedBones[i].weightThreshold = wt;
+					break;
+				}
+			}
+		}
+		body->m_disableTag = shapeTemplate.disableTag;
+		body->m_disablePriority = shapeTemplate.disablePriority;
+
+		bool clearTagCollide = true;
+		bool clearBoneCollide = true;
 
 		for (auto entry : vertexOffsetMap) {
 			auto* g = castBSTriShape(findObject(m_model, entry.first.c_str()));
@@ -942,22 +1045,13 @@ namespace hdt
 		while (m_reader->Inspect()) {
 			if (m_reader->GetInspected() == XMLReader::Inspected::StartTag) {
 				auto nodeName = m_reader->GetName();
-				if (nodeName == "priority") {
-					logger::warn("priority is deprecated and no longer used");
-					m_reader->skipCurrentElement();
-				} else if (nodeName == "margin") {
+				if (nodeName == "margin") {
 					shape->m_shapeProp.margin = m_reader->readFloat();
 				} else if (nodeName == "shared") {
 					auto str = m_reader->readText();
-					if (str == "public") {
-						body->m_shared = SkyrimBody::SharedType::SHARED_PUBLIC;
-					} else if (str == "internal") {
-						body->m_shared = SkyrimBody::SharedType::SHARED_INTERNAL;
-					} else if (str == "external") {
-						body->m_shared = SkyrimBody::SharedType::SHARED_EXTERNAL;
-					} else if (str == "private") {
-						body->m_shared = SkyrimBody::SharedType::SHARED_PRIVATE;
-					} else {
+					bool ok = false;
+					body->m_shared = parseSharedType(str, ok);
+					if (!ok) {
 						logger::warn("unknown shared value, use default value \"public\"");
 						body->m_shared = SkyrimBody::SharedType::SHARED_PUBLIC;
 					}
@@ -966,14 +1060,34 @@ namespace hdt
 				} else if (nodeName == "tag") {
 					body->m_tags.push_back(m_reader->readText());
 				} else if (nodeName == "no-collide-with-tag") {
+					if (clearTagCollide) {
+						body->m_canCollideWithTags.clear();
+						body->m_noCollideWithTags.clear();
+						clearTagCollide = false;
+					}
 					body->m_noCollideWithTags.insert(m_reader->readText());
 				} else if (nodeName == "can-collide-with-tag") {
+					if (clearTagCollide) {
+						body->m_canCollideWithTags.clear();
+						body->m_noCollideWithTags.clear();
+						clearTagCollide = false;
+					}
 					body->m_canCollideWithTags.insert(m_reader->readText());
 				} else if (nodeName == "can-collide-with-bone") {
+					if (clearBoneCollide) {
+						body->m_canCollideWithBones.clear();
+						body->m_noCollideWithBones.clear();
+						clearBoneCollide = false;
+					}
 					auto bone = getOrCreateBone(m_reader->readText());
 					if (bone)
 						body->m_canCollideWithBones.insert(bone);
 				} else if (nodeName == "no-collide-with-bone") {
+					if (clearBoneCollide) {
+						body->m_canCollideWithBones.clear();
+						body->m_noCollideWithBones.clear();
+						clearBoneCollide = false;
+					}
 					auto bone = getOrCreateBone(m_reader->readText());
 					if (bone)
 						body->m_noCollideWithBones.insert(bone);
@@ -1371,6 +1485,132 @@ namespace hdt
 		}
 	}
 
+	void SkyrimSystemCreator::readPerVertexShapeTemplate(PerVertexShapeTemplate& dest)
+	{
+		bool clearTagCollide = true;
+		bool clearBoneCollide = true;
+		while (m_reader->Inspect()) {
+			if (m_reader->GetInspected() == XMLReader::Inspected::StartTag) {
+				auto nodeName = m_reader->GetName();
+				if (nodeName == "margin") {
+					dest.margin = m_reader->readFloat();
+				} else if (nodeName == "shared") {
+					bool ok = false;
+					dest.shared = parseSharedType(m_reader->readText(), ok);
+					if (!ok) {
+						logger::warn("unknown shared value, use default value \"public\"");
+						dest.shared = SkyrimBody::SharedType::SHARED_PUBLIC;
+					}
+				} else if (nodeName == "tag") {
+					dest.tags.push_back(m_reader->readText());
+				} else if (nodeName == "can-collide-with-tag") {
+					if (clearTagCollide) {
+						dest.canCollideWithTags.clear();
+						dest.noCollideWithTags.clear();
+						clearTagCollide = false;
+					}
+					dest.canCollideWithTags.insert(m_reader->readText());
+				} else if (nodeName == "no-collide-with-tag") {
+					if (clearTagCollide) {
+						dest.canCollideWithTags.clear();
+						dest.noCollideWithTags.clear();
+						clearTagCollide = false;
+					}
+					dest.noCollideWithTags.insert(m_reader->readText());
+				} else if (nodeName == "can-collide-with-bone") {
+					if (clearBoneCollide) {
+						dest.canCollideWithBones.clear();
+						dest.noCollideWithBones.clear();
+						clearBoneCollide = false;
+					}
+					dest.canCollideWithBones.push_back(m_reader->readText());
+				} else if (nodeName == "no-collide-with-bone") {
+					if (clearBoneCollide) {
+						dest.canCollideWithBones.clear();
+						dest.noCollideWithBones.clear();
+						clearBoneCollide = false;
+					}
+					dest.noCollideWithBones.push_back(m_reader->readText());
+				} else if (nodeName == "weight-threshold") {
+					auto boneName = m_reader->getAttribute("bone");
+					dest.weightThresholdByBone[boneName] = m_reader->readFloat();
+				} else if (nodeName == "disable-tag") {
+					dest.disableTag = m_reader->readText();
+				} else if (nodeName == "disable-priority") {
+					dest.disablePriority = m_reader->readInt();
+				} else {
+					logger::warn("unknown element - {}", nodeName.c_str());
+					m_reader->skipCurrentElement();
+				}
+			} else if (m_reader->GetInspected() == XMLReader::Inspected::EndTag)
+				break;
+		}
+	}
+
+	void SkyrimSystemCreator::readPerTriangleShapeTemplate(PerTriangleShapeTemplate& dest)
+	{
+		bool clearTagCollide = true;
+		bool clearBoneCollide = true;
+		while (m_reader->Inspect()) {
+			if (m_reader->GetInspected() == XMLReader::Inspected::StartTag) {
+				auto nodeName = m_reader->GetName();
+				if (nodeName == "margin") {
+					dest.margin = m_reader->readFloat();
+				} else if (nodeName == "prenetration" || nodeName == "penetration") {
+					dest.penetration = m_reader->readFloat();
+				} else if (nodeName == "shared") {
+					bool ok = false;
+					dest.shared = parseSharedType(m_reader->readText(), ok);
+					if (!ok) {
+						logger::warn("unknown shared value, use default value \"public\"");
+						dest.shared = SkyrimBody::SharedType::SHARED_PUBLIC;
+					}
+				} else if (nodeName == "tag") {
+					dest.tags.push_back(m_reader->readText());
+				} else if (nodeName == "no-collide-with-tag") {
+					if (clearTagCollide) {
+						dest.canCollideWithTags.clear();
+						dest.noCollideWithTags.clear();
+						clearTagCollide = false;
+					}
+					dest.noCollideWithTags.insert(m_reader->readText());
+				} else if (nodeName == "can-collide-with-tag") {
+					if (clearTagCollide) {
+						dest.canCollideWithTags.clear();
+						dest.noCollideWithTags.clear();
+						clearTagCollide = false;
+					}
+					dest.canCollideWithTags.insert(m_reader->readText());
+				} else if (nodeName == "can-collide-with-bone") {
+					if (clearBoneCollide) {
+						dest.canCollideWithBones.clear();
+						dest.noCollideWithBones.clear();
+						clearBoneCollide = false;
+					}
+					dest.canCollideWithBones.push_back(m_reader->readText());
+				} else if (nodeName == "no-collide-with-bone") {
+					if (clearBoneCollide) {
+						dest.canCollideWithBones.clear();
+						dest.noCollideWithBones.clear();
+						clearBoneCollide = false;
+					}
+					dest.noCollideWithBones.push_back(m_reader->readText());
+				} else if (nodeName == "weight-threshold") {
+					auto boneName = m_reader->getAttribute("bone");
+					dest.weightThresholdByBone[boneName] = m_reader->readFloat();
+				} else if (nodeName == "disable-tag") {
+					dest.disableTag = m_reader->readText();
+				} else if (nodeName == "disable-priority") {
+					dest.disablePriority = m_reader->readInt();
+				} else {
+					logger::warn("unknown element - {}", nodeName.c_str());
+					m_reader->skipCurrentElement();
+				}
+			} else if (m_reader->GetInspected() == XMLReader::Inspected::EndTag)
+				break;
+		}
+	}
+
 	const SkyrimSystemCreator::BoneTemplate& SkyrimSystemCreator::getBoneTemplate(const RE::BSFixedString& name)
 	{
 		auto iter = m_boneTemplates.find(name);
@@ -1400,6 +1640,22 @@ namespace hdt
 		auto iter = m_coneTwistConstraintTemplates.find(name);
 		if (iter == m_coneTwistConstraintTemplates.end())
 			return m_coneTwistConstraintTemplates[RE::BSFixedString()];
+		return iter->second;
+	}
+
+	const SkyrimSystemCreator::PerVertexShapeTemplate& SkyrimSystemCreator::getPerVertexShapeTemplate(const RE::BSFixedString& name)
+	{
+		auto iter = m_perVertexShapeTemplates.find(name);
+		if (iter == m_perVertexShapeTemplates.end())
+			return m_perVertexShapeTemplates[RE::BSFixedString()];
+		return iter->second;
+	}
+
+	const SkyrimSystemCreator::PerTriangleShapeTemplate& SkyrimSystemCreator::getPerTriangleShapeTemplate(const RE::BSFixedString& name)
+	{
+		auto iter = m_perTriangleShapeTemplates.find(name);
+		if (iter == m_perTriangleShapeTemplates.end())
+			return m_perTriangleShapeTemplates[RE::BSFixedString()];
 		return iter->second;
 	}
 

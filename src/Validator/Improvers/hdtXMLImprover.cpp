@@ -1,12 +1,12 @@
 #include "hdtXMLImprover.h"
 
 #include "../../NetImmerseUtils.h"
+#include "../Utils/hdtStringUtils.h"
+#include "../Utils/hdtTemplateDefaults.h"
 #include "../Validators/hdtXSDValidator.h"
 
 #include <pugixml.hpp>
 
-#include <algorithm>
-#include <cctype>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -79,28 +79,43 @@ namespace hdt
 		return changed || !toRemove.empty();
 	}
 
-	// ---- Path helpers ----
-
-	// Strips the leading "data/" prefix from a file path using case-insensitive matching.
-	// Normalizes all backslashes to forward slashes before processing. If the path does not
-	// start with "data/", the normalized path is returned unchanged.
-	//
-	// Arguments:
-	//   path: The file path to process (may contain mixed slash types)
-	//
-	// Returns: The path with "data/" prefix removed (if present), or the normalized path
-	static std::string stripDataPrefix(const std::string& path)
+	static bool hasNoAttributes(pugi::xml_node node)
 	{
-		std::string norm = path;
-		std::replace(norm.begin(), norm.end(), '\\', '/');
+		return !node.first_attribute();
+	}
 
-		std::string lower = norm;
-		std::transform(lower.begin(), lower.end(), lower.begin(),
-			[](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+	static bool mergeAdjacentDefaultNodes(pugi::xml_node systemNode)
+	{
+		bool changed = false;
+		pugi::xml_node previousDefault;
+		std::string previousName;
 
-		if (lower.size() >= 5 && lower.substr(0, 5) == "data/")
-			return norm.substr(5);
-		return norm;
+		for (auto node = systemNode.first_child(); node; ) {
+			auto next = node.next_sibling();
+			if (node.type() == pugi::node_element) {
+				const std::string currentName = node.name();
+				if (hdt::isDefaultNodeName(currentName) && hasNoAttributes(node)) {
+					if (previousDefault && previousName == currentName && hasNoAttributes(previousDefault)) {
+						for (auto child = node.first_child(); child; ) {
+							auto childNext = child.next_sibling();
+							previousDefault.append_copy(child);
+							child = childNext;
+						}
+						systemNode.remove_child(node);
+						changed = true;
+					} else {
+						previousDefault = node;
+						previousName = currentName;
+					}
+				} else {
+					previousDefault = {};
+					previousName.clear();
+				}
+			}
+			node = next;
+		}
+
+		return changed;
 	}
 
 	// ---- Public entry point ----
@@ -147,10 +162,65 @@ namespace hdt
 		if (!sysNode)
 			return false;
 
-		// Clean the tree using schema data from the XSD validator
+		// First pass: remove schema-unknown or schema-disallowed elements.
 		bool changed = cleanNode(sysNode, "system", allowed, known);
+
+		// Second pass: remove tags whose explicit value is redundant relative to
+		// the effective inherited template at this point in document order.
+		changed = RemoveTemplateRedundantChildren(doc) || changed;
+
+		// Third pass: remove empty default tags (e.g., <bone-default/>, etc.)
+		{
+			std::vector<pugi::xml_node> toRemove;
+			pugi::xml_node sysNode2;
+			for (auto child = doc.first_child(); child; child = child.next_sibling()) {
+				if (child.type() == pugi::node_element && std::string(child.name()) == "system") {
+					sysNode2 = child;
+					break;
+				}
+			}
+			if (sysNode2) {
+				for (auto node = sysNode2.first_child(); node; node = node.next_sibling()) {
+					if (node.type() != pugi::node_element)
+						continue;
+					std::string localName = node.name();
+					if (hdt::isDefaultNodeName(localName)) {
+						bool hasAttrs = false;
+						for (auto attr = node.first_attribute(); attr; attr = attr.next_attribute()) {
+							if (std::string(attr.name()) != "name" && std::string(attr.name()) != "extends") {
+								hasAttrs = true;
+								break;
+							}
+						}
+						if (!hasAttrs && !node.first_child())
+							toRemove.push_back(node);
+					}
+				}
+				for (auto& n : toRemove)
+					sysNode2.remove_child(n);
+				if (!toRemove.empty())
+					changed = true;
+			}
+		}
+
+		// Fourth pass: merge adjacent anonymous default nodes of the same kind.
+		changed = mergeAdjacentDefaultNodes(sysNode) || changed;
 		if (!changed)
 			return false;
+
+		// Add xml-model processing instruction pointing to the Schematron schema
+		auto pi = doc.prepend_child(pugi::node_pi);
+		pi.set_name("xml-model");
+		pi.set_value(R"(href="https://raw.githubusercontent.com/DaymareOn/FSMP-Validator/refs/heads/main/skse/plugins/hdtSkinnedMeshConfigs/hdtSMP64.sch" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron")");
+
+		// Replace system element namespace and schema location attributes
+		sysNode.remove_attribute("xsi:schemaLocation");
+		sysNode.remove_attribute("xsi:noNamespaceSchemaLocation");
+		sysNode.remove_attribute("xmlns:xsi");
+		sysNode.remove_attribute("xmlns");
+		sysNode.append_attribute("xmlns:xsi") = "http://www.w3.org/2001/XMLSchema-instance";
+		sysNode.append_attribute("xmlns") = "FSMP-Validator";
+		sysNode.append_attribute("xsi:schemaLocation") = "FSMP-Validator https://raw.githubusercontent.com/DaymareOn/FSMP-Validator/main/skse/plugins/hdtSkinnedMeshConfigs/hdtSMP64.xsd";
 
 		// Compute output path: <outputDir>/<relative-from-data>
 		std::string relative = stripDataPrefix(srcXMLPath);

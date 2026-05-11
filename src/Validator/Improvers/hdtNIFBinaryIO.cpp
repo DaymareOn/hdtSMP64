@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <array>
-#include <cctype>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -315,20 +314,6 @@ namespace hdt
 		} catch (...) {
 			return false;
 		}
-	}
-
-	std::string stripDataPrefix(const std::string& path)
-	{
-		std::string norm = path;
-		std::replace(norm.begin(), norm.end(), '\\', '/');
-
-		std::string lower = norm;
-		std::transform(lower.begin(), lower.end(), lower.begin(),
-			[](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-
-		if (lower.size() >= 5 && lower.substr(0, 5) == "data/")
-			return norm.substr(5);
-		return norm;
 	}
 
 	std::unordered_set<int32_t> collectPotentialRefs(const std::vector<uint8_t>& blockData, int32_t numBlocks)

@@ -7,6 +7,7 @@
 #include "Validators/hdtSCHValidator.h"
 #include "Config/hdtValidatorPaths.h"
 #include "Utils/hdtStringUtils.h"
+#include "Utils/hdtTemplateDefaults.h"
 #include "Utils/hdtTimeUtils.h"
 #include "Improvers/hdtXMLImprover.h"
 #include "Validators/hdtXSDValidator.h"
@@ -325,6 +326,28 @@ namespace hdt
 		return factorNames.find(elementName) != factorNames.end();
 	}
 
+	static bool isRedundantDefaultValueSchWarning(const SCHViolation& v)
+	{
+		return v.role == SCHRole::Warning &&
+		       v.message.find("is set to its default value") != std::string::npos;
+	}
+
+	static std::vector<TemplateRedundantChildInfo> collectTemplateRedundantChildrenForXml(const std::string& xmlPath)
+	{
+		std::vector<TemplateRedundantChildInfo> result;
+
+		std::string bytes = readAllFile2(xmlPath.c_str());
+		if (bytes.empty())
+			return result;
+
+		pugi::xml_document doc;
+		auto parseResult = doc.load_buffer(bytes.data(), bytes.size());
+		if (!parseResult)
+			return result;
+
+		return CollectTemplateRedundantChildrenInfo(doc, &bytes);
+	}
+
 	static std::string extractOutOfRangeClampTarget(const std::string& message)
 	{
 		const std::string markerStart = "value '";
@@ -360,6 +383,34 @@ namespace hdt
 		AssetValidationResult& report, std::ostream& out)
 	{
 		const auto& [xsdResult, schResult] = pair;
+		const auto templateRedundantChildren = collectTemplateRedundantChildrenForXml(xmlPath);
+		std::unordered_map<std::string, TemplateRedundantChildInfo> templateRedundantByLocation;
+		for (const auto& info : templateRedundantChildren)
+			templateRedundantByLocation[info.location] = info;
+		std::unordered_set<std::string> emittedTemplateRedundantLocations;
+
+		auto emitTemplateRedundantWarning = [&](const TemplateRedundantChildInfo& info) {
+			if (info.shadowedByLaterFrameTag) {
+				std::string msg = xmlPath + ":" + std::to_string(info.line) + ": " + info.location +
+				                  " - " + info.tagName + " is shadowed by later " + info.shadowingTagName +
+				                  " in the same constraint/default block and has no effect. This tag is unnecessary and can be removed.";
+				report.warnings.push_back(msg);
+				report.hasWarnings = true;
+				out << "    [WARNING] " << info.location << " (line " << info.line << "): "
+				    << info.tagName << " is shadowed by later " << info.shadowingTagName
+				    << " in the same constraint/default block and has no effect; this tag can be removed.\n";
+				return;
+			}
+
+			std::string msg = xmlPath + ":" + std::to_string(info.line) + ": " + info.location +
+			                  " - " + info.tagName +
+			                  " is set to the effective inherited default value. This tag is unnecessary and can be removed.";
+			report.warnings.push_back(msg);
+			report.hasWarnings = true;
+			out << "    [WARNING] " << info.location << " (line " << info.line << "): "
+			    << info.tagName
+			    << " is set to the effective inherited default value. This tag is unnecessary and can be removed.\n";
+		};
 
 		for (const auto& v : xsdResult.violations) {
 			if (isIgnoredDisallowedChildTagViolation(v)) {
@@ -405,6 +456,15 @@ namespace hdt
 				continue;
 			}
 
+			if (isRedundantDefaultValueSchWarning(v) &&
+			    templateRedundantByLocation.find(v.location) == templateRedundantByLocation.end()) {
+				// This warning was matched against theoretical XSD defaults, but the tag is
+				// not redundant relative to the effective inherited template at runtime.
+				continue;
+			}
+			if (isRedundantDefaultValueSchWarning(v))
+				emittedTemplateRedundantLocations.insert(v.location);
+
 			std::string msg = xmlPath + ":" + std::to_string(v.line) + ": " +
 			                  v.location + " - " + v.message;
 			if (v.role == SCHRole::Error) {
@@ -417,6 +477,13 @@ namespace hdt
 				out << "    [WARNING] " << v.location << " (line " << v.line << "): "
 					<< v.message << "\n";
 			}
+		}
+
+		for (const auto& [location, info] : templateRedundantByLocation) {
+			if (emittedTemplateRedundantLocations.find(location) != emittedTemplateRedundantLocations.end())
+				continue;
+
+			emitTemplateRedundantWarning(info);
 		}
 	}
 

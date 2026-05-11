@@ -6,6 +6,8 @@
 
 #include "hdtNIFCollisionDecimationImprover.h"
 
+#include "../Utils/hdtStringUtils.h"
+
 #include <filesystem>
 #include <fstream>
 
