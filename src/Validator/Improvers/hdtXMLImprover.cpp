@@ -20,6 +20,28 @@ namespace hdt
 	using ChildSet = std::unordered_set<std::string>;
 	using ChildMap = std::unordered_map<std::string, ChildSet>;
 
+	// Normalize deprecated element names in-place so legacy XML survives
+	// cleanup and is emitted with canonical tag names.
+	static bool renameDeprecatedTags(pugi::xml_node node)
+	{
+		bool changed = false;
+
+		for (auto child = node.first_child(); child; child = child.next_sibling()) {
+			if (child.type() != pugi::node_element)
+				continue;
+
+			const std::string currentName = child.name();
+			if (currentName == "prenetration") {
+				child.set_name("penetration");
+				changed = true;
+			}
+
+			changed = renameDeprecatedTags(child) || changed;
+		}
+
+		return changed;
+	}
+
 	// ---- DOM walker ----
 
 	// Recursively removes child elements that are either not in knownElements (completely unknown
@@ -162,8 +184,11 @@ namespace hdt
 		if (!sysNode)
 			return false;
 
+		// Pre-pass: normalize deprecated legacy element names.
+		bool changed = renameDeprecatedTags(sysNode);
+
 		// First pass: remove schema-unknown or schema-disallowed elements.
-		bool changed = cleanNode(sysNode, "system", allowed, known);
+		changed = cleanNode(sysNode, "system", allowed, known) || changed;
 
 		// Second pass: remove tags whose explicit value is redundant relative to
 		// the effective inherited template at this point in document order.

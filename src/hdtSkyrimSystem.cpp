@@ -492,9 +492,7 @@ namespace hdt
 						cinfo.m_collisionShape = shape.get();
 					} else
 						cinfo.m_collisionShape = BoneTemplate::emptyShape;
-				} else if (name == "collision-filter")
-					cinfo.m_collisionFilter = m_reader->readInt();
-				else if (name == "can-collide-with-bone") {
+				} else if (name == "can-collide-with-bone") {
 					if (clearCollide) {
 						cinfo.m_canCollideWithBone.clear();
 						cinfo.m_noCollideWithBone.clear();
@@ -700,6 +698,8 @@ namespace hdt
 			bone->m_marginMultipler = boneTemplate.m_marginMultipler;
 			bone->m_gravityFactor = boneTemplate.m_gravityFactor;
 			bone->m_windFactor = boneTemplate.m_windFactor;
+			bone->m_canCollideWithBone = boneTemplate.m_canCollideWithBone;
+			bone->m_noCollideWithBone = boneTemplate.m_noCollideWithBone;
 
 			bone->readTransform(RESET_PHYSICS);
 
