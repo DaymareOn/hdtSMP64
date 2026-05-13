@@ -37,6 +37,8 @@ set(SOURCE_FILES
 	"${SOURCE_DIR}/hdtSkinnedMesh/hdtStiffSpringConstraint.h"
 	"${SOURCE_DIR}/hdtSkinnedMesh/hdtVertex.cpp"
 	"${SOURCE_DIR}/hdtSkinnedMesh/hdtVertex.h"
+	"${SOURCE_DIR}/CollisionMeshDebug.cpp"
+	"${SOURCE_DIR}/CollisionMeshDebug.h"
 	"${SOURCE_DIR}/Events.h"
 	"${SOURCE_DIR}/Events.cpp"
 	"${SOURCE_DIR}/HavokUtils.h"
