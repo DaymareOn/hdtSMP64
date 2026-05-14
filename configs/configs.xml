@@ -178,16 +178,6 @@
     -->
     <disable1stPersonViewPhysics>false</disable1stPersonViewPhysics>
 
-    <!-- ##################### CUDA ####################################### -->
-
-    <!--
-      enableCuda: (boolean) experimental GPU collision algorithm. Try this if
-      you have a slow CPU and fast GPU. This setting will be ignored if you
-      haven't installed the CUDA-enabled version.
-      If no value is set, default is false.
-    -->
-    <enableCuda>true</enableCuda>
-
   </smp>
   <solver>
 
@@ -276,13 +266,6 @@
     <enabled>true</enabled>
 
     <!--
-      report-file-enabled: (boolean) write a detailed validation report file to the
-      standard SKSE log directory (My Games/Skyrim Special Edition/SKSE/).
-      If no value is set, default is true.
-    -->
-    <report-file-enabled>true</report-file-enabled>
-
-    <!--
       warn-triangle-count: (int) warn when a physics-enabled NIF contains more than
       this many triangles. High triangle counts can impact simulation performance.
       If no value is set, default is 10000.
@@ -298,13 +281,6 @@
     -->
     <output-dir></output-dir>
 
-    <!--
-      improve-nifs: (boolean) when true and output-dir is set, also generate
-      improved NIF files by removing bogus nodes.
-      If no value is set, default is false.
-    -->
-    <improve-nifs>false</improve-nifs>
-    <parallel-nif-improvement>true</parallel-nif-improvement>
     <decimate-collision-meshes-offline>false</decimate-collision-meshes-offline>
     <decimation-target-vertex-ratio>0.99</decimation-target-vertex-ratio>
     <decimation-target-vertex-count>0</decimation-target-vertex-count>

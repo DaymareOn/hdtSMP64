@@ -316,6 +316,11 @@ namespace hdt
 		}
 	}
 
+	// Heuristic: treat every 4-byte-aligned word whose value falls in [0, numBlocks) as a
+	// potential block reference. This can produce false positives (e.g. a float whose bit
+	// pattern happens to encode a small integer) but is intentionally conservative: a missed
+	// reference would allow unsafe removal of a live block, whereas a false positive merely
+	// prevents an optional optimisation.
 	std::unordered_set<int32_t> collectPotentialRefs(const std::vector<uint8_t>& blockData, int32_t numBlocks)
 	{
 		std::unordered_set<int32_t> refs;

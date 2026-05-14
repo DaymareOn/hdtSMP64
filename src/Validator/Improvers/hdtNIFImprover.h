@@ -45,7 +45,8 @@ namespace hdt
 		const std::string& srcNIFPath,
 		const std::string& outputDir,
 			const NIFDecimationOptions& options = {},
-			NIFImproverDiagnostics* outDiagnostics = nullptr);
+			NIFImproverDiagnostics* outDiagnostics = nullptr,
+			bool copyOriginal = false);
 
 	// Copies a NIF file unchanged to:
 	//   <outputDir>/<path-relative-to-data/>

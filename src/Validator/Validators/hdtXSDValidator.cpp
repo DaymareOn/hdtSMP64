@@ -243,6 +243,7 @@ namespace hdt
 		// The error was already logged once by getOrLoadPhysicsSchema().
 		if (!getOrLoadPhysicsSchema().loaded) {
 			result.isValid = true;
+			result.schemaSkipped = true;
 			return result;
 		}
 

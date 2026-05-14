@@ -20,6 +20,7 @@ namespace hdt
 	struct XSDValidationResult
 	{
 		bool isValid = true;
+		bool schemaSkipped = false;  // true when the XSD schema was unavailable; isValid is set to true but no real validation occurred
 		std::vector<XSDViolation> violations;
 	};
 

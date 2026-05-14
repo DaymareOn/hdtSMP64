@@ -96,6 +96,8 @@ namespace hdt
 			return false;
 		}
 
+		// The FSMP-Validator namespace prefix ("f" by convention) is declared in a <sch:ns> node.
+		// If that declaration is absent, rules using the prefix will silently match nothing.
 		std::string schemaPrefix = "f";
 		for (auto nsNode : schemaRoot.children()) {
 			if (XmlLocalName(nsNode.name()) != "ns")

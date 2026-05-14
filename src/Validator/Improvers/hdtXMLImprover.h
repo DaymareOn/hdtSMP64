@@ -13,5 +13,9 @@ namespace hdt
 	//
 	// Returns true  — a cleaned file was written.
 	// Returns false — no changes were needed, or the file could not be processed.
-	bool GenerateImprovedXML(const std::string& srcXMLPath, const std::string& outputDir);
+	bool GenerateImprovedXML(
+		const std::string& srcXMLPath,
+		const std::string& outputDir,
+		bool copyOriginal = false,
+		bool stateless = false);
 }

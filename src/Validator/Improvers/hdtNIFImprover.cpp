@@ -25,7 +25,8 @@ namespace hdt
 		const std::string& srcNIFPath,
 		const std::string& outputDir,
 		const NIFDecimationOptions& options,
-		NIFImproverDiagnostics* outDiagnostics)
+		NIFImproverDiagnostics* outDiagnostics,
+		bool copyOriginal)
 	{
 		namespace fs = std::filesystem;
 
@@ -87,7 +88,19 @@ namespace hdt
 		if (ec)
 			return false;
 
-		return writeNifFile(parsed, pathToUtf8(outPath));
+		if (!writeNifFile(parsed, pathToUtf8(outPath)))
+			return false;
+
+		if (copyOriginal) {
+			fs::path originalOutPath = outPath;
+			const std::string extension = originalOutPath.extension().string();
+			originalOutPath.replace_filename(originalOutPath.stem().string() + "-original" + extension);
+			fs::copy_file(fs::u8path(srcNIFPath), originalOutPath, fs::copy_options::overwrite_existing, ec);
+			if (ec)
+				return false;
+		}
+
+		return true;
 	}
 
 	bool CopyNIFToOutput(const std::string& srcNIFPath, const std::string& outputDir)

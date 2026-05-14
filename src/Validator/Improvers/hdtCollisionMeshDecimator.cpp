@@ -726,7 +726,7 @@ namespace hdt
 
 			if (!validateCandidate(c, vertices, triangles, options, baseAbsVolume, out.stats)) {
 				++out.stats.rejectedCollapses;
-				continue;
+				break;
 			}
 
 			applyCandidate(c, vertices, triangles);
@@ -764,7 +764,7 @@ namespace hdt
 
 			if (!validateCandidate(best, vertices, triangles, options, baseAbsVolume, out.stats)) {
 				++out.stats.rejectedCollapses;
-				continue;
+				break;
 			}
 
 			applyCandidate(best, vertices, triangles);

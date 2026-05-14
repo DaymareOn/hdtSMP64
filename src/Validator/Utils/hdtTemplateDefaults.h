@@ -3,6 +3,7 @@
 #include <pugixml.hpp>
 
 #include <string>
+#include <unordered_map>
 #include <vector>
 #include <unordered_set>
 
@@ -32,5 +33,14 @@ namespace hdt
 	// Remove child tags that are redundant relative to effective defaults.
 	// Returns true when at least one child element was removed.
 	bool RemoveTemplateRedundantChildren(pugi::xml_document& doc);
+
+	// Remove top-level *-default nodes that are never referenced by any later
+	// template/template-inheritance use in the same file.
+	bool RemoveUnusedDefaultNodes(pugi::xml_document& doc);
+
+	// Returns duplicate named default templates mapped to an earlier equivalent
+	// named template using runtime-like effective template semantics.
+	std::unordered_map<std::string, std::string> CollectEquivalentDefaultTemplateAliases(
+		const pugi::xml_document& doc);
 
 }  // namespace hdt

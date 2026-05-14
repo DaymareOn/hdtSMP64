@@ -9,7 +9,6 @@ namespace hdt
 	{
 		int warnTriangleCount = 10000;
 		std::string outputDir;  // if set, improved XML copies are written here
-		bool improveNIFs = false;
 		bool decimateCollisionMeshesOffline = false;
 		float decimationTargetVertexRatio = 0.99f;
 		int decimationTargetVertexCount = 0;
@@ -24,7 +23,6 @@ namespace hdt
 		int decimationMaxEdgeCollapses = 4096;  // legacy/no-op: retained for config compatibility
 		bool decimationPreserveBoundary = true;
 		bool decimationPreserveFeatures = true;
-		bool parallelNIFImprovement = true;
 	};
 
 	extern ValidationConfig g_validationConfig;
@@ -101,11 +99,18 @@ namespace hdt
 	// or misplaced elements can be removed.
 	// When equippedOnly is true, scans only XML files referenced by currently
 	// equipped physics assets.
-	XMLImproveResult ImprovePhysicsXMLs(const std::string& outputDir, bool equippedOnly = false);
+	XMLImproveResult ImprovePhysicsXMLs(
+		const std::string& outputDir,
+		bool equippedOnly = false,
+		bool copyOriginal = false,
+		bool stateless = false);
 
 	// Scan NIFs and write improved copies for files where bogus nodes can be removed.
 	// When equippedOnly is true, scans only NIFs associated with currently equipped
 	// physics assets.
-	NIFImproveResult ImprovePhysicsNIFs(const std::string& outputDir, bool equippedOnly = false);
+	NIFImproveResult ImprovePhysicsNIFs(
+		const std::string& outputDir,
+		bool equippedOnly = false,
+		bool copyOriginal = false);
 
 }  // namespace hdt

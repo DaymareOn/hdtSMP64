@@ -3,12 +3,15 @@
 #include "../../NetImmerseUtils.h"
 #include "../Utils/hdtStringUtils.h"
 #include "../Utils/hdtTemplateDefaults.h"
+#include "../Utils/hdtXMLJsonWriter.h"
 #include "../Validators/hdtXSDValidator.h"
 
-#include <pugixml.hpp>
+#include "../../../extern/pugixml/pugixml.hpp"
 
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
+#include <cmath>
 #include <sstream>
 #include <string>
 #include <unordered_map>
@@ -17,6 +20,54 @@
 
 namespace hdt
 {
+	enum class TemplateFamily
+	{
+		None,
+		Bone,
+		PerTriangle,
+		PerVertex,
+		Generic,
+		StiffSpring,
+		ConeTwist
+	};
+
+	static TemplateFamily templateFamilyForNode(const std::string& localName)
+	{
+		if (localName == "bone" || localName == "bone-default")
+			return TemplateFamily::Bone;
+		if (localName == "per-triangle-shape" || localName == "per-triangle-shape-default")
+			return TemplateFamily::PerTriangle;
+		if (localName == "per-vertex-shape" || localName == "per-vertex-shape-default")
+			return TemplateFamily::PerVertex;
+		if (localName == "generic-constraint" || localName == "generic-constraint-default")
+			return TemplateFamily::Generic;
+		if (localName == "stiffspring-constraint" || localName == "stiffspring-constraint-default")
+			return TemplateFamily::StiffSpring;
+		if (localName == "conetwist-constraint" || localName == "conetwist-constraint-default")
+			return TemplateFamily::ConeTwist;
+		return TemplateFamily::None;
+	}
+
+	static const char* generatedTemplatePrefix(TemplateFamily family)
+	{
+		switch (family) {
+		case TemplateFamily::Bone:
+			return "bone-default-";
+		case TemplateFamily::PerTriangle:
+			return "per-triangle-default-";
+		case TemplateFamily::PerVertex:
+			return "per-vertex-default-";
+		case TemplateFamily::Generic:
+			return "generic-default-";
+		case TemplateFamily::StiffSpring:
+			return "stiff-spring-default-";
+		case TemplateFamily::ConeTwist:
+			return "cone-twist-default-";
+		default:
+			return "default-";
+		}
+	}
+
 	using ChildSet = std::unordered_set<std::string>;
 	using ChildMap = std::unordered_map<std::string, ChildSet>;
 
@@ -106,6 +157,92 @@ namespace hdt
 		return !node.first_attribute();
 	}
 
+	static bool hasAnonymousName(pugi::xml_node node)
+	{
+		auto nameAttr = node.attribute("name");
+		if (!nameAttr)
+			return true;
+		return TrimAsciiWhitespace(nameAttr.as_string()).empty();
+	}
+
+	static bool hasZeroMassChild(pugi::xml_node node)
+	{
+		for (auto child = node.first_child(); child; child = child.next_sibling()) {
+			if (child.type() != pugi::node_element)
+				continue;
+			if (std::string(child.name()) != "mass")
+				continue;
+
+			std::string value = TrimAsciiWhitespace(child.text().as_string());
+			if (value.empty())
+				return false;
+			std::replace(value.begin(), value.end(), ',', '.');
+
+			try {
+				const double mass = std::stod(value);
+				return std::abs(mass) < 1e-12;
+			} catch (...) {
+				return false;
+			}
+		}
+
+		return false;
+	}
+
+	static bool assignKineticNamesToAnonymousZeroMassNodes(pugi::xml_node systemNode)
+	{
+		bool changed = false;
+		std::unordered_set<std::string> usedNames;
+
+		for (auto node = systemNode.first_child(); node; node = node.next_sibling()) {
+			if (node.type() != pugi::node_element)
+				continue;
+			auto nameAttr = node.attribute("name");
+			if (!nameAttr)
+				continue;
+			const std::string name = TrimAsciiWhitespace(nameAttr.as_string());
+			if (!name.empty())
+				usedNames.insert(name);
+		}
+
+		auto makeUniqueName = [&](const std::string& prefix) {
+			std::size_t index = 1;
+			for (;;) {
+				const std::string candidate = prefix + "-" + std::to_string(index++);
+				if (!usedNames.count(candidate)) {
+					usedNames.insert(candidate);
+					return candidate;
+				}
+			}
+		};
+
+		for (auto node = systemNode.first_child(); node; node = node.next_sibling()) {
+			if (node.type() != pugi::node_element)
+				continue;
+
+			const std::string localName = node.name();
+			if (localName != "bone" && localName != "bone-default")
+				continue;
+			if (!hasAnonymousName(node) || !hasZeroMassChild(node))
+				continue;
+
+			const std::string prefix = (localName == "bone")
+				? "kinetic-zero-mass-bone"
+				: "kinetic-zero-mass-template";
+			const std::string generatedName = makeUniqueName(prefix);
+
+			auto nameAttr = node.attribute("name");
+			if (nameAttr)
+				nameAttr.set_value(generatedName.c_str());
+			else
+				node.append_attribute("name") = generatedName.c_str();
+
+			changed = true;
+		}
+
+		return changed;
+	}
+
 	static bool mergeAdjacentDefaultNodes(pugi::xml_node systemNode)
 	{
 		bool changed = false;
@@ -140,6 +277,304 @@ namespace hdt
 		return changed;
 	}
 
+	static bool removeUselessCollisionFilters(pugi::xml_node node)
+	{
+		bool changed = false;
+
+		for (auto child = node.first_child(); child; child = child.next_sibling()) {
+			if (child.type() != pugi::node_element)
+				continue;
+			changed = removeUselessCollisionFilters(child) || changed;
+		}
+
+		bool hasCanCollideWithTag = false;
+		bool hasCanCollideWithBone = false;
+		for (auto child = node.first_child(); child; child = child.next_sibling()) {
+			if (child.type() != pugi::node_element)
+				continue;
+
+			const std::string childName = child.name();
+			if (childName == "can-collide-with-tag")
+				hasCanCollideWithTag = true;
+			else if (childName == "can-collide-with-bone")
+				hasCanCollideWithBone = true;
+		}
+
+		if (!hasCanCollideWithTag && !hasCanCollideWithBone)
+			return changed;
+
+		std::vector<pugi::xml_node> toRemove;
+		for (auto child = node.first_child(); child; child = child.next_sibling()) {
+			if (child.type() != pugi::node_element)
+				continue;
+
+			const std::string childName = child.name();
+			if (hasCanCollideWithTag && childName == "no-collide-with-tag") {
+				toRemove.push_back(child);
+				continue;
+			}
+			if (hasCanCollideWithBone && childName == "no-collide-with-bone")
+				toRemove.push_back(child);
+		}
+
+		for (auto& child : toRemove)
+			node.remove_child(child);
+
+		return changed || !toRemove.empty();
+	}
+
+	// After stateless conversion, consolidate template inheritance chains by skipping parents
+	// whose parameters are completely covered by their children.
+	// If child template C extends parent P, and C sets all parameters that P sets
+	// (i.e., C covers all of P's parameters), then C should inherit from P's parent instead,
+	// since P's parameters are redundant.
+	static bool mergeUnusedStatelessTemplates(pugi::xml_document& doc, pugi::xml_node systemNode)
+	{
+		bool changed = false;
+		bool iterationChanged = true;
+
+		while (iterationChanged) {
+			iterationChanged = false;
+
+			// Collect parameter sets for each template
+			std::unordered_map<std::string, std::unordered_set<std::string>> parametersByTemplate;
+			std::unordered_map<std::string, std::string> extendsChain;
+
+			for (auto node = systemNode.first_child(); node; node = node.next_sibling()) {
+				if (node.type() != pugi::node_element)
+					continue;
+
+				const std::string localName = node.name();
+				if (!hdt::isDefaultNodeName(localName))
+					continue;
+
+				auto nameAttr = node.attribute("name");
+				auto extendsAttr = node.attribute("extends");
+				const std::string name = TrimAsciiWhitespace(nameAttr.as_string());
+				const std::string parentName = TrimAsciiWhitespace(extendsAttr.as_string());
+
+				if (!name.empty()) {
+					// Collect all child element names (parameters) in this template
+					for (auto child = node.first_child(); child; child = child.next_sibling()) {
+						if (child.type() == pugi::node_element) {
+							parametersByTemplate[name].insert(child.name());
+						}
+					}
+
+					if (!parentName.empty()) {
+						extendsChain[name] = parentName;
+					}
+				}
+			}
+
+			// For each template that extends another, check if it covers all its parent's parameters.
+			// If child covers all parent parameters, skip to the grandparent.
+			std::unordered_map<std::string, std::string> pendingChainUpdates;
+			for (const auto& [childName, parentName] : extendsChain) {
+				if (!extendsChain.count(parentName)) {
+					// Parent doesn't extend anything; can't skip further
+					continue;
+				}
+
+				auto childParams = parametersByTemplate[childName];
+				auto parentParams = parametersByTemplate[parentName];
+
+				// Check: does child cover all parent parameters?
+				bool coversAll = true;
+				for (const auto& param : parentParams) {
+					if (!childParams.count(param)) {
+						coversAll = false;
+						break;
+					}
+				}
+
+				if (coversAll && !parentParams.empty()) {
+					// Child covers all parent's parameters; skip parent in the chain
+					pendingChainUpdates[childName] = extendsChain.at(parentName);
+					iterationChanged = true;
+				}
+			}
+			for (auto& [k, v] : pendingChainUpdates)
+				extendsChain[k] = v;
+
+			// Update XML extends attributes
+			for (auto node = systemNode.first_child(); node; node = node.next_sibling()) {
+				if (node.type() != pugi::node_element)
+					continue;
+
+				const std::string localName = node.name();
+				if (!hdt::isDefaultNodeName(localName))
+					continue;
+
+				auto nameAttr = node.attribute("name");
+				const std::string name = TrimAsciiWhitespace(nameAttr.as_string());
+
+				if (extendsChain.count(name)) {
+					auto extendsAttr = node.attribute("extends");
+					const std::string oldExtends = TrimAsciiWhitespace(extendsAttr.as_string());
+					const std::string newExtends = extendsChain[name];
+
+					if (oldExtends != newExtends) {
+						if (extendsAttr) {
+							extendsAttr.set_value(newExtends.c_str());
+						} else if (!newExtends.empty()) {
+							node.append_attribute("extends") = newExtends.c_str();
+						} else if (extendsAttr) {
+							// Remove empty extends attribute
+							node.remove_attribute(extendsAttr);
+						}
+						iterationChanged = true;
+						changed = true;
+					}
+				}
+			}
+		}
+
+		const auto equivalentAliases = CollectEquivalentDefaultTemplateAliases(doc);
+		if (equivalentAliases.empty())
+			return changed;
+
+		for (auto node = systemNode.first_child(); node; node = node.next_sibling()) {
+			if (node.type() != pugi::node_element)
+				continue;
+
+			const std::string localName = node.name();
+			if (hdt::isDefaultNodeName(localName)) {
+				auto extendsAttr = node.attribute("extends");
+				const std::string oldExtends = TrimAsciiWhitespace(extendsAttr.as_string());
+				auto aliasIt = equivalentAliases.find(oldExtends);
+				if (aliasIt != equivalentAliases.end()) {
+					if (extendsAttr)
+						extendsAttr.set_value(aliasIt->second.c_str());
+					else
+						node.append_attribute("extends") = aliasIt->second.c_str();
+					changed = true;
+				}
+			continue;
+		}
+
+			auto templateAttr = node.attribute("template");
+			const std::string oldTemplate = TrimAsciiWhitespace(templateAttr.as_string());
+			auto aliasIt = equivalentAliases.find(oldTemplate);
+			if (aliasIt == equivalentAliases.end())
+				continue;
+
+			if (templateAttr)
+				templateAttr.set_value(aliasIt->second.c_str());
+			else
+				node.append_attribute("template") = aliasIt->second.c_str();
+			changed = true;
+		}
+
+		std::vector<pugi::xml_node> duplicateTemplates;
+		for (auto node = systemNode.first_child(); node; node = node.next_sibling()) {
+			if (node.type() != pugi::node_element)
+				continue;
+			if (!hdt::isDefaultNodeName(node.name()))
+				continue;
+
+			const std::string name = TrimAsciiWhitespace(node.attribute("name").as_string());
+			if (equivalentAliases.count(name))
+				duplicateTemplates.push_back(node);
+		}
+
+		for (const auto& duplicateTemplate : duplicateTemplates) {
+			systemNode.remove_child(duplicateTemplate);
+			changed = true;
+		}
+
+		return changed;
+	}
+
+	// Stateless mode pins all concrete nodes to explicit template names.
+	// This removes dependence on document order for implicit unnamed defaults.
+	static bool convertAnonymousDefaultsToStatelessTemplates(pugi::xml_node systemNode)
+	{
+		bool changed = false;
+
+		std::unordered_set<std::string> usedTemplateNames;
+		for (auto node = systemNode.first_child(); node; node = node.next_sibling()) {
+			if (node.type() != pugi::node_element)
+				continue;
+			if (!hdt::isDefaultNodeName(node.name()))
+				continue;
+			const std::string name = TrimAsciiWhitespace(node.attribute("name").as_string());
+			if (!name.empty())
+				usedTemplateNames.insert(name);
+		}
+
+		auto makeUniqueTemplateName = [&](TemplateFamily family) {
+			const std::string prefix = generatedTemplatePrefix(family);
+			std::size_t index = 1;
+			for (;;) {
+				const std::string candidate = prefix + "-" + std::to_string(index++);
+				if (!usedTemplateNames.count(candidate)) {
+					usedTemplateNames.insert(candidate);
+					return candidate;
+				}
+			}
+		};
+
+		std::unordered_map<TemplateFamily, std::string> currentImplicitTemplateByFamily;
+		for (auto node = systemNode.first_child(); node; node = node.next_sibling()) {
+			if (node.type() != pugi::node_element)
+				continue;
+
+			const std::string localName = node.name();
+			const TemplateFamily family = templateFamilyForNode(localName);
+			if (family == TemplateFamily::None)
+				continue;
+
+			if (hdt::isDefaultNodeName(localName)) {
+				auto nameAttr = node.attribute("name");
+				auto extendsAttr = node.attribute("extends");
+				const std::string existingName = TrimAsciiWhitespace(nameAttr.as_string());
+				const std::string existingExtends = TrimAsciiWhitespace(extendsAttr.as_string());
+
+				if (existingName.empty()) {
+					const std::string previousTemplate = currentImplicitTemplateByFamily[family];
+					const std::string generatedName = makeUniqueTemplateName(family);
+
+					if (nameAttr)
+						nameAttr.set_value(generatedName.c_str());
+					else
+						node.append_attribute("name") = generatedName.c_str();
+
+					const std::string resolvedExtends = existingExtends.empty() ? previousTemplate : existingExtends;
+					if (!resolvedExtends.empty()) {
+						if (extendsAttr)
+							extendsAttr.set_value(resolvedExtends.c_str());
+						else
+							node.append_attribute("extends") = resolvedExtends.c_str();
+					} else if (extendsAttr) {
+						node.remove_attribute(extendsAttr);
+					}
+
+					currentImplicitTemplateByFamily[family] = generatedName;
+					changed = true;
+				}
+				continue;
+			}
+
+			auto templateAttr = node.attribute("template");
+			const std::string templateName = TrimAsciiWhitespace(templateAttr.as_string());
+			if (!templateName.empty())
+				continue;
+
+			auto it = currentImplicitTemplateByFamily.find(family);
+			if (it == currentImplicitTemplateByFamily.end() || it->second.empty())
+				continue;
+
+			if (templateAttr)
+				templateAttr.set_value(it->second.c_str());
+			else
+				node.append_attribute("template") = it->second.c_str();
+			changed = true;
+		}
+
+		return changed;
+	}
+
 	// ---- Public entry point ----
 
 	// Generates an improved XML file by removing non-conforming elements according to the
@@ -157,7 +592,11 @@ namespace hdt
 	//
 	// Returns: true if the XML was successfully cleaned and saved to disk; false on parse error,
 	//          missing root element, I/O error, or if no elements were removed (document already valid)
-	bool GenerateImprovedXML(const std::string& srcXMLPath, const std::string& outputDir)
+	bool GenerateImprovedXML(
+		const std::string& srcXMLPath,
+		const std::string& outputDir,
+		bool copyOriginal,
+		bool stateless)
 	{
 		namespace fs = std::filesystem;
 
@@ -194,7 +633,24 @@ namespace hdt
 		// the effective inherited template at this point in document order.
 		changed = RemoveTemplateRedundantChildren(doc) || changed;
 
-		// Third pass: remove empty default tags (e.g., <bone-default/>, etc.)
+		// Third pass: when a node has explicit can-collide lists, matching
+		// no-collide lists are ignored by runtime checks and can be dropped.
+		changed = removeUselessCollisionFilters(sysNode) || changed;
+
+		// Fourth pass: remove unused top-level default nodes that no later node in
+		// the same file would resolve by template name or unnamed fallback.
+		changed = RemoveUnusedDefaultNodes(doc) || changed;
+
+		if (stateless) {
+			// Stateless mode: make template dependencies explicit so concrete node
+			// order no longer affects inherited defaults.
+			changed = convertAnonymousDefaultsToStatelessTemplates(sysNode) || changed;
+
+			// Merge unused intermediate templates after stateless conversion.
+			changed = mergeUnusedStatelessTemplates(doc, sysNode) || changed;
+		}
+
+		// Fifth pass: remove empty default tags (e.g., <bone-default/>, etc.)
 		{
 			std::vector<pugi::xml_node> toRemove;
 			pugi::xml_node sysNode2;
@@ -228,15 +684,28 @@ namespace hdt
 			}
 		}
 
-		// Fourth pass: merge adjacent anonymous default nodes of the same kind.
+		// Sixth pass: merge adjacent anonymous default nodes of the same kind.
 		changed = mergeAdjacentDefaultNodes(sysNode) || changed;
+
+		// Seventh pass: give deterministic names to anonymous zero-mass bone/template nodes.
+		changed = assignKineticNamesToAnonymousZeroMassNodes(sysNode) || changed;
+
 		if (!changed)
 			return false;
 
-		// Add xml-model processing instruction pointing to the Schematron schema
-		auto pi = doc.prepend_child(pugi::node_pi);
-		pi.set_name("xml-model");
-		pi.set_value(R"(href="https://raw.githubusercontent.com/DaymareOn/FSMP-Validator/refs/heads/main/skse/plugins/hdtSkinnedMeshConfigs/hdtSMP64.sch" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron")");
+		// Add xml-model processing instruction pointing to the Schematron schema (skip if already present)
+		bool hasXmlModelPi = false;
+		for (auto n = doc.first_child(); n; n = n.next_sibling()) {
+			if (n.type() == pugi::node_pi && std::string(n.name()) == "xml-model") {
+				hasXmlModelPi = true;
+				break;
+			}
+		}
+		if (!hasXmlModelPi) {
+			auto pi = doc.prepend_child(pugi::node_pi);
+			pi.set_name("xml-model");
+			pi.set_value(R"(href="https://raw.githubusercontent.com/DaymareOn/FSMP-Validator/refs/heads/main/skse/plugins/hdtSkinnedMeshConfigs/hdtSMP64.sch" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron")");
+		}
 
 		// Replace system element namespace and schema location attributes
 		sysNode.remove_attribute("xsi:schemaLocation");
@@ -264,7 +733,24 @@ namespace hdt
 		if (!out.is_open())
 			return false;
 		out.write(xmlOut.data(), static_cast<std::streamsize>(xmlOut.size()));
-		return out.good();
+		if (!out.good())
+			return false;
+
+		// Write JSON equivalent
+		fs::path jsonPath = outPath;
+		jsonPath.replace_extension(".json");
+		WriteXmlDocumentAsJsonFile(doc, jsonPath);
+
+		if (copyOriginal) {
+			fs::path originalOutPath = outPath;
+			const std::string extension = originalOutPath.extension().string();
+			originalOutPath.replace_filename(originalOutPath.stem().string() + "-original" + extension);
+			fs::copy_file(fs::u8path(srcXMLPath), originalOutPath, fs::copy_options::overwrite_existing, ec);
+			if (ec)
+				return false;
+		}
+
+		return true;
 	}
 
 }  // namespace hdt

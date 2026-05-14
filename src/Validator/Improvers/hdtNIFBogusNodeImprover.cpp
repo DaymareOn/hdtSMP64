@@ -32,6 +32,12 @@ namespace hdt
 	{
 		bool changed = false;
 
+		// Build outbound ref sets once; kept in sync via pop_back after each removal.
+		const int32_t initialNumBlocks = static_cast<int32_t>(parsed.blocks.size());
+		std::vector<std::unordered_set<int32_t>> outbound(parsed.blocks.size());
+		for (size_t i = 0; i < parsed.blocks.size(); ++i)
+			outbound[i] = collectPotentialRefs(parsed.blocks[i], initialNumBlocks);
+
 		for (;;) {
 			if (parsed.blocks.empty())
 				break;
@@ -46,16 +52,9 @@ namespace hdt
 				break;
 			const std::string& typeName = parsed.blockTypes[tIdx];
 
-			bool isSpecialNodeClass = hasTypeName(typeName, { "BSBlastNode", "BSDamageStage", "BSDebrisNode", "BSValueNode" });
-			if (typeName != "NiNode" && !isSpecialNodeClass)
+			// Only plain NiNode blocks are candidates; special subclasses are kept.
+			if (typeName != "NiNode")
 				break;
-
-			if (isSpecialNodeClass)
-				break;
-
-			std::vector<std::unordered_set<int32_t>> outbound(parsed.blocks.size());
-			for (size_t i = 0; i < parsed.blocks.size(); ++i)
-				outbound[i] = collectPotentialRefs(parsed.blocks[i], numBlocks);
 
 			std::string nodeName;
 			const auto& tailBlock = parsed.blocks.back();
@@ -84,6 +83,7 @@ namespace hdt
 
 			parsed.blocks.pop_back();
 			parsed.blockTypeIndex.pop_back();
+			outbound.pop_back();
 			changed = true;
 		}
 

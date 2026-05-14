@@ -127,10 +127,6 @@ namespace hdt
 					g_validationConfig.warnTriangleCount = reader.readInt();
 				} else if (reader.GetLocalName() == "output-dir") {
 					g_validationConfig.outputDir = reader.readText();
-				} else if (reader.GetLocalName() == "improve-nifs") {
-					g_validationConfig.improveNIFs = reader.readBool();
-				} else if (reader.GetLocalName() == "parallel-nif-improvement") {
-					g_validationConfig.parallelNIFImprovement = reader.readBool();
 				} else if (reader.GetLocalName() == "decimate-collision-meshes-offline") {
 					g_validationConfig.decimateCollisionMeshesOffline = reader.readBool();
 				} else if (reader.GetLocalName() == "decimation-target-vertex-ratio") {

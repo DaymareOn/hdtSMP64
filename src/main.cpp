@@ -32,6 +32,110 @@ namespace
 
 		return static_cast<std::uint64_t>(parsed);
 	}
+
+	struct FixCommandArgs {
+		bool gearOnly = false;
+		bool copyOriginal = false;
+		bool stateless = false;
+		std::string outputDir;
+	};
+
+	bool ParseFixCommandArgs(const char* arg1, const char* arg2, const char* arg3, FixCommandArgs& outArgs) {
+		auto parseArg = [&](const char* arg) {
+			if (arg[0] == '\0')
+				return true;
+			if (_stricmp(arg, "gear") == 0 && !outArgs.gearOnly) {
+				outArgs.gearOnly = true;
+				return true;
+			}
+			if (_stricmp(arg, "debug") == 0 && !outArgs.copyOriginal) {
+				outArgs.copyOriginal = true;
+				return true;
+			}
+			if (outArgs.outputDir.empty()) {
+				outArgs.outputDir = arg;
+				return true;
+			}
+			return false;
+		};
+		return parseArg(arg1) && parseArg(arg2) && parseArg(arg3);
+	}
+
+	bool ParseFixXmlCommandArgs(const char* arg1, const char* arg2, const char* arg3, const char* arg4, FixCommandArgs& outArgs) {
+		auto parseArg = [&](const char* arg) {
+			if (arg[0] == '\0')
+				return true;
+			if (_stricmp(arg, "gear") == 0 && !outArgs.gearOnly) {
+				outArgs.gearOnly = true;
+				return true;
+			}
+			if (_stricmp(arg, "debug") == 0 && !outArgs.copyOriginal) {
+				outArgs.copyOriginal = true;
+				return true;
+			}
+			if (_stricmp(arg, "stateless") == 0 && !outArgs.stateless) {
+				outArgs.stateless = true;
+				return true;
+			}
+			if (outArgs.outputDir.empty()) {
+				outArgs.outputDir = arg;
+				return true;
+			}
+			return false;
+		};
+
+		return parseArg(arg1) && parseArg(arg2) && parseArg(arg3) && parseArg(arg4);
+	}
+
+	bool ValidateFixOutputDir(std::string& outputDir, const char* usageHint) {
+		if (outputDir.empty())
+			outputDir = hdt::g_validationConfig.outputDir;
+		if (outputDir.empty()) {
+			RE::ConsoleLog::GetSingleton()->Print(
+				"[HDT-SMP] Output directory not set. Usage: %s or set <validation><output-dir> in config.",
+				usageHint);
+			return false;
+		}
+		return true;
+	}
+
+	static std::atomic<bool> s_validationRunning{ false };
+	static std::map<std::string, std::atomic<bool>> s_fixRunning;
+
+	void ExecuteFixThread(
+		const std::string& typeStr,
+		bool gearOnly,
+		bool copyOriginal,
+		std::string outputDir,
+		std::function<void(bool, bool, const std::string&)> executeWork) {
+		if (s_fixRunning[typeStr].exchange(true)) {
+			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] %s cleanup is already running.", typeStr.c_str());
+			return;
+		}
+		if (s_validationRunning.load()) {
+			s_fixRunning[typeStr].store(false);
+			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Cannot start %s cleanup while a report is running.", typeStr.c_str());
+			return;
+		}
+
+		const char* startMessage = gearOnly ?
+		                               "[HDT-SMP] Equipped gear %s cleanup started in background. Results will appear when complete. Output directory: %s (copy originals: %s)" :
+		                               "[HDT-SMP] %s cleanup started in background. Results will appear when complete. Output directory: %s (copy originals: %s)";
+		RE::ConsoleLog::GetSingleton()->Print(startMessage, typeStr.c_str(), outputDir.c_str(), copyOriginal ? "on" : "off");
+
+		std::thread([typeStr, gearOnly, copyOriginal, outputDir = std::move(outputDir), executeWork]() {
+			try {
+				executeWork(gearOnly, copyOriginal, outputDir);
+			} catch (const std::exception& e) {
+				RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] %s cleanup failed with error: %s", typeStr.c_str(), e.what());
+				logger::error("[Validator] smp fix {} threw: {}", typeStr, e.what());
+			} catch (...) {
+				RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] %s cleanup failed with an unknown error", typeStr.c_str());
+				logger::error("[Validator] smp fix {} threw an unknown exception", typeStr);
+			}
+			s_fixRunning[typeStr].store(false);
+		}).detach();
+	}
 }
 
 void checkOldPlugins()
@@ -355,10 +459,13 @@ bool SMPDebug_Execute(
 		console->Print("    Run validator in background and write report file.");
 		console->Print("    gear  = validate equipped gear only.");
 		console->Print("    error = write errors-only report (no warnings/info)");
-		console->Print("  smp fix xml [gear] [output_dir]");
+		console->Print("  smp fix xml [gear] [stateless] [debug] [output_dir]");
 		console->Print("    Clean invalid XML tags and write improved XML copies.");
-		console->Print("  smp fix nif [gear] [output_dir]");
+		console->Print("    stateless = write XML with explicit template dependencies so concrete node order does not matter.");
+		console->Print("    debug = also copy original source as *-original.xml for improved files.");
+		console->Print("  smp fix nif [gear] [debug] [output_dir]");
 		console->Print("    Clean NIF issues and write improved NIF copies.");
+		console->Print("    debug = also copy original source as *-original.nif for improved files.");
 	};
 
 	if (_strnicmp(buffer, "help", MAX_PATH) == 0) {
@@ -469,10 +576,16 @@ bool SMPDebug_Execute(
 			return true;
 		}
 
-		static std::atomic<bool> s_validationRunning{ false };
 		if (s_validationRunning.exchange(true)) {
 			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Validation is already running.");
 			return true;
+		}
+		for (auto& [key, flag] : s_fixRunning) {
+			if (flag.load()) {
+				s_validationRunning.store(false);
+				RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Cannot start report while a fix command is running.");
+				return true;
+			}
 		}
 		if (gearOnly && errorReport) {
 			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Equipped gear report (error report) started in background. Results will appear when complete.");
@@ -530,53 +643,24 @@ bool SMPDebug_Execute(
 
 	const bool isFixNIFSplitAlias = _strnicmp(buffer, "fix", MAX_PATH) == 0 && _stricmp(buffer2, "nif") == 0;
 	if (isFixNIFSplitAlias) {
-		const char* arg1 = buffer3;
-		const char* arg2 = buffer4;
-		const bool hasTooManyArgs = buffer5[0] != '\0';
-
-		bool gearOnly = false;
-		std::string outputDir;
-
+		const bool hasTooManyArgs = buffer6[0] != '\0';
 		if (hasTooManyArgs) {
-			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Usage: smp fix nif [gear] [output_dir]");
+			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Usage: smp fix nif [gear] [debug] [output_dir]");
 			return true;
 		}
 
-		if (arg1[0] != '\0') {
-			if (_stricmp(arg1, "gear") == 0) {
-				gearOnly = true;
-				if (arg2[0] != '\0')
-					outputDir = arg2;
-			} else {
-				outputDir = arg1;
-				if (arg2[0] != '\0') {
-					RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Usage: smp fix nif [gear] [output_dir]");
-					return true;
-				}
-			}
-		}
-
-		if (outputDir.empty())
-			outputDir = hdt::g_validationConfig.outputDir;
-		if (outputDir.empty()) {
-			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Output directory not set. Usage: smp fix nif [gear] [output_dir] or set <validation><output-dir> in config.");
+		FixCommandArgs args;
+		if (!ParseFixCommandArgs(buffer3, buffer4, buffer5, args)) {
+			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Usage: smp fix nif [gear] [debug] [output_dir]");
 			return true;
 		}
 
-		static std::atomic<bool> s_nifFixRunning{ false };
-		if (s_nifFixRunning.exchange(true)) {
-			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] NIF cleanup is already running.");
+		if (!ValidateFixOutputDir(args.outputDir, "smp fix nif [gear] [debug] [output_dir]"))
 			return true;
-		}
 
-		const char* startMessage = gearOnly ?
-		                               "[HDT-SMP] Equipped gear NIF cleanup started in background. Results will appear when complete. Output directory: %s" :
-		                               "[HDT-SMP] NIF cleanup started in background. Results will appear when complete. Output directory: %s";
-		RE::ConsoleLog::GetSingleton()->Print(startMessage, outputDir.c_str());
-
-		std::thread([gearOnly, outputDir = std::move(outputDir)]() {
-			try {
-				auto result = hdt::ImprovePhysicsNIFs(outputDir, gearOnly);
+		ExecuteFixThread("NIF", args.gearOnly, args.copyOriginal, args.outputDir,
+			[](bool gearOnly, bool copyOriginal, const std::string& outputDir) {
+				auto result = hdt::ImprovePhysicsNIFs(outputDir, gearOnly, copyOriginal);
 				auto* console = RE::ConsoleLog::GetSingleton();
 				console->Print("[HDT-SMP] %s NIF cleanup: %d NIF(s) processed, %d related TRI(s), %d cleaned file(s) written to %s",
 					gearOnly ? "Equipped gear" : "All",
@@ -608,89 +692,44 @@ bool SMPDebug_Execute(
 					result.decimationCandidatesSkippedNoChange,
 					result.decimationCandidatesSkippedUnsafe,
 					outputDir);
-			} catch (const std::exception& e) {
-				RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] NIF cleanup failed with error: %s", e.what());
-				logger::error("[Validator] smp fix nif threw: {}", e.what());
-			} catch (...) {
-				RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] NIF cleanup failed with an unknown error");
-				logger::error("[Validator] smp fix nif threw an unknown exception");
-			}
-			s_nifFixRunning.store(false);
-		}).detach();
+			});
 		return true;
 	}
 
 	const bool isFixXMLSplitAlias = _strnicmp(buffer, "fix", MAX_PATH) == 0 && _stricmp(buffer2, "xml") == 0;
 	if (isFixXMLSplitAlias) {
-		const char* arg1 = buffer3;
-		const char* arg2 = buffer4;
-		const bool hasTooManyArgs = buffer5[0] != '\0';
-
-		bool gearOnly = false;
-		std::string outputDir;
-
+		const bool hasTooManyArgs = buffer7[0] != '\0';
 		if (hasTooManyArgs) {
-			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Usage: smp fix xml [gear] [output_dir]");
+			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Usage: smp fix xml [gear] [stateless] [debug] [output_dir]");
 			return true;
 		}
 
-		if (arg1[0] != '\0') {
-			if (_stricmp(arg1, "gear") == 0) {
-				gearOnly = true;
-				if (arg2[0] != '\0')
-					outputDir = arg2;
-			} else {
-				outputDir = arg1;
-				if (arg2[0] != '\0') {
-					RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Usage: smp fix xml [gear] [output_dir]");
-					return true;
-				}
-			}
-		}
-
-		if (outputDir.empty())
-			outputDir = hdt::g_validationConfig.outputDir;
-		if (outputDir.empty()) {
-			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Output directory not set. Usage: smp fix xml [gear] [output_dir] or set <validation><output-dir> in config.");
+		FixCommandArgs args;
+		if (!ParseFixXmlCommandArgs(buffer3, buffer4, buffer5, buffer6, args)) {
+			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Usage: smp fix xml [gear] [stateless] [debug] [output_dir]");
 			return true;
 		}
 
-		static std::atomic<bool> s_xmlFixRunning{ false };
-		if (s_xmlFixRunning.exchange(true)) {
-			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] XML cleanup is already running.");
+		if (!ValidateFixOutputDir(args.outputDir, "smp fix xml [gear] [stateless] [debug] [output_dir]"))
 			return true;
-		}
 
-		const char* startMessage = gearOnly ?
-		                               "[HDT-SMP] Equipped gear XML cleanup started in background. Results will appear when complete. Output directory: %s" :
-		                               "[HDT-SMP] XML cleanup started in background. Results will appear when complete. Output directory: %s";
-		RE::ConsoleLog::GetSingleton()->Print(
-			startMessage,
-			outputDir.c_str());
-
-		std::thread([gearOnly, outputDir = std::move(outputDir)]() {
-			try {
-				auto result = hdt::ImprovePhysicsXMLs(outputDir, gearOnly);
+		const std::string modeLabel = args.stateless ? "XML (stateless)" : "XML";
+		ExecuteFixThread(modeLabel, args.gearOnly, args.copyOriginal, args.outputDir,
+			[stateless = args.stateless](bool gearOnly, bool copyOriginal, const std::string& outputDir) {
+				auto result = hdt::ImprovePhysicsXMLs(outputDir, gearOnly, copyOriginal, stateless);
 				auto* console = RE::ConsoleLog::GetSingleton();
-				console->Print("[HDT-SMP] %s XML cleanup: %d XML(s) scanned, %d cleaned file(s) written to %s",
+				console->Print("[HDT-SMP] %s XML cleanup%s: %d XML(s) scanned, %d cleaned file(s) written to %s",
 					gearOnly ? "Equipped gear" : "Full",
+					stateless ? " (stateless)" : "",
 					result.totalXMLsFound,
 					result.xmlImprovedCount,
 					outputDir.c_str());
 				for (const auto& err : result.errors) {
 					console->Print("[HDT-SMP] XML cleanup error: %s", err.c_str());
 				}
-				logger::info("[Validator] XML cleanup done: gearOnly={}, {} XML(s) scanned, {} improved, output={}",
-					gearOnly, result.totalXMLsFound, result.xmlImprovedCount, outputDir);
-			} catch (const std::exception& e) {
-				RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] XML cleanup failed with error: %s", e.what());
-				logger::error("[Validator] smp fix xml threw: {}", e.what());
-			} catch (...) {
-				RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] XML cleanup failed with an unknown error");
-				logger::error("[Validator] smp fix xml threw an unknown exception");
-			}
-			s_xmlFixRunning.store(false);
-		}).detach();
+				logger::info("[Validator] XML cleanup done: gearOnly={}, stateless={}, {} XML(s) scanned, {} improved, output={}",
+					gearOnly, stateless, result.totalXMLsFound, result.xmlImprovedCount, outputDir);
+			});
 		return true;
 	}
 
@@ -912,7 +951,7 @@ extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* a_s
 
 		unusedCommand->functionName = "SMPDebug";
 		unusedCommand->shortName = "smp";
-		unusedCommand->helpString = "smp <help|reset|dumptree|detail|list|profile [sample_frames] [print_every_frames]|on|off|QueryOverride|validate [gear] [short]|fix xml [gear] [output_dir]|fix nif [gear] [output_dir]>";
+		unusedCommand->helpString = "smp <help|reset|dumptree|detail|list|profile [sample_frames] [print_every_frames]|on|off|QueryOverride|report [gear] [error]|fix xml [gear] [stateless] [debug] [output_dir]|fix nif [gear] [debug] [output_dir]>";
 		unusedCommand->referenceFunction = 0;
 		unusedCommand->numParams = 8;
 		unusedCommand->params = params;

@@ -98,11 +98,17 @@ namespace hdt
 								"' has zero bones in skinData");
 						}
 
-						for (uint32_t i = 0; i < skinData->bones; ++i) {
-							if (!skinInst->bones[i]) {
-								result.errors.push_back(
-									std::string("Mesh '") + triShape->name.c_str() +
-									"' has null bone[" + std::to_string(i) + "]");
+						if (!skinInst->bones) {
+							result.errors.push_back(
+								std::string("Mesh '") + triShape->name.c_str() +
+								"' has null bones array in skinInstance");
+						} else {
+							for (uint32_t i = 0; i < skinData->bones; ++i) {
+								if (!skinInst->bones[i]) {
+									result.errors.push_back(
+										std::string("Mesh '") + triShape->name.c_str() +
+										"' has null bone[" + std::to_string(i) + "]");
+								}
 							}
 						}
 					}
@@ -144,7 +150,7 @@ namespace hdt
 		std::function<void(RE::NiNode*)> checkTransforms = [&](RE::NiNode* node) {
 			if (!node)
 				return;
-			std::string name = node->name.c_str() ? node->name.c_str() : "<unnamed>";
+			std::string name = node->name.empty() ? "<unnamed>" : node->name.c_str();
 			validateNodeTransform(node->world, name, result.errors);
 			for (auto& child : node->GetChildren()) {
 				RE::NiNode* childNode = castNiNode(child.get());

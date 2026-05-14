@@ -808,7 +808,9 @@ namespace hdt
 	/// Generates improved versions of physics XML files in the output directory.
 	/// Removes unknown/misplaced elements and corrects formatting.
 	static XMLImproveResult improveXMLPaths(const std::vector<std::string>& xmlPaths,
-		const std::string& outputDir)
+		const std::string& outputDir,
+		bool copyOriginal,
+		bool stateless)
 	{
 		XMLImproveResult result;
 		if (outputDir.empty()) {
@@ -822,7 +824,7 @@ namespace hdt
 
 		for (const auto& xmlPath : xmlPaths) {
 			try {
-				if (GenerateImprovedXML(xmlPath, outputDir))
+				if (GenerateImprovedXML(xmlPath, outputDir, copyOriginal, stateless))
 					++result.xmlImprovedCount;
 			} catch (const std::exception& e) {
 				result.errors.push_back("Failed to improve XML " + xmlPath + ": " + e.what());
@@ -1126,7 +1128,7 @@ namespace hdt
 
 					++report.totalXMLsFound;
 					const auto& pair = batchResults[batchIdx];
-					bool fileHasErrors = !pair.first.isValid || pair.second.hasErrors;
+					bool fileHasErrors = hasBlockingXsdErrors(pair.first) || hasBlockingSchErrors(pair.second);
 
 					if (fileHasErrors) {
 						++report.xmlErrorCount;
@@ -1215,7 +1217,7 @@ namespace hdt
 			}
 
 			// Phase 5: Improved NIF generation
-			if (!g_validationConfig.outputDir.empty() && g_validationConfig.improveNIFs && !nifAssets.empty()) {
+			if (!g_validationConfig.outputDir.empty() && !nifAssets.empty()) {
 				bodyStream << "\n== Phase 5: Improved NIF Generation ==\n";
 				bodyStream << "  Output directory: " << g_validationConfig.outputDir << "\n";
 				if (g_validationConfig.decimateCollisionMeshesOffline) {
@@ -1287,7 +1289,7 @@ namespace hdt
 					}
 				};
 
-				if (g_validationConfig.parallelNIFImprovement && groups.size() > 1) {
+				if (groups.size() > 1) {
 					tbb::parallel_for_each(groups.begin(), groups.end(), improveGroup);
 				} else {
 					for (const auto& g : groups)
@@ -1356,7 +1358,7 @@ namespace hdt
 		if (!equippedOnly) {
 			if (!g_validationConfig.outputDir.empty())
 				reportStream << "  XMLs improved: " << report.xmlImprovedCount << "\n";
-			if (!g_validationConfig.outputDir.empty() && g_validationConfig.improveNIFs)
+			if (!g_validationConfig.outputDir.empty())
 				reportStream << "  NIFs improved: " << report.nifImprovedCount << "\n";
 		}
 		reportStream << "\n";
@@ -1454,13 +1456,15 @@ namespace hdt
 
 	/// Generates improved versions of all physics XML files in the specified output directory.
 	/// Improves XMLs from all discovered assets (or equipped items only).
-	XMLImproveResult ImprovePhysicsXMLs(const std::string& outputDir, bool equippedOnly)
+	XMLImproveResult ImprovePhysicsXMLs(const std::string& outputDir, bool equippedOnly, bool copyOriginal, bool stateless)
 	{
 		logger::info("[Validator] Starting {} XML cleanup...",
 			equippedOnly ? "equipped gear" : "on-demand FSMP");
 		auto result = improveXMLPaths(
 			collectPhysicsXMLPaths(equippedOnly),
-			outputDir);
+			outputDir,
+			copyOriginal,
+			stateless);
 		logger::info("[Validator] {} XML cleanup complete: {} XML(s) found, {} improved, {} error(s).",
 			equippedOnly ? "Equipped gear" : "On-demand",
 			result.totalXMLsFound, result.xmlImprovedCount, result.errors.size());
@@ -1470,7 +1474,7 @@ namespace hdt
 	/// Generates improved versions of all physics NIF files in the specified output directory.
 	/// Applies decimation (if configured) and generates clean versions of NIFs.
 	/// Preserves _0/_1 NIF pair atomicity by copying unchanged siblings when one is improved.
-	NIFImproveResult ImprovePhysicsNIFs(const std::string& outputDir, bool equippedOnly)
+	NIFImproveResult ImprovePhysicsNIFs(const std::string& outputDir, bool equippedOnly, bool copyOriginal)
 	{
 		NIFImproveResult result;
 		if (outputDir.empty()) {
@@ -1483,14 +1487,14 @@ namespace hdt
 			for (const auto& xmlPath : collectPhysicsXMLPaths(true))
 				equippedXMLs.insert(NormalizePathForComparison(xmlPath));
 
-			auto nifAssetsEquipped = discoverPhysicsAssets();
+			auto nifAssetsEquipped = discoverPhysicsAssets(true);
 			for (const auto& asset : nifAssetsEquipped) {
 				if (!asset.xmlExists)
 					continue;
 				if (equippedXMLs.count(NormalizePathForComparison(asset.xmlPath)) == 0)
 					continue;
 				++result.totalNIFsFound;
-				if (GenerateImprovedNIF(asset.nifPath, outputDir))
+				if (GenerateImprovedNIF(asset.nifPath, outputDir, {}, nullptr, copyOriginal))
 					++result.nifImprovedCount;
 			}
 			return result;
@@ -1528,7 +1532,7 @@ namespace hdt
 			results.reserve(indices.size());
 			for (size_t idx : indices) {
 				NIFImproverDiagnostics d;
-				results.push_back(GenerateImprovedNIF(nifAssets[idx].nifPath, outputDir, decimationOptions, &d));
+				results.push_back(GenerateImprovedNIF(nifAssets[idx].nifPath, outputDir, decimationOptions, &d, copyOriginal));
 				decCandidatesDiscovered.fetch_add(d.decimationCandidatesDiscovered);
 				decCandidatesAttempted.fetch_add(d.decimationCandidatesAttempted);
 				decCandidatesApplied.fetch_add(d.decimationCandidatesApplied);
@@ -1553,7 +1557,7 @@ namespace hdt
 			}
 		};
 
-		if (g_validationConfig.parallelNIFImprovement && groups.size() > 1)
+		if (groups.size() > 1)
 			tbb::parallel_for_each(groups.begin(), groups.end(), improveGroup);
 		else
 			for (const auto& g : groups)

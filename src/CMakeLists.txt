@@ -94,6 +94,8 @@ set(SOURCE_FILES
 	"${SOURCE_DIR}/Validator/Utils/hdtTemplateDefaults.cpp"
 	"${SOURCE_DIR}/Validator/Utils/hdtTemplateDefaults.h"
 	"${SOURCE_DIR}/Validator/Utils/hdtTimeUtils.h"
+	"${SOURCE_DIR}/Validator/Utils/hdtXMLJsonWriter.cpp"
+	"${SOURCE_DIR}/Validator/Utils/hdtXMLJsonWriter.h"
 	"${SOURCE_DIR}/Validator/Utils/hdtXMLUtils.h"
 	"${SOURCE_DIR}/Validator/Utils/hdtNIFBinaryUtils.h"
 	"${SOURCE_DIR}/Validator/Config/hdtValidatorPaths.h"

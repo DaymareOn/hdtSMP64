@@ -1,98 +1,15 @@
 #include "hdtNIFBinaryParser.h"
 
+#include "../Improvers/hdtNIFBinaryIO.h"
 #include "../Utils/hdtNIFBinaryUtils.h"
 
 #include <cstring>
-#include <stdexcept>
 #include <utility>
 
 namespace hdt
 {
 	namespace nif
 	{
-	namespace
-	{
-		class NifReader
-		{
-		public:
-			/// Creates a bounded binary reader over NIF bytes starting at startPos.
-			NifReader(const std::vector<uint8_t>& data, size_t startPos) :
-				m_data(data), m_pos(startPos)
-			{}
-
-			/// Returns true if bytes can be read without exceeding the input buffer.
-			bool canRead(size_t bytes) const { return m_pos + bytes <= m_data.size(); }
-			/// Returns the current absolute byte offset in the input buffer.
-			size_t pos() const { return m_pos; }
-
-			/// Reads one little-endian byte and advances the cursor.
-			uint8_t readU8()
-			{
-				if (!canRead(1))
-					throw std::runtime_error("NIF: read past end (U8)");
-				return m_data[m_pos++];
-			}
-
-			/// Reads a little-endian 16-bit unsigned integer and advances the cursor.
-			uint16_t readU16()
-			{
-				if (!canRead(2))
-					throw std::runtime_error("NIF: read past end (U16)");
-				uint16_t v;
-				std::memcpy(&v, m_data.data() + m_pos, 2);
-				m_pos += 2;
-				return v;
-			}
-
-			/// Reads a little-endian 32-bit unsigned integer and advances the cursor.
-			uint32_t readU32()
-			{
-				if (!canRead(4))
-					throw std::runtime_error("NIF: read past end (U32)");
-				uint32_t v;
-				std::memcpy(&v, m_data.data() + m_pos, 4);
-				m_pos += 4;
-				return v;
-			}
-
-			/// Reads a u32-length-prefixed string and advances the cursor.
-			/// Throws for implausible lengths or out-of-bounds reads.
-			std::string readSizedStr()
-			{
-				uint32_t len = readU32();
-				if (len > kMaxSizedStringLen)
-					throw std::runtime_error("NIF: implausible string length");
-				if (!canRead(len))
-					throw std::runtime_error("NIF: string out of bounds");
-				std::string s(reinterpret_cast<const char*>(m_data.data() + m_pos), len);
-				m_pos += len;
-				return s;
-			}
-
-			/// Reads a u8-length-prefixed short string and advances the cursor.
-			std::string readShortSizedStr()
-			{
-				uint8_t len = readU8();
-				if (!canRead(len))
-					throw std::runtime_error("NIF: short string out of bounds");
-				std::string s(reinterpret_cast<const char*>(m_data.data() + m_pos), len);
-				m_pos += len;
-				return s;
-			}
-
-			/// Advances the cursor by bytes, throwing if it would cross the buffer end.
-			void skip(size_t bytes)
-			{
-				if (!canRead(bytes))
-					throw std::runtime_error("NIF: skip past end");
-				m_pos += bytes;
-			}
-
-		private:
-			const std::vector<uint8_t>& m_data;
-			size_t m_pos;
-		};
-	}  // namespace
 
 	/// Parses the NIF v20.2.0.7 header payload beginning after the magic string.
 	/// Fills outInfo with type tables, string table, block layout, and quick feature flags.
@@ -154,6 +71,8 @@ namespace hdt
 		}
 
 		uint32_t numGroups = r.readU32();
+		if (numGroups > kMaxBlocks)
+			return false;
 		r.skip(numGroups * 4u);
 		info.blockDataOffset = r.pos();
 

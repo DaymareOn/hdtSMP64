@@ -22,6 +22,8 @@ namespace hdt
 		{
 			None,
 			Bone,
+			PerTriangle,
+			PerVertex,
 			Generic,
 			StiffSpring,
 			ConeTwist
@@ -194,6 +196,10 @@ namespace hdt
 		{
 			if (localName == "bone" || localName == "bone-default")
 				return Family::Bone;
+			if (localName == "per-triangle-shape" || localName == "per-triangle-shape-default")
+				return Family::PerTriangle;
+			if (localName == "per-vertex-shape" || localName == "per-vertex-shape-default")
+				return Family::PerVertex;
 			if (localName == "generic-constraint" || localName == "generic-constraint-default")
 				return Family::Generic;
 			if (localName == "stiffspring-constraint" || localName == "stiffspring-constraint-default")
@@ -225,6 +231,8 @@ namespace hdt
 			case Family::ConeTwist:
 				return canonicalFieldForConetwist(localTag);
 			case Family::Bone:
+			case Family::PerTriangle:
+			case Family::PerVertex:
 			case Family::Generic:
 			case Family::StiffSpring:
 				return localTag;
@@ -283,6 +291,10 @@ namespace hdt
 			std::vector<Family> out;
 			if (context.find("bone-default") != std::string::npos || context.find("bone") != std::string::npos)
 				out.push_back(Family::Bone);
+			if (context.find("per-triangle-shape-default") != std::string::npos || context.find("per-triangle-shape") != std::string::npos)
+				out.push_back(Family::PerTriangle);
+			if (context.find("per-vertex-shape-default") != std::string::npos || context.find("per-vertex-shape") != std::string::npos)
+				out.push_back(Family::PerVertex);
 			if (context.find("generic-constraint-default") != std::string::npos || context.find("generic-constraint") != std::string::npos)
 				out.push_back(Family::Generic);
 			if (context.find("stiffspring-constraint-default") != std::string::npos || context.find("stiffspring-constraint") != std::string::npos)
@@ -379,8 +391,16 @@ namespace hdt
 			return defaults;
 		}
 
-		static std::string normalizedValueForField(const std::string& field, const pugi::xml_node& valueNode)
+		static std::string normalizedValueForField(const Family family, const std::string& field, const pugi::xml_node& valueNode)
 		{
+			// Some tags are overloaded across families in XSD (e.g. linearDamping/anglularDamping
+			// are scalar for bones and vector3 for constraints). Resolve these first with family context.
+			if (field == "linearDamping" || field == "angularDamping") {
+				if (family == Family::Bone)
+					return normalizeNumericText(valueNode.text().as_string());
+				return normalizeVector3Attrs(valueNode);
+			}
+
 			const auto& typeByName = getElementTypeByNameFromXsd();
 			auto typeIt = typeByName.find(field);
 			const std::string type = (typeIt != typeByName.end()) ? typeIt->second : std::string();
@@ -408,7 +428,7 @@ namespace hdt
 			const auto& schDefaults = getDefaultsFromSchematron();
 			defaults = schDefaults.byFamily;
 
-			for (auto family : { Family::Bone, Family::Generic, Family::StiffSpring, Family::ConeTwist }) {
+			for (auto family : { Family::Bone, Family::PerTriangle, Family::PerVertex, Family::Generic, Family::StiffSpring, Family::ConeTwist }) {
 				for (const auto& [k, v] : schDefaults.global) {
 					std::string field = (family == Family::ConeTwist) ? canonicalFieldForConetwist(k) : k;
 					defaults[family].insert_or_assign(field, v);
@@ -451,6 +471,72 @@ namespace hdt
 					return child;
 			}
 			return {};
+		}
+
+		static bool removeUnusedDefaultNodes(pugi::xml_document& doc)
+		{
+			auto sysNode = findSystemNode(doc);
+			if (!sysNode)
+				return false;
+
+			std::vector<pugi::xml_node> topLevelNodes;
+			for (auto node = sysNode.first_child(); node; node = node.next_sibling()) {
+				if (node.type() == pugi::node_element)
+					topLevelNodes.push_back(node);
+			}
+
+			std::unordered_map<Family, bool> unnamedTemplateNeeded;
+			std::unordered_map<Family, std::unordered_set<std::string>> namedTemplatesNeeded;
+			std::vector<pugi::xml_node> toRemove;
+
+			for (auto it = topLevelNodes.rbegin(); it != topLevelNodes.rend(); ++it) {
+				const auto& node = *it;
+				const std::string localName = std::string(XmlLocalName(node.name()));
+				const Family family = familyForNode(localName);
+				if (family == Family::None)
+					continue;
+
+				if (isDefaultNodeName(localName)) {
+					const std::string templateName = TrimAsciiWhitespace(node.attribute("name").as_string());
+					const std::string extendsName = TrimAsciiWhitespace(node.attribute("extends").as_string());
+
+					bool needed = false;
+					if (templateName.empty()) {
+						needed = unnamedTemplateNeeded[family];
+						if (needed)
+							unnamedTemplateNeeded[family] = false;
+					} else {
+						auto& liveNames = namedTemplatesNeeded[family];
+						auto liveIt = liveNames.find(templateName);
+						if (liveIt != liveNames.end()) {
+							needed = true;
+							liveNames.erase(liveIt);
+						}
+					}
+
+					if (!needed) {
+						toRemove.push_back(node);
+						continue;
+					}
+
+					if (extendsName.empty())
+						unnamedTemplateNeeded[family] = true;
+					else
+						namedTemplatesNeeded[family].insert(extendsName);
+					continue;
+				}
+
+				const std::string templateName = TrimAsciiWhitespace(node.attribute("template").as_string());
+				if (templateName.empty())
+					unnamedTemplateNeeded[family] = true;
+				else
+					namedTemplatesNeeded[family].insert(templateName);
+			}
+
+			for (const auto& node : toRemove)
+				sysNode.remove_child(node);
+
+			return !toRemove.empty();
 		}
 
 		static AnalysisResult analyzeTemplateRedundantChildren(
@@ -531,7 +617,7 @@ namespace hdt
 						fieldKey = fieldKeyFor(family, childName);
 						if (fieldKey.empty())
 							continue;
-						currentValue = normalizedValueForField(fieldKey, child);
+						currentValue = normalizedValueForField(family, fieldKey, child);
 					}
 
 					if (fieldKey.empty())
@@ -562,6 +648,97 @@ namespace hdt
 			}
 
 			return result;
+		}
+
+		static std::string makeFieldMapSignature(const FieldMap& fields)
+		{
+			std::vector<std::pair<std::string, std::string>> entries(fields.begin(), fields.end());
+			std::sort(entries.begin(), entries.end(), [](const auto& left, const auto& right) {
+				return left.first < right.first;
+			});
+
+			std::string signature;
+			for (const auto& [key, value] : entries) {
+				signature += key;
+				signature += '=';
+				signature += value;
+				signature += '\n';
+			}
+
+			return signature;
+		}
+
+		static std::unordered_map<std::string, std::string> collectEquivalentDefaultTemplateAliases(
+			const pugi::xml_document& doc)
+		{
+			auto sysNode = findSystemNode(doc);
+			if (!sysNode)
+				return {};
+
+			const auto baseDefaults = makeBaseDefaults();
+			std::unordered_map<Family, TemplateMap> familyTemplates;
+			for (const auto& [family, fields] : baseDefaults)
+				familyTemplates[family][""] = fields;
+
+			std::unordered_map<std::string, std::string> canonicalBySignature;
+			std::unordered_map<std::string, std::string> aliases;
+
+			for (auto node = sysNode.first_child(); node; node = node.next_sibling()) {
+				if (node.type() != pugi::node_element)
+					continue;
+
+				const std::string localName = std::string(XmlLocalName(node.name()));
+				const Family family = familyForNode(localName);
+				if (family == Family::None || !isDefaultNodeName(localName))
+					continue;
+
+				const std::string extendsName = TrimAsciiWhitespace(node.attribute("extends").as_string());
+				const std::string templateName = TrimAsciiWhitespace(node.attribute("name").as_string());
+				FieldMap effective = getEffectiveTemplate(familyTemplates[family], extendsName);
+
+				pugi::xml_node lastFrameTag;
+				for (auto child = node.first_child(); child; child = child.next_sibling()) {
+					if (child.type() != pugi::node_element)
+						continue;
+					const std::string childName = std::string(XmlLocalName(child.name()));
+					if (isFrameTagName(family, childName))
+						lastFrameTag = child;
+				}
+
+				for (auto child = node.first_child(); child; child = child.next_sibling()) {
+					if (child.type() != pugi::node_element)
+						continue;
+
+					const std::string childName = std::string(XmlLocalName(child.name()));
+					std::string fieldKey;
+					std::string currentValue;
+
+					if (isFrameTagName(family, childName)) {
+						if (child != lastFrameTag)
+							continue;
+						fieldKey = "__frameSpec";
+						currentValue = normalizeFrameSpec(childName, child);
+					} else {
+						fieldKey = fieldKeyFor(family, childName);
+						if (fieldKey.empty())
+							continue;
+						currentValue = normalizedValueForField(family, fieldKey, child);
+					}
+
+					effective[fieldKey] = currentValue;
+				}
+
+				familyTemplates[family][templateName] = effective;
+				if (templateName.empty())
+					continue;
+
+				const std::string signature = localName + "\n" + makeFieldMapSignature(effective);
+				auto [canonicalIt, inserted] = canonicalBySignature.emplace(signature, templateName);
+				if (!inserted && canonicalIt->second != templateName)
+					aliases[templateName] = canonicalIt->second;
+			}
+
+			return aliases;
 		}
 
 		bool isDefaultNodeName(const std::string& localName)
@@ -599,6 +776,17 @@ namespace hdt
 		}
 
 		return !analysis.removableNodes.empty();
+	}
+
+	bool RemoveUnusedDefaultNodes(pugi::xml_document& doc)
+	{
+		return removeUnusedDefaultNodes(doc);
+	}
+
+	std::unordered_map<std::string, std::string> CollectEquivalentDefaultTemplateAliases(
+		const pugi::xml_document& doc)
+	{
+		return collectEquivalentDefaultTemplateAliases(doc);
 	}
 
 }  // namespace hdt
