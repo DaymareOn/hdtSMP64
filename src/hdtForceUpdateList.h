@@ -2,5 +2,5 @@
 
 namespace hdt
 {
-	static int GetForceUpdateTypeFromName(const RE::BSFixedString& node_name);
+	int GetForceUpdateTypeFromName(const RE::BSFixedString& node_name);
 }
