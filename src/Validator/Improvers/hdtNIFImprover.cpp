@@ -9,6 +9,8 @@
 #include "../Utils/hdtNIFBinaryUtils.h"
 #include "../Utils/hdtStringUtils.h"
 
+#include <atomic>
+#include <chrono>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -16,6 +18,53 @@
 namespace hdt
 {
 	static constexpr std::streamoff kMaxNifFileSizeBytes = 256 * 1024 * 1024;
+
+	// ── Phase-3 profiling ─────────────────────────────────────────────────────
+	// Accumulated CPU-nanoseconds per operation, across all threads.
+	// Call logNIFImproverTimings() after the parallel loop to dump a breakdown.
+	static std::atomic<int64_t> g_profFileRead   {0};
+	static std::atomic<int64_t> g_profParse      {0};
+	static std::atomic<int64_t> g_profBogusNodes {0};
+	static std::atomic<int64_t> g_profXmlStrip   {0};
+	static std::atomic<int64_t> g_profSerialize  {0};
+	static std::atomic<int64_t> g_profValidate   {0};
+	static std::atomic<int64_t> g_profWrite      {0};
+	static std::atomic<int64_t> g_profNifCount   {0};
+
+	static auto now() { return std::chrono::high_resolution_clock::now(); }
+	static int64_t elapsedNs(std::chrono::high_resolution_clock::time_point a,
+	                         std::chrono::high_resolution_clock::time_point b)
+	{
+		return std::chrono::duration_cast<std::chrono::nanoseconds>(b - a).count();
+	}
+
+	void resetNIFImproverTimings()
+	{
+		g_profFileRead  .store(0); g_profParse    .store(0);
+		g_profBogusNodes.store(0); g_profXmlStrip .store(0);
+		g_profSerialize .store(0); g_profValidate .store(0);
+		g_profWrite     .store(0); g_profNifCount .store(0);
+	}
+
+	void logNIFImproverTimings()
+	{
+		const int64_t n = g_profNifCount.load();
+		logger::info("[NIFImprover][PROF] logNIFImproverTimings called, n={}", n);
+		if (n == 0) return;
+		auto ms = [](int64_t ns) { return ns / 1'000'000; };
+		logger::info("[NIFImprover][PROF] ── Phase-3 CPU-time breakdown ({} NIFs) ──", n);
+		logger::info("[NIFImprover][PROF]   file-read   {:>8} ms  ({} µs/nif)", ms(g_profFileRead),   g_profFileRead   / n / 1000);
+		logger::info("[NIFImprover][PROF]   parseNif    {:>8} ms  ({} µs/nif)", ms(g_profParse),      g_profParse      / n / 1000);
+		logger::info("[NIFImprover][PROF]   bogusNodes  {:>8} ms  ({} µs/nif)", ms(g_profBogusNodes), g_profBogusNodes / n / 1000);
+		logger::info("[NIFImprover][PROF]   xmlStrip    {:>8} ms  ({} µs/nif)", ms(g_profXmlStrip),   g_profXmlStrip   / n / 1000);
+		logger::info("[NIFImprover][PROF]   serialize   {:>8} ms  ({} µs/nif)", ms(g_profSerialize),  g_profSerialize  / n / 1000);
+		logger::info("[NIFImprover][PROF]   validate    {:>8} ms  ({} µs/nif)", ms(g_profValidate),   g_profValidate   / n / 1000);
+		logger::info("[NIFImprover][PROF]   write       {:>8} ms  ({} µs/nif)", ms(g_profWrite),      g_profWrite      / n / 1000);
+		const int64_t total = g_profFileRead + g_profParse + g_profBogusNodes +
+		                      g_profXmlStrip + g_profSerialize + g_profValidate + g_profWrite;
+		logger::info("[NIFImprover][PROF]   TOTAL       {:>8} ms  (accounted CPU time across all threads)", ms(total));
+		logBogusNodeTimings();
+	}
 
 	static std::string pathToUtf8(const std::filesystem::path& fp)
 	{
@@ -248,6 +297,8 @@ namespace hdt
 		if (outDiagnostics)
 			*outDiagnostics = {};
 
+		g_profNifCount.fetch_add(1);
+		auto _t0 = now();
 		std::ifstream in(std::filesystem::u8path(srcNIFPath), std::ios::binary | std::ios::ate);
 		if (!in.is_open()) {
 			logger::error("[NIFImprover] Early return: failed to open NIF file '{}'", srcNIFPath);
@@ -269,6 +320,8 @@ namespace hdt
 				static_cast<long long>(in.gcount()));
 			return false;
 		}
+		auto _t1 = now();
+		g_profFileRead.fetch_add(elapsedNs(_t0, _t1));
 
 		std::string parseError;
 		auto parsedOpt = parseNif(data, &parseError);
@@ -279,6 +332,8 @@ namespace hdt
 				parseError.empty() ? "unknown parse error" : parseError);
 			return false;
 		}
+		auto _t2 = now();
+		g_profParse.fetch_add(elapsedNs(_t1, _t2));
 		auto& parsed = *parsedOpt;
 		const char* layoutMode = parsed.hasExplicitEndiannessByte ? "explicit-endian-byte" : "legacy-no-endian-byte";
 		const char* payloadEndian = parsed.endianness == 0 ? "big" : "little";
@@ -302,11 +357,16 @@ namespace hdt
 		}
 
 		bool changed = false;
+		auto _t3 = now();
 		bool bogusRemoved = removeBogusNiNodes(parsed);
+		auto _t4 = now();
+		g_profBogusNodes.fetch_add(elapsedNs(_t3, _t4));
 		logger::info("[NIFImprover] removeBogusNiNodes returned: {}", bogusRemoved);
 		changed |= bogusRemoved;
-		
+
 		bool xmlStripped = removeMissingPhysicsXmlExtraData(parsed, missingPhysicsXmlRefs);
+		auto _t5 = now();
+		g_profXmlStrip.fetch_add(elapsedNs(_t4, _t5));
 		logger::info("[NIFImprover] removeMissingPhysicsXmlExtraData returned: {}", xmlStripped);
 		changed |= xmlStripped;
 		
@@ -340,8 +400,16 @@ namespace hdt
 			return false;
 		}
 
-		logger::info("[NIFImprover] changed=true, proceeding to round-trip validation");
-		auto roundTripError = validateNifRoundTrip(parsed);
+		// Serialize once; reuse the buffer for both round-trip validation and the
+		// file write to avoid serializing the same NIF twice.
+		logger::info("[NIFImprover] changed=true, serializing for round-trip validation");
+		auto _ts0 = now();
+		auto serialized = serializeNif(parsed);
+		auto _ts1 = now();
+		g_profSerialize.fetch_add(elapsedNs(_ts0, _ts1));
+		auto roundTripError = validateNifRoundTripFromBytes(serialized, parsed);
+		auto _ts2 = now();
+		g_profValidate.fetch_add(elapsedNs(_ts1, _ts2));
 		if (roundTripError.has_value()) {
 			logger::error("[NIFImprover] Round-trip validation FAILED: {}", *roundTripError);
 			if (outDiagnostics)
@@ -360,10 +428,12 @@ namespace hdt
 		}
 
 		logger::info("[NIFImprover] Writing NIF to: {}", pathToUtf8(outPath));
-		if (!writeNifFile(parsed, pathToUtf8(outPath))) {
+		auto _tw0 = now();
+		if (!writeNifBytes(serialized, pathToUtf8(outPath))) {
 			logger::error("[NIFImprover] writeNifFile FAILED");
 			return false;
 		}
+		g_profWrite.fetch_add(elapsedNs(_tw0, now()));
 		logger::info("[NIFImprover] Write SUCCESS");
 
 		if (copyOriginal) {

@@ -9,4 +9,7 @@ namespace hdt
 	// references in the remaining blocks after each pass.
 	// Returns true if any blocks were removed.
 	bool removeBogusNiNodes(ParsedNif& parsed);
+
+	void resetBogusNodeTimings(); // call before the parallel loop
+	void logBogusNodeTimings();   // call after
 }

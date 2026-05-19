@@ -63,4 +63,7 @@ namespace hdt
 	bool CopyNIFToOutput(
 		const std::string& srcNIFPath,
 		const std::string& outputDir);
+
+	void resetNIFImproverTimings(); // call before the parallel loop; clears accumulated counters
+	void logNIFImproverTimings();   // call after;  dumps the breakdown
 }

@@ -68,9 +68,14 @@ namespace hdt
 	std::vector<uint8_t> serializeNif(const ParsedNif& parsed);
 	// Serialize and write to disk. Returns false on I/O or serialization error.
 	bool writeNifFile(const ParsedNif& parsed, const std::string& dstPath);
+	// Write already-serialized bytes to disk. Returns false on I/O error.
+	bool writeNifBytes(const std::vector<uint8_t>& bytes, const std::string& dstPath);
 	// Round-trip validate: serialize then re-parse and check structural consistency.
 	// Returns nullopt on success, or a string describing the first failure found.
 	std::optional<std::string> validateNifRoundTrip(const ParsedNif& parsed);
+	// Round-trip validate from already-serialized bytes (skips the serialization step).
+	std::optional<std::string> validateNifRoundTripFromBytes(
+		const std::vector<uint8_t>& bytes, const ParsedNif& original);
 	void appendU8(std::vector<uint8_t>& out, uint8_t v);
 	void appendU16(std::vector<uint8_t>& out, uint16_t v);
 	void appendU32(std::vector<uint8_t>& out, uint32_t v);

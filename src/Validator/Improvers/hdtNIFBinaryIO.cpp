@@ -387,8 +387,36 @@ namespace hdt
 
 	std::vector<uint8_t> serializeNif(const ParsedNif& parsed)
 	{
+		// Pre-compute the exact output size to avoid any reallocation.
+		// Without this, an 8 MB NIF triggers ~13 doubling reallocations under
+		// 32-thread contention — each a malloc+memcpy+free on the global heap.
+		size_t expectedSize = parsed.headerPrefix.size()
+		    + 4                                          // version
+		    + (parsed.hasExplicitEndiannessByte ? 1 : 0) // endianness
+		    + 4 + 4;                                     // userVersion + numBlocks
+		if (hasBSStreamHeader(parsed.version, parsed.userVersion)) {
+			expectedSize += 4                                          // bsVersion
+			             + 1 + parsed.author.size();
+			if (parsed.bsVersion > 130u)   expectedSize += 4;
+			if (parsed.bsVersion < 131u)   expectedSize += 1 + parsed.processScript.size();
+			expectedSize += 1 + parsed.exportScript.size();
+			if (parsed.bsVersion >= 103u && parsed.bsVersion < 170u)
+				expectedSize += 1 + parsed.maxFilepath.size();
+			if (parsed.bsVersion >= 170u)
+				expectedSize += 1 + parsed.bsUnknownData.size();
+		}
+		expectedSize += 2; // numBlockTypes
+		for (const auto& t : parsed.blockTypes) expectedSize += 4 + t.size();
+		expectedSize += 2 * parsed.blockTypeIndex.size();  // block type index
+		expectedSize += 4 * parsed.blocks.size();          // block sizes
+		expectedSize += 4 + 4;                             // numStrings + maxStringLen
+		for (const auto& s : parsed.strings) expectedSize += 4 + s.size();
+		expectedSize += 4 + 4 * parsed.groups.size();
+		for (const auto& b : parsed.blocks) expectedSize += b.size();
+		expectedSize += 4 + 4 * parsed.footerRoots.size();
+
 		std::vector<uint8_t> out;
-		out.reserve(parsed.headerPrefix.size() + 1024);
+		out.reserve(expectedSize);
 		const bool writeBigEndianPayload = parsed.hasExplicitEndiannessByte && parsed.endianness == 0;
 
 		auto appendU16Endian = [&](uint16_t v) {
@@ -471,47 +499,109 @@ namespace hdt
 		return out;
 	}
 
-	bool writeNifFile(const ParsedNif& parsed, const std::string& dstPath)
+	bool writeNifBytes(const std::vector<uint8_t>& bytes, const std::string& dstPath)
 	{
 		try {
-			auto out = serializeNif(parsed);
 			std::ofstream file(std::filesystem::u8path(dstPath), std::ios::binary | std::ios::trunc);
 			if (!file.is_open())
 				return false;
-			file.write(reinterpret_cast<const char*>(out.data()), static_cast<std::streamsize>(out.size()));
+			file.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
 			return file.good();
 		} catch (...) {
 			return false;
 		}
 	}
 
+	bool writeNifFile(const ParsedNif& parsed, const std::string& dstPath)
+	{
+		return writeNifBytes(serializeNif(parsed), dstPath);
+	}
+
+	std::optional<std::string> validateNifRoundTripFromBytes(
+		const std::vector<uint8_t>& bytes, const ParsedNif& parsed)
+	{
+		// Lightweight structural check: parse only the header metadata and compare
+		// block counts/sizes — never touch block data, so no per-block allocation.
+		// Full parseNif on an 8 MB NIF allocates 200+ vectors under 32-thread
+		// contention; this path allocates ~3 small vectors instead.
+		try {
+			NifReader r(bytes, 0);
+
+			// Skip header line (up to first '\n')
+			{
+				bool found = false;
+				for (size_t i = 0; i < std::min(bytes.size(), size_t{256}); ++i) {
+					if (bytes[i] == '\n') { r.skip(i + 1); found = true; break; }
+				}
+				if (!found) return "re-parse: missing header newline";
+			}
+
+			uint32_t version = r.readU32();
+			if (version != parsed.version)
+				return "re-parse: version mismatch";
+
+			bool bigEndian = false;
+			if (parsed.hasExplicitEndiannessByte) {
+				uint8_t e = r.readU8();
+				bigEndian = (e == 0);
+				r.setBigEndian(bigEndian);
+			}
+
+			r.readU32(); // userVersion
+			uint32_t numBlocks = r.readU32();
+			if (numBlocks != static_cast<uint32_t>(parsed.blocks.size()))
+				return "block count mismatch: expected " + std::to_string(parsed.blocks.size()) +
+				       ", got " + std::to_string(numBlocks);
+
+			// Skip BS header fields (variable length)
+			if (hasBSStreamHeader(version, parsed.userVersion)) {
+				uint32_t bsVer = r.readU32();
+				r.readShortSizedStr(); // author
+				if (bsVer > 130u) r.readU32();
+				if (bsVer < 131u) r.readShortSizedStr();
+				r.readShortSizedStr(); // exportScript
+				if (bsVer >= 103u && bsVer < 170u) r.readShortSizedStr();
+				if (bsVer >= 170u) { uint8_t len = r.readU8(); r.skip(len); }
+			}
+
+			// Read block types
+			uint16_t numBlockTypes = r.readU16();
+			std::vector<std::string> blockTypes;
+			blockTypes.reserve(numBlockTypes);
+			for (uint16_t i = 0; i < numBlockTypes; ++i)
+				blockTypes.push_back(r.readSizedStr());
+
+			// Read and validate block type index
+			if (numBlocks != static_cast<uint32_t>(parsed.blockTypeIndex.size()))
+				return "blockTypeIndex size mismatch";
+			for (uint32_t i = 0; i < numBlocks; ++i) {
+				uint16_t idx = r.readU16();
+				if (idx >= numBlockTypes)
+					return "block " + std::to_string(i) + " has out-of-range type index " +
+					       std::to_string(idx);
+			}
+
+			// Read and validate block sizes
+			for (uint32_t i = 0; i < numBlocks; ++i) {
+				uint32_t sz = r.readU32();
+				if (sz != static_cast<uint32_t>(parsed.blocks[i].size()))
+					return "block " + std::to_string(i) + " size mismatch: expected " +
+					       std::to_string(parsed.blocks[i].size()) + ", got " +
+					       std::to_string(sz);
+			}
+
+			return std::nullopt;
+		} catch (const std::exception& e) {
+			return std::string("exception during round-trip: ") + e.what();
+		} catch (...) {
+			return "unknown exception during round-trip";
+		}
+	}
+
 	std::optional<std::string> validateNifRoundTrip(const ParsedNif& parsed)
 	{
 		try {
-			auto bytes = serializeNif(parsed);
-			auto reparsed = parseNif(bytes);
-			if (!reparsed.has_value())
-				return "re-parse failed after serialization";
-			if (reparsed->blocks.size() != parsed.blocks.size())
-				return "block count mismatch: expected " + std::to_string(parsed.blocks.size()) +
-				       ", got " + std::to_string(reparsed->blocks.size());
-			if (reparsed->blockTypeIndex.size() != parsed.blockTypeIndex.size())
-				return "blockTypeIndex size mismatch: expected " + std::to_string(parsed.blockTypeIndex.size()) +
-				       ", got " + std::to_string(reparsed->blockTypeIndex.size());
-			for (size_t i = 0; i < reparsed->blockTypeIndex.size(); ++i) {
-				uint16_t idx = reparsed->blockTypeIndex[i];
-				if (idx >= reparsed->blockTypes.size())
-					return "block " + std::to_string(i) + " has out-of-range type index " +
-					       std::to_string(idx) + " (blockTypes.size()=" +
-					       std::to_string(reparsed->blockTypes.size()) + ")";
-			}
-			for (size_t i = 0; i < reparsed->blocks.size(); ++i) {
-				if (reparsed->blocks[i].size() != parsed.blocks[i].size())
-					return "block " + std::to_string(i) + " size mismatch: expected " +
-					       std::to_string(parsed.blocks[i].size()) + ", got " +
-					       std::to_string(reparsed->blocks[i].size());
-			}
-			return std::nullopt;
+			return validateNifRoundTripFromBytes(serializeNif(parsed), parsed);
 		} catch (const std::exception& e) {
 			return std::string("exception during round-trip: ") + e.what();
 		} catch (...) {

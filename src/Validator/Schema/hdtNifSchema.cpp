@@ -777,6 +777,35 @@ bool NifSchema::loadFromString(const char* xml, const NifSchemaVersion& ver)
 	for (auto node : root.children("compound"))  parseType(node, false);
 	for (auto node : root.children("niobject"))  parseType(node, true);
 
+	// ── 4. Compute hasAnyRefs for every type ─────────────────────────────────
+	// A type has refs if any field is a Ref/Ptr basic, or any field's compound
+	// type transitively has refs, or the inherited parent has refs.
+	// Iterative fixed-point: safe even if inheritance chains are arbitrarily deep.
+	{
+		bool changed = true;
+		while (changed) {
+			changed = false;
+			for (auto& [name, def] : m_types) {
+				if (def.hasAnyRefs) continue;
+				bool has = false;
+				if (!def.inherit.empty()) {
+					auto it = m_types.find(def.inherit);
+					if (it != m_types.end() && it->second.hasAnyRefs)
+						has = true;
+				}
+				if (!has) {
+					for (const auto& field : def.fields) {
+						auto bit = m_basics.find(field.type);
+						if (bit != m_basics.end() && bit->second.isRef) { has = true; break; }
+						auto tit = m_types.find(field.type);
+						if (tit != m_types.end() && tit->second.hasAnyRefs) { has = true; break; }
+					}
+				}
+				if (has) { def.hasAnyRefs = true; changed = true; }
+			}
+		}
+	}
+
 	return true;
 }
 
@@ -1049,6 +1078,16 @@ std::optional<std::vector<size_t>> walkBlockRefs(
 	LinkFilter         filter,
 	bool               log)
 {
+	// Short-circuit: if the type is known and has no Ref/Ptr fields anywhere in
+	// its hierarchy, there is nothing to collect.  This avoids walking large
+	// data-only blocks such as bhkCompressedMeshShapeData (1000+ chunks) that
+	// account for the vast majority of remapAfterRemoval walker cost.
+	{
+		auto* def = schema.findType(blockTypeName);
+		if (def && !def->hasAnyRefs)
+			return std::vector<size_t>{};
+	}
+
 	WalkCtx ctx;
 	ctx.data      = data;
 	ctx.dataSize  = dataSize;
@@ -1094,6 +1133,13 @@ std::optional<BlockRefDetails> walkBlockRefDetails(
 	size_t             dataSize,
 	int32_t            totalBlocks)
 {
+	// Same short-circuit as walkBlockRefs: data-only types have no refs to remap.
+	{
+		auto* def = schema.findType(blockTypeName);
+		if (def && !def->hasAnyRefs)
+			return BlockRefDetails{};
+	}
+
 	WalkCtx ctx;
 	ctx.data      = data;
 	ctx.dataSize  = dataSize;

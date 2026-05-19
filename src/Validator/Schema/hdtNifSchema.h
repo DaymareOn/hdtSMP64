@@ -32,7 +32,8 @@ namespace hdt
 		std::string            name;
 		std::string            inherit;  // parent type name; empty → no parent
 		std::vector<NifFieldDef> fields; // own fields only (after version filtering)
-		bool                   isBlock = false; // true if declared as <niobject>
+		bool                   isBlock    = false; // true if declared as <niobject>
+		bool                   hasAnyRefs = false; // true if type (or any ancestor/compound) contains a Ref/Ptr field
 	};
 
 	// ── Version context used for pre-evaluation ───────────────────────────────

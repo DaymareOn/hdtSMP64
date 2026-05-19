@@ -671,36 +671,111 @@ namespace hdt
 			// ---- Filesystem: NIF discovery ----
 			// Temporary debug mode: scan a single hardcoded NIF directly.
 			namespace fs = std::filesystem;
+			using Clock = std::chrono::high_resolution_clock;
+			auto msElapsed = [](Clock::time_point a, Clock::time_point b) {
+				return std::chrono::duration_cast<std::chrono::milliseconds>(b - a).count();
+			};
 			auto toStr = [](const fs::path& fp) -> std::string {
 				auto u8 = fp.generic_u8string();
 				return { reinterpret_cast<const char*>(u8.data()), u8.size() };
 			};
 			std::error_code ec;
-			fs::path dataDir = "data";
-			if (!fs::exists(dataDir, ec) || !fs::is_directory(dataDir, ec)) {
-				logger::warn("[Validator] Data directory not found: {}", PathToUtf8(dataDir));
+
+			fs::path scanRoot = "data";
+			if (!fs::exists(scanRoot, ec) || !fs::is_directory(scanRoot, ec)) {
+				logger::warn("[Validator] Data directory not found: {}", PathToUtf8(scanRoot));
 				return {};
 			}
 
+			// ── Phase 1a: serial first-level scan ────────────────────────────────
+			// Single non-recursive pass over data/ to collect top-level subdirs.
+			// Timing each dir reveals which ones are slow to open (VFS overhead).
+			auto tp1a = Clock::now();
 			std::vector<std::string> nifPaths;
-			for (auto& entry : fs::recursive_directory_iterator(dataDir, ec)) {
-				if (ec) {
-					logger::warn("[Validator] Mesh directory iteration error: {}", ec.message());
-					break;
-				}
-				if (!entry.is_regular_file(ec) || ec)
-					continue;
-				auto& p = entry.path();
-				auto ext = toStr(p.extension());
-				std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-				if (ext != ".nif")
-					continue;
-				try {
-					nifPaths.push_back(toStr(p));
-				} catch (const std::exception& e) {
-					logger::warn("[Validator] Skipping unrepresentable path: {}", e.what());
+			std::vector<fs::path>    scanTasks; // top-level dirs for parallel scan
+
+			std::vector<std::pair<std::string, long long>> l1Timings; // name → ms
+			for (auto& entry : fs::directory_iterator(scanRoot, ec)) {
+				if (ec) { ec.clear(); continue; }
+				if (entry.is_directory(ec) && !ec) {
+					auto tL1 = Clock::now();
+					scanTasks.push_back(entry.path());
+					l1Timings.push_back({ toStr(entry.path().filename()), msElapsed(tL1, Clock::now()) });
+				} else if (entry.is_regular_file(ec) && !ec) {
+					auto ext = toStr(entry.path().extension());
+					std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+					if (ext == ".nif") {
+						try { nifPaths.push_back(toStr(entry.path())); } catch (...) {}
+					}
 				}
 			}
+
+			auto tp1b = Clock::now();
+
+			// ── Phase 1b: parallel recursive scan of all second-level subdirs ────
+			// Per-task: record wall time and NIF count for the slowest-dir report.
+			std::vector<std::vector<std::string>> perDirNifs(scanTasks.size());
+			std::vector<long long> taskMs(scanTasks.size(), 0);
+			{
+				const size_t n = scanTasks.size();
+				std::vector<std::future<void>> futures;
+				futures.reserve(n);
+				for (size_t j = 0; j < n; ++j) {
+					futures.push_back(std::async(std::launch::async, [&, j]() {
+						auto tTask = Clock::now();
+						std::error_code ec2;
+						for (auto& entry : fs::recursive_directory_iterator(
+								scanTasks[j],
+								fs::directory_options::skip_permission_denied,
+								ec2)) {
+							if (ec2) { ec2.clear(); continue; }
+							if (!entry.is_regular_file(ec2) || ec2) { ec2.clear(); continue; }
+							auto ext = toStr(entry.path().extension());
+							std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+							if (ext != ".nif") continue;
+							try { perDirNifs[j].push_back(toStr(entry.path())); }
+							catch (const std::exception& e) {
+								logger::warn("[Validator] Skipping unrepresentable path: {}", e.what());
+							}
+						}
+						taskMs[j] = msElapsed(tTask, Clock::now());
+					}));
+				}
+				for (auto& f : futures) f.get();
+			}
+			auto tp1c = Clock::now();
+
+			// ── Phase 1c: merge ───────────────────────────────────────────────────
+			{
+				size_t total = nifPaths.size();
+				for (auto& v : perDirNifs) total += v.size();
+				nifPaths.reserve(total);
+				for (auto& v : perDirNifs)
+					for (auto& p : v) nifPaths.push_back(std::move(p));
+			}
+			auto tp1d = Clock::now();
+
+			logger::info("[Validator][PROF] Phase 1 breakdown ({} top-dirs, {} NIFs found):",
+				scanTasks.size(), nifPaths.size());
+			logger::info("[Validator][PROF]   1a serial scan        {:>6} ms", msElapsed(tp1a, tp1b));
+			logger::info("[Validator][PROF]   1b parallel scan      {:>6} ms  (wall, {} tasks)", msElapsed(tp1b, tp1c), scanTasks.size());
+			logger::info("[Validator][PROF]   1c merge              {:>6} ms", msElapsed(tp1c, tp1d));
+			logger::info("[Validator][PROF]   Phase 1 total         {:>6} ms", msElapsed(tp1a, tp1d));
+
+			// Per-task parallel scan timings (top 15 slowest) — shows which
+			// second-level dirs dominate the parallel scan wall time.
+			struct TaskStat { std::string path; long long ms; size_t nifs; };
+			std::vector<TaskStat> taskStats;
+			taskStats.reserve(scanTasks.size());
+			for (size_t j = 0; j < scanTasks.size(); ++j)
+				taskStats.push_back({ toStr(scanTasks[j]), taskMs[j], perDirNifs[j].size() });
+			std::sort(taskStats.begin(), taskStats.end(),
+				[](const auto& a, const auto& b) { return a.ms > b.ms; });
+			logger::info("[Validator][PROF] Slowest scan tasks (top 15):");
+			for (size_t i = 0; i < std::min<size_t>(15, taskStats.size()); ++i)
+				logger::info("[Validator][PROF]   {:>6} ms  {:>6} nifs  {}",
+					taskStats[i].ms, taskStats[i].nifs, taskStats[i].path);
+
 			// Debug single-NIF restriction (re-enable for targeted testing):
 			// const char* kDebugSingleNifPath = "data/meshes/clothes/cloaksofskyrim/sagecloakwhitef_0.nif";
 			// logger::warn("[Validator] DEBUG single-NIF restriction active: {}", kDebugSingleNifPath);
@@ -709,8 +784,8 @@ namespace hdt
 			if (outFilesystemNifFilesDiscovered)
 				*outFilesystemNifFilesDiscovered = static_cast<int>(nifPaths.size());
 
-			// Step 2: parallel binary scan — each thread scans an independent chunk.
-			// ExtractPhysicsXmlRefsFromNIFs opens its own file handle and uses only local state → thread-safe.
+			// ── Phase 2: parallel physics marker scan ─────────────────────────────
+			auto tp2a = Clock::now();
 			const size_t n = nifPaths.size();
 			std::vector<std::optional<PhysicsAsset>> scanResults(n);
 			std::vector<std::vector<std::string>> scanViolations(n);
@@ -755,6 +830,7 @@ namespace hdt
 					}
 				}
 			});
+			auto tp2b = Clock::now();
 
 			// Collect physics-enabled NIFs, preserving discovery order.
 			std::vector<PhysicsAsset> result;
@@ -768,6 +844,13 @@ namespace hdt
 					for (auto& err : errs)
 						outNifScanViolations->push_back(std::move(err));
 			}
+			auto tp2c = Clock::now();
+
+			logger::info("[Validator][PROF] Phase 2 breakdown ({} NIFs scanned, {} physics):",
+				n, result.size());
+			logger::info("[Validator][PROF]   2a parallel scan     {:>6} ms  (wall)", msElapsed(tp2a, tp2b));
+			logger::info("[Validator][PROF]   2b collect results   {:>6} ms", msElapsed(tp2b, tp2c));
+			logger::info("[Validator][PROF]   Phase 2 total        {:>6} ms", msElapsed(tp2a, tp2c));
 
 			logger::info("[Validator] Scanned {} NIF files, found {} physics-enabled NIFs",
 				nifPaths.size(), result.size());
@@ -1307,6 +1390,8 @@ namespace hdt
 					}
 				};
 
+				resetNIFImproverTimings();
+				resetBogusNodeTimings();
 				if (groups.size() > 1) {
 					tbb::parallel_for_each(groups.begin(), groups.end(), improveGroup);
 				} else {
@@ -1314,6 +1399,7 @@ namespace hdt
 						improveGroup(g);
 				}
 
+				logNIFImproverTimings();
 				report.nifImprovedCount += improvedCount.load();
 				for (const auto& p : improvedPaths) {
 					bodyStream << "  [IMPROVED] " << p << "\n";
@@ -1616,12 +1702,15 @@ namespace hdt
 			}
 		};
 
+		resetNIFImproverTimings();
+		resetBogusNodeTimings();
 		if (groups.size() > 1)
 			tbb::parallel_for_each(groups.begin(), groups.end(), improveGroup);
 		else
 			for (const auto& g : groups)
 				improveGroup(g);
 
+		logNIFImproverTimings();
 		result.nifImprovedCount = improvedCount.load();
 		result.decimationCandidatesDiscovered = decCandidatesDiscovered.load();
 		result.decimationCandidatesAttempted = decCandidatesAttempted.load();
