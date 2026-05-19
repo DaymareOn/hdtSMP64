@@ -1,8 +1,16 @@
 #include "hdtAssetValidator.h"
 
+#ifdef _WIN32
+#  ifndef WIN32_LEAN_AND_MEAN
+#    define WIN32_LEAN_AND_MEAN
+#  endif
+#  include <windows.h>
+#endif
+
 #include "ActorManager.h"
 #include "NetImmerseUtils.h"
 #include "Improvers/hdtNIFImprover.h"
+#include "Improvers/hdtNIFBogusNodeImprover.h"
 #include "Validators/hdtNIFValidator.h"
 #include "Validators/hdtSCHValidator.h"
 #include "Config/hdtValidatorPaths.h"
@@ -32,6 +40,55 @@
 
 namespace hdt
 {
+	// ── Win32 NIF scanner ─────────────────────────────────────────────────────
+	// Recursively collects .nif paths under `dir` using two FindFirstFileExW
+	// passes per directory:
+	//   Pass 1  *.nif + FindExSearchNameMatch        → kernel filters to NIF files only
+	//   Pass 2  *     + FindExSearchLimitToDirectories → kernel (advisory) filters to dirs
+	//
+	// Compared to recursive_directory_iterator this avoids surfacing non-NIF
+	// file entries through the MO2 VFS hooks, which account for most of the
+	// Phase-1 enumeration cost on large modlists.
+	static void findNifsWin32(const std::filesystem::path& dir,
+	                           std::vector<std::string>& out)
+	{
+		const std::wstring dirW = dir.wstring();
+		WIN32_FIND_DATAW fd;
+
+		// Pass 1: enumerate *.nif files only.
+		HANDLE h = FindFirstFileExW((dirW + L"\\*.nif").c_str(),
+		                             FindExInfoBasic, &fd,
+		                             FindExSearchNameMatch,
+		                             nullptr, FIND_FIRST_EX_LARGE_FETCH);
+		if (h != INVALID_HANDLE_VALUE) {
+			do {
+				if (!(fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) {
+					try {
+						auto p = dir / fd.cFileName;
+						auto u8 = p.generic_u8string();
+						out.push_back({ reinterpret_cast<const char*>(u8.data()), u8.size() });
+					} catch (...) {}
+				}
+			} while (FindNextFileW(h, &fd));
+			FindClose(h);
+		}
+
+		// Pass 2: enumerate subdirectories only (advisory filter; we still
+		// check FILE_ATTRIBUTE_DIRECTORY to be safe on non-NTFS VFS paths).
+		h = FindFirstFileExW((dirW + L"\\*").c_str(),
+		                      FindExInfoBasic, &fd,
+		                      FindExSearchLimitToDirectories,
+		                      nullptr, FIND_FIRST_EX_LARGE_FETCH);
+		if (h != INVALID_HANDLE_VALUE) {
+			do {
+				if ((fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) &&
+				    fd.cFileName[0] != L'.')
+					findNifsWin32(dir / fd.cFileName, out);
+			} while (FindNextFileW(h, &fd));
+			FindClose(h);
+		}
+	}
+
 	ValidationConfig g_validationConfig;
 
 	static std::string PathToUtf8(const std::filesystem::path& fp)
@@ -712,8 +769,10 @@ namespace hdt
 
 			auto tp1b = Clock::now();
 
-			// ── Phase 1b: parallel recursive scan of all second-level subdirs ────
-			// Per-task: record wall time and NIF count for the slowest-dir report.
+			// ── Phase 1b: parallel recursive scan of all top-level subdirs ─────
+			// findNifsWin32: two-pass Win32 scan (*.nif filter + dir-only filter)
+			// so the kernel skips non-NIF files before they surface through VFS hooks.
+			// Per-task wall time recorded for the slowest-dir report.
 			std::vector<std::vector<std::string>> perDirNifs(scanTasks.size());
 			std::vector<long long> taskMs(scanTasks.size(), 0);
 			{
@@ -723,6 +782,9 @@ namespace hdt
 				for (size_t j = 0; j < n; ++j) {
 					futures.push_back(std::async(std::launch::async, [&, j]() {
 						auto tTask = Clock::now();
+#ifdef _WIN32
+						findNifsWin32(scanTasks[j], perDirNifs[j]);
+#else
 						std::error_code ec2;
 						for (auto& entry : fs::recursive_directory_iterator(
 								scanTasks[j],
@@ -733,11 +795,9 @@ namespace hdt
 							auto ext = toStr(entry.path().extension());
 							std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
 							if (ext != ".nif") continue;
-							try { perDirNifs[j].push_back(toStr(entry.path())); }
-							catch (const std::exception& e) {
-								logger::warn("[Validator] Skipping unrepresentable path: {}", e.what());
-							}
+							try { perDirNifs[j].push_back(toStr(entry.path())); } catch (...) {}
 						}
+#endif
 						taskMs[j] = msElapsed(tTask, Clock::now());
 					}));
 				}
