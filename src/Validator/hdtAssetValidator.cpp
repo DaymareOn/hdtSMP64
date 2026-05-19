@@ -40,6 +40,8 @@ namespace hdt
 		return { reinterpret_cast<const char*>(u8.data()), u8.size() };
 	}
 
+	static constexpr const char* kDebugSingleNifPath = "data/meshes/clothes/cloaksofskyrim/sagecloakwhitef_0.nif";
+
 	/// Constructs a NIFDecimationOptions struct from the current global validation config.
 	/// Packages all mesh decimation settings for use by NIF improvers.
 	static NIFDecimationOptions buildDecimationOptionsFromConfig()
@@ -667,24 +669,21 @@ namespace hdt
 			return result;
 		} else {
 			// ---- Filesystem: NIF discovery ----
-			// Two-step: serial directory walk to collect paths, then parallel binary scan.
+			// Temporary debug mode: scan a single hardcoded NIF directly.
 			namespace fs = std::filesystem;
 			auto toStr = [](const fs::path& fp) -> std::string {
 				auto u8 = fp.generic_u8string();
 				return { reinterpret_cast<const char*>(u8.data()), u8.size() };
 			};
-			fs::path meshDir = "data/meshes";
-
 			std::error_code ec;
-			if (!fs::exists(meshDir, ec) || !fs::is_directory(meshDir, ec)) {
-				logger::warn("[Validator] Meshes directory not found: {}", PathToUtf8(meshDir));
+			fs::path dataDir = "data";
+			if (!fs::exists(dataDir, ec) || !fs::is_directory(dataDir, ec)) {
+				logger::warn("[Validator] Data directory not found: {}", PathToUtf8(dataDir));
 				return {};
 			}
 
-			// Step 1: serial directory walk — collect all .nif paths.
-			// Filesystem iteration is not required to be thread-safe, so keep it serial.
 			std::vector<std::string> nifPaths;
-			for (auto& entry : fs::recursive_directory_iterator(meshDir, ec)) {
+			for (auto& entry : fs::recursive_directory_iterator(dataDir, ec)) {
 				if (ec) {
 					logger::warn("[Validator] Mesh directory iteration error: {}", ec.message());
 					break;
@@ -702,7 +701,10 @@ namespace hdt
 					logger::warn("[Validator] Skipping unrepresentable path: {}", e.what());
 				}
 			}
-
+			// Debug single-NIF restriction (re-enable for targeted testing):
+			// const char* kDebugSingleNifPath = "data/meshes/clothes/cloaksofskyrim/sagecloakwhitef_0.nif";
+			// logger::warn("[Validator] DEBUG single-NIF restriction active: {}", kDebugSingleNifPath);
+			// nifPaths = { kDebugSingleNifPath };
 			logger::info("[Validator] Found {} NIF files, scanning for physics data...", nifPaths.size());
 			if (outFilesystemNifFilesDiscovered)
 				*outFilesystemNifFilesDiscovered = static_cast<int>(nifPaths.size());
@@ -1258,7 +1260,21 @@ namespace hdt
 					results.reserve(indices.size());
 					for (size_t idx : indices) {
 						NIFImproverDiagnostics d;
-						results.push_back(GenerateImprovedNIF(nifAssets[idx].nifPath, g_validationConfig.outputDir, decimationOptions, &d));
+						std::unordered_set<std::string> missingRefs;
+						for (const auto& rawPath : nifAssets[idx].allPhysicsXmlPaths) {
+							auto [resolvedPath, xmlExists] = resolveXMLPath(rawPath);
+							if (xmlExists)
+								continue;
+							missingRefs.insert(NormalizePathForComparison(rawPath));
+							if (!resolvedPath.empty())
+								missingRefs.insert(NormalizePathForComparison(resolvedPath));
+						}
+						results.push_back(GenerateImprovedNIF(
+							nifAssets[idx].nifPath,
+							g_validationConfig.outputDir,
+							decimationOptions,
+							&d,
+							&missingRefs));
 						decCandidatesDiscovered.fetch_add(d.decimationCandidatesDiscovered);
 						decCandidatesAttempted.fetch_add(d.decimationCandidatesAttempted);
 						decCandidatesApplied.fetch_add(d.decimationCandidatesApplied);
@@ -1269,6 +1285,8 @@ namespace hdt
 							for (const auto& rc : d.decimationSkipReasons)
 								decimationReasonCounts[rc.first] += rc.second;
 						}
+						if (!d.validationError.empty())
+							logger::error("[Validator] NIF round-trip validation failed for '{}': {}", nifAssets[idx].nifPath, d.validationError);
 					}
 
 					if (!std::any_of(results.begin(), results.end(), [](bool r) { return r; }))
@@ -1476,26 +1494,59 @@ namespace hdt
 	/// Preserves _0/_1 NIF pair atomicity by copying unchanged siblings when one is improved.
 	NIFImproveResult ImprovePhysicsNIFs(const std::string& outputDir, bool equippedOnly, bool copyOriginal)
 	{
+		auto collectMissingPhysicsXmlRefs = [](const PhysicsAsset& asset) {
+			std::unordered_set<std::string> missingRefs;
+			for (const auto& rawPath : asset.allPhysicsXmlPaths) {
+				auto [resolvedPath, xmlExists] = resolveXMLPath(rawPath);
+				if (xmlExists)
+					continue;
+				missingRefs.insert(NormalizePathForComparison(rawPath));
+				if (!resolvedPath.empty())
+					missingRefs.insert(NormalizePathForComparison(resolvedPath));
+			}
+			return missingRefs;
+		};
+
 		NIFImproveResult result;
 		if (outputDir.empty()) {
 			result.errors.push_back("Output directory is empty");
 			return result;
 		}
 
-		if (equippedOnly) {
-			std::unordered_set<std::string> equippedXMLs;
-			for (const auto& xmlPath : collectPhysicsXMLPaths(true))
-				equippedXMLs.insert(NormalizePathForComparison(xmlPath));
+		auto decimationOptions = buildDecimationOptionsFromConfig();
 
+		if (equippedOnly) {
 			auto nifAssetsEquipped = discoverPhysicsAssets(true);
-			for (const auto& asset : nifAssetsEquipped) {
-				if (!asset.xmlExists)
+			result.totalNIFsFound = static_cast<int>(nifAssetsEquipped.size());
+
+			std::map<std::string, std::vector<size_t>> stemGroups;
+			for (size_t i = 0; i < nifAssetsEquipped.size(); ++i)
+				stemGroups[getNifPairBaseStem(NormalizePathForComparison(nifAssetsEquipped[i].nifPath))].push_back(i);
+
+			for (auto& [stem, indices] : stemGroups) {
+				std::vector<bool> results;
+				results.reserve(indices.size());
+				for (size_t idx : indices) {
+					auto missingRefs = collectMissingPhysicsXmlRefs(nifAssetsEquipped[idx]);
+					results.push_back(GenerateImprovedNIF(
+						nifAssetsEquipped[idx].nifPath,
+						outputDir,
+						decimationOptions,
+						nullptr,
+						&missingRefs,
+						copyOriginal));
+				}
+
+				if (!std::any_of(results.begin(), results.end(), [](bool r) { return r; }))
 					continue;
-				if (equippedXMLs.count(NormalizePathForComparison(asset.xmlPath)) == 0)
-					continue;
-				++result.totalNIFsFound;
-				if (GenerateImprovedNIF(asset.nifPath, outputDir, {}, nullptr, copyOriginal))
-					++result.nifImprovedCount;
+
+				result.nifImprovedCount += static_cast<int>(std::count(results.begin(), results.end(), true));
+				for (size_t k = 0; k < indices.size(); ++k) {
+					if (!results[k]) {
+						if (!CopyNIFToOutput(nifAssetsEquipped[indices[k]].nifPath, outputDir))
+							logger::warn("[Validator] Failed to copy unchanged NIF sibling to output: {}", nifAssetsEquipped[indices[k]].nifPath);
+					}
+				}
 			}
 			return result;
 		}
@@ -1507,7 +1558,6 @@ namespace hdt
 			for (const auto& tri : a.relatedTRIPaths)
 				relatedTRINorm.insert(NormalizePathForComparison(tri));
 		result.totalTRIFilesFound = static_cast<int>(relatedTRINorm.size());
-		auto decimationOptions = buildDecimationOptionsFromConfig();
 
 		// Group by base stem so _0/_1 pairs are processed atomically (same as Phase 5).
 		std::map<std::string, std::vector<size_t>> stemGroups;
@@ -1532,7 +1582,14 @@ namespace hdt
 			results.reserve(indices.size());
 			for (size_t idx : indices) {
 				NIFImproverDiagnostics d;
-				results.push_back(GenerateImprovedNIF(nifAssets[idx].nifPath, outputDir, decimationOptions, &d, copyOriginal));
+				auto missingRefs = collectMissingPhysicsXmlRefs(nifAssets[idx]);
+				results.push_back(GenerateImprovedNIF(
+					nifAssets[idx].nifPath,
+					outputDir,
+					decimationOptions,
+					&d,
+					&missingRefs,
+					copyOriginal));
 				decCandidatesDiscovered.fetch_add(d.decimationCandidatesDiscovered);
 				decCandidatesAttempted.fetch_add(d.decimationCandidatesAttempted);
 				decCandidatesApplied.fetch_add(d.decimationCandidatesApplied);
@@ -1543,6 +1600,8 @@ namespace hdt
 					for (const auto& rc : d.decimationSkipReasons)
 						decimationReasonCounts[rc.first] += rc.second;
 				}
+				if (!d.validationError.empty())
+					logger::error("[Validator] NIF round-trip validation failed for '{}': {}", nifAssets[idx].nifPath, d.validationError);
 			}
 
 			if (!std::any_of(results.begin(), results.end(), [](bool r) { return r; }))

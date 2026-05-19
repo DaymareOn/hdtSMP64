@@ -153,18 +153,24 @@ namespace hdt
 			return result;
 		}
 
-		size_t headerDataStart = headerEnd + 1;
-		while (headerDataStart < data.size() && data[headerDataStart] == 0x00)
-			++headerDataStart;
-
 		try {
-			nif::NifHeaderInfo headerInfo;
-			if (nif::ParseNifHeader(data, headerDataStart, headerInfo)) {
-				result.hasGeometry = headerInfo.hasGeometry;
-				result.hasSkinning = headerInfo.hasSkinning;
+			auto parsedOpt = parseNif(data);
+			if (parsedOpt.has_value()) {
+				const auto& parsed = *parsedOpt;
+
+				for (size_t i = 0; i < parsed.blockTypeIndex.size(); ++i) {
+					uint16_t tIdx = parsed.blockTypeIndex[i];
+					if (tIdx >= parsed.blockTypes.size())
+						continue;
+					const auto& bt = parsed.blockTypes[tIdx];
+					if (bt == nif::kTypeBSTriShape || bt == nif::kTypeBSDynamicTriShape)
+						result.hasGeometry = true;
+					else if (bt == nif::kTypeNiSkinInstance || bt == nif::kTypeBSSkinInstance)
+						result.hasSkinning = true;
+				}
 
 				bool hasMarker = false;
-				for (const auto& s : headerInfo.strings) {
+				for (const auto& s : parsed.strings) {
 					if (s == nif::kPhysicsMarker) {
 						hasMarker = true;
 						break;
@@ -173,7 +179,7 @@ namespace hdt
 
 				if (hasMarker) {
 					result.hasPhysicsData = true;
-					result.allPhysicsXmlPaths = nif::FindXmlPathsInHeader(headerInfo, data);
+					result.allPhysicsXmlPaths = nif::FindXmlPathsInNif(parsed);
 					if (!result.allPhysicsXmlPaths.empty()) {
 						result.physicsXmlPath = result.allPhysicsXmlPaths[0];
 					} else {

@@ -4,6 +4,8 @@
 
 #include "hdtNIFBinaryIO.h"
 
+#include "../Schema/hdtNifSchema.h"
+
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -704,12 +706,34 @@ namespace hdt
 	}
 
 	/// Build outbound reference sets for each block in the parsed NIF.
+	/// Uses the NIF schema to identify exact Ref/Ptr fields — same approach as NifSkope's
+	/// NifModel::updateLinks(), which walks each block's typed fields instead of scanning
+	/// raw bytes.  Unknown block types produce an empty set (no data > incorrect data).
 	static std::vector<std::unordered_set<int32_t>> buildOutboundRefs(const ParsedNif& parsed)
 	{
-		const int32_t numBlocks = static_cast<int32_t>(parsed.blocks.size());
+		const NifSchema& schema   = globalNifSchema();
+		const int32_t    numBlocks = static_cast<int32_t>(parsed.blocks.size());
 		std::vector<std::unordered_set<int32_t>> outbound(parsed.blocks.size());
-		for (size_t i = 0; i < parsed.blocks.size(); ++i)
-			outbound[i] = collectPotentialRefs(parsed.blocks[i], numBlocks);
+
+		for (size_t i = 0; i < parsed.blocks.size(); ++i) {
+			uint16_t tIdx = parsed.blockTypeIndex[i];
+			const std::string& typeName =
+				(tIdx < parsed.blockTypes.size()) ? parsed.blockTypes[tIdx] : std::string{};
+
+			auto opt = walkBlockRefs(schema, typeName,
+			                         parsed.blocks[i].data(), parsed.blocks[i].size(),
+			                         numBlocks, LinkFilter::All);
+			if (!opt.has_value())
+				continue;  // unknown type → empty set, not incorrect data
+
+			for (size_t off : *opt) {
+				if (off + 4 > parsed.blocks[i].size()) continue;
+				int32_t v = -1;
+				std::memcpy(&v, parsed.blocks[i].data() + off, 4);
+				if (v >= 0 && v < numBlocks)
+					outbound[i].insert(v);
+			}
+		}
 		return outbound;
 	}
 

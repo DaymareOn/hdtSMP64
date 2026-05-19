@@ -1,20 +1,24 @@
 #pragma once
 
+#include <unordered_set>
 #include <string>
 #include <utility>
 #include <vector>
 
 namespace hdt
 {
-		struct NIFImproverDiagnostics
-		{
-			int decimationCandidatesDiscovered = 0;
-			int decimationCandidatesAttempted = 0;
-			int decimationCandidatesApplied = 0;
-			int decimationCandidatesSkippedNoChange = 0;
-			int decimationCandidatesSkippedUnsafe = 0;
-			std::vector<std::pair<std::string, int>> decimationSkipReasons;
-		};
+	struct NIFImproverDiagnostics
+	{
+		int decimationCandidatesDiscovered = 0;
+		int decimationCandidatesAttempted = 0;
+		int decimationCandidatesApplied = 0;
+		int decimationCandidatesSkippedNoChange = 0;
+		int decimationCandidatesSkippedUnsafe = 0;
+		std::vector<std::pair<std::string, int>> decimationSkipReasons;
+		// Non-empty when the post-modification round-trip validation failed.
+		// Indicates a bug in the NIF improver pipeline; the file was NOT written.
+		std::string validationError;
+	};
 
 	struct NIFDecimationOptions
 	{
@@ -46,6 +50,7 @@ namespace hdt
 		const std::string& outputDir,
 			const NIFDecimationOptions& options = {},
 			NIFImproverDiagnostics* outDiagnostics = nullptr,
+			const std::unordered_set<std::string>* missingPhysicsXmlRefs = nullptr,
 			bool copyOriginal = false);
 
 	// Copies a NIF file unchanged to:

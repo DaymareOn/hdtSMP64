@@ -117,6 +117,8 @@ set(SOURCE_FILES
 	"${SOURCE_DIR}/Validator/Improvers/hdtNIFImprover.h"
 	"${SOURCE_DIR}/Validator/Improvers/hdtCollisionMeshDecimator.cpp"
 	"${SOURCE_DIR}/Validator/Improvers/hdtCollisionMeshDecimator.h"
+	"${SOURCE_DIR}/Validator/Schema/hdtNifSchema.h"
+	"${SOURCE_DIR}/Validator/Schema/hdtNifSchema.cpp"
 	"${SOURCE_DIR}/XmlInspector/CharactersReader.hpp"
 	"${SOURCE_DIR}/XmlInspector/CharactersWriter.hpp"
 	"${SOURCE_DIR}/XmlInspector/XmlInspector.hpp"
