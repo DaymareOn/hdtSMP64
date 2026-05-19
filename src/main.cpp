@@ -87,16 +87,29 @@ namespace
 		return parseArg(arg1) && parseArg(arg2) && parseArg(arg3) && parseArg(arg4);
 	}
 
+	// Resolves the mods directory (from argument or config) and derives the
+	// FSMP-out output path.  Returns false if no mods dir is available.
 	bool ValidateFixOutputDir(std::string& outputDir, const char* usageHint) {
-		if (outputDir.empty())
-			outputDir = hdt::g_validationConfig.outputDir;
-		if (outputDir.empty()) {
-			RE::ConsoleLog::GetSingleton()->Print(
-				"[HDT-SMP] Output directory not set. Usage: %s or set <validation><output-dir> in config.",
-				usageHint);
-			return false;
+		// If a directory was given on the command line, check whether it is
+		// already the output dir (old usage) or the mods dir (new usage).
+		// New usage: mods dir → FSMP-out is created inside it.
+		if (!outputDir.empty()) {
+			namespace fs = std::filesystem;
+			fs::path p(outputDir);
+			// If the path ends in FSMP-out the user typed the old output path — accept as-is.
+			if (p.filename() != "FSMP-out")
+				outputDir = (p / "FSMP-out").string();
+			return true;
 		}
-		return true;
+		// Fall back to config.
+		if (!hdt::g_validationConfig.outputDir.empty()) {
+			outputDir = hdt::g_validationConfig.outputDir;
+			return true;
+		}
+		RE::ConsoleLog::GetSingleton()->Print(
+			"[HDT-SMP] Mods directory not set. Usage: %s or set <validation><mods-dir> in config.",
+			usageHint);
+		return false;
 	}
 
 	static std::atomic<bool> s_validationRunning{ false };

@@ -125,7 +125,16 @@ namespace hdt
 			case XMLReader::Inspected::StartTag:
 				if (reader.GetLocalName() == "warn-triangle-count") {
 					g_validationConfig.warnTriangleCount = reader.readInt();
+				} else if (reader.GetLocalName() == "mods-dir") {
+					g_validationConfig.modsDir = reader.readText();
+					// Derive outputDir = modsDir/FSMP-out automatically.
+					if (!g_validationConfig.modsDir.empty()) {
+						namespace fs = std::filesystem;
+						g_validationConfig.outputDir =
+							(fs::path(g_validationConfig.modsDir) / "FSMP-out").string();
+					}
 				} else if (reader.GetLocalName() == "output-dir") {
+					// Legacy tag — accepted for backward compat but modsDir stays empty.
 					g_validationConfig.outputDir = reader.readText();
 				} else if (reader.GetLocalName() == "decimate-collision-meshes-offline") {
 					g_validationConfig.decimateCollisionMeshesOffline = reader.readBool();

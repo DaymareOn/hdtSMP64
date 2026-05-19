@@ -6,7 +6,6 @@
 #  endif
 #  include <windows.h>
 #endif
-
 #include "ActorManager.h"
 #include "NetImmerseUtils.h"
 #include "Improvers/hdtNIFImprover.h"
@@ -40,53 +39,50 @@
 
 namespace hdt
 {
-	// ── Win32 NIF scanner ─────────────────────────────────────────────────────
-	// Recursively collects .nif paths under `dir` using two FindFirstFileExW
-	// passes per directory:
-	//   Pass 1  *.nif + FindExSearchNameMatch        → kernel filters to NIF files only
-	//   Pass 2  *     + FindExSearchLimitToDirectories → kernel (advisory) filters to dirs
+	// ── Win32 NIF scanner (native NTFS, no VFS) ──────────────────────────────
+	// Two passes per directory:
+	//   Pass 1  *.nif + FindExSearchNameMatch        → NTFS returns NIF files only
+	//   Pass 2  *     + FindExSearchLimitToDirectories → NTFS returns dirs only
 	//
-	// Compared to recursive_directory_iterator this avoids surfacing non-NIF
-	// file entries through the MO2 VFS hooks, which account for most of the
-	// Phase-1 enumeration cost on large modlists.
-	static void findNifsWin32(const std::filesystem::path& dir,
-	                           std::vector<std::string>& out)
+	// This is effective on the native filesystem where NTFS applies the filter at
+	// the driver level.  It was ineffective through MO2's VFS because the VFS hook
+	// enumerates all entries before applying the pattern.
+	static void findNifsNative(const std::filesystem::path& dir,
+	                            std::vector<std::string>& out)
 	{
+		// Single pass: enumerate all entries, collect NIFs and recurse into dirs.
+		// Previously used two passes (*.nif + FindExSearchLimitToDirectories) but
+		// FindExSearchLimitToDirectories is advisory and ignored by NTFS — Pass 2
+		// enumerated all files anyway, doubling the I/O cost on animation mods.
+		// One pass with FIND_FIRST_EX_LARGE_FETCH is faster overall.
 		const std::wstring dirW = dir.wstring();
 		WIN32_FIND_DATAW fd;
 
-		// Pass 1: enumerate *.nif files only.
-		HANDLE h = FindFirstFileExW((dirW + L"\\*.nif").c_str(),
+		HANDLE h = FindFirstFileExW((dirW + L"\\*").c_str(),
 		                             FindExInfoBasic, &fd,
 		                             FindExSearchNameMatch,
 		                             nullptr, FIND_FIRST_EX_LARGE_FETCH);
-		if (h != INVALID_HANDLE_VALUE) {
-			do {
-				if (!(fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) {
+		if (h == INVALID_HANDLE_VALUE) return;
+
+		do {
+			if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+				if (fd.cFileName[0] != L'.')
+					findNifsNative(dir / fd.cFileName, out);
+			} else {
+				// Check for .nif extension (case-insensitive)
+				const wchar_t* name = fd.cFileName;
+				const wchar_t* dot  = wcsrchr(name, L'.');
+				if (dot && _wcsicmp(dot, L".nif") == 0) {
 					try {
-						auto p = dir / fd.cFileName;
+						auto p  = dir / name;
 						auto u8 = p.generic_u8string();
 						out.push_back({ reinterpret_cast<const char*>(u8.data()), u8.size() });
 					} catch (...) {}
 				}
-			} while (FindNextFileW(h, &fd));
-			FindClose(h);
-		}
+			}
+		} while (FindNextFileW(h, &fd));
 
-		// Pass 2: enumerate subdirectories only (advisory filter; we still
-		// check FILE_ATTRIBUTE_DIRECTORY to be safe on non-NTFS VFS paths).
-		h = FindFirstFileExW((dirW + L"\\*").c_str(),
-		                      FindExInfoBasic, &fd,
-		                      FindExSearchLimitToDirectories,
-		                      nullptr, FIND_FIRST_EX_LARGE_FETCH);
-		if (h != INVALID_HANDLE_VALUE) {
-			do {
-				if ((fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) &&
-				    fd.cFileName[0] != L'.')
-					findNifsWin32(dir / fd.cFileName, out);
-			} while (FindNextFileW(h, &fd));
-			FindClose(h);
-		}
+		FindClose(h);
 	}
 
 	ValidationConfig g_validationConfig;
@@ -749,20 +745,37 @@ namespace hdt
 			// Timing each dir reveals which ones are slow to open (VFS overhead).
 			auto tp1a = Clock::now();
 			std::vector<std::string> nifPaths;
-			std::vector<fs::path>    scanTasks; // top-level dirs for parallel scan
+			std::vector<fs::path>    scanTasks; // dirs for parallel scan
 
-			std::vector<std::pair<std::string, long long>> l1Timings; // name → ms
-			for (auto& entry : fs::directory_iterator(scanRoot, ec)) {
-				if (ec) { ec.clear(); continue; }
-				if (entry.is_directory(ec) && !ec) {
-					auto tL1 = Clock::now();
-					scanTasks.push_back(entry.path());
-					l1Timings.push_back({ toStr(entry.path().filename()), msElapsed(tL1, Clock::now()) });
-				} else if (entry.is_regular_file(ec) && !ec) {
-					auto ext = toStr(entry.path().extension());
-					std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-					if (ext == ".nif") {
-						try { nifPaths.push_back(toStr(entry.path())); } catch (...) {}
+			// Physical mods directory bypass: enumerate each mod's directory
+			// directly on NTFS, avoiding MO2 VFS hook overhead entirely.
+			// Driven by <mods-dir> in configs.xml; falls back to the VFS scan of
+			// data/ when modsDir is empty (Vortex users, or unconfigured installs).
+			const fs::path kPhysModsDir = !g_validationConfig.modsDir.empty()
+			    ? fs::path(g_validationConfig.modsDir) : fs::path{};
+			const bool physScan = !kPhysModsDir.empty()
+			    && fs::exists(kPhysModsDir, ec) && fs::is_directory(kPhysModsDir, ec);
+			ec.clear();
+
+			if (physScan) {
+				logger::info("[Validator][PROF] Phase 1: using physical mods dir: {}", toStr(kPhysModsDir));
+				for (auto& entry : fs::directory_iterator(kPhysModsDir, ec)) {
+					if (ec) { ec.clear(); continue; }
+					if (entry.is_directory(ec) && !ec)
+						scanTasks.push_back(entry.path());
+				}
+			} else {
+				// VFS scan of data/ (original path)
+				for (auto& entry : fs::directory_iterator(scanRoot, ec)) {
+					if (ec) { ec.clear(); continue; }
+					if (entry.is_directory(ec) && !ec) {
+						scanTasks.push_back(entry.path());
+					} else if (entry.is_regular_file(ec) && !ec) {
+						auto ext = toStr(entry.path().extension());
+						std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+						if (ext == ".nif") {
+							try { nifPaths.push_back(toStr(entry.path())); } catch (...) {}
+						}
 					}
 				}
 			}
@@ -770,8 +783,12 @@ namespace hdt
 			auto tp1b = Clock::now();
 
 			// ── Phase 1b: parallel recursive scan of all top-level subdirs ─────
-			// findNifsWin32: two-pass Win32 scan (*.nif filter + dir-only filter)
-			// so the kernel skips non-NIF files before they surface through VFS hooks.
+			// One future per top-level dir so heavy dirs (meshes/, textures/) and
+			// light dirs (sounds/, scripts/) overlap naturally.
+			// Note: FindFirstFileExW with *.nif filter was tested but proved slower —
+			// MO2's VFS hook processes all entries before applying the filter, so
+			// a two-pass approach pays the VFS cost twice. Single-pass
+			// recursive_directory_iterator is optimal in this environment.
 			// Per-task wall time recorded for the slowest-dir report.
 			std::vector<std::vector<std::string>> perDirNifs(scanTasks.size());
 			std::vector<long long> taskMs(scanTasks.size(), 0);
@@ -782,22 +799,26 @@ namespace hdt
 				for (size_t j = 0; j < n; ++j) {
 					futures.push_back(std::async(std::launch::async, [&, j]() {
 						auto tTask = Clock::now();
-#ifdef _WIN32
-						findNifsWin32(scanTasks[j], perDirNifs[j]);
-#else
-						std::error_code ec2;
-						for (auto& entry : fs::recursive_directory_iterator(
-								scanTasks[j],
-								fs::directory_options::skip_permission_denied,
-								ec2)) {
-							if (ec2) { ec2.clear(); continue; }
-							if (!entry.is_regular_file(ec2) || ec2) { ec2.clear(); continue; }
-							auto ext = toStr(entry.path().extension());
-							std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-							if (ext != ".nif") continue;
-							try { perDirNifs[j].push_back(toStr(entry.path())); } catch (...) {}
+						if (physScan) {
+							// Native NTFS: Win32 two-pass scan (*.nif + dirs only).
+							// NTFS applies the filter at the driver level so we never
+							// pay the per-entry cost for non-NIF files.
+							findNifsNative(scanTasks[j], perDirNifs[j]);
+						} else {
+							// VFS fallback: single-pass recursive_directory_iterator.
+							std::error_code ec2;
+							for (auto& entry : fs::recursive_directory_iterator(
+									scanTasks[j],
+									fs::directory_options::skip_permission_denied,
+									ec2)) {
+								if (ec2) { ec2.clear(); continue; }
+								if (!entry.is_regular_file(ec2) || ec2) { ec2.clear(); continue; }
+								auto ext = toStr(entry.path().extension());
+								std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+								if (ext != ".nif") continue;
+								try { perDirNifs[j].push_back(toStr(entry.path())); } catch (...) {}
+							}
 						}
-#endif
 						taskMs[j] = msElapsed(tTask, Clock::now());
 					}));
 				}
@@ -806,7 +827,29 @@ namespace hdt
 			auto tp1c = Clock::now();
 
 			// ── Phase 1c: merge ───────────────────────────────────────────────────
-			{
+			if (physScan) {
+				// Physical scan: convert absolute paths to data/-relative virtual paths
+				// and deduplicate — multiple mods may supply the same NIF (priority
+				// overrides).  We keep the first occurrence; Phase 2+3 open paths
+				// through the VFS so they always get the highest-priority version.
+				std::unordered_set<std::string> seen;
+				for (size_t j = 0; j < scanTasks.size(); ++j) {
+					// Prefix = "c:/Modlists/JOJ/mods/<ModName>/" (forward slashes, trailing /)
+					std::string prefix = toStr(scanTasks[j]);
+					if (!prefix.empty() && prefix.back() != '/') prefix += '/';
+
+					for (auto& physPath : perDirNifs[j]) {
+						if (physPath.size() <= prefix.size()) continue;
+						// Case-insensitive prefix strip (Windows paths may differ in case)
+						bool prefixMatch = _strnicmp(physPath.c_str(), prefix.c_str(), prefix.size()) == 0;
+						if (!prefixMatch) continue;
+						std::string rel = physPath.substr(prefix.size());
+						std::string virt = "data/" + rel;
+						if (seen.insert(virt).second)
+							nifPaths.push_back(std::move(virt));
+					}
+				}
+			} else {
 				size_t total = nifPaths.size();
 				for (auto& v : perDirNifs) total += v.size();
 				nifPaths.reserve(total);
@@ -815,8 +858,8 @@ namespace hdt
 			}
 			auto tp1d = Clock::now();
 
-			logger::info("[Validator][PROF] Phase 1 breakdown ({} top-dirs, {} NIFs found):",
-				scanTasks.size(), nifPaths.size());
+			logger::info("[Validator][PROF] Phase 1 breakdown ({} tasks, {} NIFs found, mode={}):",
+				scanTasks.size(), nifPaths.size(), physScan ? "physical-mods" : "vfs-data");
 			logger::info("[Validator][PROF]   1a serial scan        {:>6} ms", msElapsed(tp1a, tp1b));
 			logger::info("[Validator][PROF]   1b parallel scan      {:>6} ms  (wall, {} tasks)", msElapsed(tp1b, tp1c), scanTasks.size());
 			logger::info("[Validator][PROF]   1c merge              {:>6} ms", msElapsed(tp1c, tp1d));

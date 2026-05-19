@@ -8,7 +8,8 @@ namespace hdt
 	struct ValidationConfig
 	{
 		int warnTriangleCount = 10000;
-		std::string outputDir;  // if set, improved XML copies are written here
+		std::string modsDir;    // mods folder (MO2 mods/ or Vortex staging); FSMP-out is created inside it
+		std::string outputDir;  // derived: modsDir/FSMP-out — set by config loader, used everywhere
 		bool decimateCollisionMeshesOffline = false;
 		float decimationTargetVertexRatio = 0.99f;
 		int decimationTargetVertexCount = 0;
