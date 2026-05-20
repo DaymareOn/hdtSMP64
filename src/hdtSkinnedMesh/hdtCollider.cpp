@@ -32,11 +32,18 @@ namespace hdt
 			ColliderTree* b;
 			Mode mode;
 		};
-		// thread_local so we don't re-alloc every call. This gets hammered
+		// thread_local: stack is .clear()-ed on each call, so worker thread
+		// recreation is harmless (fresh thread sees empty vector). Re-entry
+		// aliasing is prevented by tbb::this_task_arena::isolate in
+		// CollisionCheckAlgorithm::operator() (hdtSkinnedMeshAlgorithm.cpp).
 		thread_local std::vector<Entry> stack;
 		stack.clear();
 		stack.push_back({ this, r, L });
 		while (!stack.empty()) {
+			if (ret.size() > MaxCollisionPairs) {
+				break;
+			}
+
 			auto e = stack.back();
 			stack.pop_back();
 

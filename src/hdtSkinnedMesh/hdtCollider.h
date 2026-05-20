@@ -5,6 +5,8 @@
 
 namespace hdt
 {
+	static const int MaxCollisionPairs = 4024;
+
 	struct alignas(16) Collider
 	{
 		Collider()

@@ -208,8 +208,8 @@ namespace hdt
 		const StiffSpringConstraintTemplate& getStiffSpringConstraintTemplate(const RE::BSFixedString& name);
 		const ConeTwistConstraintTemplate& getConeTwistConstraintTemplate(const RE::BSFixedString& name);
 
-		SkyrimBone* createBoneFromNodeName(const RE::BSFixedString& bodyName, const RE::BSFixedString& templateName = "", const bool readTemplate = false, SkyrimSystem* old_system = nullptr);
-		void readOrUpdateBone(SkyrimSystem* old_system = nullptr);
+		SkyrimBone* createBoneFromNodeName(const RE::BSFixedString& bodyName, const RE::BSFixedString& templateName = "", const bool readTemplate = false);
+		void readOrUpdateBone();
 		RE::BSTSmartPointer<SkyrimBody> readPerVertexShape(DefaultBBP::NameMap_t meshNameMap);
 		RE::BSTSmartPointer<SkyrimBody> readPerTriangleShape(DefaultBBP::NameMap_t* meshNameMap);
 		RE::BSTSmartPointer<Generic6DofConstraint> readGenericConstraint();

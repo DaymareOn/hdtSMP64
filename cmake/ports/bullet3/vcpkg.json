@@ -13,7 +13,8 @@
     {
       "name": "vcpkg-cmake-config",
       "host": true
-    }
+    },
+    "tbb"
   ],
   "features": {
     "double-precision": {
@@ -31,6 +32,9 @@
     "opencl": {
       "description": "Build Bullet3OpenCL_clew library",
       "supports": "!uwp"
+    },
+    "profile": {
+      "description": "Compatibility no-op; hdtSMP64 always builds Bullet profiling support with a runtime gate."
     },
     "rtti": {
       "description": "Enable RTTI on windows"

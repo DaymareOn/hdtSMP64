@@ -66,6 +66,8 @@ namespace hdt
 	// Collision phases are: Bullet's broadphase, our BVH midphase, then finally our narrowphase
 	void CollisionDispatcher::dispatchAllCollisionPairs(btOverlappingPairCache* pairCache, [[maybe_unused]] const btDispatcherInfo& dispatchInfo, [[maybe_unused]] btDispatcher* dispatcher)
 	{
+		BT_PROFILE("HDTSMP_dispatchAllCollisionPairs");
+
 		auto size = pairCache->getNumOverlappingPairs();
 		if (!size)
 			return;
@@ -124,21 +126,29 @@ namespace hdt
 		std::sort(extra_vertex_shapes.begin(), extra_vertex_shapes.end());
 		extra_vertex_shapes.erase(std::unique(extra_vertex_shapes.begin(), extra_vertex_shapes.end()), extra_vertex_shapes.end());
 
-		concurrency::parallel_for_each(bodies.begin(), bodies.end(), [](SkinnedMeshBody* shape) {
+		tbb::parallel_for_each(bodies.begin(), bodies.end(), [](SkinnedMeshBody* shape) {
 			if (shape->m_useBoundingSphere)
 				shape->internalUpdate();
 		});
 
 		if (!extra_vertex_shapes.empty()) {
-			concurrency::parallel_for_each(extra_vertex_shapes.begin(), extra_vertex_shapes.end(), [](PerVertexShape* shape) {
+			tbb::parallel_for_each(extra_vertex_shapes.begin(), extra_vertex_shapes.end(), [](PerVertexShape* shape) {
 				shape->internalUpdate();
 			});
 		}
 
-		concurrency::parallel_for_each(m_pairs.begin(), m_pairs.end(), [&, this](const std::pair<SkinnedMeshBody*, SkinnedMeshBody*>& i) {
-			if (i.first->m_shape->m_tree.collapseCollideL(&i.second->m_shape->m_tree))
-				SkinnedMeshAlgorithm::processCollision(i.first, i.second, this);
-		});
+		{
+			BT_PROFILE("HDTSMP_collision_pair_checks");
+
+			tbb::parallel_for_each(m_pairs.begin(), m_pairs.end(), [&, this](const std::pair<SkinnedMeshBody*, SkinnedMeshBody*>& i) {
+				// collapseCollideL is a candidate for optimizations since we'll re-traverse the tree in checkCollisionL. However,
+				// it's a bit tricky since collapse has an early-exit, and avoiding boilerplate is ideal. A traversal resume maybe?
+				if (i.first->m_shape->m_tree.collapseCollideL(&i.second->m_shape->m_tree)) {
+					BT_PROFILE("HDTSMP_processCollision");
+					SkinnedMeshAlgorithm::processCollision(i.first, i.second, this);
+				}
+			});
+		}
 
 		m_pairs.clear();
 	}

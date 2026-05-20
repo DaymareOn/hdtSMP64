@@ -1,6 +1,9 @@
 #include "hdtSkyrimPhysicsWorld.h"
 #include "PluginInterfaceImpl.h"
 #include "WeatherManager.h"
+#include "hdtPhysicsProfiler.h"
+
+#include <LinearMath/btQuickprof.h>
 
 namespace hdt
 {
@@ -41,12 +44,19 @@ namespace hdt
 		// SOLVER_SIMD nets a small performance uplift
 		// SOLVER_RANDMIZE_ORDER is also possible, but I clocked a pretty heavy performance hit. Maybe make it a config option
 		getSolverInfo().m_solverMode = SOLVER_SIMD;
+		getSolverInfo().m_leastSquaresResidualThreshold = 0.0001f;
 
 		m_averageInterval = m_timeTick;
 		m_accumulatedInterval = 0;
 	}
 
-	SkyrimPhysicsWorld::~SkyrimPhysicsWorld(void)
+	void SkyrimPhysicsWorld::setProfilerCapture(bool a_enabled, std::uint64_t a_sampleFrames, std::uint64_t a_printFrames)
+	{
+		auto simulationLock = lockSimulation();
+		physicsprofiler::setCapture(a_enabled, a_sampleFrames, a_printFrames);
+	}
+
+	SkyrimPhysicsWorld::~SkyrimPhysicsWorld(void) noexcept
 	{
 	}
 
@@ -139,12 +149,15 @@ namespace hdt
 
 		g_pluginInterface.onPreStep({ getCollisionObjectArray(), remainingTimeStep });
 
-		updateActiveState();
-		auto offset = applyTranslationOffset();
-		stepSimulation(remainingTimeStep, 0, tick);
-		restoreTranslationOffset(offset);
-		m_accumulatedInterval = 0;
-		m_pendingTransformUpdate = true;
+		{
+			BT_PROFILE("HDTSMP_doUpdate2ndStep");
+			updateActiveState();
+			auto offset = applyTranslationOffset();
+			stepSimulation(remainingTimeStep, 0, tick);
+			restoreTranslationOffset(offset);
+			m_accumulatedInterval = 0;
+			m_pendingTransformUpdate = true;
+		}
 
 		g_pluginInterface.onPostStep({ getCollisionObjectArray(), remainingTimeStep });
 
@@ -156,6 +169,8 @@ namespace hdt
 			float lastProcessingTime = (endTime - startTime) / static_cast<float>(ticks.QuadPart) * 1e3f;
 			m_2ndStepAverageProcessingTime = (m_2ndStepAverageProcessingTime + lastProcessingTime) * 0.5f;
 		}
+
+		physicsprofiler::advanceFrame();
 	}
 
 	std::unique_lock<std::mutex> SkyrimPhysicsWorld::lockSimulation()
@@ -300,12 +315,6 @@ namespace hdt
 		}
 	}
 
-	void SkyrimPhysicsWorld::resetTransformsToOriginal()
-	{
-		std::lock_guard<decltype(m_lock)> l(m_lock);
-		SkinnedMeshWorld::resetTransformsToOriginal();
-	}
-
 	void SkyrimPhysicsWorld::resetSystems()
 	{
 		std::lock_guard<decltype(m_lock)> l(m_lock);
@@ -429,6 +438,8 @@ namespace hdt
 		while (m_systems.size()) {
 			SkinnedMeshWorld::removeSkinnedMeshSystem(m_systems.back().get());
 		}
+
+		m_tasks.wait();
 
 		return RE::BSEventNotifyControl::kContinue;
 	}

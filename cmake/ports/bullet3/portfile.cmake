@@ -86,6 +86,59 @@ string(
 		"${CPP_CONTENT}")
 file(WRITE "${SOURCE_PATH}/src/BulletDynamics/ConstraintSolver/btGeneric6DofSpring2Constraint.cpp" "${CPP_CONTENT}")
 
+# oneTBB (TBB >= 2021) removed task_scheduler_init.  Port btThreads.cpp to the oneTBB API: use tbb::global_control for
+# thread-count limiting and tbb::info::default_concurrency() instead of the removed default_num_threads().
+file(READ "${SOURCE_PATH}/src/LinearMath/btThreads.cpp" THREADS_CPP)
+string(REPLACE "#include <tbb/task_scheduler_init.h>\n" "#include <tbb/global_control.h>\n#include <tbb/info.h>\n"
+			   THREADS_CPP "${THREADS_CPP}")
+string(REPLACE "tbb::task_scheduler_init* m_tbbSchedulerInit;" "tbb::global_control* m_tbbSchedulerInit;" THREADS_CPP
+			   "${THREADS_CPP}")
+string(REPLACE "return tbb::task_scheduler_init::default_num_threads();" "return tbb::info::default_concurrency();"
+			   THREADS_CPP "${THREADS_CPP}")
+string(
+	REPLACE "m_tbbSchedulerInit = new tbb::task_scheduler_init(m_numThreads);"
+			"m_tbbSchedulerInit = new tbb::global_control(tbb::global_control::max_allowed_parallelism, m_numThreads);"
+			THREADS_CPP "${THREADS_CPP}")
+file(WRITE "${SOURCE_PATH}/src/LinearMath/btThreads.cpp" "${THREADS_CPP}")
+
+# Runtime profiler gate. Bullet still compiles the profiler support, but disabled BT_PROFILE scopes become a cheap
+# inline bool check instead of two indirect calls into empty profile callbacks.
+file(READ "${SOURCE_PATH}/src/LinearMath/btQuickprof.h" QUICKPROF_HEADER)
+string(
+	REPLACE
+		"void btSetCustomLeaveProfileZoneFunc(btLeaveProfileZoneFunc* leaveFunc);\n\n#ifndef BT_ENABLE_PROFILE"
+		"void btSetCustomLeaveProfileZoneFunc(btLeaveProfileZoneFunc* leaveFunc);\n\nvoid btEnterProfileZone(const char* name);\nvoid btLeaveProfileZone();\n\nextern bool gBtProfileEnabled;\nvoid btSetProfileEnabled(bool enabled);\nbool btGetProfileEnabled();\nSIMD_FORCE_INLINE bool btIsProfileEnabled()\n{\n\treturn gBtProfileEnabled;\n}\n\n#ifndef BT_ENABLE_PROFILE"
+		QUICKPROF_HEADER
+		"${QUICKPROF_HEADER}")
+string(
+	REPLACE
+		"void btSetCustomLeaveProfileZoneFunc(btLeaveProfileZoneFunc* leaveFunc);\n\nextern bool gBtProfileEnabled;"
+		"void btSetCustomLeaveProfileZoneFunc(btLeaveProfileZoneFunc* leaveFunc);\n\nvoid btEnterProfileZone(const char* name);\nvoid btLeaveProfileZone();\n\nextern bool gBtProfileEnabled;"
+		QUICKPROF_HEADER
+		"${QUICKPROF_HEADER}")
+string(
+	REPLACE
+		"class CProfileSample\n{\npublic:\n\tCProfileSample(const char* name);\n\n\t~CProfileSample(void);\n};"
+		"class CProfileSample\n{\npublic:\n\tCProfileSample(const char* name) :\n\t\tm_enabled(btIsProfileEnabled())\n\t{\n\t\tif (m_enabled)\n\t\t{\n\t\t\tbtEnterProfileZone(name);\n\t\t}\n\t}\n\n\t~CProfileSample(void)\n\t{\n\t\tif (m_enabled)\n\t\t{\n\t\t\tbtLeaveProfileZone();\n\t\t}\n\t}\n\nprivate:\n\tbool m_enabled;\n};"
+		QUICKPROF_HEADER
+		"${QUICKPROF_HEADER}")
+file(WRITE "${SOURCE_PATH}/src/LinearMath/btQuickprof.h" "${QUICKPROF_HEADER}")
+
+file(READ "${SOURCE_PATH}/src/LinearMath/btQuickprof.cpp" QUICKPROF_CPP)
+string(
+	REPLACE
+		"static btEnterProfileZoneFunc* bts_enterFunc = btEnterProfileZoneDefault;\nstatic btLeaveProfileZoneFunc* bts_leaveFunc = btLeaveProfileZoneDefault;"
+		"bool gBtProfileEnabled = false;\n\nstatic btEnterProfileZoneFunc* bts_enterFunc = btEnterProfileZoneDefault;\nstatic btLeaveProfileZoneFunc* bts_leaveFunc = btLeaveProfileZoneDefault;"
+		QUICKPROF_CPP
+		"${QUICKPROF_CPP}")
+string(
+	REPLACE
+		"void btSetCustomLeaveProfileZoneFunc(btLeaveProfileZoneFunc* leaveFunc)\n{\n\tbts_leaveFunc = leaveFunc;\n}\n\nCProfileSample::CProfileSample(const char* name)\n{\n\tbtEnterProfileZone(name);\n}\n\nCProfileSample::~CProfileSample(void)\n{\n\tbtLeaveProfileZone();\n}\n"
+		"void btSetCustomLeaveProfileZoneFunc(btLeaveProfileZoneFunc* leaveFunc)\n{\n\tbts_leaveFunc = leaveFunc;\n}\n\nvoid btSetProfileEnabled(bool enabled)\n{\n\tgBtProfileEnabled = enabled;\n}\n\nbool btGetProfileEnabled()\n{\n\treturn gBtProfileEnabled;\n}\n"
+		QUICKPROF_CPP
+		"${QUICKPROF_CPP}")
+file(WRITE "${SOURCE_PATH}/src/LinearMath/btQuickprof.cpp" "${QUICKPROF_CPP}")
+
 file(REMOVE_RECURSE "${SOURCE_PATH}/examples/ThirdPartyLibs")
 
 vcpkg_check_features(
@@ -104,10 +157,20 @@ vcpkg_check_features(
 	rtti
 	USE_MSVC_DISABLE_RTTI)
 
-if("multithreading" IN_LIST FEATURES
-   AND VCPKG_TARGET_IS_WINDOWS
-   AND NOT VCPKG_TARGET_IS_MINGW)
-	list(APPEND FEATURE_OPTIONS -DBULLET2_USE_PPL_MULTITHREADING=ON)
+set(_bullet_tbb_options_release "")
+set(_bullet_tbb_options_debug "")
+if("multithreading" IN_LIST FEATURES)
+	# Use TBB (from vcpkg) instead of PPL so Bullet's internal task scheduler shares the same threading backend as the
+	# hdtSMP64 plugin. vcpkg's oneTBB ships as tbb12(_debug).lib; bullet's CMake does a fixed find_library(TBB_LIBRARY
+	# tbb ...), so we pre-seed the cache vars to short-circuit the find and point at the right file per config.
+	list(APPEND FEATURE_OPTIONS -DBULLET2_USE_TBB_MULTITHREADING=ON
+		 "-DBULLET2_TBB_INCLUDE_DIR=${CURRENT_INSTALLED_DIR}/include")
+	list(APPEND _bullet_tbb_options_release "-DBULLET2_TBB_LIB_DIR=${CURRENT_INSTALLED_DIR}/lib"
+		 "-DTBB_LIBRARY=${CURRENT_INSTALLED_DIR}/lib/tbb12.lib"
+		 "-DTBBMALLOC_LIBRARY=${CURRENT_INSTALLED_DIR}/lib/tbbmalloc.lib")
+	list(APPEND _bullet_tbb_options_debug "-DBULLET2_TBB_LIB_DIR=${CURRENT_INSTALLED_DIR}/debug/lib"
+		 "-DTBB_LIBRARY=${CURRENT_INSTALLED_DIR}/debug/lib/tbb12_debug.lib"
+		 "-DTBBMALLOC_LIBRARY=${CURRENT_INSTALLED_DIR}/debug/lib/tbbmalloc_debug.lib")
 endif()
 
 string(COMPARE EQUAL "${VCPKG_CRT_LINKAGE}" "dynamic" USE_MSVC_RUNTIME_LIBRARY_DLL)
@@ -115,6 +178,11 @@ string(COMPARE EQUAL "${VCPKG_CRT_LINKAGE}" "dynamic" USE_MSVC_RUNTIME_LIBRARY_D
 # Match the project's BT_USE_SSE_IN_API define so btVector3 layout is consistent
 string(APPEND VCPKG_CXX_FLAGS " /DBT_USE_SSE_IN_API")
 string(APPEND VCPKG_C_FLAGS " /DBT_USE_SSE_IN_API")
+
+# Build Bullet's profiler symbols into every configuration. Runtime profiling stays disabled by default through the
+# btQuickprof gate above, so normal builds only pay the inline bool check in BT_PROFILE scopes.
+string(APPEND VCPKG_CXX_FLAGS " /DBT_ENABLE_PROFILE")
+string(APPEND VCPKG_C_FLAGS " /DBT_ENABLE_PROFILE")
 
 vcpkg_cmake_configure(
 	SOURCE_PATH
@@ -133,13 +201,18 @@ vcpkg_cmake_configure(
 	-DBUILD_UNIT_TESTS=OFF
 	-DINSTALL_LIBS=ON
 	${FEATURE_OPTIONS}
+	OPTIONS_RELEASE
+	${_bullet_tbb_options_release}
+	OPTIONS_DEBUG
+	${_bullet_tbb_options_debug}
 	MAYBE_UNUSED_VARIABLES
 	BUILD_BULLET_ROBOTICS_EXTRA
 	BUILD_BULLET_ROBOTICS_GUI_EXTRA
 	BUILD_GIMPACTUTILS_EXTRA
 	BUILD_HACD_EXTRA
 	BUILD_OBJ2SDF_EXTRA
-	USE_MSVC_DISABLE_RTTI)
+	USE_MSVC_DISABLE_RTTI
+	BULLET2_TBB_LIB_DIR)
 
 vcpkg_cmake_install()
 vcpkg_copy_pdbs()

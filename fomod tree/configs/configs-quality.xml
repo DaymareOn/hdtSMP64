@@ -188,15 +188,6 @@
     <numIterations>16</numIterations>
 
     <!--
-      groupEnableMLCP: (boolean) Turns on the higher quality constraint solver,
-      better constraint simulation at the cost of performance.
-      If no value is set, default is true.
-    -->
-    <groupEnableMLCP>true</groupEnableMLCP>
-
-
-
-    <!--
       erp: (float ]0-1[) The error correction force applied per simulation
       step, constraints will drift apart naturally, this value will exert a
       force to move them back to where they are supposed to be.

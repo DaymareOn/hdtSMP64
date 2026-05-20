@@ -2,7 +2,7 @@
 
 #include "hdtBulletHelper.h"
 #include "hdtConstraintGroup.h"
-#include <ppltasks.h>
+#include <tbb/tbb.h>
 
 namespace hdt
 {
@@ -21,7 +21,6 @@ namespace hdt
 		virtual ~SkinnedMeshSystem() = default;
 
 		virtual float prepareForRead(float timeStep) { return timeStep; }
-		virtual void resetTransformsToOriginal();
 		virtual void readTransform(float timeStep);
 		virtual void writeTransform();
 
@@ -44,7 +43,6 @@ namespace hdt
 		std::vector<RE::BSTSmartPointer<ConstraintGroup>> m_constraintGroups;
 
 	private:
-		typedef concurrency::task<void> task;
-		typedef concurrency::task_group task_group;
+		typedef tbb::task_group task_group;
 	};
 }

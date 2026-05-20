@@ -22,13 +22,13 @@ namespace hdt
 		void doUpdate(float delta);
 		void doUpdate2ndStep(float delta, const float tick, const float remainingTimeStep);
 		void updateActiveState();
+		void setProfilerCapture(bool a_enabled, std::uint64_t a_sampleFrames = 240, std::uint64_t a_printFrames = 240);
 
 		void addSkinnedMeshSystem(SkinnedMeshSystem* system) override;
 		void removeSkinnedMeshSystem(SkinnedMeshSystem* system) override;
 		void removeSystemByNode(void* root);
 		using SkinnedMeshWorld::updateConstraintsForBone;
 
-		void resetTransformsToOriginal();
 		void resetSystems();
 
 		RE::BSEventNotifyControl ProcessEvent(const Events::FrameEvent* e, RE::BSTEventSource<Events::FrameEvent>*) override;
@@ -68,7 +68,7 @@ namespace hdt
 		// @a_smoothingSamples How many samples to smooth. Defaults to 8. Must be greater than 0. Value of 1 means no smoothing
 		void setWind(const RE::NiPoint3& a_direction, float a_scale = scaleSkyrim, uint32_t a_smoothingSamples = 8);
 
-		concurrency::task_group m_tasks;
+		tbb::task_group m_tasks;
 
 		bool m_pendingTransformUpdate = false;
 		bool m_useRealTime = false;
@@ -96,7 +96,7 @@ namespace hdt
 
 	private:
 		SkyrimPhysicsWorld(void);
-		~SkyrimPhysicsWorld(void);
+		~SkyrimPhysicsWorld(void) noexcept;
 
 		std::mutex m_lock;
 

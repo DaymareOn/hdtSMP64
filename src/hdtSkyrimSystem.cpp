@@ -271,7 +271,7 @@ namespace hdt
 				if (m_reader->GetInspected() == XMLReader::Inspected::StartTag) {
 					const auto name = m_reader->GetName();
 					if (name == "bone") {
-						readOrUpdateBone(old_system);
+						readOrUpdateBone();
 					} else if (name == "bone-default") {
 						auto clsname = m_reader->getAttribute("name", "");
 						auto extends = m_reader->getAttribute("extends", "");
@@ -344,7 +344,7 @@ namespace hdt
 		}
 
 		if (m_deferredBuilds.size() > 2) {
-			concurrency::parallel_for_each(
+			tbb::parallel_for_each(
 				m_deferredBuilds.begin(), m_deferredBuilds.end(),
 				[](const DeferredBuild& db) {
 					if (db.vertexShape)
@@ -645,7 +645,7 @@ namespace hdt
 		return nullptr;
 	}
 
-	void SkyrimSystemCreator::readOrUpdateBone(SkyrimSystem* old_system)
+	void SkyrimSystemCreator::readOrUpdateBone()
 	{
 		RE::BSFixedString name = getRenamedBone(m_reader->getAttribute("name"));
 		if (findBoneFromIndex(name)) {
@@ -654,11 +654,11 @@ namespace hdt
 		}
 
 		RE::BSFixedString cls = m_reader->getAttribute("template", "");
-		if (!createBoneFromNodeName(name, cls, true, old_system))
+		if (!createBoneFromNodeName(name, cls, true))
 			m_reader->skipCurrentElement();
 	}
 
-	SkyrimBone* SkyrimSystemCreator::createBoneFromNodeName(const RE::BSFixedString& bodyName, const RE::BSFixedString& templateName, const bool readTemplate, SkyrimSystem* old_system)
+	SkyrimBone* SkyrimSystemCreator::createBoneFromNodeName(const RE::BSFixedString& bodyName, const RE::BSFixedString& templateName, const bool readTemplate)
 	{
 		auto node = findObjectByName(bodyName);
 		if (node) {
@@ -673,24 +673,7 @@ namespace hdt
 			bone->m_gravityFactor = boneTemplate.m_gravityFactor;
 			bone->m_windFactor = boneTemplate.m_windFactor;
 
-			if (old_system) {
-				auto old_b = old_system->findBone(bodyName);
-				if (old_b) {
-					bone->m_currentTransform = convertNi(bone->m_skeleton->world) * old_b->m_origToSkeletonTransform;
-					auto dest = bone->m_currentTransform.asTransform() * bone->m_localToRig;
-					bone->m_origToSkeletonTransform = old_b->m_origToSkeletonTransform;
-					bone->m_origTransform = old_b->m_origTransform;
-					bone->m_rig.setWorldTransform(dest);
-					bone->m_rig.setInterpolationWorldTransform(dest);
-					bone->m_rig.setLinearVelocity(btVector3(0, 0, 0));
-					bone->m_rig.setAngularVelocity(btVector3(0, 0, 0));
-					bone->m_rig.setInterpolationLinearVelocity(btVector3(0, 0, 0));
-					bone->m_rig.setInterpolationAngularVelocity(btVector3(0, 0, 0));
-					bone->m_rig.updateInertiaTensor();
-				} else
-					bone->readTransform(RESET_PHYSICS);
-			} else
-				bone->readTransform(RESET_PHYSICS);
+			bone->readTransform(RESET_PHYSICS);
 
 			m_mesh->m_bones.push_back(hdt::make_smart(bone));
 			indexBone(bone);
@@ -782,7 +765,7 @@ namespace hdt
 			for (uint32_t j = 0; j < skinPartition->vertexCount; ++j) {
 				RE::NiPoint3* vertexPos;
 
-				if (dynamicShape)
+				if (dynamicShape && dynamicVData)
 					vertexPos = reinterpret_cast<RE::NiPoint3*>(&dynamicVData[j * 16]);
 				else
 					vertexPos = reinterpret_cast<RE::NiPoint3*>(&vertexBlock[j * vSize]);

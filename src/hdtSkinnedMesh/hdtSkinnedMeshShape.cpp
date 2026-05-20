@@ -1,6 +1,6 @@
 #include "hdtSkinnedMeshShape.h"
 
-#include <ppl.h>
+#include <tbb/tbb.h>
 
 namespace hdt
 {

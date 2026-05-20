@@ -1,6 +1,6 @@
 set(ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/..")
 
-add_compile_definitions(_SILENCE_AMP_DEPRECATION_WARNINGS)
+add_compile_definitions(_SILENCE_AMP_DEPRECATION_WARNINGS NOMINMAX)
 
 set(SOURCE_DIR "${ROOT_DIR}/src")
 
@@ -67,6 +67,8 @@ set(SOURCE_FILES
 	"${SOURCE_DIR}/ActorManager.h"
 	"${SOURCE_DIR}/hdtSkyrimPhysicsWorld.cpp"
 	"${SOURCE_DIR}/hdtSkyrimPhysicsWorld.h"
+	"${SOURCE_DIR}/hdtPhysicsProfiler.cpp"
+	"${SOURCE_DIR}/hdtPhysicsProfiler.h"
 	"${SOURCE_DIR}/hdtDefaultBBP.cpp"
 	"${SOURCE_DIR}/hdtDefaultBBP.h"
 	"${SOURCE_DIR}/hdtSkyrimBody.cpp"
@@ -141,10 +143,10 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
 				"/bigobj" # Increase Number of Sections in .obj file
 				"/WX" # Warnings as errors
 				"$<$<CONFIG:DEBUG>:>"
-				"$<$<CONFIG:RELEASE>:/Zc:inline;/JMC-;/Ob3>")
+				"$<$<OR:$<CONFIG:RELEASE>,$<CONFIG:PROFILE>>:/Zc:inline;/JMC-;/Ob3>")
 
 	target_link_options("${PROJECT_NAME}" PRIVATE "$<$<CONFIG:DEBUG>:/INCREMENTAL;/OPT:NOREF;/OPT:NOICF>"
-						"$<$<CONFIG:RELEASE>:/INCREMENTAL:NO;/OPT:REF;/OPT:ICF;/DEBUG:FULL>")
+						"$<$<OR:$<CONFIG:RELEASE>,$<CONFIG:PROFILE>>:/INCREMENTAL:NO;/OPT:REF;/OPT:ICF;/DEBUG:FULL>")
 endif()
 
 target_include_directories("${PROJECT_NAME}" PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/src" "${SOURCE_DIR}"
@@ -190,6 +192,7 @@ endif()
 find_package(Bullet CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
 find_package(xbyak REQUIRED CONFIG)
+find_package(TBB CONFIG REQUIRED)
 
 include_directories(${BULLET_INCLUDE_DIRS})
 
@@ -202,7 +205,8 @@ target_link_libraries(
 			${DETOURS_LIBRARY_RELEASE}
 			debug
 			${DETOURS_LIBRARY_DEBUG}
-			${BULLET_LIBRARIES})
+			${BULLET_LIBRARIES}
+			TBB::tbb)
 
 target_precompile_headers("${PROJECT_NAME}" PRIVATE "${SOURCE_DIR}/PCH.h")
 
