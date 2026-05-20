@@ -1,5 +1,6 @@
 #include "config.h"
 #include "Hooks.h"
+#include "NodeHookAudit.h"
 #include "XmlReader.h"
 #include "hdtSkyrimPhysicsWorld.h"
 
@@ -106,6 +107,8 @@ namespace hdt
 					SkyrimPhysicsWorld::get()->m_sampleSize = std::max(reader.readInt(), 1);
 				} else if (reader.GetLocalName() == "disable1stPersonViewPhysics") {
 					ActorManager::instance()->m_disable1stPersonViewPhysics = reader.readBool();
+				} else if (reader.GetLocalName() == "auditScenegraph") {
+					hdt::g_auditScenegraph.store(reader.readBool());
 				} else {
 					logger::warn("Unknown config : {}", reader.GetLocalName());
 					reader.skipCurrentElement();
@@ -204,6 +207,7 @@ namespace hdt
 		LOG("smp.autoAdjustMaxSkeletons", a->m_autoAdjustMaxSkeletons);
 		LOG("smp.sampleSize", w->m_sampleSize);
 		LOG("smp.disable1stPersonViewPhysics", a->m_disable1stPersonViewPhysics);
+		LOG("smp.auditScenegraph", hdt::g_auditScenegraph.load());
 #undef LOG
 	}
 }

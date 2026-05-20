@@ -2,6 +2,7 @@
 
 #include "Events.h"
 #include "Hooks.h"
+#include "NodeHookAudit.h"
 
 //
 #include <xbyak/xbyak.h>
@@ -371,6 +372,9 @@ namespace Hooks
 		DetourUpdateThread(GetCurrentThread());
 		BipedAnimHooks::Hook();
 		DetourTransactionCommit();
+
+		// Scenegraph audit hook (only installed when auditScenegraph = true in configs.xml)
+		NodeAuditHooks::Install();
 
 		//
 		logger::trace("...success");
