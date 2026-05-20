@@ -1,7 +1,6 @@
 #include "hdtForceUpdateList.h"
 
-static std::unordered_set<RE::BSFixedString, RE::BSCRC32_<RE::BSFixedString>> nodes = 
-{
+static std::unordered_set<RE::BSFixedString, RE::BSCRC32_<RE::BSFixedString>> nodes = {
 	"WeaponAxe",
 	"WeaponMace",
 	"WeaponSword",
@@ -18,8 +17,7 @@ static std::unordered_set<RE::BSFixedString, RE::BSCRC32_<RE::BSFixedString>> no
 	"WeaponStaffLeft"
 };
 
-static std::unordered_set<RE::BSFixedString, RE::BSCRC32_<RE::BSFixedString>> nodes_mov = 
-{
+static std::unordered_set<RE::BSFixedString, RE::BSCRC32_<RE::BSFixedString>> nodes_mov = {
 	"MOV WeaponAxeDefault",
 	"MOV WeaponAxeLeftDefault",
 	"MOV WeaponAxeReverse",
@@ -74,25 +72,22 @@ namespace hdt
 {
 	int GetForceUpdateTypeFromName(const RE::BSFixedString& a_node_name)
 	{
-	    const std::string node_name = a_node_name.c_str();
+		const std::string node_name = a_node_name.c_str();
 
-	    // MOV-prefixed nodes → type 2
-	    if (node_name.rfind("MOV", 0) == 0) 
-		{
-	        if (nodes_mov.find(node_name) != nodes_mov.end()) 
-			{
-	            return 2;
-	        }
+		// MOV-prefixed nodes → type 2
+		if (node_name.rfind("MOV", 0) == 0) {
+			if (nodes_mov.find(node_name) != nodes_mov.end()) {
+				return 2;
+			}
 
-	        return 0;
-	    }
+			return 0;
+		}
 
-	    // All other nodes → type 1
-	    if (nodes.find(node_name) != nodes.end()) 
-		{
-	        return 1;
-	    }
+		// All other nodes → type 1
+		if (nodes.find(node_name) != nodes.end()) {
+			return 1;
+		}
 
-	    return 0;
+		return 0;
 	}
 }
