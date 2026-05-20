@@ -85,7 +85,9 @@ namespace Events
 
 	void Register()
 	{
+		logger::info("[diag] Events::Register: before FreezeEventHandler::Register");
 		Sinks::FreezeEventHandler::Register();
+		logger::info("[diag] Events::Register: done");
 	}
 
 	void Unregister()

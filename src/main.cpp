@@ -819,9 +819,12 @@ namespace
 
 void MessageHandler(SKSE::MessagingInterface::Message* a_msg)
 {
+	logger::info("[diag] MessageHandler: type={}", static_cast<uint32_t>(a_msg->type));
 	switch (a_msg->type) {
 	case SKSE::MessagingInterface::kInputLoaded:
+		logger::info("[diag] kInputLoaded: before Events::Register");
 		Events::Register();
+		logger::info("[diag] kInputLoaded: after Events::Register");
 		break;
 	case SKSE::MessagingInterface::kSaveGame:
 		{
@@ -850,8 +853,11 @@ void MessageHandler(SKSE::MessagingInterface::Message* a_msg)
 		break;
 	case SKSE::MessagingInterface::kPostPostLoad:
 		{
+			logger::info("[diag] kPostPostLoad: before onPostPostLoad");
 			hdt::g_pluginInterface.onPostPostLoad();
+			logger::info("[diag] kPostPostLoad: before checkOldPlugins");
 			checkOldPlugins();
+			logger::info("[diag] kPostPostLoad: done");
 		}
 		break;
 	}
@@ -975,5 +981,6 @@ extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* a_s
 	//
 	hdt::papyrus::RegisterAllFunctions(SKSE::GetPapyrusInterface());
 
+	logger::info("[diag] SKSEPlugin_Load: complete");
 	return true;
 }

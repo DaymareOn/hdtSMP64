@@ -3,6 +3,8 @@
 #include "Events.h"
 #include "Hooks.h"
 
+#include <mutex>
+
 //
 #include <xbyak/xbyak.h>
 
@@ -200,6 +202,9 @@ namespace Hooks
 
 	void MainHooks::Update(RE::Main* const a_this)
 	{
+		static std::once_flag s_firstFrame;
+		std::call_once(s_firstFrame, [] { logger::info("[diag] MainHooks::Update: first frame"); });
+
 		//
 		_Update(a_this);
 

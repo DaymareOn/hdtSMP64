@@ -4,6 +4,7 @@
 #include "hdtPhysicsProfiler.h"
 
 #include <LinearMath/btQuickprof.h>
+#include <mutex>
 
 namespace hdt
 {
@@ -324,6 +325,9 @@ namespace hdt
 
 	RE::BSEventNotifyControl SkyrimPhysicsWorld::ProcessEvent(const Events::FrameEvent* e, RE::BSTEventSource<Events::FrameEvent>*)
 	{
+		static std::once_flag s_firstFrame;
+		std::call_once(s_firstFrame, [] { logger::info("[diag] SkyrimPhysicsWorld::ProcessEvent(FrameEvent): first call"); });
+
 		auto mm = RE::UI::GetSingleton();
 
 		if ((e->gamePaused || mm->GameIsPaused()) && !m_suspended) {

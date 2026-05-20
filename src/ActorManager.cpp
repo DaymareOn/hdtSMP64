@@ -5,6 +5,8 @@
 #include "hdtDefaultBBP.h"
 #include "hdtSkyrimPhysicsWorld.h"
 
+#include <mutex>
+
 namespace hdt
 {
 	// NiAVObject* Actor::CalculateLOS_1405FD2C0(Actor *aActor, NiPoint3 *aTargetPosition, NiPoint3 *aRayHitPosition, float aViewCone)
@@ -181,6 +183,9 @@ namespace hdt
 
 	RE::BSEventNotifyControl ActorManager::ProcessEvent(const Events::FrameEvent*, RE::BSTEventSource<Events::FrameEvent>*)
 	{
+		static std::once_flag s_firstFrame;
+		std::call_once(s_firstFrame, [] { logger::info("[diag] ActorManager::ProcessEvent(FrameEvent): first call"); });
+
 		std::lock_guard<decltype(m_lock)> l(m_lock);
 
 		fixArmorNameMaps();
