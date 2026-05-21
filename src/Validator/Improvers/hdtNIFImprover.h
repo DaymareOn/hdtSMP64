@@ -9,6 +9,8 @@ namespace hdt
 {
 	struct NIFImproverDiagnostics
 	{
+		int orphanedSkinInstancesRemoved = 0;
+		int skinMeshIssuesFixed          = 0;
 		int decimationCandidatesDiscovered = 0;
 		int decimationCandidatesAttempted = 0;
 		int decimationCandidatesApplied = 0;
@@ -48,10 +50,10 @@ namespace hdt
 	bool GenerateImprovedNIF(
 		const std::string& srcNIFPath,
 		const std::string& outputDir,
-			const NIFDecimationOptions& options = {},
-			NIFImproverDiagnostics* outDiagnostics = nullptr,
-			const std::unordered_set<std::string>* missingPhysicsXmlRefs = nullptr,
-			bool copyOriginal = false);
+		const NIFDecimationOptions& options = {},
+		NIFImproverDiagnostics* outDiagnostics = nullptr,
+		const std::unordered_set<std::string>* missingPhysicsXmlRefs = nullptr,
+		bool copyOriginal = false);
 
 	// Copies a NIF file unchanged to:
 	//   <outputDir>/<path-relative-to-data/>

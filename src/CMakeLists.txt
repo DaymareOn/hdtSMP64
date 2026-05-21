@@ -81,8 +81,8 @@ set(SOURCE_FILES
 	"${SOURCE_DIR}/hdtSkyrimSystem.h"
 	"${SOURCE_DIR}/Validator/hdtAssetValidator.cpp"
 	"${SOURCE_DIR}/Validator/hdtAssetValidator.h"
-	"${SOURCE_DIR}/Validator/hdtXSDSchemaModel.h"
-	"${SOURCE_DIR}/Validator/hdtSCHSchemaModel.h"
+	"${SOURCE_DIR}/Validator/Schema/hdtXSDSchemaModel.h"
+	"${SOURCE_DIR}/Validator/Schema/hdtSCHSchemaModel.h"
 	"${SOURCE_DIR}/Validator/Validators/hdtNIFValidator.h"
 	"${SOURCE_DIR}/Validator/Parser/hdtXSDSchemaParser.cpp"
 	"${SOURCE_DIR}/Validator/Parser/hdtXSDSchemaParser.h"
@@ -90,6 +90,7 @@ set(SOURCE_FILES
 	"${SOURCE_DIR}/Validator/Parser/hdtSCHSchemaParser.h"
 	"${SOURCE_DIR}/Validator/Parser/hdtNIFBinaryParser.h"
 	"${SOURCE_DIR}/Validator/Parser/hdtNIFBinaryParser.cpp"
+	"${SOURCE_DIR}/Validator/Utils/hdtConcurrencyUtils.h"
 	"${SOURCE_DIR}/Validator/Utils/hdtStringUtils.h"
 	"${SOURCE_DIR}/Validator/Utils/hdtTemplateDefaults.cpp"
 	"${SOURCE_DIR}/Validator/Utils/hdtTemplateDefaults.h"
@@ -98,6 +99,7 @@ set(SOURCE_FILES
 	"${SOURCE_DIR}/Validator/Utils/hdtXMLJsonWriter.h"
 	"${SOURCE_DIR}/Validator/Utils/hdtXMLUtils.h"
 	"${SOURCE_DIR}/Validator/Utils/hdtNIFBinaryUtils.h"
+	"${SOURCE_DIR}/Validator/Utils/hdtValidatorFamily.h"
 	"${SOURCE_DIR}/Validator/Config/hdtValidatorPaths.h"
 	"${SOURCE_DIR}/Validator/Validators/hdtXSDValidator.cpp"
 	"${SOURCE_DIR}/Validator/Validators/hdtXSDValidator.h"
@@ -111,6 +113,12 @@ set(SOURCE_FILES
 	"${SOURCE_DIR}/Validator/Improvers/hdtNIFBinaryIO.h"
 	"${SOURCE_DIR}/Validator/Improvers/hdtNIFBogusNodeImprover.cpp"
 	"${SOURCE_DIR}/Validator/Improvers/hdtNIFBogusNodeImprover.h"
+	"${SOURCE_DIR}/Validator/Improvers/hdtNIFOrphanedSkinImprover.cpp"
+	"${SOURCE_DIR}/Validator/Improvers/hdtNIFOrphanedSkinImprover.h"
+	"${SOURCE_DIR}/Validator/Improvers/hdtNIFSkinMeshValidator.cpp"
+	"${SOURCE_DIR}/Validator/Improvers/hdtNIFSkinMeshValidator.h"
+	"${SOURCE_DIR}/Validator/Improvers/hdtNIFSkinMeshRepair.cpp"
+	"${SOURCE_DIR}/Validator/Improvers/hdtNIFSkinMeshRepair.h"
 	"${SOURCE_DIR}/Validator/Improvers/hdtNIFCollisionDecimationImprover.cpp"
 	"${SOURCE_DIR}/Validator/Improvers/hdtNIFCollisionDecimationImprover.h"
 	"${SOURCE_DIR}/Validator/Improvers/hdtNIFImprover.cpp"
@@ -175,13 +183,17 @@ target_compile_features("${PROJECT_NAME}" PRIVATE cxx_std_20)
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
 	target_compile_options(
 		"${PROJECT_NAME}"
-		PRIVATE "/sdl" # Enable Additional Security Checks
-				"/utf-8" # Set Source and Executable character sets to UTF-8
-				"/Zi" # Debug Information Format
-				"/permissive-" # Standards conformance
+		PRIVATE "/sdl"           # Enable Additional Security Checks
+				"/utf-8"         # Set Source and Executable character sets to UTF-8
+				"/Zi"            # Debug Information Format
+				"/permissive-"   # Standards conformance
 				"/Zc:preprocessor" # Enable preprocessor conformance mode
-				"/bigobj" # Increase Number of Sections in .obj file
-				"/WX" # Warnings as errors
+				"/bigobj"        # Increase Number of Sections in .obj file
+				"/W4"            # Elevated warnings: unreachable code (C4702), unused vars (C4189), etc.
+				"/wd4100"        # Suppress: unreferenced formal parameter (pervasive in SKSE callbacks)
+				"/wd4201"        # Suppress: nameless struct/union (used throughout CommonLibSSE)
+				"/WX"            # Warnings as errors
+				"$<$<CONFIG:DEBUG>:/analyze>"  # Static analysis in Debug only (too slow for Release)
 				"$<$<CONFIG:DEBUG>:>"
 				"$<$<OR:$<CONFIG:RELEASE>,$<CONFIG:PROFILE>>:/Zc:inline;/JMC-;/Ob3>")
 

@@ -681,6 +681,12 @@ bool SMPDebug_Execute(
 					result.totalTRIFilesFound,
 					result.nifImprovedCount,
 					outputDir.c_str());
+				if (result.orphanedSkinInstancesRemoved > 0)
+					console->Print("[HDT-SMP] NIF cleanup: removed %d orphaned skin instance(s) (missing NiSkinPartition)",
+						result.orphanedSkinInstancesRemoved);
+				if (result.skinMeshIssuesFixed > 0)
+					console->Print("[HDT-SMP] NIF cleanup: repaired %d partition triangle-copy mismatch(es)",
+						result.skinMeshIssuesFixed);
 				if (result.decimationCandidatesAttempted > 0) {
 					console->Print("[HDT-SMP] NIF decimation bridge: discovered=%d attempted=%d applied=%d skipped-no-change=%d skipped-unsafe=%d",
 						result.decimationCandidatesDiscovered,
@@ -694,11 +700,13 @@ bool SMPDebug_Execute(
 				for (const auto& err : result.errors) {
 					console->Print("[HDT-SMP] NIF cleanup error: %s", err.c_str());
 				}
-				logger::info("[Validator] NIF cleanup done: gearOnly={}, nifs={}, tris={}, improved={}, decimation(discovered={},attempted={},applied={},skip-no-change={},skip-unsafe={}), output={}",
+				logger::info("[Validator] NIF cleanup done: gearOnly={}, nifs={}, tris={}, improved={}, orphaned-skin={}, skin-mesh-fixed={}, decimation(discovered={},attempted={},applied={},skip-no-change={},skip-unsafe={}), output={}",
 					gearOnly,
 					result.totalNIFsFound,
 					result.totalTRIFilesFound,
 					result.nifImprovedCount,
+					result.orphanedSkinInstancesRemoved,
+					result.skinMeshIssuesFixed,
 					result.decimationCandidatesDiscovered,
 					result.decimationCandidatesAttempted,
 					result.decimationCandidatesApplied,

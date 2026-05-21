@@ -1,9 +1,9 @@
 #include "hdtNIFImprover.h"
 
 #include "hdtNIFBinaryIO.h"
-
 #include "hdtNIFBogusNodeImprover.h"
-
+#include "hdtNIFOrphanedSkinImprover.h"
+#include "hdtNIFSkinMeshRepair.h"
 #include "hdtNIFCollisionDecimationImprover.h"
 
 #include "../Utils/hdtNIFBinaryUtils.h"
@@ -17,19 +17,25 @@
 
 namespace hdt
 {
-	static constexpr std::streamoff kMaxNifFileSizeBytes = 256 * 1024 * 1024;
+	namespace
+	{
+		constexpr uint32_t kInvalidStringIndex = 0xFFFFFFFFu;
+		constexpr size_t   kUnsetOffset        = static_cast<size_t>(-1);
+	}
 
 	// ── Phase-3 profiling ─────────────────────────────────────────────────────
 	// Accumulated CPU-nanoseconds per operation, across all threads.
 	// Call logNIFImproverTimings() after the parallel loop to dump a breakdown.
-	static std::atomic<int64_t> g_profFileRead   {0};
-	static std::atomic<int64_t> g_profParse      {0};
-	static std::atomic<int64_t> g_profBogusNodes {0};
-	static std::atomic<int64_t> g_profXmlStrip   {0};
-	static std::atomic<int64_t> g_profSerialize  {0};
-	static std::atomic<int64_t> g_profValidate   {0};
-	static std::atomic<int64_t> g_profWrite      {0};
-	static std::atomic<int64_t> g_profNifCount   {0};
+	static std::atomic<int64_t> g_profFileRead      {0};
+	static std::atomic<int64_t> g_profParse         {0};
+	static std::atomic<int64_t> g_profBogusNodes    {0};
+	static std::atomic<int64_t> g_profOrphanedSkin  {0};
+	static std::atomic<int64_t> g_profSkinMeshRepair{0};
+	static std::atomic<int64_t> g_profXmlStrip      {0};
+	static std::atomic<int64_t> g_profSerialize     {0};
+	static std::atomic<int64_t> g_profValidate      {0};
+	static std::atomic<int64_t> g_profWrite         {0};
+	static std::atomic<int64_t> g_profNifCount      {0};
 
 	static auto now() { return std::chrono::high_resolution_clock::now(); }
 	static int64_t elapsedNs(std::chrono::high_resolution_clock::time_point a,
@@ -40,10 +46,11 @@ namespace hdt
 
 	void resetNIFImproverTimings()
 	{
-		g_profFileRead  .store(0); g_profParse    .store(0);
-		g_profBogusNodes.store(0); g_profXmlStrip .store(0);
-		g_profSerialize .store(0); g_profValidate .store(0);
-		g_profWrite     .store(0); g_profNifCount .store(0);
+		g_profFileRead    .store(0); g_profParse          .store(0);
+		g_profBogusNodes  .store(0); g_profOrphanedSkin   .store(0);
+		g_profSkinMeshRepair.store(0); g_profXmlStrip     .store(0);
+		g_profSerialize   .store(0); g_profValidate       .store(0);
+		g_profWrite       .store(0); g_profNifCount       .store(0);
 	}
 
 	void logNIFImproverTimings()
@@ -53,76 +60,56 @@ namespace hdt
 		if (n == 0) return;
 		auto ms = [](int64_t ns) { return ns / 1'000'000; };
 		logger::info("[NIFImprover][PROF] ── Phase-3 CPU-time breakdown ({} NIFs) ──", n);
-		logger::info("[NIFImprover][PROF]   file-read   {:>8} ms  ({} µs/nif)", ms(g_profFileRead),   g_profFileRead   / n / 1000);
-		logger::info("[NIFImprover][PROF]   parseNif    {:>8} ms  ({} µs/nif)", ms(g_profParse),      g_profParse      / n / 1000);
-		logger::info("[NIFImprover][PROF]   bogusNodes  {:>8} ms  ({} µs/nif)", ms(g_profBogusNodes), g_profBogusNodes / n / 1000);
-		logger::info("[NIFImprover][PROF]   xmlStrip    {:>8} ms  ({} µs/nif)", ms(g_profXmlStrip),   g_profXmlStrip   / n / 1000);
-		logger::info("[NIFImprover][PROF]   serialize   {:>8} ms  ({} µs/nif)", ms(g_profSerialize),  g_profSerialize  / n / 1000);
-		logger::info("[NIFImprover][PROF]   validate    {:>8} ms  ({} µs/nif)", ms(g_profValidate),   g_profValidate   / n / 1000);
-		logger::info("[NIFImprover][PROF]   write       {:>8} ms  ({} µs/nif)", ms(g_profWrite),      g_profWrite      / n / 1000);
-		const int64_t total = g_profFileRead + g_profParse + g_profBogusNodes +
-		                      g_profXmlStrip + g_profSerialize + g_profValidate + g_profWrite;
+		logger::info("[NIFImprover][PROF]   file-read     {:>8} ms  ({} µs/nif)", ms(g_profFileRead),     g_profFileRead     / n / 1000);
+		logger::info("[NIFImprover][PROF]   parseNif      {:>8} ms  ({} µs/nif)", ms(g_profParse),        g_profParse        / n / 1000);
+		logger::info("[NIFImprover][PROF]   bogusNodes      {:>8} ms  ({} µs/nif)", ms(g_profBogusNodes),    g_profBogusNodes    / n / 1000);
+		logger::info("[NIFImprover][PROF]   orphanedSkin    {:>8} ms  ({} µs/nif)", ms(g_profOrphanedSkin),  g_profOrphanedSkin  / n / 1000);
+		logger::info("[NIFImprover][PROF]   skinMeshRepair  {:>8} ms  ({} µs/nif)", ms(g_profSkinMeshRepair),g_profSkinMeshRepair/ n / 1000);
+		logger::info("[NIFImprover][PROF]   xmlStrip        {:>8} ms  ({} µs/nif)", ms(g_profXmlStrip),      g_profXmlStrip      / n / 1000);
+		logger::info("[NIFImprover][PROF]   serialize       {:>8} ms  ({} µs/nif)", ms(g_profSerialize),     g_profSerialize     / n / 1000);
+		logger::info("[NIFImprover][PROF]   validate        {:>8} ms  ({} µs/nif)", ms(g_profValidate),      g_profValidate      / n / 1000);
+		logger::info("[NIFImprover][PROF]   write           {:>8} ms  ({} µs/nif)", ms(g_profWrite),         g_profWrite         / n / 1000);
+		const int64_t total = g_profFileRead + g_profParse + g_profBogusNodes + g_profOrphanedSkin +
+		                      g_profSkinMeshRepair + g_profXmlStrip + g_profSerialize + g_profValidate + g_profWrite;
 		logger::info("[NIFImprover][PROF]   TOTAL       {:>8} ms  (accounted CPU time across all threads)", ms(total));
 		logBogusNodeTimings();
 	}
 
-	static std::string pathToUtf8(const std::filesystem::path& fp)
-	{
-		auto u8 = fp.generic_u8string();
-		return { reinterpret_cast<const char*>(u8.data()), u8.size() };
-	}
+	// ── Physics XML ref stripping ─────────────────────────────────────────────
 
-	static bool removeMissingPhysicsXmlExtraData(
+	struct TypedStripResult
+	{
+		bool changed               = false;
+		int  markerMatchedBlocks   = 0;
+		int  alternateLayoutMatches = 0;
+		int  valueMatchedFallbacks = 0;
+	};
+
+	// Main pass: scan blocks whose type index matches NiStringExtraData.
+	// For each block, locate the physics marker name lane and the XML value lane,
+	// then overwrite missing XML string indices with kInvalidStringIndex.
+	static TypedStripResult stripXmlRefsFromTypedBlocks(
 		ParsedNif& parsed,
-		const std::unordered_set<std::string>* missingPhysicsXmlRefs)
+		const std::unordered_set<std::string>& missingRefs,
+		int markerIdx,
+		int typeIdx)
 	{
-		if (!missingPhysicsXmlRefs || missingPhysicsXmlRefs->empty())
-			return false;
+		TypedStripResult result;
 
-		logger::info("[NIFImprover] missingPhysicsXmlRefs set ({} entries):", missingPhysicsXmlRefs->size());
-		for (const auto& ref : *missingPhysicsXmlRefs) {
-		   logger::info("  - {}", ref);
-		}
-
-		int markerIdx = -1;
-		for (int i = 0; i < static_cast<int>(parsed.strings.size()); ++i) {
-			if (parsed.strings[static_cast<size_t>(i)] == nif::kPhysicsMarker) {
-				markerIdx = i;
-				break;
-			}
-		}
-		if (markerIdx < 0)
-			return false;
-
-		int niStringExtraDataTypeIdx = -1;
-		for (int i = 0; i < static_cast<int>(parsed.blockTypes.size()); ++i) {
-			if (parsed.blockTypes[static_cast<size_t>(i)] == nif::kTypeNiStringExtraData) {
-				niStringExtraDataTypeIdx = i;
-				break;
-			}
-		}
-		if (niStringExtraDataTypeIdx < 0)
-			return false;
-
-		bool changed = false;
-		int markerMatchedBlocks = 0;
-		int alternateLayoutMatches = 0;
-		int valueMatchedFallbackBlocks = 0;
-		constexpr size_t kUnsetOffset = static_cast<size_t>(-1);
 		for (size_t i = 0; i < parsed.blocks.size(); ++i) {
 			if (i >= parsed.blockTypeIndex.size())
 				break;
-			if (parsed.blockTypeIndex[i] != static_cast<uint16_t>(niStringExtraDataTypeIdx))
+			if (parsed.blockTypeIndex[i] != static_cast<uint16_t>(typeIdx))
 				continue;
 
 			auto& block = parsed.blocks[i];
 			if (block.size() < nif::kNiStringExtraDataMinBlockSize)
 				continue;
 
-			size_t nameOffset = kUnsetOffset;
-			size_t firstXmlValueOffset = kUnsetOffset;
-			size_t firstAnyValueOffset = kUnsetOffset;
-			size_t firstMissingValueOffset = kUnsetOffset;
+			size_t nameOffset          = kUnsetOffset;
+			size_t firstXmlValueOffset  = kUnsetOffset;
+			size_t firstAnyValueOffset  = kUnsetOffset;
+			size_t firstMissingOffset   = kUnsetOffset;
 
 			const size_t laneCount = block.size() / sizeof(uint32_t);
 			for (size_t lane = 0; lane < laneCount; ++lane) {
@@ -136,30 +123,31 @@ namespace hdt
 				if (v >= parsed.strings.size())
 					continue;
 
-				const std::string normalized = NormalizePathForComparison(parsed.strings[v]);
-				const bool xmlLike = normalized.find(".xml") != std::string::npos;
-				const bool missing = missingPhysicsXmlRefs->count(normalized) > 0;
+				const std::string norm = NormalizePathForComparison(parsed.strings[v]);
+				const bool xmlLike = norm.find(".xml") != std::string::npos;
+				const bool missing = missingRefs.count(norm) > 0;
 
-				if (firstAnyValueOffset == kUnsetOffset)
-					firstAnyValueOffset = off;
-				if (xmlLike && firstXmlValueOffset == kUnsetOffset)
-					firstXmlValueOffset = off;
-				if (missing && firstMissingValueOffset == kUnsetOffset)
-					firstMissingValueOffset = off;
+				if (firstAnyValueOffset == kUnsetOffset) firstAnyValueOffset = off;
+				if (xmlLike && firstXmlValueOffset == kUnsetOffset) firstXmlValueOffset = off;
+				if (missing && firstMissingOffset  == kUnsetOffset) firstMissingOffset  = off;
 			}
 
 			const bool markerMatched = nameOffset != kUnsetOffset;
+			const bool missingByPath = firstMissingOffset != kUnsetOffset;
+
+			if (!markerMatched && !missingByPath)
+				continue;
+
+			// Prefer the XML value lane immediately after the name when marker is present.
 			size_t chosenValueOffset = kUnsetOffset;
 			if (markerMatched) {
-				// Prefer a plausible String Data lane after Name when marker is present.
 				for (size_t lane = (nameOffset / sizeof(uint32_t)) + 1; lane < laneCount; ++lane) {
 					const size_t off = lane * sizeof(uint32_t);
 					uint32_t v = 0;
 					std::memcpy(&v, block.data() + off, sizeof(uint32_t));
 					if (v >= parsed.strings.size())
 						continue;
-					const std::string normalized = NormalizePathForComparison(parsed.strings[v]);
-					if (normalized.find(".xml") != std::string::npos) {
+					if (NormalizePathForComparison(parsed.strings[v]).find(".xml") != std::string::npos) {
 						chosenValueOffset = off;
 						break;
 					}
@@ -175,113 +163,150 @@ namespace hdt
 			if (chosenValueIdx >= parsed.strings.size())
 				continue;
 
-			const std::string& xmlPathRaw = parsed.strings[chosenValueIdx];
-			const std::string normalizedXmlPath = NormalizePathForComparison(xmlPathRaw);
-			const bool missingByPath = firstMissingValueOffset != kUnsetOffset;
-
-			if (markerMatched) {
-				++markerMatchedBlocks;
-				if (nameOffset == 4)
-					++alternateLayoutMatches;
-			} else if (missingByPath) {
-				++valueMatchedFallbackBlocks;
-			} else {
-				continue;
-			}
-
-			logger::info(
+			logger::trace(
 				"[NIFImprover] Block {}: name@{} value@{} markerMatched={} raw='{}', normalized='{}'",
 				i,
 				markerMatched ? std::to_string(nameOffset) : std::string("none"),
 				chosenValueOffset,
 				markerMatched,
-				xmlPathRaw,
-				normalizedXmlPath);
+				parsed.strings[chosenValueIdx],
+				NormalizePathForComparison(parsed.strings[chosenValueIdx]));
 
 			if (!missingByPath) {
-				logger::info("[NIFImprover] Block {}: no missing XML value found in NiStringExtraData lanes, skipping", i);
+				logger::trace("[NIFImprover] Block {}: XML value not in missing set, skipping", i);
 				continue;
 			}
 
-			const size_t stripValueOffset = firstMissingValueOffset;
-			uint32_t stripValueIdx = 0;
-			std::memcpy(&stripValueIdx, block.data() + stripValueOffset, sizeof(uint32_t));
-			logger::info("[NIFImprover] Block {}: STRIPPING missing XML value index {} at offset {}", i, stripValueIdx, stripValueOffset);
+			if (markerMatched) {
+				++result.markerMatchedBlocks;
+				if (nameOffset == 4)
+					++result.alternateLayoutMatches;
+			} else {
+				++result.valueMatchedFallbacks;
+			}
 
-			const uint32_t kInvalidStringIndex = 0xFFFFFFFFu;
+			uint32_t stripIdx = 0;
+			std::memcpy(&stripIdx, block.data() + firstMissingOffset, sizeof(uint32_t));
+			logger::trace("[NIFImprover] Block {}: stripping string index {} at offset {}", i, stripIdx, firstMissingOffset);
+
 			if (markerMatched)
 				std::memcpy(block.data() + nameOffset, &kInvalidStringIndex, sizeof(uint32_t));
-			std::memcpy(block.data() + stripValueOffset, &kInvalidStringIndex, sizeof(uint32_t));
-			changed = true;
+			std::memcpy(block.data() + firstMissingOffset, &kInvalidStringIndex, sizeof(uint32_t));
+			result.changed = true;
 		}
 
-		if (markerMatchedBlocks == 0) {
-			logger::warn(
-				"[NIFImprover] No NiStringExtraData blocks referenced the physics marker (markerIdx={}, typeIdx={}, blockTypes={})",
-				markerIdx,
-				niStringExtraDataTypeIdx,
-				parsed.blockTypes.size());
-			if (valueMatchedFallbackBlocks > 0) {
-				logger::warn("[NIFImprover] Applied value-path fallback stripping for {} block(s)", valueMatchedFallbackBlocks);
-			}
+		return result;
+	}
 
-			// Last-resort fallback: some files appear to carry valid Name/String Data pairs
-			// that are not surfaced under NiStringExtraData in our parsed type index table.
-			int rawPairFallbackBlocks = 0;
-			for (size_t bi = 0; bi < parsed.blocks.size(); ++bi) {
-				auto& block = parsed.blocks[bi];
-				if (block.size() < sizeof(uint32_t) * 2)
+	// Last-resort pass when no NiStringExtraData blocks were found via the type index.
+	// Scans every block for any (marker, missing-xml-value) pair and strips both.
+	static bool stripXmlRefsRawFallback(
+		ParsedNif& parsed,
+		const std::unordered_set<std::string>& missingRefs,
+		int markerIdx)
+	{
+		bool changed = false;
+		int  fallbackBlocks = 0;
+
+		for (size_t bi = 0; bi < parsed.blocks.size(); ++bi) {
+			auto& block = parsed.blocks[bi];
+			if (block.size() < sizeof(uint32_t) * 2)
+				continue;
+
+			const size_t laneCount = block.size() / sizeof(uint32_t);
+			size_t markerOffset       = kUnsetOffset;
+			size_t missingValueOffset = kUnsetOffset;
+			uint32_t missingValueIdx  = 0;
+
+			for (size_t lane = 0; lane < laneCount; ++lane) {
+				const size_t off = lane * sizeof(uint32_t);
+				uint32_t v = 0;
+				std::memcpy(&v, block.data() + off, sizeof(uint32_t));
+
+				if (v == static_cast<uint32_t>(markerIdx) && markerOffset == kUnsetOffset)
+					markerOffset = off;
+
+				if (v >= parsed.strings.size())
 					continue;
 
-				const size_t laneCount = block.size() / sizeof(uint32_t);
-				size_t markerOffset = kUnsetOffset;
-				size_t missingValueOffset = kUnsetOffset;
-				uint32_t missingValueIdx = 0;
-
-				for (size_t lane = 0; lane < laneCount; ++lane) {
-					const size_t off = lane * sizeof(uint32_t);
-					uint32_t v = 0;
-					std::memcpy(&v, block.data() + off, sizeof(uint32_t));
-
-					if (v == static_cast<uint32_t>(markerIdx) && markerOffset == kUnsetOffset)
-						markerOffset = off;
-
-					if (v >= parsed.strings.size())
-						continue;
-
-					const std::string normalized = NormalizePathForComparison(parsed.strings[v]);
-					if (missingPhysicsXmlRefs->count(normalized) > 0 && missingValueOffset == kUnsetOffset) {
-						missingValueOffset = off;
-						missingValueIdx = v;
-					}
+				const std::string norm = NormalizePathForComparison(parsed.strings[v]);
+				if (missingRefs.count(norm) > 0 && missingValueOffset == kUnsetOffset) {
+					missingValueOffset = off;
+					missingValueIdx    = v;
 				}
-
-				if (markerOffset == kUnsetOffset || missingValueOffset == kUnsetOffset)
-					continue;
-
-				logger::warn(
-					"[NIFImprover] Raw-pair fallback stripping block {} (marker@{}, missingValueIdx={}@{})",
-					bi,
-					markerOffset,
-					missingValueIdx,
-					missingValueOffset);
-
-				const uint32_t kInvalidStringIndex = 0xFFFFFFFFu;
-				std::memcpy(block.data() + markerOffset, &kInvalidStringIndex, sizeof(uint32_t));
-				std::memcpy(block.data() + missingValueOffset, &kInvalidStringIndex, sizeof(uint32_t));
-				changed = true;
-				++rawPairFallbackBlocks;
 			}
 
-			if (rawPairFallbackBlocks > 0) {
-				logger::warn("[NIFImprover] Raw-pair fallback stripped {} block(s)", rawPairFallbackBlocks);
-			}
-		} else if (alternateLayoutMatches > 0) {
-			logger::warn("[NIFImprover] Used alternate NiStringExtraData layout for {} block(s)", alternateLayoutMatches);
+			if (markerOffset == kUnsetOffset || missingValueOffset == kUnsetOffset)
+				continue;
+
+			logger::warn(
+				"[NIFImprover] Raw-pair fallback: stripping block {} (marker@{}, missingValueIdx={}@{})",
+				bi, markerOffset, missingValueIdx, missingValueOffset);
+
+			std::memcpy(block.data() + markerOffset,       &kInvalidStringIndex, sizeof(uint32_t));
+			std::memcpy(block.data() + missingValueOffset, &kInvalidStringIndex, sizeof(uint32_t));
+			changed = true;
+			++fallbackBlocks;
 		}
+
+		if (fallbackBlocks > 0)
+			logger::warn("[NIFImprover] Raw-pair fallback stripped {} block(s)", fallbackBlocks);
 
 		return changed;
 	}
+
+	static bool removeMissingPhysicsXmlExtraData(
+		ParsedNif& parsed,
+		const std::unordered_set<std::string>* missingPhysicsXmlRefs)
+	{
+		if (!missingPhysicsXmlRefs || missingPhysicsXmlRefs->empty())
+			return false;
+
+		logger::trace("[NIFImprover] missingPhysicsXmlRefs ({} entries):", missingPhysicsXmlRefs->size());
+		for (const auto& ref : *missingPhysicsXmlRefs)
+			logger::trace("  - {}", ref);
+
+		int markerIdx = -1;
+		for (int i = 0; i < static_cast<int>(parsed.strings.size()); ++i) {
+			if (parsed.strings[static_cast<size_t>(i)] == nif::kPhysicsMarker) {
+				markerIdx = i;
+				break;
+			}
+		}
+		if (markerIdx < 0)
+			return false;
+
+		int typeIdx = -1;
+		for (int i = 0; i < static_cast<int>(parsed.blockTypes.size()); ++i) {
+			if (parsed.blockTypes[static_cast<size_t>(i)] == nif::kTypeNiStringExtraData) {
+				typeIdx = i;
+				break;
+			}
+		}
+		if (typeIdx < 0)
+			return false;
+
+		auto r = stripXmlRefsFromTypedBlocks(parsed, *missingPhysicsXmlRefs, markerIdx, typeIdx);
+
+		if (r.markerMatchedBlocks == 0) {
+			logger::warn(
+				"[NIFImprover] No NiStringExtraData blocks referenced the physics marker "
+				"(markerIdx={}, typeIdx={}, blockTypes={})",
+				markerIdx, typeIdx, parsed.blockTypes.size());
+			if (r.valueMatchedFallbacks > 0)
+				logger::warn("[NIFImprover] Value-path fallback stripped {} block(s)", r.valueMatchedFallbacks);
+
+			bool fallbackChanged = stripXmlRefsRawFallback(parsed, *missingPhysicsXmlRefs, markerIdx);
+			return r.changed || fallbackChanged;
+		}
+
+		if (r.alternateLayoutMatches > 0)
+			logger::warn("[NIFImprover] Used alternate NiStringExtraData layout for {} block(s)", r.alternateLayoutMatches);
+
+		return r.changed;
+	}
+
+	// ── Public API ────────────────────────────────────────────────────────────
 
 	bool GenerateImprovedNIF(
 		const std::string& srcNIFPath,
@@ -291,7 +316,6 @@ namespace hdt
 		const std::unordered_set<std::string>* missingPhysicsXmlRefs,
 		bool copyOriginal)
 	{
-		logger::info("[NIFImprover] ENTRY: {} missingXMLrefs={} outputDir={}", srcNIFPath, missingPhysicsXmlRefs ? missingPhysicsXmlRefs->size() : 0, outputDir);
 		namespace fs = std::filesystem;
 
 		if (outDiagnostics)
@@ -301,23 +325,20 @@ namespace hdt
 		auto _t0 = now();
 		std::ifstream in(std::filesystem::u8path(srcNIFPath), std::ios::binary | std::ios::ate);
 		if (!in.is_open()) {
-			logger::error("[NIFImprover] Early return: failed to open NIF file '{}'", srcNIFPath);
+			logger::error("[NIFImprover] Failed to open NIF file '{}'", srcNIFPath);
 			return false;
 		}
 		auto sz = in.tellg();
-		if (sz <= 0 || sz > kMaxNifFileSizeBytes) {
-			logger::error("[NIFImprover] Early return: invalid file size={} for '{}'", static_cast<long long>(sz), srcNIFPath);
+		if (sz <= 0 || sz > static_cast<std::streamoff>(nif::kMaxNifFileSize)) {
+			logger::error("[NIFImprover] Invalid file size={} for '{}'", static_cast<long long>(sz), srcNIFPath);
 			return false;
 		}
 		std::vector<uint8_t> data(static_cast<size_t>(sz));
 		in.seekg(0);
 		in.read(reinterpret_cast<char*>(data.data()), sz);
 		if (in.gcount() != static_cast<std::streamsize>(sz)) {
-			logger::error(
-				"[NIFImprover] Early return: short read for '{}', expected={} actual={}",
-				srcNIFPath,
-				static_cast<long long>(sz),
-				static_cast<long long>(in.gcount()));
+			logger::error("[NIFImprover] Short read for '{}', expected={} actual={}",
+				srcNIFPath, static_cast<long long>(sz), static_cast<long long>(in.gcount()));
 			return false;
 		}
 		auto _t1 = now();
@@ -326,83 +347,82 @@ namespace hdt
 		std::string parseError;
 		auto parsedOpt = parseNif(data, &parseError);
 		if (!parsedOpt.has_value()) {
-			logger::error(
-				"[NIFImprover] Early return: parseNif failed for '{}': {}",
-				srcNIFPath,
-				parseError.empty() ? "unknown parse error" : parseError);
+			logger::error("[NIFImprover] parseNif failed for '{}': {}",
+				srcNIFPath, parseError.empty() ? "unknown parse error" : parseError);
 			return false;
 		}
 		auto _t2 = now();
 		g_profParse.fetch_add(elapsedNs(_t1, _t2));
 		auto& parsed = *parsedOpt;
-		const char* layoutMode = parsed.hasExplicitEndiannessByte ? "explicit-endian-byte" : "legacy-no-endian-byte";
-		const char* payloadEndian = parsed.endianness == 0 ? "big" : "little";
-		logger::info(
-			"[NIFImprover] Parse layout selected: mode={} payload-endian={} version=0x{:08X}",
-			layoutMode,
-			payloadEndian,
-			parsed.version);
-		logger::info(
-			"[NIFImprover] Parsed NIF: blocks={}, strings={}, groups={}",
+
+		logger::trace("[NIFImprover] Parsed '{}': mode={} endian={} blocks={} strings={}",
+			srcNIFPath,
+			parsed.hasExplicitEndiannessByte ? "explicit-endian" : "legacy",
+			parsed.endianness == 0 ? "big" : "little",
 			parsed.blocks.size(),
-			parsed.strings.size(),
-			parsed.groups.size());
+			parsed.strings.size());
 
 		if (!parsed.groups.empty()) {
-			logger::error(
-				"[NIFImprover] Early return: unsupported grouped NIF for '{}' (group count={})",
-				srcNIFPath,
-				parsed.groups.size());
+			logger::error("[NIFImprover] Unsupported grouped NIF '{}' (group count={})",
+				srcNIFPath, parsed.groups.size());
 			return false;
 		}
 
 		bool changed = false;
 		auto _t3 = now();
-		bool bogusRemoved = removeBogusNiNodes(parsed);
+		changed |= removeBogusNiNodes(parsed);
 		auto _t4 = now();
 		g_profBogusNodes.fetch_add(elapsedNs(_t3, _t4));
-		logger::info("[NIFImprover] removeBogusNiNodes returned: {}", bogusRemoved);
-		changed |= bogusRemoved;
 
-		bool xmlStripped = removeMissingPhysicsXmlExtraData(parsed, missingPhysicsXmlRefs);
+		{
+			int removed = removeOrphanedSkinInstances(parsed);
+			if (outDiagnostics)
+				outDiagnostics->orphanedSkinInstancesRemoved = removed;
+			if (removed > 0) {
+				changed = true;
+				logger::info("[NIFImprover] Orphaned skin instances '{}': removed={}", srcNIFPath, removed);
+			}
+		}
+		auto _t4b = now();
+		g_profOrphanedSkin.fetch_add(elapsedNs(_t4, _t4b));
+
+		{
+			int repaired = repairNIFSkinMeshIssues(parsed);
+			if (outDiagnostics)
+				outDiagnostics->skinMeshIssuesFixed = repaired;
+			if (repaired > 0) {
+				changed = true;
+				logger::info("[NIFImprover] Skin mesh issues '{}': repaired={}", srcNIFPath, repaired);
+			}
+		}
+		auto _t4c = now();
+		g_profSkinMeshRepair.fetch_add(elapsedNs(_t4b, _t4c));
+
+		changed |= removeMissingPhysicsXmlExtraData(parsed, missingPhysicsXmlRefs);
 		auto _t5 = now();
-		g_profXmlStrip.fetch_add(elapsedNs(_t4, _t5));
-		logger::info("[NIFImprover] removeMissingPhysicsXmlExtraData returned: {}", xmlStripped);
-		changed |= xmlStripped;
-		
-		logger::info("[NIFImprover] changed={} after bogus/xml cleanup", changed);
+		g_profXmlStrip.fetch_add(elapsedNs(_t4c, _t5));
 
 		if (options.enableCollisionMeshDecimation) {
 			auto d = runOfflineCollisionDecimationBridge(parsed, options, changed);
 			if (outDiagnostics) {
-				outDiagnostics->decimationCandidatesDiscovered = d.candidatesDiscovered;
-				outDiagnostics->decimationCandidatesAttempted = d.candidatesAttempted;
-				outDiagnostics->decimationCandidatesApplied = d.candidatesApplied;
+				outDiagnostics->decimationCandidatesDiscovered    = d.candidatesDiscovered;
+				outDiagnostics->decimationCandidatesAttempted     = d.candidatesAttempted;
+				outDiagnostics->decimationCandidatesApplied       = d.candidatesApplied;
 				outDiagnostics->decimationCandidatesSkippedNoChange = d.candidatesSkippedNoChange;
 				outDiagnostics->decimationCandidatesSkippedUnsafe = d.candidatesSkippedUnsafe;
-				outDiagnostics->decimationSkipReasons = d.skipReasons;
+				outDiagnostics->decimationSkipReasons             = d.skipReasons;
 			}
-
-			if (d.candidatesAttempted > 0) {
-				logger::info(
-					"[Validator] Decimation bridge {}: discovered={}, attempted={}, applied={}, skipped-no-change={}, skipped-unsafe={}",
-					srcNIFPath,
-					d.candidatesDiscovered,
-					d.candidatesAttempted,
-					d.candidatesApplied,
-					d.candidatesSkippedNoChange,
-					d.candidatesSkippedUnsafe);
-			}
+			if (d.candidatesAttempted > 0)
+				logger::info("[NIFImprover] Decimation '{}': discovered={} attempted={} applied={} skipped-no-change={} skipped-unsafe={}",
+					srcNIFPath, d.candidatesDiscovered, d.candidatesAttempted,
+					d.candidatesApplied, d.candidatesSkippedNoChange, d.candidatesSkippedUnsafe);
 		}
 
-		if (!changed) {
-			logger::info("[NIFImprover] changed=false, skipping file write and returning false");
+		if (!changed)
 			return false;
-		}
 
 		// Serialize once; reuse the buffer for both round-trip validation and the
 		// file write to avoid serializing the same NIF twice.
-		logger::info("[NIFImprover] changed=true, serializing for round-trip validation");
 		auto _ts0 = now();
 		auto serialized = serializeNif(parsed);
 		auto _ts1 = now();
@@ -411,14 +431,12 @@ namespace hdt
 		auto _ts2 = now();
 		g_profValidate.fetch_add(elapsedNs(_ts1, _ts2));
 		if (roundTripError.has_value()) {
-			logger::error("[NIFImprover] Round-trip validation FAILED: {}", *roundTripError);
+			logger::error("[NIFImprover] Round-trip validation failed for '{}': {}", srcNIFPath, *roundTripError);
 			if (outDiagnostics)
 				outDiagnostics->validationError = *roundTripError;
 			return false;
 		}
-		logger::info("[NIFImprover] Round-trip validation passed");
 
-		// Create output directory
 		fs::path outPath = fs::path(outputDir) / stripDataPrefix(srcNIFPath);
 		std::error_code ec;
 		fs::create_directories(outPath.parent_path(), ec);
@@ -427,19 +445,18 @@ namespace hdt
 			return false;
 		}
 
-		logger::info("[NIFImprover] Writing NIF to: {}", pathToUtf8(outPath));
 		auto _tw0 = now();
-		if (!writeNifBytes(serialized, pathToUtf8(outPath))) {
-			logger::error("[NIFImprover] writeNifFile FAILED");
+		if (!writeNifBytes(serialized, PathToUtf8(outPath))) {
+			logger::error("[NIFImprover] Write failed for '{}'", PathToUtf8(outPath));
 			return false;
 		}
 		g_profWrite.fetch_add(elapsedNs(_tw0, now()));
-		logger::info("[NIFImprover] Write SUCCESS");
+		logger::info("[NIFImprover] Wrote improved NIF: {}", PathToUtf8(outPath));
 
 		if (copyOriginal) {
 			fs::path originalOutPath = outPath;
-			const std::string extension = originalOutPath.extension().string();
-			originalOutPath.replace_filename(originalOutPath.stem().string() + "-original" + extension);
+			const std::string ext = originalOutPath.extension().string();
+			originalOutPath.replace_filename(originalOutPath.stem().string() + "-original" + ext);
 			fs::copy_file(fs::u8path(srcNIFPath), originalOutPath, fs::copy_options::overwrite_existing, ec);
 			// Non-fatal: the improved NIF was already written; the original copy is for reference only.
 		}
@@ -450,8 +467,7 @@ namespace hdt
 	bool CopyNIFToOutput(const std::string& srcNIFPath, const std::string& outputDir)
 	{
 		namespace fs = std::filesystem;
-		std::string relative = stripDataPrefix(srcNIFPath);
-		fs::path outPath = fs::path(outputDir) / relative;
+		fs::path outPath = fs::path(outputDir) / stripDataPrefix(srcNIFPath);
 		std::error_code ec;
 		fs::create_directories(outPath.parent_path(), ec);
 		if (ec)

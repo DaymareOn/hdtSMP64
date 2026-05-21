@@ -5,6 +5,8 @@
 
 namespace hdt
 {
+	// ── Config ────────────────────────────────────────────────────────────────
+
 	struct ValidationConfig
 	{
 		int warnTriangleCount = 10000;
@@ -28,11 +30,7 @@ namespace hdt
 
 	extern ValidationConfig g_validationConfig;
 
-	enum class ValidationReportMode
-	{
-		Full,
-		ErrorsOnly
-	};
+	// ── Shared asset type ─────────────────────────────────────────────────────
 
 	struct PhysicsAsset
 	{
@@ -44,10 +42,19 @@ namespace hdt
 		bool xmlExists = false;
 	};
 
+	// ── Validation ────────────────────────────────────────────────────────────
+
+	enum class ValidationReportMode
+	{
+		Full,
+		ErrorsOnly
+	};
+
 	struct AssetValidationResult
 	{
 		bool hasErrors = false;
 		bool hasWarnings = false;
+		int skinMeshIssuesFound = 0;
 		int filesystemNifFilesDiscovered = 0;
 		int equippedNifsDiscovered = 0;
 		int nifScanViolationCount = 0;
@@ -56,8 +63,6 @@ namespace hdt
 		int xmlPassCount = 0;
 		int xmlErrorCount = 0;
 		int xmlWarningCount = 0;
-		int xmlImprovedCount = 0;  // number of improved XML files written
-		int nifImprovedCount = 0;  // number of improved NIF files written
 		double elapsedSeconds = 0.0;
 		std::vector<std::string> errors;
 		std::vector<std::string> warnings;
@@ -75,19 +80,7 @@ namespace hdt
 		bool equippedOnly = false,
 		ValidationReportMode reportMode = ValidationReportMode::Full);
 
-	struct NIFImproveResult
-	{
-		int totalNIFsFound = 0;
-		int totalTRIFilesFound = 0;
-		int nifImprovedCount = 0;
-		int decimationCandidatesDiscovered = 0;
-		int decimationCandidatesAttempted = 0;
-		int decimationCandidatesApplied = 0;
-		int decimationCandidatesSkippedNoChange = 0;
-		int decimationCandidatesSkippedUnsafe = 0;
-		std::vector<std::string> decimationSkipReasonHistogram;
-		std::vector<std::string> errors;
-	};
+	// ── XML improvement ───────────────────────────────────────────────────────
 
 	struct XMLImproveResult
 	{
@@ -105,6 +98,24 @@ namespace hdt
 		bool equippedOnly = false,
 		bool copyOriginal = false,
 		bool stateless = false);
+
+	// ── NIF improvement ───────────────────────────────────────────────────────
+
+	struct NIFImproveResult
+	{
+		int totalNIFsFound = 0;
+		int totalTRIFilesFound = 0;
+		int nifImprovedCount = 0;
+		int orphanedSkinInstancesRemoved = 0;
+		int skinMeshIssuesFixed = 0;
+		int decimationCandidatesDiscovered = 0;
+		int decimationCandidatesAttempted = 0;
+		int decimationCandidatesApplied = 0;
+		int decimationCandidatesSkippedNoChange = 0;
+		int decimationCandidatesSkippedUnsafe = 0;
+		std::vector<std::string> decimationSkipReasonHistogram;
+		std::vector<std::string> errors;
+	};
 
 	// Scan NIFs and write improved copies for files where bogus nodes can be removed.
 	// When equippedOnly is true, scans only NIFs associated with currently equipped
