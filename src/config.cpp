@@ -1,5 +1,4 @@
 #include "config.h"
-#include "hdtAssetValidator.h"
 #include "Hooks.h"
 #include "XmlReader.h"
 #include "Validator/hdtAssetValidator.h"
