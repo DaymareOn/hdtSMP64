@@ -236,12 +236,16 @@ namespace hdt
 		bool m_autoAdjustMaxSkeletons = true;  // Whether to dynamically change the maxActive skeletons to maintain min_fps
 		int m_maxActiveSkeletons = 20;         // The maximum active skeletons; hard limit
 		float m_minCullingDistance = 500;      // The distance from the camera under which we never cull the skeletons.
+		float m_maxPhysicsDistance = 0.f;      // 0 = disabled; hard cutoff — physics skipped beyond this distance (world units).
+		float m_minScreenSizeFraction = 0.f;   // 0 = disabled; the minimum fraction of screen height the skeleton should occupy to be active - [0,1].
 
 		// @brief Depending on this setting, we avoid to calculate the physics of the PC when it is in 1st person view.
 		bool m_disable1stPersonViewPhysics = false;
 
 	private:
 		RE::NiPoint3 m_cameraPositionDuringFrame;
+		float m_screenSizeNearPlaneScale = 0.f;   // precomputed per frame: 4·fNear²
+		float m_screenSizeThresholdScale = 0.f;  // precomputed per frame: minScreenSizeFraction²·screenH²
 		static RE::NiNode* getCameraNode();
 
 		void setSkeletonsActive(const bool updateMetrics = false);

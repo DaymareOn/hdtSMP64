@@ -112,6 +112,22 @@
                   <xs:documentation>disable1stPersonViewPhysics: (boolean) if set to true, the physics of the PC won't be calculated when in 1st person view, to save performance. If no value is set, default is false.</xs:documentation>
                 </xs:annotation>
               </xs:element>
+              <xs:element name="maxPhysicsDistance" type="xs:float" minOccurs="0">
+                <xs:annotation>
+                  <xs:documentation>maxPhysicsDistance: (float) hard cutoff distance in world units beyond which physics is never calculated for non-player skeletons, regardless of budget or screen visibility. 0 disables the cutoff. If no value is set, default is 0 (disabled).</xs:documentation>
+                </xs:annotation>
+              </xs:element>
+              <xs:element name="minScreenSizeFraction" minOccurs="0">
+                <xs:annotation>
+                  <xs:documentation>minScreenSizeFraction: (float 0-1) physics is skipped for non-player skeletons whose bounding sphere diameter, projected onto the screen, is smaller than this fraction of the screen height. 0 disables the check. If no value is set, default is 0 (disabled).</xs:documentation>
+                </xs:annotation>
+                <xs:simpleType>
+                  <xs:restriction base="xs:float">
+                    <xs:minInclusive value="0"/>
+                    <xs:maxInclusive value="1"/>
+                  </xs:restriction>
+                </xs:simpleType>
+              </xs:element>
               <xs:element name="enableCuda" type="booleanTextType" minOccurs="0">
                 <xs:annotation>
                   <xs:documentation>enableCuda: (boolean) experimental GPU collision algorithm. Try this if you have a slow CPU and fast GPU. This setting will be ignored if you haven't installed the CUDA-enabled version. If no value is set, default is false.</xs:documentation>
