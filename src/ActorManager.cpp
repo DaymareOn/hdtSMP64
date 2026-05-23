@@ -132,6 +132,8 @@ namespace hdt
 
 			skeleton.attachArmor(e->armorModel, e->attachedNode);
 		} else {
+			if (!e->armorModel)
+				return RE::BSEventNotifyControl::kContinue;
 			skeleton.addArmor(e->armorModel);
 		}
 
@@ -826,8 +828,7 @@ namespace hdt
 
 	void ActorManager::Skeleton::addArmor(RE::NiNode* armorModel)
 	{
-		if (armorModel)
-			logBrokenNifOnce(armorModel->name.c_str(), armorModel);
+		logBrokenNifOnce(armorModel->name.c_str(), armorModel);
 
 		IDType id = armors.size() ? armors.back().id + 1 : 0;
 		auto prefix = armorPrefix(id);
