@@ -53,4 +53,22 @@ namespace hdt
 		return line;
 	}
 
+	// Extract the local element name from a Schematron report location string.
+	// e.g. "/system[1]/bone[2]/angularDamping[1]" -> "angularDamping"
+	inline std::string ExtractElementNameFromSchLocation(const std::string& location)
+	{
+		auto slash = location.rfind('/');
+		if (slash == std::string::npos)
+			return {};
+
+		auto start = slash + 1;
+		auto bracket = location.find('[', start);
+		if (bracket == std::string::npos)
+			bracket = location.size();
+		if (bracket <= start)
+			return {};
+
+		return location.substr(start, bracket - start);
+	}
+
 }  // namespace hdt

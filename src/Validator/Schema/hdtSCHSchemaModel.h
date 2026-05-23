@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Validators/hdtSCHValidator.h"
+#include "../Validators/hdtSCHValidator.h"
 
 #include <string>
 #include <vector>

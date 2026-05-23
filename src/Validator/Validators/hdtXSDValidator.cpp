@@ -3,7 +3,7 @@
 #include "NetImmerseUtils.h"
 #include "XmlReader.h"
 #include "../Config/hdtValidatorPaths.h"
-#include "../hdtXSDSchemaModel.h"
+#include "../Schema/hdtXSDSchemaModel.h"
 #include "../Parser/hdtXSDSchemaParser.h"
 #include "../Utils/hdtStringUtils.h"
 
@@ -105,7 +105,7 @@ namespace hdt
 			for (const auto& e : elementStack) {
 				path += "/" + e;
 			}
-			violations.push_back({ xmlPath, line, col, path, msg });
+			violations.push_back({ xmlPath, static_cast<int>(line), static_cast<int>(col), path, msg });
 		}
 	};
 
@@ -222,13 +222,54 @@ namespace hdt
 		}
 	}
 
-	/// Validates the <system> subtree using the currently loaded schema root tag.
-	static void validateSystemRootSubtree(XMLReader& reader, ValidationContext& ctx)
+	// Verify all pending keyref values against the keys declared during the tree walk.
+	// Runs after validateElementSubtree so all key declarations are visible.
+	static void resolveKeyRefs(ValidationContext& ctx, const PhysicsSchema& schema)
 	{
-		const PhysicsSchema& schema = getOrLoadPhysicsSchema();
-		ctx.elementStack.push_back(schema.rootTag);
-		validateElementSubtree(schema.rootTag, reader, ctx, schema);
-		ctx.elementStack.pop_back();
+		const std::unordered_set<std::string> emptySet;
+		for (const auto& [refName, refDef] : schema.keyRefDefs) {
+			const auto pendIt = ctx.keyRefPending.find(refName);
+			if (pendIt == ctx.keyRefPending.end())
+				continue;
+			const auto keyIt = ctx.keyValues.find(refDef.refer);
+			const auto& declared = (keyIt != ctx.keyValues.end()) ? keyIt->second : emptySet;
+			for (const auto& [line, val] : pendIt->second) {
+				if (!val.empty() && !declared.count(val)) {
+					ctx.violations.push_back({ ctx.xmlPath, static_cast<int>(line), 0,
+						"/" + schema.rootTag,
+						"Undeclared reference '" + val + "' (must be declared in '" +
+							refDef.refer + "')" });
+				}
+			}
+		}
+	}
+
+	// Top-level document walk: finds the root element, reports wrong-root-tag errors,
+	// drives the element subtree validator, then resolves referential integrity.
+	static void validateDocument(XMLReader& reader, ValidationContext& ctx, const PhysicsSchema& schema)
+	{
+		bool foundSystem = false;
+
+		while (reader.Inspect()) {
+			if (reader.GetInspected() != XMLReader::Inspected::StartTag)
+				continue;
+
+			const std::string tag = reader.GetLocalName();
+			if (tag == schema.rootTag) {
+				foundSystem = true;
+				ctx.elementStack.push_back(schema.rootTag);
+				validateElementSubtree(schema.rootTag, reader, ctx, schema);
+				ctx.elementStack.pop_back();
+				resolveKeyRefs(ctx, schema);
+			} else {
+				ctx.addViolationWithCurrentPath(reader.GetRow(), reader.GetColumn(),
+					"Root element must be <" + schema.rootTag + ">, found <" + tag + ">");
+				reader.skipCurrentElement();
+			}
+		}
+
+		if (!foundSystem)
+			ctx.violations.push_back({ ctx.xmlPath, 0, 0, "/", "No <" + schema.rootTag + "> root element found" });
 	}
 
 	// ---- public API ----
@@ -247,8 +288,7 @@ namespace hdt
 			return result;
 		}
 
-		// Use readAllFile2 (direct filesystem) only: physics XML files are on disk
-		// and readAllFile (BSA VFS) is unsafe before BSAs are mounted during SKSEPlugin_Load.
+		// Physics XML configs are always loose files on disk, never BSA-packed.
 		auto bytes = readAllFile2(xmlPath.c_str());
 
 		if (bytes.empty()) {
@@ -258,54 +298,13 @@ namespace hdt
 		}
 
 		const PhysicsSchema& schema = getOrLoadPhysicsSchema();
-		ValidationContext ctx{
-			xmlPath,
-			result.violations,
-			{}
-		};
+		ValidationContext ctx{ xmlPath, result.violations, {} };
 
 		try {
 			XMLReader reader((uint8_t*)bytes.data(), bytes.size());
-			bool foundSystem = false;
-
-			while (reader.Inspect()) {
-				if (reader.GetInspected() == XMLReader::Inspected::StartTag) {
-					const std::string tag = reader.GetLocalName();
-					if (tag == schema.rootTag) {
-						foundSystem = true;
-						validateSystemRootSubtree(reader, ctx);
-						// Referential integrity — check all pending keyref values against declared keys.
-						const std::unordered_set<std::string> emptySet;
-						for (const auto& [refName, refDef] : schema.keyRefDefs) {
-							const auto pendIt = ctx.keyRefPending.find(refName);
-							if (pendIt == ctx.keyRefPending.end())
-								continue;
-							const auto keyIt = ctx.keyValues.find(refDef.refer);
-							const auto& declared =
-								(keyIt != ctx.keyValues.end()) ? keyIt->second : emptySet;
-							for (const auto& [line, val] : pendIt->second) {
-								if (!val.empty() && !declared.count(val)) {
-									result.violations.push_back({ xmlPath, line, 0,
-										"/" + schema.rootTag,
-										"Undeclared reference '" + val + "' (must be declared in '" +
-											refDef.refer + "')" });
-								}
-							}
-						}
-					} else {
-						ctx.addViolationWithCurrentPath(reader.GetRow(), reader.GetColumn(),
-							"Root element must be <" + schema.rootTag + ">, found <" + tag + ">");
-						reader.skipCurrentElement();
-					}
-				}
-			}
-
-			if (!foundSystem) {
-				result.violations.push_back({ xmlPath, 0, 0, "/", "No <" + schema.rootTag + "> root element found" });
-			}
+			validateDocument(reader, ctx, schema);
 		} catch (const std::exception& e) {
-			result.violations.push_back(
-				{ xmlPath, 0, 0, "", std::string("XML parse error: ") + e.what() });
+			result.violations.push_back({ xmlPath, 0, 0, "", std::string("XML parse error: ") + e.what() });
 		} catch (...) {
 			result.violations.push_back({ xmlPath, 0, 0, "", "Unknown XML parse error" });
 		}

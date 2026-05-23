@@ -12,20 +12,6 @@ namespace hdt
 		int warnTriangleCount = 10000;
 		std::string modsDir;    // mods folder (MO2 mods/ or Vortex staging); FSMP-out is created inside it
 		std::string outputDir;  // derived: modsDir/FSMP-out — set by config loader, used everywhere
-		bool decimateCollisionMeshesOffline = false;
-		float decimationTargetVertexRatio = 0.99f;
-		int decimationTargetVertexCount = 0;
-		float decimationQemCostThreshold = 1.0f;  // scale-invariant: threshold is multiplied by diag² before comparison with QEM cost (0 = disabled)
-		float decimationShortEdgeRatio = 0.01f;
-		float decimationSkinWeightPenalty = 0.0f;
-		float decimationMaxSkinWeightDrift = 0.0f;
-		float decimationMaxVolumeLossPercent = 1.0f;
-		float decimationMaxLocalVolumeChangePercent = 1.0f;
-		float decimationMaxNormalDeviationDegrees = 25.0f;
-		int decimationMaxPointRemovals = 256;   // legacy/no-op: retained for config compatibility
-		int decimationMaxEdgeCollapses = 4096;  // legacy/no-op: retained for config compatibility
-		bool decimationPreserveBoundary = true;
-		bool decimationPreserveFeatures = true;
 	};
 
 	extern ValidationConfig g_validationConfig;
@@ -108,6 +94,23 @@ namespace hdt
 		int nifImprovedCount = 0;
 		int orphanedSkinInstancesRemoved = 0;
 		int skinMeshIssuesFixed = 0;
+		std::vector<std::string> errors;
+	};
+
+	// Scan NIFs and write structurally repaired copies (bogus node removal, orphaned skin
+	// instances, partition triangle-copy mismatches). Never runs decimation.
+	// When equippedOnly is true, scans only NIFs associated with currently equipped
+	// physics assets.
+	NIFImproveResult ImprovePhysicsNIFs(
+		const std::string& outputDir,
+		bool equippedOnly = false,
+		bool copyOriginal = false);
+
+	struct NIFTrimResult
+	{
+		int totalNIFsFound = 0;
+		int totalTRIFilesFound = 0;
+		int nifTrimmedCount = 0;
 		int decimationCandidatesDiscovered = 0;
 		int decimationCandidatesAttempted = 0;
 		int decimationCandidatesApplied = 0;
@@ -117,10 +120,36 @@ namespace hdt
 		std::vector<std::string> errors;
 	};
 
-	// Scan NIFs and write improved copies for files where bogus nodes can be removed.
-	// When equippedOnly is true, scans only NIFs associated with currently equipped
-	// physics assets.
-	NIFImproveResult ImprovePhysicsNIFs(
+	/// Reduce collision mesh polygon counts for all physics NIFs and write the results.
+	/// Runs decimation only — no structural repairs. Use FixTrimPhysicsNIFs for both.
+	/// When equippedOnly is true, scans only NIFs associated with currently equipped
+	/// physics assets.
+	NIFTrimResult TrimPhysicsNIFs(
+		const std::string& outputDir,
+		bool equippedOnly = false,
+		bool copyOriginal = false);
+
+	struct NIFFixTrimResult
+	{
+		int totalNIFsFound = 0;
+		int totalTRIFilesFound = 0;
+		int nifProcessedCount = 0;
+		int orphanedSkinInstancesRemoved = 0;
+		int skinMeshIssuesFixed = 0;
+		int decimationCandidatesDiscovered = 0;
+		int decimationCandidatesAttempted = 0;
+		int decimationCandidatesApplied = 0;
+		int decimationCandidatesSkippedNoChange = 0;
+		int decimationCandidatesSkippedUnsafe = 0;
+		std::vector<std::string> decimationSkipReasonHistogram;
+		std::vector<std::string> errors;
+	};
+
+	/// Structural repairs (bogus nodes, orphaned skins, mesh issues, missing XML refs)
+	/// followed by collision mesh decimation in a single pass.
+	/// When equippedOnly is true, scans only NIFs associated with currently equipped
+	/// physics assets.
+	NIFFixTrimResult FixTrimPhysicsNIFs(
 		const std::string& outputDir,
 		bool equippedOnly = false,
 		bool copyOriginal = false);

@@ -11,8 +11,8 @@ namespace hdt
 	struct XSDViolation
 	{
 		std::string xmlPath;
-		uint64_t line;
-		uint64_t column;
+		int line   = 0;
+		int column = 0;
 		std::string elementPath;
 		std::string message;
 	};
@@ -29,8 +29,7 @@ namespace hdt
 	XSDValidationResult ValidatePhysicsXMLWithXSD(const std::string& xmlPath);
 
 	// Access to the parsed XSD schema, for use by hdtXMLImprover.
-	// The schema is loaded on first call to ValidatePhysicsXML and cached thereafter.
-	// Safe to call from any thread once the schema is loaded.
+	// Thread-safe: schema is loaded once on first access via std::call_once.
 	const std::unordered_map<std::string, std::unordered_set<std::string>>& GetSchemaAllowedChildren();
 	const std::unordered_set<std::string>& GetSchemaKnownElements();
 

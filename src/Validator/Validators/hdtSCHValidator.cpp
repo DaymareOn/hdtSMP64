@@ -1,7 +1,7 @@
 #include "hdtSCHValidator.h"
 
 #include "NetImmerseUtils.h"
-#include "../hdtSCHSchemaModel.h"
+#include "../Schema/hdtSCHSchemaModel.h"
 #include "../Parser/hdtSCHSchemaParser.h"
 #include "../Config/hdtValidatorPaths.h"
 #include "../Utils/hdtStringUtils.h"
@@ -15,39 +15,26 @@ namespace hdt
 {
 	namespace
 	{
-		static void replaceAllInPlace(std::string& s, const std::string& from, const std::string& to)
+		// Supported placeholders: {name} (element local name), {value} (trimmed text content).
+		std::string resolveMessageTemplate(std::string msgTemplate, const pugi::xml_node& node)
 		{
-			if (from.empty())
-				return;
-
-			size_t pos = 0;
-			while ((pos = s.find(from, pos)) != std::string::npos) {
-				s.replace(pos, from.size(), to);
-				pos += to.size();
-			}
-		}
-
-		/// Expands parser placeholders using the currently matched XML node.
-		static std::string resolveMessageTemplate(std::string msgTemplate, const pugi::xml_node& node)
-		{
-			replaceAllInPlace(msgTemplate, "{name}", std::string(XmlLocalName(node.name())));
-			replaceAllInPlace(msgTemplate, "{value}", TrimAsciiWhitespace(node.text().as_string()));
+			ReplaceAllInPlace(msgTemplate, "{name}", std::string(XmlLocalName(node.name())));
+			ReplaceAllInPlace(msgTemplate, "{value}", TrimAsciiWhitespace(node.text().as_string()));
 			return msgTemplate;
 		}
 	}  // namespace
 
-	// ---- schema loading ----
+	// ── Schema loading ────────────────────────────────────────────────────────
 
 	static CompiledSchema g_compiledSchema;
 	static std::once_flag g_schemaOnce;
 
-	/// Returns the cached compiled Schematron schema, loading and compiling it
-	/// from disk on first use. Initialization is thread-safe and runs only once.
+	// Lazy-loads and caches the compiled Schematron schema.
+	// Thread-safe via std::call_once; result is stable after first call.
 	static const CompiledSchema& getOrLoadCompiledSchema()
 	{
 		std::call_once(g_schemaOnce, []() {
-			// Use readAllFile2 (direct filesystem) only: schema files are always on disk
-			// and readAllFile (BSA VFS) is unsafe before BSAs are mounted during SKSEPlugin_Load.
+			// Schema files are always on disk; direct filesystem read is correct here.
 			std::string bytes = readAllFile2(kPhysicsSCHPath);
 
 			if (bytes.empty()) {
@@ -79,11 +66,9 @@ namespace hdt
 		return g_compiledSchema;
 	}
 
-	// ---- public API ----
+	// ── Public API ────────────────────────────────────────────────────────────
 
-	/// Validates a physics XML file against compiled Schematron rules.
-	/// Returns all matched violations with location and line metadata, and sets
-	/// hasErrors/hasWarnings flags according to each matched rule role.
+	// Sets result.hasErrors / result.hasWarnings according to each matched rule role.
 	SCHValidationResult ValidatePhysicsXMLWithSchematron(const std::string& xmlPath)
 	{
 		SCHValidationResult result;
@@ -92,6 +77,7 @@ namespace hdt
 		if (!schema.loaded)
 			return result;
 
+		// Physics XML configs are always loose files on disk, never BSA-packed.
 		std::string bytes = readAllFile2(xmlPath.c_str());
 		if (bytes.empty())
 			return result;  // File-not-found is reported by the XSD validator
@@ -100,10 +86,10 @@ namespace hdt
 		auto parseResult = doc.load_buffer(bytes.data(), bytes.size());
 		if (!parseResult) {
 			SCHViolation v;
-			v.xmlPath = xmlPath;
-			v.location = "/";
-			v.message = std::string("XML parse error: ") + parseResult.description();
-			v.role = SCHRole::Error;
+			v.xmlPath   = xmlPath;
+			v.location  = "/";
+			v.message   = std::string("XML parse error: ") + parseResult.description();
+			v.role      = SCHRole::Error;
 			result.violations.push_back(std::move(v));
 			result.hasErrors = true;
 			return result;
@@ -121,11 +107,11 @@ namespace hdt
 
 			for (const auto& xnode : matches) {
 				SCHViolation v;
-				v.xmlPath = xmlPath;
-				v.location = BuildNodeLocationPath(xnode.node());
-				v.line = OffsetToLineNumber(bytes, xnode.node().offset_debug());
-				v.message = resolveMessageTemplate(rule.message, xnode.node());
-				v.role = rule.role;
+				v.xmlPath   = xmlPath;
+				v.location  = BuildNodeLocationPath(xnode.node());
+				v.line      = OffsetToLineNumber(bytes, xnode.node().offset_debug());
+				v.message   = resolveMessageTemplate(rule.message, xnode.node());
+				v.role      = rule.role;
 
 				if (rule.role == SCHRole::Error)
 					result.hasErrors = true;

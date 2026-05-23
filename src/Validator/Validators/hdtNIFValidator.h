@@ -19,7 +19,6 @@ namespace hdt
 		std::vector<std::string> allPhysicsXmlPaths;  // all found, for duplicate detection
 		bool hasGeometry = false;
 		bool hasSkinning = false;
-		uint32_t boneCount = 0;
 		std::vector<std::string> errors;
 	};
 
@@ -33,7 +32,6 @@ namespace hdt
 		bool isValid = true;
 		bool hasSkinningData = false;
 		uint32_t boneCount = 0;
-		uint32_t triangleCount = 0;
 		std::vector<std::string> boneNames;
 		std::vector<std::string> errors;
 		std::vector<std::string> warnings;
@@ -41,6 +39,6 @@ namespace hdt
 
 	// Validate NIF structural requirements for FSMP physics using a loaded NiNode*.
 	// Can be called at runtime when the NIF has been loaded by the game.
-	NIFStructuralResult validateNIFStructure(RE::NiNode* root, const std::string& nifPath);
+	NIFStructuralResult ValidateNIFStructure(RE::NiNode* root, const std::string& nifPath);
 
 }  // namespace hdt

@@ -31,12 +31,25 @@ option(ENABLE_SKYRIM_AE "Enable support for Skyrim AE in the dynamic runtime fea
 option(ENABLE_SKYRIM_VR "Enable support for Skyrim VR in the dynamic runtime feature." ON)
 
 #
-set(BUILD_TESTS OFF)
+# Enable with:  cmake -DHDTSMP_BUILD_TESTS=ON …
+# Requires an internet connection on first configure (Catch2 via FetchContent).
+# Named HDTSMP_BUILD_TESTS (not BUILD_TESTS) to avoid clashing with CommonLibSSE's
+# own BUILD_TESTS option, which expects Catch2 to be installed via vcpkg.
+option(HDTSMP_BUILD_TESTS "Build the hdtSMP64_tests unit-test executable" OFF)
 
 # default definitions
 add_definitions(-DBT_USE_SSE_IN_API)
 
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 
+# CommonLibSSE's BUILD_TESTS option defaults to ON and expects Catch2 from vcpkg,
+# which is not in this project's vcpkg manifest.  Force it off before the
+# subdirectory is added so CommonLibSSE's option() call sees it already cached.
+set(BUILD_TESTS OFF CACHE BOOL "CommonLibSSE test suite (disabled for hdtSMP64)" FORCE)
+
 add_subdirectory(src)
 include(cmake/packaging.cmake)
+
+if(HDTSMP_BUILD_TESTS)
+    add_subdirectory(tests)
+endif()

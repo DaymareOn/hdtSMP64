@@ -11,6 +11,10 @@ namespace hdt
 {
 	namespace
 	{
+		constexpr float kMinSaneScale              = 1e-6f;
+		constexpr float kMaxSaneScale              = 1000.f;
+		constexpr float kRootScaleDeviationThreshold = 0.5f;
+
 		/// Recursively collects non-empty NiNode names from a skeleton subtree.
 		/// The collected names are used as a simple bone inventory for diagnostics.
 		void collectNamedSkeletonNodes(RE::NiNode* node, std::vector<std::string>& boneNames)
@@ -50,13 +54,13 @@ namespace hdt
 				errors.push_back("Bone '" + boneName + "': NaN/inf scale");
 				ok = false;
 			}
-			if (xfm.scale < 1e-6f) {
+			if (xfm.scale < kMinSaneScale) {
 				errors.push_back(
 					"Bone '" + boneName + "': scale is zero or near-zero (" +
 					std::to_string(xfm.scale) + ")");
 				ok = false;
 			}
-			if (xfm.scale > 1000.f) {
+			if (xfm.scale > kMaxSaneScale) {
 				errors.push_back(
 					"Bone '" + boneName + "': scale is extreme (" +
 					std::to_string(xfm.scale) + ")");
@@ -124,12 +128,27 @@ namespace hdt
 				}
 			}
 		}
+		/// Recursively validates node transforms in a skeleton subtree.
+		/// Calls validateNodeTransform on every NiNode; errors accumulate in result.errors.
+		void validateNodeTransformsSubtree(RE::NiNode* node, std::vector<std::string>& errors)
+		{
+			if (!node)
+				return;
+			std::string name = node->name.empty() ? "<unnamed>" : node->name.c_str();
+			validateNodeTransform(node->world, name, errors);
+			for (auto& child : node->GetChildren()) {
+				RE::NiNode* childNode = castNiNode(child.get());
+				if (childNode)
+					validateNodeTransformsSubtree(childNode, errors);
+			}
+		}
+
 	}  // namespace
 
 	/// Validates runtime NIF structure rooted at a NiNode.
 	/// Performs bone discovery, transform sanity checks, and skinning integrity checks,
 	/// then returns a consolidated structural validation result with errors/warnings.
-	NIFStructuralResult validateNIFStructure(RE::NiNode* root, const std::string& nifPath)
+	NIFStructuralResult ValidateNIFStructure(RE::NiNode* root, const std::string& nifPath)
 	{
 		NIFStructuralResult result;
 
@@ -147,19 +166,7 @@ namespace hdt
 			result.errors.push_back(nifPath + ": no bones found in skeleton");
 		}
 
-		std::function<void(RE::NiNode*)> checkTransforms = [&](RE::NiNode* node) {
-			if (!node)
-				return;
-			std::string name = node->name.empty() ? "<unnamed>" : node->name.c_str();
-			validateNodeTransform(node->world, name, result.errors);
-			for (auto& child : node->GetChildren()) {
-				RE::NiNode* childNode = castNiNode(child.get());
-				if (childNode) {
-					checkTransforms(childNode);
-				}
-			}
-		};
-		checkTransforms(root);
+		validateNodeTransformsSubtree(root, result.errors);
 
 		validateSkinningSubtree(root, result);
 
@@ -167,7 +174,7 @@ namespace hdt
 			result.warnings.push_back(nifPath + ": no skinned meshes found");
 		}
 
-		if (root->world.scale > 1e-6f && std::abs(root->world.scale - 1.0f) > 0.5f) {
+		if (root->world.scale > kMinSaneScale && std::abs(root->world.scale - 1.0f) > kRootScaleDeviationThreshold) {
 			result.warnings.push_back(nifPath + ": root scale " +
 				std::to_string(root->world.scale) + " deviates significantly from 1.0");
 		}

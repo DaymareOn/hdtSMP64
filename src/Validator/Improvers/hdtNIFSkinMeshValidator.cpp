@@ -50,7 +50,7 @@ namespace hdt
 
 		// ── Block-type helper ─────────────────────────────────────────────────────
 		// TODO: extract to a shared header — same function exists in
-		// hdtNIFOrphanedSkinImprover.cpp and hdtNIFCollisionDecimationImprover.cpp.
+		// hdtNIFOrphanedSkinImprover.cpp and hdtNIFDecimator.cpp.
 
 		std::optional<std::string> typeAt(const ParsedNif& parsed, int32_t idx)
 		{
@@ -118,7 +118,7 @@ namespace hdt
 		// ── Block parsers ─────────────────────────────────────────────────────────
 
 		/// Parse a BSTriShape/BSDynamicTriShape block with the same acceptance criteria
-		/// as parseSupportedSSETriShapeBlock in hdtNIFCollisionDecimationImprover.cpp.
+		/// as parseSupportedSSETriShapeBlock in hdtNIFDecimator.cpp.
 		/// Stores only the fields needed for steps 4–11 detection.
 		std::optional<TriShapeView> parseTriShape(
 			const std::vector<uint8_t>& block,
@@ -193,7 +193,7 @@ namespace hdt
 		}
 
 		/// Parse a NiSkinPartition block tolerantly: identical to the strict parser in
-		/// hdtNIFCollisionDecimationImprover.cpp except the triangles == trianglesCopy
+		/// hdtNIFDecimator.cpp except the triangles == trianglesCopy
 		/// equality check is omitted.  Records trianglesOffset and trianglesCopyOffset
 		/// so the repair pass can overwrite the copy in-place.
 		std::optional<PartitionView> parsePartitionTolerant(
@@ -272,7 +272,7 @@ namespace hdt
 		}
 
 		// ── Vertex / triangle validation ──────────────────────────────────────────
-		// TODO: deduplicate with identical functions in hdtNIFCollisionDecimationImprover.cpp.
+		// TODO: deduplicate with identical functions in hdtNIFDecimator.cpp.
 
 		bool isPermutationVertexMap(const std::vector<uint16_t>& vertexMap)
 		{
@@ -325,7 +325,7 @@ namespace hdt
 
 		// ── Candidate discovery ───────────────────────────────────────────────────
 		// TODO: extract to a shared header — mirrors discoverDecimationCandidates in
-		// hdtNIFCollisionDecimationImprover.cpp and buildRefOutbound in
+		// hdtNIFDecimator.cpp and buildRefOutbound in
 		// hdtNIFOrphanedSkinImprover.cpp.
 
 		struct SkinMeshCandidate

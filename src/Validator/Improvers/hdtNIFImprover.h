@@ -24,6 +24,7 @@ namespace hdt
 
 	struct NIFDecimationOptions
 	{
+		bool enableStructuralFixes = true;         // bogus nodes, orphaned skins, mesh issues, missing XML refs
 		bool enableCollisionMeshDecimation = false;
 		float targetVertexRatio = 0.99f;  // fraction of vertices to retain (0.99 => ~1% reduction)
 		int targetVertexCount = 0;
@@ -40,8 +41,8 @@ namespace hdt
 		bool preserveFeatures = true;
 	};
 
-	// Removes obviously bogus trailing NiNode blocks from NIF binaries first, then
-	// optionally applies supported collision mesh decimation, and writes improved files to:
+	// Applies structural fixes (bogus nodes, orphaned skins, mesh issues, missing XML refs)
+	// and/or collision mesh decimation based on options, and writes improved files to:
 	//   <outputDir>/<path-relative-to-data/>
 	// only when at least one improvement was applied.
 	//
@@ -50,8 +51,8 @@ namespace hdt
 	bool GenerateImprovedNIF(
 		const std::string& srcNIFPath,
 		const std::string& outputDir,
-		const NIFDecimationOptions& options = {},
-		NIFImproverDiagnostics* outDiagnostics = nullptr,
+		const NIFDecimationOptions& options,
+		NIFImproverDiagnostics& outDiagnostics,
 		const std::unordered_set<std::string>* missingPhysicsXmlRefs = nullptr,
 		bool copyOriginal = false);
 

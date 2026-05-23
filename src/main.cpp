@@ -479,6 +479,12 @@ bool SMPDebug_Execute(
 		console->Print("  smp fix nif [gear] [debug] [output_dir]");
 		console->Print("    Clean NIF issues and write improved NIF copies.");
 		console->Print("    debug = also copy original source as *-original.nif for improved files.");
+		console->Print("  smp trim nif [gear] [debug] [output_dir]");
+		console->Print("    Reduce collision mesh polygon count (lossy). Writes trimmed NIF copies.");
+		console->Print("    debug = also copy original source as *-original.nif for trimmed files.");
+		console->Print("  smp fix trim nif [gear] [debug] [output_dir]");
+		console->Print("    Clean NIF issues and reduce collision mesh polygon count in one pass.");
+		console->Print("    debug = also copy original source as *-original.nif for output files.");
 	};
 
 	if (_strnicmp(buffer, "help", MAX_PATH) == 0) {
@@ -687,26 +693,126 @@ bool SMPDebug_Execute(
 				if (result.skinMeshIssuesFixed > 0)
 					console->Print("[HDT-SMP] NIF cleanup: repaired %d partition triangle-copy mismatch(es)",
 						result.skinMeshIssuesFixed);
-				if (result.decimationCandidatesAttempted > 0) {
-					console->Print("[HDT-SMP] NIF decimation bridge: discovered=%d attempted=%d applied=%d skipped-no-change=%d skipped-unsafe=%d",
-						result.decimationCandidatesDiscovered,
-						result.decimationCandidatesAttempted,
-						result.decimationCandidatesApplied,
-						result.decimationCandidatesSkippedNoChange,
-						result.decimationCandidatesSkippedUnsafe);
-					for (const auto& reason : result.decimationSkipReasonHistogram)
-						console->Print("[HDT-SMP] NIF decimation bridge skip-reason: %s", reason.c_str());
-				}
-				for (const auto& err : result.errors) {
+				for (const auto& err : result.errors)
 					console->Print("[HDT-SMP] NIF cleanup error: %s", err.c_str());
-				}
-				logger::info("[Validator] NIF cleanup done: gearOnly={}, nifs={}, tris={}, improved={}, orphaned-skin={}, skin-mesh-fixed={}, decimation(discovered={},attempted={},applied={},skip-no-change={},skip-unsafe={}), output={}",
+				logger::info("[Validator] NIF cleanup done: gearOnly={}, nifs={}, tris={}, improved={}, orphaned-skin={}, skin-mesh-fixed={}, output={}",
 					gearOnly,
 					result.totalNIFsFound,
 					result.totalTRIFilesFound,
 					result.nifImprovedCount,
 					result.orphanedSkinInstancesRemoved,
 					result.skinMeshIssuesFixed,
+					outputDir);
+			});
+		return true;
+	}
+
+	const bool isFixTrimNIFCommand = _strnicmp(buffer, "fix", MAX_PATH) == 0 && _stricmp(buffer2, "trim") == 0 && _stricmp(buffer3, "nif") == 0;
+	if (isFixTrimNIFCommand) {
+		const bool hasTooManyArgs = buffer7[0] != '\0';
+		if (hasTooManyArgs) {
+			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Usage: smp fix trim nif [gear] [debug] [output_dir]");
+			return true;
+		}
+
+		FixCommandArgs args;
+		if (!ParseFixCommandArgs(buffer4, buffer5, buffer6, args)) {
+			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Usage: smp fix trim nif [gear] [debug] [output_dir]");
+			return true;
+		}
+
+		if (!ValidateFixOutputDir(args.outputDir, "smp fix trim nif [gear] [debug] [output_dir]"))
+			return true;
+
+		ExecuteFixThread("NIF-FixTrim", args.gearOnly, args.copyOriginal, args.outputDir,
+			[](bool gearOnly, bool copyOriginal, const std::string& outputDir) {
+				auto result = hdt::FixTrimPhysicsNIFs(outputDir, gearOnly, copyOriginal);
+				auto* console = RE::ConsoleLog::GetSingleton();
+				console->Print("[HDT-SMP] %s NIF fix+trim: %d NIF(s) processed, %d related TRI(s), %d file(s) written to %s",
+					gearOnly ? "Equipped gear" : "All",
+					result.totalNIFsFound,
+					result.totalTRIFilesFound,
+					result.nifProcessedCount,
+					outputDir.c_str());
+				if (result.orphanedSkinInstancesRemoved > 0)
+					console->Print("[HDT-SMP] NIF fix+trim: removed %d orphaned skin instance(s) (missing NiSkinPartition)",
+						result.orphanedSkinInstancesRemoved);
+				if (result.skinMeshIssuesFixed > 0)
+					console->Print("[HDT-SMP] NIF fix+trim: repaired %d partition triangle-copy mismatch(es)",
+						result.skinMeshIssuesFixed);
+				if (result.decimationCandidatesAttempted > 0) {
+					console->Print("[HDT-SMP] NIF fix+trim: discovered=%d attempted=%d applied=%d skipped-no-change=%d skipped-unsafe=%d",
+						result.decimationCandidatesDiscovered,
+						result.decimationCandidatesAttempted,
+						result.decimationCandidatesApplied,
+						result.decimationCandidatesSkippedNoChange,
+						result.decimationCandidatesSkippedUnsafe);
+					for (const auto& reason : result.decimationSkipReasonHistogram)
+						console->Print("[HDT-SMP] NIF fix+trim skip-reason: %s", reason.c_str());
+				}
+				for (const auto& err : result.errors)
+					console->Print("[HDT-SMP] NIF fix+trim error: %s", err.c_str());
+				logger::info("[Validator] NIF fix+trim done: gearOnly={}, nifs={}, tris={}, processed={}, orphaned-skin={}, skin-mesh-fixed={}, decimation(discovered={},attempted={},applied={},skip-no-change={},skip-unsafe={}), output={}",
+					gearOnly,
+					result.totalNIFsFound,
+					result.totalTRIFilesFound,
+					result.nifProcessedCount,
+					result.orphanedSkinInstancesRemoved,
+					result.skinMeshIssuesFixed,
+					result.decimationCandidatesDiscovered,
+					result.decimationCandidatesAttempted,
+					result.decimationCandidatesApplied,
+					result.decimationCandidatesSkippedNoChange,
+					result.decimationCandidatesSkippedUnsafe,
+					outputDir);
+			});
+		return true;
+	}
+
+	const bool isTrimNIFCommand = _strnicmp(buffer, "trim", MAX_PATH) == 0 && _stricmp(buffer2, "nif") == 0;
+	if (isTrimNIFCommand) {
+		const bool hasTooManyArgs = buffer6[0] != '\0';
+		if (hasTooManyArgs) {
+			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Usage: smp trim nif [gear] [debug] [output_dir]");
+			return true;
+		}
+
+		FixCommandArgs args;
+		if (!ParseFixCommandArgs(buffer3, buffer4, buffer5, args)) {
+			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Usage: smp trim nif [gear] [debug] [output_dir]");
+			return true;
+		}
+
+		if (!ValidateFixOutputDir(args.outputDir, "smp trim nif [gear] [debug] [output_dir]"))
+			return true;
+
+		ExecuteFixThread("NIF-Trim", args.gearOnly, args.copyOriginal, args.outputDir,
+			[](bool gearOnly, bool copyOriginal, const std::string& outputDir) {
+				auto result = hdt::TrimPhysicsNIFs(outputDir, gearOnly, copyOriginal);
+				auto* console = RE::ConsoleLog::GetSingleton();
+				console->Print("[HDT-SMP] %s NIF trim: %d NIF(s) processed, %d related TRI(s), %d trimmed file(s) written to %s",
+					gearOnly ? "Equipped gear" : "All",
+					result.totalNIFsFound,
+					result.totalTRIFilesFound,
+					result.nifTrimmedCount,
+					outputDir.c_str());
+				if (result.decimationCandidatesAttempted > 0) {
+					console->Print("[HDT-SMP] NIF trim: discovered=%d attempted=%d applied=%d skipped-no-change=%d skipped-unsafe=%d",
+						result.decimationCandidatesDiscovered,
+						result.decimationCandidatesAttempted,
+						result.decimationCandidatesApplied,
+						result.decimationCandidatesSkippedNoChange,
+						result.decimationCandidatesSkippedUnsafe);
+					for (const auto& reason : result.decimationSkipReasonHistogram)
+						console->Print("[HDT-SMP] NIF trim skip-reason: %s", reason.c_str());
+				}
+				for (const auto& err : result.errors)
+					console->Print("[HDT-SMP] NIF trim error: %s", err.c_str());
+				logger::info("[Validator] NIF trim done: gearOnly={}, nifs={}, tris={}, trimmed={}, decimation(discovered={},attempted={},applied={},skip-no-change={},skip-unsafe={}), output={}",
+					gearOnly,
+					result.totalNIFsFound,
+					result.totalTRIFilesFound,
+					result.nifTrimmedCount,
 					result.decimationCandidatesDiscovered,
 					result.decimationCandidatesAttempted,
 					result.decimationCandidatesApplied,
@@ -978,7 +1084,7 @@ extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* a_s
 
 		unusedCommand->functionName = "SMPDebug";
 		unusedCommand->shortName = "smp";
-		unusedCommand->helpString = "smp <help|reset|dumptree|detail|list|profile [sample_frames] [print_every_frames]|on|off|QueryOverride|report [gear] [error]|fix xml [gear] [stateless] [debug] [output_dir]|fix nif [gear] [debug] [output_dir]>";
+		unusedCommand->helpString = "smp <help|reset|dumptree|detail|list|profile [sample_frames] [print_every_frames]|on|off|QueryOverride|report [gear] [error]|fix xml [gear] [stateless] [debug] [output_dir]|fix nif [gear] [debug] [output_dir]|trim nif [gear] [debug] [output_dir]|fix trim nif [gear] [debug] [output_dir]>";
 		unusedCommand->referenceFunction = 0;
 		unusedCommand->numParams = 8;
 		unusedCommand->params = params;

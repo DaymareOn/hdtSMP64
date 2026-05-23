@@ -2,6 +2,7 @@
 
 #include "../Config/hdtValidatorPaths.h"
 #include "hdtStringUtils.h"
+#include "hdtValidatorFamily.h"
 #include "hdtXMLUtils.h"
 
 #include <algorithm>
@@ -18,26 +19,28 @@ namespace hdt
 {
 	namespace
 	{
-		enum class Family
-		{
-			None,
-			Bone,
-			PerTriangle,
-			PerVertex,
-			Generic,
-			StiffSpring,
-			ConeTwist
-		};
+		// ── Types ─────────────────────────────────────────────────────────────
 
-		using FieldMap = std::unordered_map<std::string, std::string>;
+		using FieldMap    = std::unordered_map<std::string, std::string>;
 		using TemplateMap = std::unordered_map<std::string, FieldMap>;
 
 		struct AnalysisResult
 		{
-			std::unordered_set<std::string> locations;
+			std::unordered_set<std::string>      locations;
 			std::vector<TemplateRedundantChildInfo> infos;
-			std::vector<pugi::xml_node> removableNodes;
+			std::vector<pugi::xml_node>          removableNodes;
 		};
+
+		// Schematron-parsed default values, split by family and by global (all families).
+		struct SchDefaults
+		{
+			std::unordered_map<Family, FieldMap> byFamily;
+			FieldMap global;
+		};
+
+		// ── Value normalizers ─────────────────────────────────────────────────
+		// Produce canonical string representations so field values from XML can
+		// be compared correctly regardless of whitespace, locale, or float format.
 
 		static std::string toLowerAscii(std::string s)
 		{
@@ -47,6 +50,8 @@ namespace hdt
 			return s;
 		}
 
+		// Strips trailing zeros and normalises "-0" → "0".
+		// Allows comparing "1.00" with "1" and "0.50" with ".5".
 		static std::string normalizeNumericText(const std::string& raw)
 		{
 			std::string s = TrimAsciiWhitespace(raw);
@@ -101,13 +106,15 @@ namespace hdt
 			       normalizeAttrNumber(node, "w");
 		}
 
+		// Build a canonical key from a <transform> node regardless of which child
+		// representation was used (basis quaternion, basis-axis-angle, or absent/default).
 		static std::string normalizeTransformValue(const pugi::xml_node& transformNode)
 		{
 			std::string basis = "0,0,0,1";
 			std::string origin = "0,0,0";
 			std::string axisAngle;
-			bool hasBasis = false;
-			bool hasOrigin = false;
+			bool hasBasis    = false;
+			bool hasOrigin   = false;
 			bool hasAxisAngle = false;
 
 			for (auto child = transformNode.first_child(); child; child = child.next_sibling()) {
@@ -116,12 +123,12 @@ namespace hdt
 
 				const std::string name = std::string(XmlLocalName(child.name()));
 				if (name == "basis") {
-					hasBasis = true;
+					hasBasis    = true;
 					hasAxisAngle = false;
 					basis = normalizeQuaternionAttrs(child);
 				} else if (name == "basis-axis-angle") {
 					hasAxisAngle = true;
-					hasBasis = false;
+					hasBasis    = false;
 					axisAngle = normalizeAttrNumber(child, "x") + "," +
 					            normalizeAttrNumber(child, "y") + "," +
 					            normalizeAttrNumber(child, "z") + "," +
@@ -141,27 +148,15 @@ namespace hdt
 				key += "quat:0,0,0,1";
 
 			key += ";origin=";
-			if (hasOrigin)
-				key += origin;
-			else
-				key += "0,0,0";
+			key += hasOrigin ? origin : "0,0,0";
 
 			return key;
-		}
-
-		// Frame specification tags (transform or lerp type).
-		// These control how constraint pivot frames are computed relative to body coordinate spaces.
-		static bool isFrameTagName(const Family family, const std::string& localTag)
-		{
-			if (family != Family::Generic && family != Family::ConeTwist)
-				return false;
-			return localTag == "frameInA" || localTag == "frameInB" || localTag == "frameInLerp";
 		}
 
 		static std::string normalizeLerpValue(const pugi::xml_node& lerpNode)
 		{
 			std::string translationLerp = "0";
-			std::string rotationLerp = "0";
+			std::string rotationLerp    = "0";
 
 			for (auto child = lerpNode.first_child(); child; child = child.next_sibling()) {
 				if (child.type() != pugi::node_element)
@@ -177,6 +172,9 @@ namespace hdt
 			return translationLerp + "," + rotationLerp;
 		}
 
+		// Collapse frameInA, frameInB, and frameInLerp to a single canonical key.
+		// lerp(1,1) is semantically equivalent to a full FrameInB identity, so
+		// both normalise to the same "B:<identity>" key.
 		static std::string normalizeFrameSpec(const std::string& frameTagName, const pugi::xml_node& frameNode)
 		{
 			static const std::string kIdentityTransform = "basis=quat:0,0,0,1;origin=0,0,0";
@@ -192,28 +190,20 @@ namespace hdt
 			return "L:" + lerp;
 		}
 
-		static Family familyForNode(const std::string& localName)
+		// ── Node classifiers ──────────────────────────────────────────────────
+
+		// Frame tags (frameInA / frameInB / frameInLerp) are only valid on Generic
+		// and ConeTwist constraints, and only the LAST one in a node is effective —
+		// earlier ones are shadowed rather than simply redundant.
+		static bool isFrameTagName(const Family family, const std::string& localTag)
 		{
-			if (localName == "bone" || localName == "bone-default")
-				return Family::Bone;
-			if (localName == "per-triangle-shape" || localName == "per-triangle-shape-default")
-				return Family::PerTriangle;
-			if (localName == "per-vertex-shape" || localName == "per-vertex-shape-default")
-				return Family::PerVertex;
-			if (localName == "generic-constraint" || localName == "generic-constraint-default")
-				return Family::Generic;
-			if (localName == "stiffspring-constraint" || localName == "stiffspring-constraint-default")
-				return Family::StiffSpring;
-			if (localName == "conetwist-constraint" || localName == "conetwist-constraint-default")
-				return Family::ConeTwist;
-			return Family::None;
+			if (family != Family::Generic && family != Family::ConeTwist)
+				return false;
+			return localTag == "frameInA" || localTag == "frameInB" || localTag == "frameInLerp";
 		}
 
-
-	} // end anonymous namespace
-
-
-
+		// ConeTwist constraint fields have accrued legacy aliases across FSMP versions.
+		// Canonicalise all synonyms so template inheritance comparison works correctly.
 		static std::string canonicalFieldForConetwist(const std::string& tag)
 		{
 			if (tag == "coneLimit" || tag == "limitZ" || tag == "swingSpan1")
@@ -225,7 +215,7 @@ namespace hdt
 			return tag;
 		}
 
-		static std::string fieldKeyFor(Family family, const std::string& localTag)
+		static std::string fieldKeyFor(const Family family, const std::string& localTag)
 		{
 			switch (family) {
 			case Family::ConeTwist:
@@ -241,6 +231,9 @@ namespace hdt
 			}
 		}
 
+		// ── Schema loaders ────────────────────────────────────────────────────
+		// Both loaders are lazy (std::call_once) and read-only after first call.
+
 		static std::string stripTypePrefix(std::string typeName)
 		{
 			auto colon = typeName.find(':');
@@ -249,6 +242,9 @@ namespace hdt
 			return typeName;
 		}
 
+		// Lazy-load a map of element-name → XSD type from the physics XSD.
+		// Used by normalizedValueForField to dispatch to the correct normalizer
+		// (boolean, vector3, transform, lerp, or scalar) without hardcoding names.
 		static const std::unordered_map<std::string, std::string>& getElementTypeByNameFromXsd()
 		{
 			static std::once_flag once;
@@ -280,12 +276,9 @@ namespace hdt
 			return out;
 		}
 
-		struct SchDefaults
-		{
-			std::unordered_map<Family, FieldMap> byFamily;
-			FieldMap global;
-		};
-
+		// Parse a Schematron rule `context` attribute such as
+		// "//f:bone-default/f:damping[...]" to determine which constraint
+		// families the default applies to.
 		static std::vector<Family> parseFamiliesFromContext(const std::string& context)
 		{
 			std::vector<Family> out;
@@ -304,29 +297,30 @@ namespace hdt
 			return out;
 		}
 
+		// Extract field-name → default-value pairs from the XPath equality
+		// predicates encoded in a Schematron rule context string.
+		// Handles three forms: boolean normalize-space(.), vector3 number(@x/y/z),
+		// and scalar number(.).
 		static std::unordered_map<std::string, std::string> parseFieldDefaultsFromContext(const std::string& context)
 		{
 			std::unordered_map<std::string, std::string> out;
 
-			// bool default form: normalize-space(.) = 'false' or normalize-space(.) = '0'
 			static const std::regex boolRule(R"(f:([A-Za-z0-9_\-]+)\[\s*normalize-space\(\.\)\s*=\s*'([^']+)')");
 			for (auto it = std::sregex_iterator(context.begin(), context.end(), boolRule); it != std::sregex_iterator(); ++it) {
-				std::string tag = (*it)[1].str();
+				std::string tag   = (*it)[1].str();
 				std::string value = normalizeBoolText((*it)[2].str());
 				out[tag] = value;
 			}
 
-			// vector3 default form: number(@x)=... and number(@y)=... and number(@z)=...
 			static const std::regex vecRule(R"(f:([A-Za-z0-9_\-]+)\[\s*number\(@x\)\s*=\s*([-0-9.]+)\s*and\s*number\(@y\)\s*=\s*([-0-9.]+)\s*and\s*number\(@z\)\s*=\s*([-0-9.]+))");
 			for (auto it = std::sregex_iterator(context.begin(), context.end(), vecRule); it != std::sregex_iterator(); ++it) {
-				std::string tag = (*it)[1].str();
+				std::string tag   = (*it)[1].str();
 				std::string value = normalizeNumericText((*it)[2].str()) + "," +
 				                    normalizeNumericText((*it)[3].str()) + "," +
 				                    normalizeNumericText((*it)[4].str());
 				out[tag] = value;
 			}
 
-			// scalar default form: number(.) = <number>
 			static const std::regex scalarRule(R"(f:([A-Za-z0-9_\-]+)\[\s*number\(\.\)\s*=\s*([-0-9.]+))");
 			for (auto it = std::sregex_iterator(context.begin(), context.end(), scalarRule); it != std::sregex_iterator(); ++it) {
 				std::string tag = (*it)[1].str();
@@ -338,6 +332,10 @@ namespace hdt
 			return out;
 		}
 
+		// Lazy-load the `redundant-default-values` Schematron pattern to build
+		// the authoritative per-family and global default maps used by the
+		// redundancy analysis.  Only the named pattern is consumed; all other
+		// SCH rules are ignored.
 		static const SchDefaults& getDefaultsFromSchematron()
 		{
 			static std::once_flag once;
@@ -377,7 +375,7 @@ namespace hdt
 
 						for (auto family : families) {
 							for (const auto& kv : fields) {
-								std::string k = kv.first;
+								std::string k        = kv.first;
 								const std::string& v = kv.second;
 								if (family == Family::ConeTwist)
 									k = canonicalFieldForConetwist(k);
@@ -391,10 +389,14 @@ namespace hdt
 			return defaults;
 		}
 
+		// ── Runtime model ─────────────────────────────────────────────────────
+
+		// Normalize a field value to a canonical string for comparison.
+		// Some fields are overloaded across families in the XSD (e.g. linearDamping
+		// is a scalar for bones but a vector3 for constraints), so family context
+		// is checked before falling back to the XSD type map.
 		static std::string normalizedValueForField(const Family family, const std::string& field, const pugi::xml_node& valueNode)
 		{
-			// Some tags are overloaded across families in XSD (e.g. linearDamping/anglularDamping
-			// are scalar for bones and vector3 for constraints). Resolve these first with family context.
 			if (field == "linearDamping" || field == "angularDamping") {
 				if (family == Family::Bone)
 					return normalizeNumericText(valueNode.text().as_string());
@@ -421,6 +423,10 @@ namespace hdt
 			return "basis=quat:0,0,0,1;origin=0,0,0";
 		}
 
+		// Build the complete per-family default FieldMap used as the starting
+		// point for each node during analysis.  Merges SCH-loaded defaults with
+		// hardcoded fallbacks for values not representable as SCH literals
+		// (identity transforms, zero vectors, frame specs).
 		static std::unordered_map<Family, FieldMap> makeBaseDefaults()
 		{
 			std::unordered_map<Family, FieldMap> defaults;
@@ -435,20 +441,21 @@ namespace hdt
 				}
 			}
 
-			// Fallback defaults that are not currently encoded in SCH literals.
 			defaults[Family::Bone].insert_or_assign("centerOfMassTransform", makeTransformDefaultKey());
 			// Runtime default is FrameInB; frameInA is an explicit body-A-space choice and is only
 			// tracked for redundancy when it is repeated in template inheritance.
-			defaults[Family::Generic].insert_or_assign("__frameSpec", "B:" + makeTransformDefaultKey());
-			defaults[Family::Generic].insert_or_assign("frameInB", makeTransformDefaultKey());
-			defaults[Family::Generic].insert_or_assign("linearDamping", "0,0,0");
-			defaults[Family::Generic].insert_or_assign("angularDamping", "0,0,0");
-			defaults[Family::ConeTwist].insert_or_assign("__frameSpec", "B:" + makeTransformDefaultKey());
-			defaults[Family::ConeTwist].insert_or_assign("frameInB", makeTransformDefaultKey());
+			defaults[Family::Generic].insert_or_assign("__frameSpec",     "B:" + makeTransformDefaultKey());
+			defaults[Family::Generic].insert_or_assign("frameInB",        makeTransformDefaultKey());
+			defaults[Family::Generic].insert_or_assign("linearDamping",   "0,0,0");
+			defaults[Family::Generic].insert_or_assign("angularDamping",  "0,0,0");
+			defaults[Family::ConeTwist].insert_or_assign("__frameSpec",   "B:" + makeTransformDefaultKey());
+			defaults[Family::ConeTwist].insert_or_assign("frameInB",      makeTransformDefaultKey());
 
 			return defaults;
 		}
 
+		// Look up a named template, falling back to the unnamed ("") template
+		// when the name is absent — matching the runtime inheritance fallback.
 		static FieldMap getEffectiveTemplate(const TemplateMap& templates, const std::string& name)
 		{
 			auto it = templates.find(name);
@@ -462,6 +469,8 @@ namespace hdt
 			return {};
 		}
 
+		// ── Document helpers ──────────────────────────────────────────────────
+
 		static pugi::xml_node findSystemNode(const pugi::xml_document& doc)
 		{
 			for (auto child = doc.first_child(); child; child = child.next_sibling()) {
@@ -473,6 +482,29 @@ namespace hdt
 			return {};
 		}
 
+		// Stable sorted signature over a FieldMap — used to detect two named
+		// default templates with identical effective field sets.
+		static std::string makeFieldMapSignature(const FieldMap& fields)
+		{
+			std::vector<std::pair<std::string, std::string>> entries(fields.begin(), fields.end());
+			std::sort(entries.begin(), entries.end(), [](const auto& l, const auto& r) {
+				return l.first < r.first;
+			});
+
+			std::string signature;
+			for (const auto& [key, value] : entries) {
+				signature += key;
+				signature += '=';
+				signature += value;
+				signature += '\n';
+			}
+
+			return signature;
+		}
+
+		// Single reverse pass over top-level nodes: a default node is removed
+		// if no instantiation or extending default that appears after it references
+		// its name.  Reverse scan means we see users before their templates.
 		static bool removeUnusedDefaultNodes(pugi::xml_document& doc)
 		{
 			auto sysNode = findSystemNode(doc);
@@ -498,7 +530,7 @@ namespace hdt
 
 				if (isDefaultNodeName(localName)) {
 					const std::string templateName = TrimAsciiWhitespace(node.attribute("name").as_string());
-					const std::string extendsName = TrimAsciiWhitespace(node.attribute("extends").as_string());
+					const std::string extendsName  = TrimAsciiWhitespace(node.attribute("extends").as_string());
 
 					bool needed = false;
 					if (templateName.empty()) {
@@ -539,6 +571,15 @@ namespace hdt
 			return !toRemove.empty();
 		}
 
+		// ── Core analysis ─────────────────────────────────────────────────────
+
+		// Walk all top-level nodes in document order, maintaining an effective
+		// FieldMap that mirrors runtime template inheritance.  A child element is
+		// redundant when its canonical value equals the inherited effective default
+		// at that point; a frame tag that is not the last one in its parent node
+		// is shadowed (inactive) rather than redundant in the strict sense.
+		// collectRemovals=true populates result.removableNodes for callers that
+		// need to mutate the document.
 		static AnalysisResult analyzeTemplateRedundantChildren(
 			const pugi::xml_document& doc,
 			const bool collectRemovals,
@@ -568,13 +609,14 @@ namespace hdt
 
 				if (isDefaultNodeName(localName)) {
 					const std::string extendsName = node.attribute("extends").as_string();
-					effective = getEffectiveTemplate(familyTemplates[family], extendsName);
+					effective    = getEffectiveTemplate(familyTemplates[family], extendsName);
 					templateName = node.attribute("name").as_string();
 				} else {
 					templateName = node.attribute("template").as_string();
-					effective = getEffectiveTemplate(familyTemplates[family], templateName);
+					effective    = getEffectiveTemplate(familyTemplates[family], templateName);
 				}
 
+				// Pre-scan to find the last frame tag: only it is effective.
 				pugi::xml_node lastFrameTag;
 				std::string lastFrameTagName;
 				for (auto child = node.first_child(); child; child = child.next_sibling()) {
@@ -582,7 +624,7 @@ namespace hdt
 						continue;
 					const std::string childName = std::string(XmlLocalName(child.name()));
 					if (isFrameTagName(family, childName)) {
-						lastFrameTag = child;
+						lastFrameTag     = child;
 						lastFrameTagName = childName;
 					}
 				}
@@ -598,10 +640,10 @@ namespace hdt
 					if (isFrameTagName(family, childName)) {
 						if (child != lastFrameTag) {
 							TemplateRedundantChildInfo info;
-							info.location = BuildNodeLocationPath(child);
-							info.tagName = childName;
+							info.location               = BuildNodeLocationPath(child);
+							info.tagName                = childName;
 							info.shadowedByLaterFrameTag = true;
-							info.shadowingTagName = lastFrameTagName;
+							info.shadowingTagName        = lastFrameTagName;
 							if (sourceBytes)
 								info.line = OffsetToLineNumber(*sourceBytes, child.offset_debug());
 
@@ -611,7 +653,7 @@ namespace hdt
 								result.removableNodes.push_back(child);
 							continue;
 						}
-						fieldKey = "__frameSpec";
+						fieldKey     = "__frameSpec";
 						currentValue = normalizeFrameSpec(childName, child);
 					} else {
 						fieldKey = fieldKeyFor(family, childName);
@@ -629,7 +671,7 @@ namespace hdt
 					if (isRedundant) {
 						TemplateRedundantChildInfo info;
 						info.location = BuildNodeLocationPath(child);
-						info.tagName = childName;
+						info.tagName  = childName;
 						if (sourceBytes)
 							info.line = OffsetToLineNumber(*sourceBytes, child.offset_debug());
 
@@ -639,7 +681,7 @@ namespace hdt
 							result.removableNodes.push_back(child);
 					}
 
-					// Overlay values while processing node in runtime order.
+					// Overlay value so subsequent siblings see the updated effective state.
 					effective[fieldKey] = currentValue;
 				}
 
@@ -650,24 +692,10 @@ namespace hdt
 			return result;
 		}
 
-		static std::string makeFieldMapSignature(const FieldMap& fields)
-		{
-			std::vector<std::pair<std::string, std::string>> entries(fields.begin(), fields.end());
-			std::sort(entries.begin(), entries.end(), [](const auto& left, const auto& right) {
-				return left.first < right.first;
-			});
-
-			std::string signature;
-			for (const auto& [key, value] : entries) {
-				signature += key;
-				signature += '=';
-				signature += value;
-				signature += '\n';
-			}
-
-			return signature;
-		}
-
+		// Walk default nodes in document order to compute each one's effective
+		// FieldMap, then detect duplicates by signature.  Two templates are
+		// equivalent when they produce identical canonical field sets after
+		// inheritance is resolved.
 		static std::unordered_map<std::string, std::string> collectEquivalentDefaultTemplateAliases(
 			const pugi::xml_document& doc)
 		{
@@ -692,7 +720,7 @@ namespace hdt
 				if (family == Family::None || !isDefaultNodeName(localName))
 					continue;
 
-				const std::string extendsName = TrimAsciiWhitespace(node.attribute("extends").as_string());
+				const std::string extendsName  = TrimAsciiWhitespace(node.attribute("extends").as_string());
 				const std::string templateName = TrimAsciiWhitespace(node.attribute("name").as_string());
 				FieldMap effective = getEffectiveTemplate(familyTemplates[family], extendsName);
 
@@ -716,7 +744,7 @@ namespace hdt
 					if (isFrameTagName(family, childName)) {
 						if (child != lastFrameTag)
 							continue;
-						fieldKey = "__frameSpec";
+						fieldKey     = "__frameSpec";
 						currentValue = normalizeFrameSpec(childName, child);
 					} else {
 						fieldKey = fieldKeyFor(family, childName);
@@ -741,15 +769,19 @@ namespace hdt
 			return aliases;
 		}
 
-		bool isDefaultNodeName(const std::string& localName)
-		{
-			return localName == "bone-default" ||
-			       localName == "per-triangle-shape-default" ||
-			       localName == "per-vertex-shape-default" ||
-			       localName == "generic-constraint-default" ||
-			       localName == "stiffspring-constraint-default" ||
-			       localName == "conetwist-constraint-default";
-		}
+	}  // anonymous namespace
+
+	// ── Public API ────────────────────────────────────────────────────────────
+
+	bool isDefaultNodeName(const std::string& localName)
+	{
+		return localName == "bone-default" ||
+		       localName == "per-triangle-shape-default" ||
+		       localName == "per-vertex-shape-default" ||
+		       localName == "generic-constraint-default" ||
+		       localName == "stiffspring-constraint-default" ||
+		       localName == "conetwist-constraint-default";
+	}
 
 	std::unordered_set<std::string> CollectTemplateRedundantChildLocations(const pugi::xml_document& doc)
 	{

@@ -29,16 +29,27 @@
     Path to the FSMP-Validator repository. Defaults to sibling folder FSMP-Validator.
 .PARAMETER OutputDir
     Where to place the assembled package files. Defaults to "out/package".
+.PARAMETER DeployPluginsDir
+    Optional local SKSE Plugins folder to receive only hdtsmp64.dll and hdtsmp64.pdb
+    after build (for quick local testing).
+.PARAMETER DeployOnly
+    If set together with DeployPluginsDir, stop after local DLL/PDB deploy and skip
+    MCM compilation and package assembly.
 .EXAMPLE
     .\build-local.ps1
 .EXAMPLE
     .\build-local.ps1 -Variants @("", "-avx", "-avx2", "-avx512")
+.EXAMPLE
+    .\build-local.ps1 -Variants @("-avx2") -DeployPluginsDir "C:\Modlists\JOJ\mods\FSMP-dev\SKSE\Plugins" -DeployOnly
 #>
 param(
     [string[]]$Variants   = @("-avx2"),
     [string]$McmDir       = (Join-Path (Split-Path $PSScriptRoot -Parent) "FSMP-MCM"),
     [string]$ValidatorDir = (Join-Path (Split-Path $PSScriptRoot -Parent) "FSMP-Validator"),
-    [string]$OutputDir    = (Join-Path $PSScriptRoot "out\package")
+    [string]$OutputDir    = (Join-Path $PSScriptRoot "out\package"),
+    [string]$DeployPluginsDir = "",
+    [switch]$DeployOnly,
+    [switch]$CleanFirst
 )
 
 Set-StrictMode -Version Latest
@@ -48,6 +59,13 @@ $RepoDir = $PSScriptRoot
 
 function Write-Step { param([string]$msg) Write-Host "`n=== $msg ===" -ForegroundColor Cyan }
 function Write-OK   { param([string]$msg) Write-Host "  OK: $msg" -ForegroundColor Green }
+function Get-FirstExistingPath {
+    param([string[]]$Candidates)
+    foreach ($c in $Candidates) {
+        if (Test-Path $c) { return $c }
+    }
+    return $null
+}
 function Invoke-Cmd {
     param([string]$Exe, [string[]]$CmdArgs, [string]$WorkDir = $RepoDir)
     Write-Host "  > $Exe $($CmdArgs -join ' ')" -ForegroundColor DarkGray
@@ -124,17 +142,62 @@ foreach ($Suffix in $Variants) {
     }
 
     # Build from B:\ (uses short paths in MSBuild invocation)
-    Invoke-Cmd cmake @("--build", $BuildDirB, "--config", "Release") -WorkDir "B:\"
+    $BuildArgs = @("--build", $BuildDirB, "--config", "Release")
+    if ($CleanFirst) { $BuildArgs += "--clean-first" }
+    Invoke-Cmd cmake $BuildArgs -WorkDir "B:\"
 
     $DllPath = Join-Path $PluginsDir "hdtsmp64.dll"
     if (-not (Test-Path $DllPath)) { throw "DLL not found at $DllPath after building $LocalPreset" }
     Write-OK "DLL: $DllPath"
 
-    $BuiltVariants += @{ LocalPreset = $LocalPreset; PackageName = $PackageName; BuildDir = $BuildDir }
+    $BuiltVariants += @{ LocalPreset = $LocalPreset; PackageName = $PackageName; BuildDir = $BuildDir; PluginsDir = $PluginsDir }
 }
 
 # ---------------------------------------------------------------------------
-# 2. Compile MCM Papyrus scripts (once, independent of AVX variant)
+# 2. Optional local deploy (DLL + PDB only)
+# ---------------------------------------------------------------------------
+if ($DeployPluginsDir) {
+    Write-Step "Deploy local plugin binaries -> $DeployPluginsDir"
+    New-Item -ItemType Directory -Force -Path $DeployPluginsDir | Out-Null
+
+    if ($BuiltVariants.Count -gt 1) {
+        Write-Warning "Multiple variants built; local deploy will overwrite with each variant (last one wins)."
+    }
+
+    foreach ($v in $BuiltVariants) {
+        $DllSource = Get-FirstExistingPath @(
+            (Join-Path $v.PluginsDir "hdtsmp64.dll"),
+            (Join-Path $v.BuildDir "src\Release\hdtsmp64.dll")
+        )
+        if (-not $DllSource) {
+            throw "Cannot find hdtsmp64.dll for $($v.LocalPreset)"
+        }
+
+        $PdbSource = Get-FirstExistingPath @(
+            (Join-Path $v.PluginsDir "hdtsmp64.pdb"),
+            (Join-Path $v.BuildDir "src\Release\hdtsmp64.pdb")
+        )
+
+        Copy-Item -Path $DllSource -Destination (Join-Path $DeployPluginsDir "hdtsmp64.dll") -Force
+        if ($PdbSource) {
+            Copy-Item -Path $PdbSource -Destination (Join-Path $DeployPluginsDir "hdtsmp64.pdb") -Force
+        } else {
+            Write-Warning "No hdtsmp64.pdb found for $($v.LocalPreset); deployed DLL only."
+        }
+
+        Write-OK "Deployed $($v.LocalPreset): hdtsmp64.dll$(if ($PdbSource) { ' + hdtsmp64.pdb' } else { '' })"
+    }
+
+    if ($DeployOnly) {
+        Write-Host "`n=== BUILD + LOCAL DEPLOY COMPLETE ===" -ForegroundColor Green
+        Write-Host "  Deploy dir: $DeployPluginsDir"
+        Write-Host "  Variants  : $(($BuiltVariants | ForEach-Object { $_.LocalPreset }) -join ', ')"
+        return
+    }
+}
+
+# ---------------------------------------------------------------------------
+# 3. Compile MCM Papyrus scripts (once, independent of AVX variant)
 # ---------------------------------------------------------------------------
 Write-Step "Compile MCM Papyrus scripts"
 if (-not (Test-Path $McmDir)) { throw "FSMP-MCM not found at '$McmDir'" }
@@ -150,7 +213,7 @@ $PexFiles = Get-ChildItem (Join-Path $McmDir "Scripts\*.pex") -ErrorAction Silen
 Write-OK "MCM compiled: $($PexFiles.Count) .pex file(s)"
 
 # ---------------------------------------------------------------------------
-# 3. Assemble package
+# 4. Assemble package
 # ---------------------------------------------------------------------------
 Write-Step "Assembling package -> $OutputDir"
 
@@ -198,7 +261,7 @@ if (Test-Path $ifaceDir) { Copy-Item $ifaceDir $FsmpmDir -Recurse -Force }
 Write-OK "MCM files copied"
 
 # ---------------------------------------------------------------------------
-# 4. Create ZIP archive
+# 5. Create ZIP archive
 # ---------------------------------------------------------------------------
 Write-Step "Creating ZIP archive"
 $_7zCmd = Get-Command "7z.exe" -ErrorAction SilentlyContinue

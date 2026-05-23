@@ -1,6 +1,6 @@
-#include "hdtNIFCollisionDecimationImprover.h"
+#include "hdtNIFDecimator.h"
 
-#include "hdtCollisionMeshDecimator.h"
+#include "hdtMeshDecimator.h"
 #include "hdtNIFBinaryIO.h"
 #include "../Schema/hdtNifSchema.h"
 

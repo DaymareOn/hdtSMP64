@@ -260,12 +260,6 @@
   <validation>
 
     <!--
-      enabled: (boolean) run the FSMP asset validator at startup.
-      If no value is set, default is true.
-    -->
-    <enabled>true</enabled>
-
-    <!--
       warn-triangle-count: (int) warn when a physics-enabled NIF contains more than
       this many triangles. High triangle counts can impact simulation performance.
       If no value is set, default is 10000.
@@ -281,20 +275,6 @@
     -->
     <output-dir></output-dir>
 
-    <decimate-collision-meshes-offline>false</decimate-collision-meshes-offline>
-    <decimation-target-vertex-ratio>0.99</decimation-target-vertex-ratio>
-    <decimation-target-vertex-count>0</decimation-target-vertex-count>
-    <decimation-qem-cost-threshold>1.0</decimation-qem-cost-threshold>
-    <decimation-short-edge-ratio>0.01</decimation-short-edge-ratio>
-    <decimation-skin-weight-penalty>0.0</decimation-skin-weight-penalty>
-    <decimation-max-skin-weight-drift>0.0</decimation-max-skin-weight-drift>
-    <decimation-max-volume-loss-percent>1.0</decimation-max-volume-loss-percent>
-    <decimation-max-local-volume-change-percent>1.0</decimation-max-local-volume-change-percent>
-    <decimation-max-normal-deviation-degrees>25.0</decimation-max-normal-deviation-degrees>
-    <decimation-max-point-removals>256</decimation-max-point-removals>
-    <decimation-max-edge-collapses>4096</decimation-max-edge-collapses>
-    <decimation-preserve-boundary>true</decimation-preserve-boundary>
-    <decimation-preserve-features>true</decimation-preserve-features>
 
   </validation>
 </configs>

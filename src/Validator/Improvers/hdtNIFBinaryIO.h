@@ -28,6 +28,9 @@ namespace hdt
 		std::vector<uint8_t> readBytes(size_t bytes);
 		std::string readSizedStr();
 		std::string readShortSizedStr();
+		// Advance past a sized string without constructing a std::string.
+		void skipSizedStr();
+		void skipShortSizedStr();
 
 	private:
 		const std::vector<uint8_t>& m_data;
@@ -76,6 +79,7 @@ namespace hdt
 	// Round-trip validate from already-serialized bytes (skips the serialization step).
 	std::optional<std::string> validateNifRoundTripFromBytes(
 		const std::vector<uint8_t>& bytes, const ParsedNif& original);
+	// Binary serialisation helpers — used by hdtNIFBinaryIO and hdtNIFDecimator.
 	void appendU8(std::vector<uint8_t>& out, uint8_t v);
 	void appendU16(std::vector<uint8_t>& out, uint16_t v);
 	void appendU32(std::vector<uint8_t>& out, uint32_t v);

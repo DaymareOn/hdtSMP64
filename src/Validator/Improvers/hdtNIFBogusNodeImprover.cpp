@@ -241,6 +241,11 @@ namespace hdt
 		}
 	}
 
+	void removeBlocksAndRemap(ParsedNif& parsed, const std::vector<int32_t>& toRemoveSorted)
+	{
+		batchRemapAndRemove(parsed, toRemoveSorted, globalNifSchema());
+	}
+
 	// ── Main algorithm ────────────────────────────────────────────────────────
 	bool removeBogusNiNodes(ParsedNif& parsed)
 	{

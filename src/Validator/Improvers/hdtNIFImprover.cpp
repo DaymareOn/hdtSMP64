@@ -4,23 +4,24 @@
 #include "hdtNIFBogusNodeImprover.h"
 #include "hdtNIFOrphanedSkinImprover.h"
 #include "hdtNIFSkinMeshRepair.h"
-#include "hdtNIFCollisionDecimationImprover.h"
+#include "hdtNIFDecimator.h"
 
 #include "../Utils/hdtNIFBinaryUtils.h"
 #include "../Utils/hdtStringUtils.h"
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <vector>
 
 namespace hdt
 {
 	namespace
 	{
-		constexpr uint32_t kInvalidStringIndex = 0xFFFFFFFFu;
-		constexpr size_t   kUnsetOffset        = static_cast<size_t>(-1);
+		constexpr size_t kUnsetOffset = static_cast<size_t>(-1);
 	}
 
 	// ── Phase-3 profiling ─────────────────────────────────────────────────────
@@ -79,17 +80,17 @@ namespace hdt
 
 	struct TypedStripResult
 	{
-		bool changed               = false;
-		int  markerMatchedBlocks   = 0;
-		int  alternateLayoutMatches = 0;
-		int  valueMatchedFallbacks = 0;
+		std::vector<int32_t> blocksToRemove;
+		int markerMatchedBlocks    = 0;
+		int alternateLayoutMatches = 0;
+		int valueMatchedFallbacks  = 0;
 	};
 
 	// Main pass: scan blocks whose type index matches NiStringExtraData.
 	// For each block, locate the physics marker name lane and the XML value lane,
-	// then overwrite missing XML string indices with kInvalidStringIndex.
+	// then record the block index for removal.
 	static TypedStripResult stripXmlRefsFromTypedBlocks(
-		ParsedNif& parsed,
+		const ParsedNif& parsed,
 		const std::unordered_set<std::string>& missingRefs,
 		int markerIdx,
 		int typeIdx)
@@ -102,7 +103,7 @@ namespace hdt
 			if (parsed.blockTypeIndex[i] != static_cast<uint16_t>(typeIdx))
 				continue;
 
-			auto& block = parsed.blocks[i];
+			const auto& block = parsed.blocks[i];
 			if (block.size() < nif::kNiStringExtraDataMinBlockSize)
 				continue;
 
@@ -185,31 +186,24 @@ namespace hdt
 				++result.valueMatchedFallbacks;
 			}
 
-			uint32_t stripIdx = 0;
-			std::memcpy(&stripIdx, block.data() + firstMissingOffset, sizeof(uint32_t));
-			logger::trace("[NIFImprover] Block {}: stripping string index {} at offset {}", i, stripIdx, firstMissingOffset);
-
-			if (markerMatched)
-				std::memcpy(block.data() + nameOffset, &kInvalidStringIndex, sizeof(uint32_t));
-			std::memcpy(block.data() + firstMissingOffset, &kInvalidStringIndex, sizeof(uint32_t));
-			result.changed = true;
+			logger::trace("[NIFImprover] Block {}: queuing NiStringExtraData for removal", i);
+			result.blocksToRemove.push_back(static_cast<int32_t>(i));
 		}
 
 		return result;
 	}
 
 	// Last-resort pass when no NiStringExtraData blocks were found via the type index.
-	// Scans every block for any (marker, missing-xml-value) pair and strips both.
-	static bool stripXmlRefsRawFallback(
-		ParsedNif& parsed,
+	// Scans every block for any (marker, missing-xml-value) pair and queues it for removal.
+	static std::vector<int32_t> stripXmlRefsRawFallback(
+		const ParsedNif& parsed,
 		const std::unordered_set<std::string>& missingRefs,
 		int markerIdx)
 	{
-		bool changed = false;
-		int  fallbackBlocks = 0;
+		std::vector<int32_t> result;
 
 		for (size_t bi = 0; bi < parsed.blocks.size(); ++bi) {
-			auto& block = parsed.blocks[bi];
+			const auto& block = parsed.blocks[bi];
 			if (block.size() < sizeof(uint32_t) * 2)
 				continue;
 
@@ -240,19 +234,16 @@ namespace hdt
 				continue;
 
 			logger::warn(
-				"[NIFImprover] Raw-pair fallback: stripping block {} (marker@{}, missingValueIdx={}@{})",
+				"[NIFImprover] Raw-pair fallback: queuing block {} for removal (marker@{}, missingValueIdx={}@{})",
 				bi, markerOffset, missingValueIdx, missingValueOffset);
 
-			std::memcpy(block.data() + markerOffset,       &kInvalidStringIndex, sizeof(uint32_t));
-			std::memcpy(block.data() + missingValueOffset, &kInvalidStringIndex, sizeof(uint32_t));
-			changed = true;
-			++fallbackBlocks;
+			result.push_back(static_cast<int32_t>(bi));
 		}
 
-		if (fallbackBlocks > 0)
-			logger::warn("[NIFImprover] Raw-pair fallback stripped {} block(s)", fallbackBlocks);
+		if (!result.empty())
+			logger::warn("[NIFImprover] Raw-pair fallback queued {} block(s) for removal", result.size());
 
-		return changed;
+		return result;
 	}
 
 	static bool removeMissingPhysicsXmlExtraData(
@@ -294,16 +285,25 @@ namespace hdt
 				"(markerIdx={}, typeIdx={}, blockTypes={})",
 				markerIdx, typeIdx, parsed.blockTypes.size());
 			if (r.valueMatchedFallbacks > 0)
-				logger::warn("[NIFImprover] Value-path fallback stripped {} block(s)", r.valueMatchedFallbacks);
+				logger::warn("[NIFImprover] Value-path fallback queued {} block(s) for removal", r.valueMatchedFallbacks);
 
-			bool fallbackChanged = stripXmlRefsRawFallback(parsed, *missingPhysicsXmlRefs, markerIdx);
-			return r.changed || fallbackChanged;
+			auto fallback = stripXmlRefsRawFallback(parsed, *missingPhysicsXmlRefs, markerIdx);
+			for (int32_t idx : fallback)
+				r.blocksToRemove.push_back(idx);
 		}
 
 		if (r.alternateLayoutMatches > 0)
 			logger::warn("[NIFImprover] Used alternate NiStringExtraData layout for {} block(s)", r.alternateLayoutMatches);
 
-		return r.changed;
+		if (r.blocksToRemove.empty())
+			return false;
+
+		std::sort(r.blocksToRemove.begin(), r.blocksToRemove.end());
+		r.blocksToRemove.erase(
+			std::unique(r.blocksToRemove.begin(), r.blocksToRemove.end()),
+			r.blocksToRemove.end());
+		removeBlocksAndRemap(parsed, r.blocksToRemove);
+		return true;
 	}
 
 	// ── Public API ────────────────────────────────────────────────────────────
@@ -312,14 +312,13 @@ namespace hdt
 		const std::string& srcNIFPath,
 		const std::string& outputDir,
 		const NIFDecimationOptions& options,
-		NIFImproverDiagnostics* outDiagnostics,
+		NIFImproverDiagnostics& outDiagnostics,
 		const std::unordered_set<std::string>* missingPhysicsXmlRefs,
 		bool copyOriginal)
 	{
 		namespace fs = std::filesystem;
 
-		if (outDiagnostics)
-			*outDiagnostics = {};
+		outDiagnostics = {};
 
 		g_profNifCount.fetch_add(1);
 		auto _t0 = now();
@@ -370,48 +369,52 @@ namespace hdt
 
 		bool changed = false;
 		auto _t3 = now();
-		changed |= removeBogusNiNodes(parsed);
+		if (options.enableStructuralFixes)
+			changed |= removeBogusNiNodes(parsed);
 		auto _t4 = now();
 		g_profBogusNodes.fetch_add(elapsedNs(_t3, _t4));
 
 		{
-			int removed = removeOrphanedSkinInstances(parsed);
-			if (outDiagnostics)
-				outDiagnostics->orphanedSkinInstancesRemoved = removed;
-			if (removed > 0) {
-				changed = true;
-				logger::info("[NIFImprover] Orphaned skin instances '{}': removed={}", srcNIFPath, removed);
+			int removed = 0;
+			if (options.enableStructuralFixes) {
+				removed = removeOrphanedSkinInstances(parsed);
+				if (removed > 0) {
+					changed = true;
+					logger::info("[NIFImprover] Orphaned skin instances '{}': removed={}", srcNIFPath, removed);
+				}
 			}
+			outDiagnostics.orphanedSkinInstancesRemoved = removed;
 		}
 		auto _t4b = now();
 		g_profOrphanedSkin.fetch_add(elapsedNs(_t4, _t4b));
 
 		{
-			int repaired = repairNIFSkinMeshIssues(parsed);
-			if (outDiagnostics)
-				outDiagnostics->skinMeshIssuesFixed = repaired;
-			if (repaired > 0) {
-				changed = true;
-				logger::info("[NIFImprover] Skin mesh issues '{}': repaired={}", srcNIFPath, repaired);
+			int repaired = 0;
+			if (options.enableStructuralFixes) {
+				repaired = repairNIFSkinMeshIssues(parsed);
+				if (repaired > 0) {
+					changed = true;
+					logger::info("[NIFImprover] Skin mesh issues '{}': repaired={}", srcNIFPath, repaired);
+				}
 			}
+			outDiagnostics.skinMeshIssuesFixed = repaired;
 		}
 		auto _t4c = now();
 		g_profSkinMeshRepair.fetch_add(elapsedNs(_t4b, _t4c));
 
-		changed |= removeMissingPhysicsXmlExtraData(parsed, missingPhysicsXmlRefs);
+		if (options.enableStructuralFixes)
+			changed |= removeMissingPhysicsXmlExtraData(parsed, missingPhysicsXmlRefs);
 		auto _t5 = now();
 		g_profXmlStrip.fetch_add(elapsedNs(_t4c, _t5));
 
 		if (options.enableCollisionMeshDecimation) {
 			auto d = runOfflineCollisionDecimationBridge(parsed, options, changed);
-			if (outDiagnostics) {
-				outDiagnostics->decimationCandidatesDiscovered    = d.candidatesDiscovered;
-				outDiagnostics->decimationCandidatesAttempted     = d.candidatesAttempted;
-				outDiagnostics->decimationCandidatesApplied       = d.candidatesApplied;
-				outDiagnostics->decimationCandidatesSkippedNoChange = d.candidatesSkippedNoChange;
-				outDiagnostics->decimationCandidatesSkippedUnsafe = d.candidatesSkippedUnsafe;
-				outDiagnostics->decimationSkipReasons             = d.skipReasons;
-			}
+			outDiagnostics.decimationCandidatesDiscovered    = d.candidatesDiscovered;
+			outDiagnostics.decimationCandidatesAttempted     = d.candidatesAttempted;
+			outDiagnostics.decimationCandidatesApplied       = d.candidatesApplied;
+			outDiagnostics.decimationCandidatesSkippedNoChange = d.candidatesSkippedNoChange;
+			outDiagnostics.decimationCandidatesSkippedUnsafe = d.candidatesSkippedUnsafe;
+			outDiagnostics.decimationSkipReasons             = d.skipReasons;
 			if (d.candidatesAttempted > 0)
 				logger::info("[NIFImprover] Decimation '{}': discovered={} attempted={} applied={} skipped-no-change={} skipped-unsafe={}",
 					srcNIFPath, d.candidatesDiscovered, d.candidatesAttempted,
@@ -432,8 +435,7 @@ namespace hdt
 		g_profValidate.fetch_add(elapsedNs(_ts1, _ts2));
 		if (roundTripError.has_value()) {
 			logger::error("[NIFImprover] Round-trip validation failed for '{}': {}", srcNIFPath, *roundTripError);
-			if (outDiagnostics)
-				outDiagnostics->validationError = *roundTripError;
+			outDiagnostics.validationError = *roundTripError;
 			return false;
 		}
 

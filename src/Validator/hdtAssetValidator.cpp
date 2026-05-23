@@ -13,6 +13,7 @@
 #include "Improvers/hdtNIFOrphanedSkinImprover.h"
 #include "Improvers/hdtNIFSkinMeshValidator.h"
 #include "Improvers/hdtNIFBinaryIO.h"
+#include "Utils/hdtNIFBinaryUtils.h"
 #include "Validators/hdtNIFValidator.h"
 #include "Validators/hdtSCHValidator.h"
 #include "Config/hdtValidatorPaths.h"
@@ -1103,26 +1104,6 @@ namespace hdt
 //     Generate corrected copies of physics assets.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-	static NIFDecimationOptions buildDecimationOptionsFromConfig()
-	{
-		NIFDecimationOptions o;
-		o.enableCollisionMeshDecimation = g_validationConfig.decimateCollisionMeshesOffline;
-		o.targetVertexRatio = g_validationConfig.decimationTargetVertexRatio;
-		o.targetVertexCount = g_validationConfig.decimationTargetVertexCount;
-		o.qemCostThreshold = g_validationConfig.decimationQemCostThreshold;
-		o.shortEdgeRatio = g_validationConfig.decimationShortEdgeRatio;
-		o.skinWeightPenalty = g_validationConfig.decimationSkinWeightPenalty;
-		o.maxSkinWeightDrift = g_validationConfig.decimationMaxSkinWeightDrift;
-		o.maxVolumeLossPercent = g_validationConfig.decimationMaxVolumeLossPercent;
-		o.maxLocalVolumeChangePercent = g_validationConfig.decimationMaxLocalVolumeChangePercent;
-		o.maxNormalDeviationDegrees = g_validationConfig.decimationMaxNormalDeviationDegrees;
-		o.maxPointRemovals = g_validationConfig.decimationMaxPointRemovals;
-		o.maxEdgeCollapses = g_validationConfig.decimationMaxEdgeCollapses;
-		o.preserveBoundary = g_validationConfig.decimationPreserveBoundary;
-		o.preserveFeatures = g_validationConfig.decimationPreserveFeatures;
-		return o;
-	}
-
 	/// Writes cleaned-up copies of physics XML files to outputDir, removing unknown
 	/// and misplaced elements. Only files where at least one element was removed are written.
 	static XMLImproveResult improveXMLPaths(const std::vector<std::string>& xmlPaths,
@@ -1524,8 +1505,8 @@ namespace hdt
 		return result;
 	}
 
-	/// Generates improved versions of all physics NIF files in the specified output directory.
-	/// Applies decimation (if configured) and generates clean versions of NIFs.
+	/// Generates structurally repaired copies of all physics NIF files (bogus node removal,
+	/// orphaned skin instance removal, partition triangle-copy repair). Never runs decimation.
 	/// Preserves _0/_1 NIF pair atomicity by copying unchanged siblings when one is improved.
 	NIFImproveResult ImprovePhysicsNIFs(const std::string& outputDir, bool equippedOnly, bool copyOriginal)
 	{
@@ -1548,7 +1529,7 @@ namespace hdt
 			return result;
 		}
 
-		auto decimationOptions = buildDecimationOptionsFromConfig();
+		const NIFDecimationOptions noDecimation;  // structural fixes on, decimation off (both are defaults)
 
 		if (equippedOnly) {
 			auto nifAssetsEquipped = discoverPhysicsAssets(true);
@@ -1562,12 +1543,13 @@ namespace hdt
 				std::vector<bool> results;
 				results.reserve(indices.size());
 				for (size_t idx : indices) {
+					NIFImproverDiagnostics d;
 					auto missingRefs = collectMissingPhysicsXmlRefs(nifAssetsEquipped[idx]);
 					results.push_back(GenerateImprovedNIF(
 						nifAssetsEquipped[idx].nifPath,
 						outputDir,
-						decimationOptions,
-						nullptr,
+						noDecimation,
+						d,
 						&missingRefs,
 						copyOriginal));
 				}
@@ -1594,7 +1576,6 @@ namespace hdt
 				relatedTRINorm.insert(NormalizePathForComparison(tri));
 		result.totalTRIFilesFound = static_cast<int>(relatedTRINorm.size());
 
-		// Group by base stem so _0/_1 pairs are processed atomically (same as Phase 5).
 		std::map<std::string, std::vector<size_t>> stemGroups;
 		for (size_t i = 0; i < nifAssets.size(); ++i)
 			stemGroups[GetNifPairBaseStem(NormalizePathForComparison(nifAssets[i].nifPath))].push_back(i);
@@ -1607,13 +1588,6 @@ namespace hdt
 		std::atomic<int> improvedCount{ 0 };
 		std::atomic<int> orphanedSkinCount{ 0 };
 		std::atomic<int> skinMeshFixedCount{ 0 };
-		std::atomic<int> decCandidatesDiscovered{ 0 };
-		std::atomic<int> decCandidatesAttempted{ 0 };
-		std::atomic<int> decCandidatesApplied{ 0 };
-		std::atomic<int> decCandidatesSkippedNoChange{ 0 };
-		std::atomic<int> decCandidatesSkippedUnsafe{ 0 };
-		std::mutex decimationReasonLock;
-		std::map<std::string, int> decimationReasonCounts;
 		auto improveGroup = [&](const std::vector<size_t>& indices) {
 			std::vector<bool> results;
 			results.reserve(indices.size());
@@ -1623,22 +1597,12 @@ namespace hdt
 				results.push_back(GenerateImprovedNIF(
 					nifAssets[idx].nifPath,
 					outputDir,
-					decimationOptions,
-					&d,
+					noDecimation,
+					d,
 					&missingRefs,
 					copyOriginal));
 				orphanedSkinCount.fetch_add(d.orphanedSkinInstancesRemoved);
 				skinMeshFixedCount.fetch_add(d.skinMeshIssuesFixed);
-				decCandidatesDiscovered.fetch_add(d.decimationCandidatesDiscovered);
-				decCandidatesAttempted.fetch_add(d.decimationCandidatesAttempted);
-				decCandidatesApplied.fetch_add(d.decimationCandidatesApplied);
-				decCandidatesSkippedNoChange.fetch_add(d.decimationCandidatesSkippedNoChange);
-				decCandidatesSkippedUnsafe.fetch_add(d.decimationCandidatesSkippedUnsafe);
-				if (!d.decimationSkipReasons.empty()) {
-					std::lock_guard<std::mutex> l(decimationReasonLock);
-					for (const auto& rc : d.decimationSkipReasons)
-						decimationReasonCounts[rc.first] += rc.second;
-				}
 				if (!d.validationError.empty())
 					logger::error("[Validator] NIF round-trip validation failed for '{}': {}", nifAssets[idx].nifPath, d.validationError);
 			}
@@ -1665,6 +1629,301 @@ namespace hdt
 
 		logNIFImproverTimings();
 		result.nifImprovedCount = improvedCount.load();
+		result.orphanedSkinInstancesRemoved = orphanedSkinCount.load();
+		result.skinMeshIssuesFixed = skinMeshFixedCount.load();
+		return result;
+	}
+
+	/// Reduces collision mesh polygon counts for all physics NIFs using default tuning
+	/// parameters and writes the results. Preserves _0/_1 NIF pair atomicity.
+	NIFTrimResult TrimPhysicsNIFs(const std::string& outputDir, bool equippedOnly, bool copyOriginal)
+	{
+		auto collectMissingPhysicsXmlRefs = [](const PhysicsAsset& asset) {
+			std::unordered_set<std::string> missingRefs;
+			for (const auto& rawPath : asset.allPhysicsXmlPaths) {
+				auto [resolvedPath, xmlExists] = ResolveXMLPath(rawPath);
+				if (xmlExists)
+					continue;
+				missingRefs.insert(NormalizePathForComparison(rawPath));
+				if (!resolvedPath.empty())
+					missingRefs.insert(NormalizePathForComparison(resolvedPath));
+			}
+			return missingRefs;
+		};
+
+		NIFTrimResult result;
+		if (outputDir.empty()) {
+			result.errors.push_back("Output directory is empty");
+			return result;
+		}
+
+		NIFDecimationOptions decimationOptions;
+		decimationOptions.enableStructuralFixes = false;
+		decimationOptions.enableCollisionMeshDecimation = true;
+
+		if (equippedOnly) {
+			auto nifAssetsEquipped = discoverPhysicsAssets(true);
+			result.totalNIFsFound = static_cast<int>(nifAssetsEquipped.size());
+
+			std::map<std::string, std::vector<size_t>> stemGroups;
+			for (size_t i = 0; i < nifAssetsEquipped.size(); ++i)
+				stemGroups[GetNifPairBaseStem(NormalizePathForComparison(nifAssetsEquipped[i].nifPath))].push_back(i);
+
+			for (auto& [stem, indices] : stemGroups) {
+				std::vector<bool> results;
+				results.reserve(indices.size());
+				for (size_t idx : indices) {
+					NIFImproverDiagnostics d;
+					auto missingRefs = collectMissingPhysicsXmlRefs(nifAssetsEquipped[idx]);
+					results.push_back(GenerateImprovedNIF(
+						nifAssetsEquipped[idx].nifPath,
+						outputDir,
+						decimationOptions,
+						d,
+						&missingRefs,
+						copyOriginal));
+				}
+
+				if (!std::any_of(results.begin(), results.end(), [](bool r) { return r; }))
+					continue;
+
+				result.nifTrimmedCount += static_cast<int>(std::count(results.begin(), results.end(), true));
+				for (size_t k = 0; k < indices.size(); ++k) {
+					if (!results[k]) {
+						if (!CopyNIFToOutput(nifAssetsEquipped[indices[k]].nifPath, outputDir))
+							logger::warn("[Validator] Failed to copy unchanged NIF sibling to output: {}", nifAssetsEquipped[indices[k]].nifPath);
+					}
+				}
+			}
+			return result;
+		}
+
+		auto nifAssets = discoverPhysicsAssets();
+		result.totalNIFsFound = static_cast<int>(nifAssets.size());
+		std::unordered_set<std::string> relatedTRINorm;
+		for (const auto& a : nifAssets)
+			for (const auto& tri : a.relatedTRIPaths)
+				relatedTRINorm.insert(NormalizePathForComparison(tri));
+		result.totalTRIFilesFound = static_cast<int>(relatedTRINorm.size());
+
+		std::map<std::string, std::vector<size_t>> stemGroups;
+		for (size_t i = 0; i < nifAssets.size(); ++i)
+			stemGroups[GetNifPairBaseStem(NormalizePathForComparison(nifAssets[i].nifPath))].push_back(i);
+
+		std::vector<std::vector<size_t>> groups;
+		groups.reserve(stemGroups.size());
+		for (auto& [stem, indices] : stemGroups)
+			groups.push_back(std::move(indices));
+
+		std::atomic<int> trimmedCount{ 0 };
+		std::atomic<int> decCandidatesDiscovered{ 0 };
+		std::atomic<int> decCandidatesAttempted{ 0 };
+		std::atomic<int> decCandidatesApplied{ 0 };
+		std::atomic<int> decCandidatesSkippedNoChange{ 0 };
+		std::atomic<int> decCandidatesSkippedUnsafe{ 0 };
+		std::mutex decimationReasonLock;
+		std::map<std::string, int> decimationReasonCounts;
+		auto trimGroup = [&](const std::vector<size_t>& indices) {
+			std::vector<bool> results;
+			results.reserve(indices.size());
+			for (size_t idx : indices) {
+				NIFImproverDiagnostics d;
+				auto missingRefs = collectMissingPhysicsXmlRefs(nifAssets[idx]);
+				results.push_back(GenerateImprovedNIF(
+					nifAssets[idx].nifPath,
+					outputDir,
+					decimationOptions,
+					d,
+					&missingRefs,
+					copyOriginal));
+				decCandidatesDiscovered.fetch_add(d.decimationCandidatesDiscovered);
+				decCandidatesAttempted.fetch_add(d.decimationCandidatesAttempted);
+				decCandidatesApplied.fetch_add(d.decimationCandidatesApplied);
+				decCandidatesSkippedNoChange.fetch_add(d.decimationCandidatesSkippedNoChange);
+				decCandidatesSkippedUnsafe.fetch_add(d.decimationCandidatesSkippedUnsafe);
+				if (!d.decimationSkipReasons.empty()) {
+					std::lock_guard<std::mutex> l(decimationReasonLock);
+					for (const auto& rc : d.decimationSkipReasons)
+						decimationReasonCounts[rc.first] += rc.second;
+				}
+				if (!d.validationError.empty())
+					logger::error("[Validator] NIF round-trip validation failed for '{}': {}", nifAssets[idx].nifPath, d.validationError);
+			}
+
+			if (!std::any_of(results.begin(), results.end(), [](bool r) { return r; }))
+				return;
+
+			trimmedCount.fetch_add(static_cast<int>(std::count(results.begin(), results.end(), true)));
+			for (size_t k = 0; k < indices.size(); ++k) {
+				if (!results[k]) {
+					if (!CopyNIFToOutput(nifAssets[indices[k]].nifPath, outputDir))
+						logger::warn("[Validator] Failed to copy unchanged NIF sibling to output: {}", nifAssets[indices[k]].nifPath);
+				}
+			}
+		};
+
+		resetNIFImproverTimings();
+		resetBogusNodeTimings();
+		if (groups.size() > 1)
+			tbb::parallel_for_each(groups.begin(), groups.end(), trimGroup);
+		else
+			for (const auto& g : groups)
+				trimGroup(g);
+
+		logNIFImproverTimings();
+		result.nifTrimmedCount = trimmedCount.load();
+		result.decimationCandidatesDiscovered = decCandidatesDiscovered.load();
+		result.decimationCandidatesAttempted = decCandidatesAttempted.load();
+		result.decimationCandidatesApplied = decCandidatesApplied.load();
+		result.decimationCandidatesSkippedNoChange = decCandidatesSkippedNoChange.load();
+		result.decimationCandidatesSkippedUnsafe = decCandidatesSkippedUnsafe.load();
+		for (const auto& [reason, count] : decimationReasonCounts)
+			result.decimationSkipReasonHistogram.push_back(reason + "=" + std::to_string(count));
+
+		return result;
+	}
+
+	NIFFixTrimResult FixTrimPhysicsNIFs(const std::string& outputDir, bool equippedOnly, bool copyOriginal)
+	{
+		auto collectMissingPhysicsXmlRefs = [](const PhysicsAsset& asset) {
+			std::unordered_set<std::string> missingRefs;
+			for (const auto& rawPath : asset.allPhysicsXmlPaths) {
+				auto [resolvedPath, xmlExists] = ResolveXMLPath(rawPath);
+				if (xmlExists)
+					continue;
+				missingRefs.insert(NormalizePathForComparison(rawPath));
+				if (!resolvedPath.empty())
+					missingRefs.insert(NormalizePathForComparison(resolvedPath));
+			}
+			return missingRefs;
+		};
+
+		NIFFixTrimResult result;
+		if (outputDir.empty()) {
+			result.errors.push_back("Output directory is empty");
+			return result;
+		}
+
+		NIFDecimationOptions options;
+		options.enableCollisionMeshDecimation = true;
+		// enableStructuralFixes defaults to true
+
+		if (equippedOnly) {
+			auto nifAssetsEquipped = discoverPhysicsAssets(true);
+			result.totalNIFsFound = static_cast<int>(nifAssetsEquipped.size());
+
+			std::map<std::string, std::vector<size_t>> stemGroups;
+			for (size_t i = 0; i < nifAssetsEquipped.size(); ++i)
+				stemGroups[GetNifPairBaseStem(NormalizePathForComparison(nifAssetsEquipped[i].nifPath))].push_back(i);
+
+			for (auto& [stem, indices] : stemGroups) {
+				std::vector<bool> results;
+				results.reserve(indices.size());
+				for (size_t idx : indices) {
+					NIFImproverDiagnostics d;
+					auto missingRefs = collectMissingPhysicsXmlRefs(nifAssetsEquipped[idx]);
+					results.push_back(GenerateImprovedNIF(
+						nifAssetsEquipped[idx].nifPath,
+						outputDir,
+						options,
+						d,
+						&missingRefs,
+						copyOriginal));
+				}
+
+				if (!std::any_of(results.begin(), results.end(), [](bool r) { return r; }))
+					continue;
+
+				result.nifProcessedCount += static_cast<int>(std::count(results.begin(), results.end(), true));
+				for (size_t k = 0; k < indices.size(); ++k) {
+					if (!results[k]) {
+						if (!CopyNIFToOutput(nifAssetsEquipped[indices[k]].nifPath, outputDir))
+							logger::warn("[Validator] Failed to copy unchanged NIF sibling to output: {}", nifAssetsEquipped[indices[k]].nifPath);
+					}
+				}
+			}
+			return result;
+		}
+
+		auto nifAssets = discoverPhysicsAssets();
+		result.totalNIFsFound = static_cast<int>(nifAssets.size());
+		std::unordered_set<std::string> relatedTRINorm;
+		for (const auto& a : nifAssets)
+			for (const auto& tri : a.relatedTRIPaths)
+				relatedTRINorm.insert(NormalizePathForComparison(tri));
+		result.totalTRIFilesFound = static_cast<int>(relatedTRINorm.size());
+
+		std::map<std::string, std::vector<size_t>> stemGroups;
+		for (size_t i = 0; i < nifAssets.size(); ++i)
+			stemGroups[GetNifPairBaseStem(NormalizePathForComparison(nifAssets[i].nifPath))].push_back(i);
+
+		std::vector<std::vector<size_t>> groups;
+		groups.reserve(stemGroups.size());
+		for (auto& [stem, indices] : stemGroups)
+			groups.push_back(std::move(indices));
+
+		std::atomic<int> processedCount{ 0 };
+		std::atomic<int> orphanedSkinCount{ 0 };
+		std::atomic<int> skinMeshFixedCount{ 0 };
+		std::atomic<int> decCandidatesDiscovered{ 0 };
+		std::atomic<int> decCandidatesAttempted{ 0 };
+		std::atomic<int> decCandidatesApplied{ 0 };
+		std::atomic<int> decCandidatesSkippedNoChange{ 0 };
+		std::atomic<int> decCandidatesSkippedUnsafe{ 0 };
+		std::mutex decimationReasonLock;
+		std::map<std::string, int> decimationReasonCounts;
+
+		auto processGroup = [&](const std::vector<size_t>& indices) {
+			std::vector<bool> results;
+			results.reserve(indices.size());
+			for (size_t idx : indices) {
+				NIFImproverDiagnostics d;
+				auto missingRefs = collectMissingPhysicsXmlRefs(nifAssets[idx]);
+				results.push_back(GenerateImprovedNIF(
+					nifAssets[idx].nifPath,
+					outputDir,
+					options,
+					d,
+					&missingRefs,
+					copyOriginal));
+				orphanedSkinCount.fetch_add(d.orphanedSkinInstancesRemoved);
+				skinMeshFixedCount.fetch_add(d.skinMeshIssuesFixed);
+				decCandidatesDiscovered.fetch_add(d.decimationCandidatesDiscovered);
+				decCandidatesAttempted.fetch_add(d.decimationCandidatesAttempted);
+				decCandidatesApplied.fetch_add(d.decimationCandidatesApplied);
+				decCandidatesSkippedNoChange.fetch_add(d.decimationCandidatesSkippedNoChange);
+				decCandidatesSkippedUnsafe.fetch_add(d.decimationCandidatesSkippedUnsafe);
+				if (!d.decimationSkipReasons.empty()) {
+					std::lock_guard<std::mutex> l(decimationReasonLock);
+					for (const auto& rc : d.decimationSkipReasons)
+						decimationReasonCounts[rc.first] += rc.second;
+				}
+				if (!d.validationError.empty())
+					logger::error("[Validator] NIF round-trip validation failed for '{}': {}", nifAssets[idx].nifPath, d.validationError);
+			}
+
+			if (!std::any_of(results.begin(), results.end(), [](bool r) { return r; }))
+				return;
+
+			processedCount.fetch_add(static_cast<int>(std::count(results.begin(), results.end(), true)));
+			for (size_t k = 0; k < indices.size(); ++k) {
+				if (!results[k]) {
+					if (!CopyNIFToOutput(nifAssets[indices[k]].nifPath, outputDir))
+						logger::warn("[Validator] Failed to copy unchanged NIF sibling to output: {}", nifAssets[indices[k]].nifPath);
+				}
+			}
+		};
+
+		resetNIFImproverTimings();
+		resetBogusNodeTimings();
+		if (groups.size() > 1)
+			tbb::parallel_for_each(groups.begin(), groups.end(), processGroup);
+		else
+			for (const auto& g : groups)
+				processGroup(g);
+
+		logNIFImproverTimings();
+		result.nifProcessedCount = processedCount.load();
 		result.orphanedSkinInstancesRemoved = orphanedSkinCount.load();
 		result.skinMeshIssuesFixed = skinMeshFixedCount.load();
 		result.decimationCandidatesDiscovered = decCandidatesDiscovered.load();
