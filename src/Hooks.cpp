@@ -70,6 +70,9 @@ namespace Hooks
 
 	void BSFaceGenNiNodeHooks::SkinSingleGeometry__Hook(RE::BSFaceGenNiNode* const a_this, RE::NiNode* a_skeleton, RE::BSGeometry* a_triShape, [[maybe_unused]] bool a_unk)
 	{
+		if (!a_skeleton)
+			return;
+
 		//
 		const char* name = "";
 		uint32_t formId = 0x0;
@@ -145,7 +148,6 @@ namespace Hooks
 
 	void BSFaceGenNiNodeHooks::SkinAllGeometry(RE::BSFaceGenNiNode* const a_this, RE::NiNode* a_skeleton, bool a_unk)
 	{
-		if (a_skeleton) {
 			const auto& children = a_this->GetChildren();
 			if (children.size() > 0) {
 				for (std::uint16_t i = 0; i < children.size(); i++) {
@@ -158,7 +160,6 @@ namespace Hooks
 					}
 				}
 			}
-		}
 	}
 
 	void BSFaceGenNiNodeHooks::ApplyBoneLimitFix()
