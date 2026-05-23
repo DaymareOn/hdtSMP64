@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <queue>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -83,12 +84,13 @@ namespace hdt
 
 		struct WorkingVertex
 		{
-			Vertex   skin;
-			btVector3 pos      = btVector3(0, 0, 0);
-			bool     alive    = true;
-			bool     boundary = false;
-			bool     feature  = false;
-			Quadric  quadric;
+			Vertex    skin;
+			btVector3 pos        = btVector3(0, 0, 0);
+			bool      alive      = true;
+			bool      boundary   = false;
+			bool      feature    = false;
+			Quadric   quadric;
+			uint32_t  generation = 0;  // incremented when this vertex is the keep side of a collapse
 		};
 
 		struct EdgeInfo
@@ -107,6 +109,9 @@ namespace hdt
 			btVector3 newPos    = btVector3(0, 0, 0);
 			float     cost      = std::numeric_limits<float>::max();
 			float     skinDrift = 0.0f;
+			uint32_t  keepGen   = 0;    // generation of keep vertex at creation time
+			uint32_t  removeGen = 0;    // generation of remove vertex at creation time
+			Quadric   mergedQ   = {};   // keep.quadric + remove.quadric, stored to avoid recomputing
 		};
 
 		// ── Geometry primitives ───────────────────────────────────────────────
@@ -523,6 +528,123 @@ namespace hdt
 			return n;
 		}
 
+		// ── Adjacency and PQ infrastructure ───────────────────────────────────
+
+		// vertexTris[i] = list of triangle indices whose alive triangles include vertex i.
+		// Dead triangle indices may linger; always guard with triangles[ti].alive.
+		using VertexAdjTris = std::vector<std::vector<uint32_t>>;
+
+		struct CandidateMinHeap {
+			bool operator()(const Candidate& a, const Candidate& b) const { return a.cost > b.cost; }
+		};
+		using CandidatePQ = std::priority_queue<Candidate, std::vector<Candidate>, CandidateMinHeap>;
+
+		void buildVertexAdjTris(
+			VertexAdjTris& adj,
+			const std::vector<WorkingVertex>& vertices,
+			const std::vector<Triangle>& triangles)
+		{
+			adj.assign(vertices.size(), {});
+			for (uint32_t ti = 0; ti < static_cast<uint32_t>(triangles.size()); ++ti) {
+				if (!triangles[ti].alive) continue;
+				for (int i = 0; i < 3; ++i)
+					adj[triangles[ti].v[i]].push_back(ti);
+			}
+		}
+
+		// After applyCandidate: transfer remove's triangles to keep, prune dead entries,
+		// then update keep's quadric (cumulative QEM) and bump its generation so existing
+		// PQ entries that reference it are treated as stale.
+		void updateAdjAndQuadric(
+			const Candidate& cand,
+			std::vector<WorkingVertex>& vertices,
+			const std::vector<Triangle>& triangles,
+			VertexAdjTris& adj)
+		{
+			auto& vk = vertices[cand.keep];
+			vk.quadric = cand.mergedQ;
+			++vk.generation;
+
+			// Alive triangles from remove now reference keep; merge them in.
+			for (uint32_t ti : adj[cand.remove]) {
+				if (triangles[ti].alive)
+					adj[cand.keep].push_back(ti);
+			}
+			adj[cand.remove].clear();
+
+			// Prune dead entries (triangles that became degenerate during this collapse).
+			auto& kAdj = adj[cand.keep];
+			kAdj.erase(
+				std::remove_if(kAdj.begin(), kAdj.end(),
+					[&](uint32_t ti) { return !triangles[ti].alive; }),
+				kAdj.end());
+		}
+
+		// Recompute boundary/feature flags for all vertices in the 1-ring of vIdx.
+		// Correct because only triangles incident to vIdx could have changed topology.
+		void localRecomputeEdgeFlags(
+			uint32_t vIdx,
+			std::vector<WorkingVertex>& vertices,
+			const std::vector<Triangle>& triangles,
+			const VertexAdjTris& adj,
+			const CollisionMeshDecimationOptions& options)
+		{
+			// Collect the 1-ring: vIdx and all co-triangle vertices.
+			std::unordered_set<uint32_t> ring;
+			ring.insert(vIdx);
+			for (uint32_t ti : adj[vIdx]) {
+				const auto& tri = triangles[ti];
+				if (!tri.alive) continue;
+				for (int i = 0; i < 3; ++i) ring.insert(tri.v[i]);
+			}
+
+			for (uint32_t vi : ring)
+				if (vertices[vi].alive) { vertices[vi].boundary = false; vertices[vi].feature = false; }
+
+			// Collect all alive triangles touching any ring vertex.
+			std::unordered_set<uint32_t> allTris;
+			for (uint32_t vi : ring)
+				for (uint32_t ti : adj[vi])
+					if (triangles[ti].alive) allTris.insert(ti);
+
+			// Build edge info from those triangles.
+			std::unordered_map<EdgeKey, EdgeInfo, EdgeKeyHash> edges;
+			for (uint32_t ti : allTris) {
+				const auto& tri = triangles[ti];
+				btVector3 p[3] = {
+					vertices[tri.v[0]].pos,
+					vertices[tri.v[1]].pos,
+					vertices[tri.v[2]].pos
+				};
+				btVector3 n = triNormal(p[0], p[1], p[2]);
+				for (int i = 0; i < 3; ++i) {
+					uint32_t a = tri.v[i], b = tri.v[(i + 1) % 3];
+					auto& info = edges[EdgeKey(a, b)];
+					++info.count;
+					if (!info.hasN0)      { info.n0 = n; info.hasN0 = true; }
+					else if (!info.hasN1) { info.n1 = n; info.hasN1 = true; }
+				}
+			}
+
+			for (const auto& [key, e] : edges) {
+				bool aIn = ring.count(key.a) > 0;
+				bool bIn = ring.count(key.b) > 0;
+				if (!aIn && !bIn) continue;
+				if (e.count == 1) {
+					if (aIn) vertices[key.a].boundary = true;
+					if (bIn) vertices[key.b].boundary = true;
+				}
+				if (options.preserveFeatures && e.hasN0 && e.hasN1 &&
+				    !e.n0.fuzzyZero() && !e.n1.fuzzyZero()) {
+					float angle = std::acos(clamp01(std::fabs(e.n0.dot(e.n1)))) * kRadToDeg;
+					if (angle > options.maxNormalDeviationDegrees) {
+						if (aIn) vertices[key.a].feature = true;
+						if (bIn) vertices[key.b].feature = true;
+					}
+				}
+			}
+		}
+
 		void collectCandidateEdges(
 			const std::vector<WorkingVertex>& vertices,
 			const std::vector<Triangle>& triangles,
@@ -557,11 +679,15 @@ namespace hdt
 			float diagSquared)
 		{
 			Candidate c;
-			c.keep   = keep;
-			c.remove = remove;
+			c.keep      = keep;
+			c.remove    = remove;
+			c.keepGen   = vertices[keep].generation;
+			c.removeGen = vertices[remove].generation;
 
 			Quadric q = vertices[keep].quadric;
 			q.add(vertices[remove].quadric);
+			c.mergedQ = q;
+
 			btVector3 mid = (vertices[keep].pos + vertices[remove].pos) * 0.5f;
 			c.newPos = optimalPlacement(q, mid);
 
@@ -577,6 +703,31 @@ namespace hdt
 
 			c.cost = q.evaluate(c.newPos) + skinPenalty;
 			return c;
+		}
+
+		// Push fresh candidates for all edges incident to vIdx into the PQ.
+		// Must appear after makeCandidate (which it calls).
+		void pushEdgeCandidates(
+			uint32_t vIdx,
+			const std::vector<WorkingVertex>& vertices,
+			const std::vector<Triangle>& triangles,
+			const VertexAdjTris& adj,
+			const CollisionMeshDecimationOptions& options,
+			float diagSquared,
+			CandidatePQ& pq)
+		{
+			std::unordered_set<uint32_t> neighbors;
+			for (uint32_t ti : adj[vIdx]) {
+				const auto& tri = triangles[ti];
+				if (!tri.alive) continue;
+				for (int i = 0; i < 3; ++i)
+					if (tri.v[i] != vIdx && vertices[tri.v[i]].alive)
+						neighbors.insert(tri.v[i]);
+			}
+			for (uint32_t nb : neighbors) {
+				pq.push(makeCandidate(vIdx, nb, vertices, options, diagSquared));
+				pq.push(makeCandidate(nb, vIdx, vertices, options, diagSquared));
+			}
 		}
 
 		bool buildOutput(
@@ -728,83 +879,105 @@ namespace hdt
 		recomputeEdgeFlags(vertices, triangles, options);
 		recomputeQuadrics(vertices, triangles);
 
+		VertexAdjTris adj;
+		buildVertexAdjTris(adj, vertices, triangles);
+
 		// ── Pass A: short-edge point removal ──────────────────────────────────
 
-		for (;;) {
-			if (aliveVertexCount(vertices) <= targetVertexCount) break;
-			if (options.maxPointRemovals > 0 && out.stats.pointRemovals >= options.maxPointRemovals) break;
+		{
+			int aliveCount = aliveVertexCount(vertices);
+			for (;;) {
+				if (aliveCount <= targetVertexCount) break;
+				if (options.maxPointRemovals > 0 && out.stats.pointRemovals >= options.maxPointRemovals) break;
 
-			std::vector<EdgeKey> edges;
-			collectCandidateEdges(vertices, triangles, edges);
-			if (edges.empty()) break;
+				std::vector<EdgeKey> edges;
+				collectCandidateEdges(vertices, triangles, edges);
+				if (edges.empty()) break;
 
-			float shortEdge2 = (diag * std::max(0.0f, options.shortEdgeRatio));
-			shortEdge2 *= shortEdge2;
-			EdgeKey best;
-			float bestLen2 = std::numeric_limits<float>::max();
-			for (const auto& e : edges) {
-				float len2 = edgeLength2(vertices, e);
-				if (len2 <= shortEdge2 && len2 < bestLen2) { best = e; bestLen2 = len2; }
+				float shortEdge2 = (diag * std::max(0.0f, options.shortEdgeRatio));
+				shortEdge2 *= shortEdge2;
+				EdgeKey best;
+				float bestLen2 = std::numeric_limits<float>::max();
+				for (const auto& e : edges) {
+					float len2 = edgeLength2(vertices, e);
+					if (len2 <= shortEdge2 && len2 < bestLen2) { best = e; bestLen2 = len2; }
+				}
+				if (bestLen2 == std::numeric_limits<float>::max()) break;
+
+				Candidate c0 = makeCandidate(best.a, best.b, vertices, options, diagSquared);
+				Candidate c1 = makeCandidate(best.b, best.a, vertices, options, diagSquared);
+				Candidate c  = (c0.cost <= c1.cost) ? c0 : c1;
+
+				if (!validateCandidate(c, vertices, triangles, options, baseAbsVolume, out.stats)) {
+					++out.stats.rejectedCollapses;
+					break;
+				}
+
+				applyCandidate(c, vertices, triangles);
+				++out.stats.pointRemovals;
+				--aliveCount;
+				out.stats.maxAcceptedSkinDrift = std::max(out.stats.maxAcceptedSkinDrift, c.skinDrift);
+				updateAdjAndQuadric(c, vertices, triangles, adj);
+				localRecomputeEdgeFlags(c.keep, vertices, triangles, adj, options);
 			}
-			if (bestLen2 == std::numeric_limits<float>::max()) break;
-
-			Candidate c0 = makeCandidate(best.a, best.b, vertices, options, diagSquared);
-			Candidate c1 = makeCandidate(best.b, best.a, vertices, options, diagSquared);
-			Candidate c  = (c0.cost <= c1.cost) ? c0 : c1;
-
-			if (!validateCandidate(c, vertices, triangles, options, baseAbsVolume, out.stats)) {
-				++out.stats.rejectedCollapses;
-				break;
-			}
-
-			applyCandidate(c, vertices, triangles);
-			++out.stats.pointRemovals;
-			out.stats.maxAcceptedSkinDrift = std::max(out.stats.maxAcceptedSkinDrift, c.skinDrift);
-			recomputeEdgeFlags(vertices, triangles, options);
-			recomputeQuadrics(vertices, triangles);
 		}
 
-		// ── Pass B: constrained QEM edge collapse ─────────────────────────────
+		// ── Pass B: constrained QEM edge collapse (priority queue) ────────────
+		// Uses a min-heap keyed on collapse cost. Stale entries (vertex dead or
+		// modified since enqueue) are detected by generation mismatch and discarded.
+		// After each accepted collapse only the O(deg) edges incident to the surviving
+		// vertex are re-evaluated and reinserted, giving O(log E) amortised per step.
 
-		for (;;) {
-			if (aliveVertexCount(vertices) <= targetVertexCount) break;
-			if (options.maxEdgeCollapses > 0 && out.stats.edgeCollapses >= options.maxEdgeCollapses) break;
-
-			std::vector<EdgeKey> edges;
-			collectCandidateEdges(vertices, triangles, edges);
-			if (edges.empty()) break;
-
-			Candidate best;
-			for (const auto& e : edges) {
-				Candidate c0 = makeCandidate(e.a, e.b, vertices, options, diagSquared);
-				Candidate c1 = makeCandidate(e.b, e.a, vertices, options, diagSquared);
-				const Candidate& c = (c0.cost <= c1.cost) ? c0 : c1;
-				if (c.cost < best.cost) best = c;
+		{
+			CandidatePQ pq;
+			{
+				std::vector<EdgeKey> edges;
+				collectCandidateEdges(vertices, triangles, edges);
+				for (const auto& e : edges) {
+					pq.push(makeCandidate(e.a, e.b, vertices, options, diagSquared));
+					pq.push(makeCandidate(e.b, e.a, vertices, options, diagSquared));
+				}
 			}
 
-			if (best.cost == std::numeric_limits<float>::max()) break;
-			if (scaledQemThreshold > 0.0f && best.cost > scaledQemThreshold) break;
+			int aliveCount = aliveVertexCount(vertices);
 
-			if (!validateCandidate(best, vertices, triangles, options, baseAbsVolume, out.stats)) {
-				++out.stats.rejectedCollapses;
-				break;
-			}
+			while (!pq.empty()) {
+				if (aliveCount <= targetVertexCount) break;
+				if (options.maxEdgeCollapses > 0 && out.stats.edgeCollapses >= options.maxEdgeCollapses) break;
 
-			applyCandidate(best, vertices, triangles);
-			++out.stats.edgeCollapses;
-			out.stats.maxAcceptedSkinDrift = std::max(out.stats.maxAcceptedSkinDrift, best.skinDrift);
-			recomputeEdgeFlags(vertices, triangles, options);
-			recomputeQuadrics(vertices, triangles);
+				Candidate c = pq.top(); pq.pop();
 
-			float volumeDelta = std::fabs(signedVolume(vertices, triangles) - out.stats.initialSignedVolume);
-			float volumeCap   = baseAbsVolume * (std::max(0.0f, options.maxVolumeLossPercent) / 100.0f);
-			if (volumeCap > FLT_EPSILON && volumeDelta > volumeCap) {
-				out.stats.usedFallback    = true;
-				out.stats.fallbackReason  = "volume-loss-threshold";
-				restoreInputAsOutput(out, inputVertices, inputTriangles);
-				out.stats.outputSignedVolume  = out.stats.initialSignedVolume;
-				out.stats.volumeDeltaPercent  = 0.0f;
-				return out;
+				// Discard stale entries: vertex died or its quadric was updated since enqueue.
+				if (!vertices[c.keep].alive || !vertices[c.remove].alive) continue;
+				if (vertices[c.keep].generation != c.keepGen ||
+				    vertices[c.remove].generation != c.removeGen) continue;
+
+				if (scaledQemThreshold > 0.0f && c.cost > scaledQemThreshold) break;
+
+				if (!validateCandidate(c, vertices, triangles, options, baseAbsVolume, out.stats)) {
+					++out.stats.rejectedCollapses;
+					continue;
+				}
+
+				applyCandidate(c, vertices, triangles);
+				++out.stats.edgeCollapses;
+				--aliveCount;
+				out.stats.maxAcceptedSkinDrift = std::max(out.stats.maxAcceptedSkinDrift, c.skinDrift);
+
+				updateAdjAndQuadric(c, vertices, triangles, adj);
+				localRecomputeEdgeFlags(c.keep, vertices, triangles, adj, options);
+				pushEdgeCandidates(c.keep, vertices, triangles, adj, options, diagSquared, pq);
+
+				float volumeDelta = std::fabs(signedVolume(vertices, triangles) - out.stats.initialSignedVolume);
+				float volumeCap   = baseAbsVolume * (std::max(0.0f, options.maxVolumeLossPercent) / 100.0f);
+				if (volumeCap > FLT_EPSILON && volumeDelta > volumeCap) {
+					out.stats.usedFallback    = true;
+					out.stats.fallbackReason  = "volume-loss-threshold";
+					restoreInputAsOutput(out, inputVertices, inputTriangles);
+					out.stats.outputSignedVolume  = out.stats.initialSignedVolume;
+					out.stats.volumeDeltaPercent  = 0.0f;
+					return out;
+				}
 			}
 		}
 
