@@ -73,7 +73,7 @@ namespace hdt
 					buffer = static_cast<CollisionMerge*>(std::malloc(needed * sizeof(CollisionMerge)));
 					generations = static_cast<uint32_t*>(std::calloc(needed, sizeof(uint32_t)));
 				}
-				if (++currentGen == 0) {
+				if (++currentGen == 0 && generations) {
 					// wrap around, shouldn't realistically happen (~4 billion frames lol)
 					// This is virtually skipped entirely by the cpu, 0 cost. Just in case since it would
 					// create difficult to track down inconsistencies..
