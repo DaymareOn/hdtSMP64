@@ -208,8 +208,8 @@ namespace hdt
 		LOG("smp.autoAdjustMaxSkeletons", a->m_autoAdjustMaxSkeletons);
 		LOG("smp.sampleSize", w->m_sampleSize);
 		LOG("smp.disable1stPersonViewPhysics", a->m_disable1stPersonViewPhysics);
-		LOG("smp.maxPhysicsDistance",          a->m_maxPhysicsDistance);
-		LOG("smp.minScreenSizeFraction",       a->m_minScreenSizeFraction);
+		LOG("smp.maxPhysicsDistance", a->m_maxPhysicsDistance);
+		LOG("smp.minScreenSizeFraction", a->m_minScreenSizeFraction);
 #undef LOG
 	}
 }

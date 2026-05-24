@@ -399,7 +399,7 @@ namespace hdt
 		if (m_minScreenSizeFraction > 0.f) {
 			if (auto* cam = RE::Main::WorldRootCamera()) {
 				const auto& f = cam->GetRuntimeData2().viewFrustum;
-				const float screenH = f.fTop - f.fBottom; // near-plane total vertical span in world units
+				const float screenH = f.fTop - f.fBottom;  // near-plane total vertical span in world units
 				m_screenSizeNearPlaneScale = 4.f * f.fNear * f.fNear;
 				m_screenSizeThresholdScale = m_minScreenSizeFraction * m_minScreenSizeFraction * screenH * screenH;
 			}
@@ -1062,7 +1062,7 @@ namespace hdt
 		// Ie, is the NPC's projected bounding sphere smaller than the allowed fraction of screen height?
 		// screenFraction < minFraction <=> 2r·fNear / (dist·screenH) < fr <=> 4r²·fNear² < fr²·dist²·screenH²
 		if (manager->m_screenSizeThresholdScale > 0.f) {
-			const float r = skeleton3D->worldBound.radius; // the radius of the bounding sphere of the skeleton in world units
+			const float r = skeleton3D->worldBound.radius;  // the radius of the bounding sphere of the skeleton in world units
 			if (manager->m_screenSizeNearPlaneScale * r * r < manager->m_screenSizeThresholdScale * m_distanceFromCamera2)
 				return false;
 		}
@@ -1121,7 +1121,7 @@ namespace hdt
 					state = SkeletonState::e_ActiveIsPlayer;
 				}
 			} else if (instance()->m_maxPhysicsDistance > 0.f &&
-				m_distanceFromCamera2 > instance()->m_maxPhysicsDistance * instance()->m_maxPhysicsDistance) {
+					   m_distanceFromCamera2 > instance()->m_maxPhysicsDistance * instance()->m_maxPhysicsDistance) {
 				state = SkeletonState::e_InactiveTooFar;
 			} else if (isInPlayerView()) {
 				isActive = true;
