@@ -348,15 +348,21 @@ namespace Hooks
 		DetourAttach((PVOID*)&_SetBoneName, (PVOID)SetBoneName_Hook);
 	}
 
-	void Install()
+	void InstallHighPriority()
 	{
-		logger::trace("Hooking...");
+		logger::trace("Installing high-priority hooks...");
 
-		// generic hooks
-		BSFaceGenNiNodeHooks::Hook();
 		MainHooks::Hook();
 
-		//
+		logger::trace("...success");
+	}
+
+	void InstallLowPriority()
+	{
+		logger::trace("Installing low-priority hooks...");
+
+		BSFaceGenNiNodeHooks::Hook();
+
 		DetourTransactionBegin();
 		DetourUpdateThread(GetCurrentThread());
 		ActorEquipManagerHooks::Hook();
@@ -366,13 +372,11 @@ namespace Hooks
 
 		DetourTransactionCommit();
 
-		//
 		DetourTransactionBegin();
 		DetourUpdateThread(GetCurrentThread());
 		BipedAnimHooks::Hook();
 		DetourTransactionCommit();
 
-		//
 		logger::trace("...success");
 	}
 }

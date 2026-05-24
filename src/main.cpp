@@ -495,6 +495,7 @@ void MessageHandler(SKSE::MessagingInterface::Message* a_msg)
 		break;
 	case SKSE::MessagingInterface::kPostPostLoad:
 		{
+			Hooks::InstallHighPriority();
 			hdt::g_pluginInterface.onPostPostLoad();
 			checkOldPlugins();
 		}
@@ -593,7 +594,7 @@ extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* a_s
 	//
 	SKSE::GetCameraEventSource()->AddEventSink(hdt::SkyrimPhysicsWorld::get());
 
-	Hooks::Install();
+	Hooks::InstallLowPriority();
 
 	hdt::g_pluginInterface.init(a_skse);
 

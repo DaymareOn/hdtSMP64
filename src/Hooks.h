@@ -166,5 +166,9 @@ namespace Hooks
 		static inline func_t* _func{ (func_t*)REL::VariantID(15535, 15712, 0x01DB9E0).address() };  // 0x01CAFB0, 0x01D83B0, 0x01DB9E0 (SE/1.5.97.0, AE/1.6.640.0, VR/1.4.15.0)
 	};
 
-	void Install();
+	// Intended for hooks that may get drowned out by other mods.
+	// In this case, MainHooks->UpdateHook1 was somehow being disabled by another mod
+	void InstallHighPriority();
+
+	void InstallLowPriority();
 }
