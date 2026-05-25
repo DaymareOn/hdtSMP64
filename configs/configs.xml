@@ -181,14 +181,6 @@
     <!-- ##################### DISTANCE AND SCREEN SIZE CULLING ############ -->
 
     <!--
-      maxPhysicsDistance: (float) hard cutoff distance in world units beyond which
-      physics is never calculated for non-player skeletons, regardless of budget or
-      screen visibility. 0 disables the cutoff.
-      If no value is set, default is 0 (disabled).
-    -->
-    <maxPhysicsDistance>0</maxPhysicsDistance>
-
-    <!--
       minScreenSizeFraction: (float 0-1) physics is skipped for non-player skeletons
       whose bounding sphere diameter, projected onto the screen, is smaller than this
       fraction of the screen height. For example, 0.02 skips skeletons that appear

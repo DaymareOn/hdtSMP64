@@ -106,8 +106,6 @@ namespace hdt
 					SkyrimPhysicsWorld::get()->m_sampleSize = std::max(reader.readInt(), 1);
 				} else if (reader.GetLocalName() == "disable1stPersonViewPhysics") {
 					ActorManager::instance()->m_disable1stPersonViewPhysics = reader.readBool();
-				} else if (reader.GetLocalName() == "maxPhysicsDistance") {
-					ActorManager::instance()->m_maxPhysicsDistance = std::max(reader.readFloat(), 0.f);
 				} else if (reader.GetLocalName() == "minScreenSizeFraction") {
 					ActorManager::instance()->m_minScreenSizeFraction = std::clamp(reader.readFloat(), 0.f, 1.f);
 				} else {
@@ -208,7 +206,6 @@ namespace hdt
 		LOG("smp.autoAdjustMaxSkeletons", a->m_autoAdjustMaxSkeletons);
 		LOG("smp.sampleSize", w->m_sampleSize);
 		LOG("smp.disable1stPersonViewPhysics", a->m_disable1stPersonViewPhysics);
-		LOG("smp.maxPhysicsDistance", a->m_maxPhysicsDistance);
 		LOG("smp.minScreenSizeFraction", a->m_minScreenSizeFraction);
 #undef LOG
 	}

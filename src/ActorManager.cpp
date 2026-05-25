@@ -1120,9 +1120,6 @@ namespace hdt
 					isActive = true;
 					state = SkeletonState::e_ActiveIsPlayer;
 				}
-			} else if (instance()->m_maxPhysicsDistance > 0.f &&
-					   m_distanceFromCamera2 > instance()->m_maxPhysicsDistance * instance()->m_maxPhysicsDistance) {
-				state = SkeletonState::e_InactiveTooFar;
 			} else if (isInPlayerView()) {
 				isActive = true;
 				state = SkeletonState::e_ActiveNearPlayer;
