@@ -36,13 +36,6 @@ namespace hdt
 		if (loaded.empty())
 			return;
 
-		// Store original locale
-		char saved_locale[32];
-		strcpy_s(saved_locale, std::setlocale(LC_NUMERIC, nullptr));
-
-		// Set locale to en_US
-		std::setlocale(LC_NUMERIC, "en_US");
-
 		XMLReader reader((uint8_t*)loaded.data(), loaded.size());
 
 		reader.nextStartElement();
@@ -93,8 +86,6 @@ namespace hdt
 			}
 		}
 
-		// Restore original locale
-		std::setlocale(LC_NUMERIC, saved_locale);
 	}
 
 	DefaultBBP::PhysicsFile_t DefaultBBP::scanDefaultBBP(RE::NiNode* armor)

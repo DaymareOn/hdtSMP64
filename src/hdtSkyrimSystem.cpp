@@ -228,13 +228,6 @@ namespace hdt
 		m_mesh = RE::make_smart<SkyrimSystem>(skeleton);
 		m_boneIndex.clear();
 
-		// Store original locale
-		char saved_locale[32];
-		strcpy_s(saved_locale, std::setlocale(LC_NUMERIC, nullptr));
-
-		// Set locale to en_US
-		std::setlocale(LC_NUMERIC, "en_US");
-
 		// This forces the skeleton into a neutral reference pose, which avoids building invalid shape data
 		// We pull the references directly from havok for the exact same reference data the engine uses
 		std::vector<std::pair<RE::NiAVObject*, RE::NiTransform>> savedPoses;
@@ -360,9 +353,6 @@ namespace hdt
 		}
 
 		m_deferredBuilds.clear();
-
-		// Restore original locale
-		std::setlocale(LC_NUMERIC, saved_locale);
 
 		if (m_reader->GetErrorCode() != Xml::ErrorCode::None) {
 			logger::error("xml parse error - {}", m_reader->GetErrorMessage());
