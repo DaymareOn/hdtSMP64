@@ -182,7 +182,7 @@
       smaller than 2% of screen height. 0 disables the check.
       If no value is set, default is 0 (disabled).
     -->
-    <minScreenSizeFraction>0</minScreenSizeFraction>
+    <minScreenSizeFraction>0.015</minScreenSizeFraction>
 
   </smp>
   <solver>
