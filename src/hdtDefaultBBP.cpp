@@ -85,7 +85,6 @@ namespace hdt
 				break;
 			}
 		}
-
 	}
 
 	DefaultBBP::PhysicsFile_t DefaultBBP::scanDefaultBBP(RE::NiNode* armor)
