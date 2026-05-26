@@ -440,11 +440,21 @@ namespace hdt
 		activeSkeletons = 0;
 		const float minCullingDistance2 = m_minCullingDistance * m_minCullingDistance;
 		for (auto& i : m_skeletons) {
+			// If the option is enabled, we skip dead actors when they are not the player,
+			// to save performance.
+			bool skipDeadActor = false;
+			if (m_skipDeadActors && !i.isPlayerCharacter()) {
+				const auto actor = skyrim_cast<RE::Actor*>(i.skeletonOwner.get());
+				if (actor && actor->IsDead()) {
+					skipDeadActor = true;
+				}
+			}
+
 			// Skeletons inside the minimum culling distance are kept active even when the budget cap
 			// is exceeded, so a shrinking auto-adjust cap can't strip physics from NPCs next to the camera.
 			const bool forceKeepNear = i.m_distanceFromCamera2 < minCullingDistance2;
 			const bool overBudget = activeSkeletons >= maxActiveSkeletons;
-			if (!i.hasPhysics || !i.updateAttachedState(playerCell, overBudget && !forceKeepNear))
+			if (!i.hasPhysics || !i.updateAttachedState(playerCell, overBudget && !forceKeepNear || skipDeadActor)) {
 				continue;
 
 			activeSkeletons++;

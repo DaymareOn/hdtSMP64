@@ -241,6 +241,8 @@ namespace hdt
 		// @brief Depending on this setting, we avoid to calculate the physics of the PC when it is in 1st person view.
 		bool m_disable1stPersonViewPhysics = false;
 
+		bool m_skipDeadActors = false;
+
 	private:
 		RE::NiPoint3 m_cameraPositionDuringFrame;
 		float m_screenSizeThresholdScale = 0.f;  // precomputed per frame: minScreenSizeFraction^2 * tan(fov/2)^2
