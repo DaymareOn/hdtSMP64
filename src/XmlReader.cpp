@@ -1,4 +1,5 @@
 #include "XmlReader.h"
+#include <charconv>
 
 namespace hdt
 {
@@ -10,17 +11,19 @@ namespace hdt
 		if (start_pos != std::string::npos)
 			s.replace(start_pos, 1, ".");
 
-		errno = 0;  // Reinitializing the error global variable (thread-safe)
-		float ret = strtof(s.c_str(), nullptr);
-		if (errno != 0)  // Checking if there has been an error
+		float ret{};
+		const char* begin = s.data();
+		const char* end = begin + s.size();
+		auto [ptr, ec] = std::from_chars(begin, end, ret);
+		if (ec != std::errc() || ptr != end)
 			throw std::string("not a float value");
 		return ret;
 	}
 
 	static inline int convertInt(const std::string& str)
 	{
-		auto begin = str.c_str();
-		char* end;
+		const char* begin = str.data();
+		const char* end = begin + str.size();
 
 		int radix = 10;
 		if (!str.compare(0, 2, "0x")) {
@@ -31,8 +34,9 @@ namespace hdt
 			radix = 8;
 		}
 
-		int ret = strtol(str.c_str(), &end, radix);
-		if (end != str.c_str() + str.length())
+		int ret{};
+		auto [ptr, ec] = std::from_chars(begin, end, ret, radix);
+		if (ec != std::errc() || ptr != end)
 			throw std::string("not a int value");
 		return ret;
 	}
