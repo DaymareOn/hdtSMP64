@@ -243,8 +243,7 @@ namespace hdt
 
 	private:
 		RE::NiPoint3 m_cameraPositionDuringFrame;
-		float m_screenSizeNearPlaneScale = 0.f;  // precomputed per frame: 4·fNear²
-		float m_screenSizeThresholdScale = 0.f;  // precomputed per frame: minScreenSizeFraction²·screenH²
+		float m_screenSizeThresholdScale = 0.f;  // precomputed per frame: minScreenSizeFraction^2 * tan(fov/2)^2
 		static RE::NiNode* getCameraNode();
 
 		void setSkeletonsActive(const bool updateMetrics = false);
