@@ -394,14 +394,14 @@ namespace hdt
 		const auto cameraOrientation = cameraTransform.rotate * RE::NiPoint3(0., 1., 0.);  // The camera matrix is relative to the world.
 		m_cameraPositionDuringFrame = cameraPosition;
 
-		m_screenSizeNearPlaneScale = 0.f;
 		m_screenSizeThresholdScale = 0.f;
 		if (m_minScreenSizeFraction > 0.f) {
-			if (auto* cam = RE::Main::WorldRootCamera()) {
-				const auto& f = cam->GetRuntimeData2().viewFrustum;
-				const float screenH = f.fTop - f.fBottom;  // near-plane total vertical span in world units
-				m_screenSizeNearPlaneScale = 4.f * f.fNear * f.fNear;
-				m_screenSizeThresholdScale = m_minScreenSizeFraction * m_minScreenSizeFraction * screenH * screenH;
+			if (auto* worldSceneGraph = RE::DrawWorld::GetSingleton().worldSceneGraph) {
+				const float cameraFOVDegrees = static_cast<RE::BSSceneGraph*>(worldSceneGraph)->GetRuntimeData().cameraFOV;
+				if (cameraFOVDegrees > 0.f && cameraFOVDegrees < 180.f) {
+					const float tanHalfFOV = std::tan(cameraFOVDegrees * std::numbers::pi_v<float> / 360.f);
+					m_screenSizeThresholdScale = m_minScreenSizeFraction * m_minScreenSizeFraction * tanHalfFOV * tanHalfFOV;
+				}
 			}
 		}
 
@@ -1060,11 +1060,18 @@ namespace hdt
 
 		// Is the skeleton too small on screen?
 		// Ie, is the NPC's projected bounding sphere smaller than the allowed fraction of screen height?
-		// screenFraction < minFraction <=> 2r·fNear / (dist·screenH) < fr <=> 4r²·fNear² < fr²·dist²·screenH²
+		// screenFraction < minFraction <=> r / (distance * tan(fov/2)) < fr <=> r^2 < fr^2 * distance^2 * tan(fov/2)^2
 		if (manager->m_screenSizeThresholdScale > 0.f) {
-			const float r = skeleton3D->worldBound.radius;  // the radius of the bounding sphere of the skeleton in world units
-			if (manager->m_screenSizeNearPlaneScale * r * r < manager->m_screenSizeThresholdScale * m_distanceFromCamera2)
-				return false;
+			const auto& bound = skeleton3D->worldBound;
+			const auto cameraToBound = bound.center - manager->m_cameraPositionDuringFrame;
+			const float distanceToBound2 = cameraToBound.x * cameraToBound.x + cameraToBound.y * cameraToBound.y + cameraToBound.z * cameraToBound.z;
+
+			if (distanceToBound2 > bound.radius * bound.radius) {
+				// Use the nearest point on the sphere for a conservative size estimate.
+				const float visibleDistance = std::sqrt(distanceToBound2) - bound.radius;
+				if (bound.radius * bound.radius < manager->m_screenSizeThresholdScale * visibleDistance * visibleDistance)
+					return false;
+			}
 		}
 
 		RE::NiPoint3 hitLocation;
