@@ -247,7 +247,8 @@ namespace hdt
 	}
 
 	// ── Main algorithm ────────────────────────────────────────────────────────
-	bool removeBogusNiNodes(ParsedNif& parsed)
+	bool removeBogusNiNodes(ParsedNif& parsed,
+	                        const std::unordered_set<std::string>* xmlProtectedNodeNames)
 	{
 		const NifSchema& schema = globalNifSchema();
 		bool anyChanged = false;
@@ -293,6 +294,9 @@ namespace hdt
 					if (nameIdx >= 0 && nameIdx < static_cast<int32_t>(parsed.strings.size()))
 						nodeName = parsed.strings[static_cast<size_t>(nameIdx)];
 				}
+
+				if (xmlProtectedNodeNames && xmlProtectedNodeNames->count(nodeName))
+					continue;
 
 				const std::string& typeName = typeOf(b);
 				bool impSubtype = isImportantSubtype(typeName);

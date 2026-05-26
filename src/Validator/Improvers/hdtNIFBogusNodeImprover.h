@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string>
+#include <unordered_set>
 #include <vector>
 
 namespace hdt
@@ -9,8 +11,10 @@ namespace hdt
 	// Removes orphan NiNode blocks (no children, no inbound references) from anywhere
 	// in the block list, iterating until no more can be removed. Updates all block
 	// references in the remaining blocks after each pass.
+	// Nodes whose names appear in xmlProtectedNodeNames are never removed.
 	// Returns true if any blocks were removed.
-	bool removeBogusNiNodes(ParsedNif& parsed);
+	bool removeBogusNiNodes(ParsedNif& parsed,
+	                        const std::unordered_set<std::string>* xmlProtectedNodeNames = nullptr);
 
 	// Remove the given blocks (indices must be sorted ascending, no duplicates) and
 	// update all surviving block references. Array-element refs to removed blocks are

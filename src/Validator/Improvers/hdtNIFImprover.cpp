@@ -314,7 +314,8 @@ namespace hdt
 		const NIFDecimationOptions& options,
 		NIFImproverDiagnostics& outDiagnostics,
 		const std::unordered_set<std::string>* missingPhysicsXmlRefs,
-		bool copyOriginal)
+		bool copyOriginal,
+		const std::unordered_set<std::string>* xmlProtectedNodeNames)
 	{
 		namespace fs = std::filesystem;
 
@@ -370,7 +371,7 @@ namespace hdt
 		bool changed = false;
 		auto _t3 = now();
 		if (options.enableStructuralFixes)
-			changed |= removeBogusNiNodes(parsed);
+			changed |= removeBogusNiNodes(parsed, xmlProtectedNodeNames);
 		auto _t4 = now();
 		g_profBogusNodes.fetch_add(elapsedNs(_t3, _t4));
 

@@ -1505,24 +1505,51 @@ namespace hdt
 		return result;
 	}
 
+	static std::unordered_set<std::string> collectMissingPhysicsXmlRefs(const PhysicsAsset& asset)
+	{
+		std::unordered_set<std::string> missingRefs;
+		for (const auto& rawPath : asset.allPhysicsXmlPaths) {
+			auto [resolvedPath, xmlExists] = ResolveXMLPath(rawPath);
+			if (xmlExists)
+				continue;
+			missingRefs.insert(NormalizePathForComparison(rawPath));
+			if (!resolvedPath.empty())
+				missingRefs.insert(NormalizePathForComparison(resolvedPath));
+		}
+		return missingRefs;
+	}
+
+	// Returns all <bone name="..."> values declared anywhere in a physics XML file.
+	// Used to protect physics-declared bones from bogus-node removal.
+	static std::unordered_set<std::string> extractBoneNamesFromXml(const std::string& xmlPath)
+	{
+		std::unordered_set<std::string> names;
+		if (xmlPath.empty()) return names;
+
+		std::string bytes = readAllFile2(xmlPath.c_str());
+		if (bytes.empty()) return names;
+
+		pugi::xml_document doc;
+		if (!doc.load_buffer(bytes.data(), bytes.size())) return names;
+
+		std::function<void(pugi::xml_node)> collect = [&](pugi::xml_node node) {
+			if (std::strcmp(node.name(), "bone") == 0) {
+				const char* attr = node.attribute("name").value();
+				if (attr && *attr)
+					names.insert(attr);
+			}
+			for (auto child : node.children())
+				collect(child);
+		};
+		collect(doc);
+		return names;
+	}
+
 	/// Generates structurally repaired copies of all physics NIF files (bogus node removal,
 	/// orphaned skin instance removal, partition triangle-copy repair). Never runs decimation.
 	/// Preserves _0/_1 NIF pair atomicity by copying unchanged siblings when one is improved.
 	NIFImproveResult ImprovePhysicsNIFs(const std::string& outputDir, bool equippedOnly, bool copyOriginal)
 	{
-		auto collectMissingPhysicsXmlRefs = [](const PhysicsAsset& asset) {
-			std::unordered_set<std::string> missingRefs;
-			for (const auto& rawPath : asset.allPhysicsXmlPaths) {
-				auto [resolvedPath, xmlExists] = ResolveXMLPath(rawPath);
-				if (xmlExists)
-					continue;
-				missingRefs.insert(NormalizePathForComparison(rawPath));
-				if (!resolvedPath.empty())
-					missingRefs.insert(NormalizePathForComparison(resolvedPath));
-			}
-			return missingRefs;
-		};
-
 		NIFImproveResult result;
 		if (outputDir.empty()) {
 			result.errors.push_back("Output directory is empty");
@@ -1540,6 +1567,14 @@ namespace hdt
 				stemGroups[GetNifPairBaseStem(NormalizePathForComparison(nifAssetsEquipped[i].nifPath))].push_back(i);
 
 			for (auto& [stem, indices] : stemGroups) {
+				std::unordered_set<std::string> protectedNames;
+				for (size_t idx : indices) {
+					if (!nifAssetsEquipped[idx].xmlPath.empty()) {
+						protectedNames = extractBoneNamesFromXml(nifAssetsEquipped[idx].xmlPath);
+						break;
+					}
+				}
+
 				std::vector<bool> results;
 				results.reserve(indices.size());
 				for (size_t idx : indices) {
@@ -1551,7 +1586,8 @@ namespace hdt
 						noDecimation,
 						d,
 						&missingRefs,
-						copyOriginal));
+						copyOriginal,
+						&protectedNames));
 				}
 
 				if (!std::any_of(results.begin(), results.end(), [](bool r) { return r; }))
@@ -1589,6 +1625,14 @@ namespace hdt
 		std::atomic<int> orphanedSkinCount{ 0 };
 		std::atomic<int> skinMeshFixedCount{ 0 };
 		auto improveGroup = [&](const std::vector<size_t>& indices) {
+			std::unordered_set<std::string> protectedNames;
+			for (size_t idx : indices) {
+				if (!nifAssets[idx].xmlPath.empty()) {
+					protectedNames = extractBoneNamesFromXml(nifAssets[idx].xmlPath);
+					break;
+				}
+			}
+
 			std::vector<bool> results;
 			results.reserve(indices.size());
 			for (size_t idx : indices) {
@@ -1600,7 +1644,8 @@ namespace hdt
 					noDecimation,
 					d,
 					&missingRefs,
-					copyOriginal));
+					copyOriginal,
+					&protectedNames));
 				orphanedSkinCount.fetch_add(d.orphanedSkinInstancesRemoved);
 				skinMeshFixedCount.fetch_add(d.skinMeshIssuesFixed);
 				if (!d.validationError.empty())
@@ -1638,19 +1683,6 @@ namespace hdt
 	/// parameters and writes the results. Preserves _0/_1 NIF pair atomicity.
 	NIFTrimResult TrimPhysicsNIFs(const std::string& outputDir, bool equippedOnly, bool copyOriginal)
 	{
-		auto collectMissingPhysicsXmlRefs = [](const PhysicsAsset& asset) {
-			std::unordered_set<std::string> missingRefs;
-			for (const auto& rawPath : asset.allPhysicsXmlPaths) {
-				auto [resolvedPath, xmlExists] = ResolveXMLPath(rawPath);
-				if (xmlExists)
-					continue;
-				missingRefs.insert(NormalizePathForComparison(rawPath));
-				if (!resolvedPath.empty())
-					missingRefs.insert(NormalizePathForComparison(resolvedPath));
-			}
-			return missingRefs;
-		};
-
 		NIFTrimResult result;
 		if (outputDir.empty()) {
 			result.errors.push_back("Output directory is empty");
@@ -1785,19 +1817,6 @@ namespace hdt
 
 	NIFFixTrimResult FixTrimPhysicsNIFs(const std::string& outputDir, bool equippedOnly, bool copyOriginal)
 	{
-		auto collectMissingPhysicsXmlRefs = [](const PhysicsAsset& asset) {
-			std::unordered_set<std::string> missingRefs;
-			for (const auto& rawPath : asset.allPhysicsXmlPaths) {
-				auto [resolvedPath, xmlExists] = ResolveXMLPath(rawPath);
-				if (xmlExists)
-					continue;
-				missingRefs.insert(NormalizePathForComparison(rawPath));
-				if (!resolvedPath.empty())
-					missingRefs.insert(NormalizePathForComparison(resolvedPath));
-			}
-			return missingRefs;
-		};
-
 		NIFFixTrimResult result;
 		if (outputDir.empty()) {
 			result.errors.push_back("Output directory is empty");
@@ -1817,6 +1836,14 @@ namespace hdt
 				stemGroups[GetNifPairBaseStem(NormalizePathForComparison(nifAssetsEquipped[i].nifPath))].push_back(i);
 
 			for (auto& [stem, indices] : stemGroups) {
+				std::unordered_set<std::string> protectedNames;
+				for (size_t idx : indices) {
+					if (!nifAssetsEquipped[idx].xmlPath.empty()) {
+						protectedNames = extractBoneNamesFromXml(nifAssetsEquipped[idx].xmlPath);
+						break;
+					}
+				}
+
 				std::vector<bool> results;
 				results.reserve(indices.size());
 				for (size_t idx : indices) {
@@ -1828,7 +1855,8 @@ namespace hdt
 						options,
 						d,
 						&missingRefs,
-						copyOriginal));
+						copyOriginal,
+						&protectedNames));
 				}
 
 				if (!std::any_of(results.begin(), results.end(), [](bool r) { return r; }))
@@ -1874,6 +1902,14 @@ namespace hdt
 		std::map<std::string, int> decimationReasonCounts;
 
 		auto processGroup = [&](const std::vector<size_t>& indices) {
+			std::unordered_set<std::string> protectedNames;
+			for (size_t idx : indices) {
+				if (!nifAssets[idx].xmlPath.empty()) {
+					protectedNames = extractBoneNamesFromXml(nifAssets[idx].xmlPath);
+					break;
+				}
+			}
+
 			std::vector<bool> results;
 			results.reserve(indices.size());
 			for (size_t idx : indices) {
@@ -1885,7 +1921,8 @@ namespace hdt
 					options,
 					d,
 					&missingRefs,
-					copyOriginal));
+					copyOriginal,
+					&protectedNames));
 				orphanedSkinCount.fetch_add(d.orphanedSkinInstancesRemoved);
 				skinMeshFixedCount.fetch_add(d.skinMeshIssuesFixed);
 				decCandidatesDiscovered.fetch_add(d.decimationCandidatesDiscovered);

@@ -54,7 +54,8 @@ namespace hdt
 		const NIFDecimationOptions& options,
 		NIFImproverDiagnostics& outDiagnostics,
 		const std::unordered_set<std::string>* missingPhysicsXmlRefs = nullptr,
-		bool copyOriginal = false);
+		bool copyOriginal = false,
+		const std::unordered_set<std::string>* xmlProtectedNodeNames = nullptr);
 
 	// Copies a NIF file unchanged to:
 	//   <outputDir>/<path-relative-to-data/>
