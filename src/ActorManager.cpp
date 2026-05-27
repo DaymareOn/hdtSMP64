@@ -454,7 +454,7 @@ namespace hdt
 			// is exceeded, so a shrinking auto-adjust cap can't strip physics from NPCs next to the camera.
 			const bool forceKeepNear = i.m_distanceFromCamera2 < minCullingDistance2;
 			const bool overBudget = activeSkeletons >= maxActiveSkeletons;
-			if (!i.hasPhysics || !i.updateAttachedState(playerCell, overBudget && !forceKeepNear || skipDeadActor)) {
+			if (!i.hasPhysics || !i.updateAttachedState(playerCell, overBudget && !forceKeepNear || skipDeadActor))
 				continue;
 
 				activeSkeletons++;
