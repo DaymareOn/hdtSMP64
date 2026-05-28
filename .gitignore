@@ -424,3 +424,5 @@ FodyWeavers.xsd
 /build
 /out
 CMakeUserPresets.json
+
+.claude/settings.local.json
