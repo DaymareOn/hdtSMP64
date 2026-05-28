@@ -9,25 +9,12 @@
 
 namespace hdt
 {
-	namespace
-	{
-		std::optional<std::string> typeAt(const ParsedNif& parsed, int32_t idx)
-		{
-			if (idx < 0 || idx >= static_cast<int32_t>(parsed.blockTypeIndex.size()))
-				return std::nullopt;
-			uint16_t tIdx = parsed.blockTypeIndex[static_cast<size_t>(idx)];
-			if (tIdx >= parsed.blockTypes.size()) return std::nullopt;
-			return parsed.blockTypes[tIdx];
-		}
-
-	}  // namespace
-
 	int repairNIFSkinMeshIssues(ParsedNif& parsed)
 	{
 		int fixed = 0;
 
 		for (int32_t i = 0; i < static_cast<int32_t>(parsed.blocks.size()); ++i) {
-			auto tOpt = typeAt(parsed, i);
+			auto tOpt = blockTypeOf(parsed, i);
 			if (!tOpt || *tOpt != nif::kTypeNiSkinPartition) continue;
 
 			auto& block = parsed.blocks[static_cast<size_t>(i)];

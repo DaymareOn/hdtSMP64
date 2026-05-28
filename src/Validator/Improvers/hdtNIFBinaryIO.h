@@ -66,6 +66,16 @@ namespace hdt
 		std::vector<int32_t> footerRoots;
 	};
 
+	// Returns the type-name string for block idx, or nullopt if idx is out of range.
+	inline std::optional<std::string> blockTypeOf(const ParsedNif& parsed, int32_t idx)
+	{
+		if (idx < 0 || idx >= static_cast<int32_t>(parsed.blockTypeIndex.size()))
+			return std::nullopt;
+		uint16_t tIdx = parsed.blockTypeIndex[static_cast<size_t>(idx)];
+		if (tIdx >= parsed.blockTypes.size()) return std::nullopt;
+		return parsed.blockTypes[tIdx];
+	}
+
 	std::optional<ParsedNif> parseNif(const std::vector<uint8_t>& data, std::string* outError = nullptr);
 	// Serialize parsed to bytes. Throws on invalid structure (e.g. short string > 255 bytes).
 	std::vector<uint8_t> serializeNif(const ParsedNif& parsed);

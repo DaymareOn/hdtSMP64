@@ -13,15 +13,6 @@ namespace hdt
 {
 	namespace
 	{
-		std::optional<std::string> typeAt(const ParsedNif& parsed, int32_t idx)
-		{
-			if (idx < 0 || idx >= static_cast<int32_t>(parsed.blockTypeIndex.size()))
-				return std::nullopt;
-			uint16_t tIdx = parsed.blockTypeIndex[static_cast<size_t>(idx)];
-			if (tIdx >= parsed.blockTypes.size()) return std::nullopt;
-			return parsed.blockTypes[tIdx];
-		}
-
 		/// Build the list of block indices each block points to via Ref fields.
 		std::vector<std::vector<int32_t>> buildRefOutbound(const ParsedNif& parsed)
 		{
@@ -30,7 +21,7 @@ namespace hdt
 			std::vector<std::vector<int32_t>> out(numBlocks);
 
 			for (int32_t i = 0; i < numBlocks; ++i) {
-				auto tOpt = typeAt(parsed, i);
+				auto tOpt = blockTypeOf(parsed, i);
 				if (!tOpt) continue;
 				const auto& block   = parsed.blocks[static_cast<size_t>(i)];
 				auto        offsets = walkBlockRefs(schema, *tOpt, block.data(), block.size(),
@@ -56,18 +47,18 @@ namespace hdt
 			std::unordered_set<int32_t> result;
 
 			for (int32_t i = 0; i < numBlocks; ++i) {
-				auto tOpt = typeAt(parsed, i);
+				auto tOpt = blockTypeOf(parsed, i);
 				if (!tOpt) continue;
 				if (*tOpt != "BSTriShape" && *tOpt != "BSDynamicTriShape") continue;
 
 				for (int32_t skinRef : outbound[i]) {
-					auto skinTypeOpt = typeAt(parsed, skinRef);
+					auto skinTypeOpt = blockTypeOf(parsed, skinRef);
 					if (!skinTypeOpt) continue;
 					if (*skinTypeOpt != "NiSkinInstance" && *skinTypeOpt != "BSDismemberSkinInstance") continue;
 
 					bool hasPartition = false;
 					for (int32_t child : outbound[static_cast<size_t>(skinRef)]) {
-						auto childTypeOpt = typeAt(parsed, child);
+						auto childTypeOpt = blockTypeOf(parsed, child);
 						if (childTypeOpt && *childTypeOpt == "NiSkinPartition") { hasPartition = true; break; }
 					}
 					if (!hasPartition)
@@ -97,7 +88,7 @@ namespace hdt
 			const NifSchema& schema = globalNifSchema();
 			for (int32_t i = 0; i < totalBefore; ++i) {
 				if (removeSet.count(i)) continue;
-				auto tOpt = typeAt(parsed, i);
+				auto tOpt = blockTypeOf(parsed, i);
 				if (!tOpt) continue;
 				auto& block   = parsed.blocks[static_cast<size_t>(i)];
 				auto  offsets = walkBlockRefs(schema, *tOpt, block.data(), block.size(),
@@ -142,7 +133,7 @@ namespace hdt
 		std::unordered_set<int32_t> toRemoveSet = orphans;
 		for (int32_t skinRef : orphans) {
 			for (int32_t child : outbound[static_cast<size_t>(skinRef)]) {
-				auto childTypeOpt = typeAt(parsed, child);
+				auto childTypeOpt = blockTypeOf(parsed, child);
 				if (childTypeOpt && *childTypeOpt == "NiSkinData")
 					toRemoveSet.insert(child);
 			}

@@ -689,17 +689,6 @@ namespace hdt
 			return outbound;
 		}
 
-		/// Safely get a block type name by block index.
-		/// Returns nullopt if the index is out of range or malformed.
-		std::optional<std::string> blockTypeAt(const ParsedNif& parsed, int idx)
-		{
-			if (idx < 0 || idx >= static_cast<int>(parsed.blockTypeIndex.size()))
-				return std::nullopt;
-			uint16_t tIdx = parsed.blockTypeIndex[static_cast<size_t>(idx)];
-			if (tIdx >= parsed.blockTypes.size())
-				return std::nullopt;
-			return parsed.blockTypes[tIdx];
-		}
 
 		/// Discover tri-shape candidates and their linked skin-instance/skin-partition blocks.
 		std::vector<ShapeDecimationCandidate> discoverDecimationCandidates(const ParsedNif& parsed)
@@ -708,7 +697,7 @@ namespace hdt
 			std::vector<ShapeDecimationCandidate> out;
 
 			for (int i = 0; i < static_cast<int>(parsed.blocks.size()); ++i) {
-				auto typeOpt = blockTypeAt(parsed, i);
+				auto typeOpt = blockTypeOf(parsed, i);
 				if (!typeOpt) continue;
 				const std::string& typeName = *typeOpt;
 				if (typeName != "BSTriShape" && typeName != "BSDynamicTriShape") continue;
@@ -718,7 +707,7 @@ namespace hdt
 				c.shapeType          = typeName;
 
 				for (int32_t ref : outbound[static_cast<size_t>(i)]) {
-					auto refType = blockTypeAt(parsed, ref);
+					auto refType = blockTypeOf(parsed, ref);
 					if (!refType) continue;
 					if (hasTypeName(*refType, { "NiSkinInstance", "BSDismemberSkinInstance" })) {
 						if (c.skinInstanceBlockIndex == -1)
@@ -728,7 +717,7 @@ namespace hdt
 
 				if (c.skinInstanceBlockIndex >= 0) {
 					for (int32_t ref : outbound[static_cast<size_t>(c.skinInstanceBlockIndex)]) {
-						auto refType = blockTypeAt(parsed, ref);
+						auto refType = blockTypeOf(parsed, ref);
 						if (!refType) continue;
 						if (*refType == "NiSkinPartition" && c.skinPartitionBlockIndex == -1)
 							c.skinPartitionBlockIndex = ref;
@@ -803,7 +792,7 @@ namespace hdt
 			// ── Step 3: Skin-instance type check ──────────────────────────────────
 			// Discovery already filters to these two types; this guards against any
 			// future format that slips through without writer support.
-			auto skinInstanceType = blockTypeAt(parsed, c.skinInstanceBlockIndex);
+			auto skinInstanceType = blockTypeOf(parsed, c.skinInstanceBlockIndex);
 			if (!skinInstanceType || !hasTypeName(*skinInstanceType, { "NiSkinInstance", "BSDismemberSkinInstance" })) {
 				r.decision = DecimationApplyDecision::SkipNoChange;
 				r.reason   = "unsupported-skin-instance-type";

@@ -48,19 +48,6 @@ namespace hdt
 			bool                                 trianglesMismatch   = false;
 		};
 
-		// ── Block-type helper ─────────────────────────────────────────────────────
-		// TODO: extract to a shared header — same function exists in
-		// hdtNIFOrphanedSkinImprover.cpp and hdtNIFDecimator.cpp.
-
-		std::optional<std::string> typeAt(const ParsedNif& parsed, int32_t idx)
-		{
-			if (idx < 0 || idx >= static_cast<int32_t>(parsed.blockTypeIndex.size()))
-				return std::nullopt;
-			uint16_t tIdx = parsed.blockTypeIndex[static_cast<size_t>(idx)];
-			if (tIdx >= parsed.blockTypes.size()) return std::nullopt;
-			return parsed.blockTypes[tIdx];
-		}
-
 		// ── Binary helpers ────────────────────────────────────────────────────────
 
 		/// Read one byte as a strict boolean: 0 → false, 1 → true, anything else → parse failure.
@@ -342,7 +329,7 @@ namespace hdt
 
 			std::vector<std::vector<int32_t>> outbound(numBlocks);
 			for (int32_t i = 0; i < numBlocks; ++i) {
-				auto tOpt = typeAt(parsed, i);
+				auto tOpt = blockTypeOf(parsed, i);
 				if (!tOpt) continue;
 				const auto& block = parsed.blocks[static_cast<size_t>(i)];
 				auto offsets = walkBlockRefs(schema, *tOpt, block.data(), block.size(),
@@ -359,7 +346,7 @@ namespace hdt
 
 			std::vector<SkinMeshCandidate> out;
 			for (int32_t i = 0; i < numBlocks; ++i) {
-				auto tOpt = typeAt(parsed, i);
+				auto tOpt = blockTypeOf(parsed, i);
 				if (!tOpt) continue;
 				if (*tOpt != nif::kTypeBSTriShape && *tOpt != nif::kTypeBSDynamicTriShape) continue;
 
@@ -369,7 +356,7 @@ namespace hdt
 
 				int skinInstanceIdx = -1;
 				for (int32_t ref : outbound[static_cast<size_t>(i)]) {
-					auto rt = typeAt(parsed, ref);
+					auto rt = blockTypeOf(parsed, ref);
 					if (rt && (*rt == nif::kTypeNiSkinInstance ||
 					           *rt == nif::kTypeBSDismemberSkinInstance)) {
 						skinInstanceIdx = ref;
@@ -379,7 +366,7 @@ namespace hdt
 				if (skinInstanceIdx < 0) continue;
 
 				for (int32_t ref : outbound[static_cast<size_t>(skinInstanceIdx)]) {
-					auto rt = typeAt(parsed, ref);
+					auto rt = blockTypeOf(parsed, ref);
 					if (rt && *rt == nif::kTypeNiSkinPartition) {
 						c.partitionBlockIndex = ref;
 						break;
