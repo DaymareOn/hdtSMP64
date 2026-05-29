@@ -123,19 +123,19 @@ jobs:
 
   build:
     needs: prepare
-    runs-on: windows-2022
+    runs-on: windows-2026
     strategy:
       fail-fast: false
       # Use a matrix to run all presets at the same time
       matrix:
         include:
-          - preset: vs2022-windows
+          - preset: vs2026-windows
             avx_variant: noavx
-          - preset: vs2022-windows-avx
+          - preset: vs2026-windows-avx
             avx_variant: avx
-          - preset: vs2022-windows-avx2
+          - preset: vs2026-windows-avx2
             avx_variant: avx2
-          - preset: vs2022-windows-avx512
+          - preset: vs2026-windows-avx512
             avx_variant: avx512
 
     steps:
