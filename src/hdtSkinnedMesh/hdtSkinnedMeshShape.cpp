@@ -138,6 +138,13 @@ namespace hdt
 
 			m_aabb[i].m_min = aabbMin;
 			m_aabb[i].m_max = aabbMax;
+
+			// Precompute the triangle face normal (xyz) and squared length (w) once per frame, so the
+			// collision narrow-phase reads it instead of recomputing cross/len2 on every sphere it is
+			// tested against. cross()/dp use only xyz; the blend stuffs len2 into the w-lane.
+			auto n = cross(_mm_sub_ps(p1, p0), _mm_sub_ps(p2, p0));
+			auto len2 = _mm_dp_ps(n, n, 0x7F);
+			m_faceNormal[i] = _mm_blend_ps(n, len2, 0x8);
 		}
 
 		m_tree.updateAabb();
@@ -157,6 +164,7 @@ namespace hdt
 
 		m_tree.exportColliders(m_colliders);
 		m_aabb.resize(m_colliders.size());
+		m_faceNormal.resize(m_colliders.size());
 		m_tree.remapColliders(m_colliders.data(), m_aabb.data());
 
 		RE::BSTSmartPointer<PerTriangleShape> holder = hdt::make_smart(this);

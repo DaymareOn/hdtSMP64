@@ -38,6 +38,12 @@ namespace hdt
 		SkinnedMeshBody* m_owner;
 		vectorA16<Aabb> m_aabb;
 		vectorA16<Collider> m_colliders;
+		// Per-triangle face data, refreshed each frame in PerTriangleShape::internalUpdate and indexed
+		// in parallel with m_colliders: xyz = raw (unnormalized) face normal = (p1-p0)x(p2-p0),
+		// w = |normal|^2 = (2*area)^2. Only PerTriangleShape populates this; it stays empty for
+		// PerVertexShape. Lets checkCollide read the face normal/area instead of recomputing it per
+		// collision pair (it depends only on the triangle, not the sphere it is tested against).
+		vectorA16<__m128> m_faceNormal;
 		ColliderTree m_tree;
 	};
 

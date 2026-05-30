@@ -88,6 +88,19 @@ namespace hdt
 		return V;
 	}
 
+	// Negative-multiply-subtract: returns c - a*b.
+	// MSVC sets __AVX2__ for the /arch:AVX2 and /arch:AVX512 builds, both of which have FMA3, so we
+	// fuse into a single vfnmadd (one rounding, one uop). The noavx and /arch:AVX builds lack FMA3
+	// (Sandy/Ivy Bridge have AVX1 but no FMA), so they fall back to a plain mul + sub.
+	inline __m128 nmsub_ps(__m128 a, __m128 b, __m128 c)
+	{
+#if defined(__AVX2__)
+		return _mm_fnmadd_ps(a, b, c);
+#else
+		return _mm_sub_ps(c, _mm_mul_ps(a, b));
+#endif
+	}
+
 	inline float rsqrt(float number)
 	{
 		__m128 n = _mm_set_ss(number);

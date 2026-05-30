@@ -1,6 +1,7 @@
 #include "hdtSkinnedMeshAlgorithm.h"
 #include "hdtCollider.h"
 #include <tbb/task_arena.h>
+#include <LinearMath/btQuickprof.h>
 
 namespace hdt
 {
@@ -21,6 +22,11 @@ namespace hdt
 			c1 = &b->m_tree;
 			sp0 = &a->m_shapeProp;
 			sp1 = &b->m_shapeProp;
+			// Per-frame precomputed face normals of the second shape, indexed in parallel with its
+			// collider array (faceColBase). Only meaningful when b is a PerTriangleShape; for the
+			// sphere-sphere path m_faceNormal is empty and these are never read.
+			faceNormals = b->m_faceNormal.data();
+			faceColBase = b->m_colliders.data();
 			results = r;
 			numResults = 0;
 		}
@@ -31,6 +37,8 @@ namespace hdt
 		ColliderTree* c1;
 		SP0* sp0;
 		SP1* sp1;
+		const __m128* faceNormals;
+		const Collider* faceColBase;
 
 		std::atomic_long numResults;
 		CollisionResult* results;
@@ -115,7 +123,7 @@ namespace hdt
 
 	namespace
 	{
-		inline __m128 cross_product(__m128 const& vec0, __m128 const& vec1)
+		__forceinline __m128 cross_product(__m128 const& vec0, __m128 const& vec1)
 		{
 			__m128 tmp0 = _mm_shuffle_ps(vec0, vec0, _MM_SHUFFLE(3, 0, 2, 1));
 			__m128 tmp1 = _mm_shuffle_ps(vec1, vec1, _MM_SHUFFLE(3, 1, 0, 2));
@@ -137,34 +145,224 @@ namespace hdt
 		bool checkCollide(Collider* a, Collider* b, CollisionResult& res)
 		{
 			auto s = this->v0[a->vertex];
-			auto r = s.marginMultiplier() * this->sp0->margin;
 			auto p0 = this->v1[b->vertices[0]];
 			auto p1 = this->v1[b->vertices[1]];
 			auto p2 = this->v1[b->vertices[2]];
-			auto margin = (p0.marginMultiplier() + p1.marginMultiplier() + p2.marginMultiplier()) / 3;
+
+			// Triangle face normal (unnormalized) and its squared length, precomputed once per frame in
+			// PerTriangleShape::internalUpdate (it depends only on the triangle, not the sphere). xyz =
+			// raw_normal = (p1-p0)x(p2-p0); w = len2 = |raw_normal|^2 = (2 * triangle area)^2.
+			auto raw_normal = this->faceNormals[b - this->faceColBase];
+			// len2 rejects degenerate (zero-area) triangles without a sqrt. The sqrt/normalize is
+			// deferred to the accept path (bottom of the function) so reject paths never pay for it.
+			// (raw_normal's w-lane holds len2; the dp/cross below all mask to xyz so it is harmless.)
+			float len2 = _mm_cvtss_f32(pshufd<0xFF>(raw_normal));
+			if (len2 < FLT_EPSILON * FLT_EPSILON) {
+				return false;
+			}
+
+			// Point-in-triangle test, evaluated at the SPHERE CENTRE directly (no projection needed).
+			//
+			// We need to know whether the sphere centre's projection onto the triangle plane lands
+			// inside the triangle. Barycentric coordinates are invariant under translation along the
+			// plane normal, and the projection is exactly the centre shifted along raw_normal — so the
+			// projection's barycentric weights equal the centre's. The projection cancels out of the
+			// determinants algebraically (the cross-terms vanish because each contains raw_normal
+			// twice):
+			//   det[(s-p1) - N*k, (s-p2) - N*k, N] = det[s-p1, s-p2, N].
+			// Testing the centre lets us skip the projection on every reject path, which in turn
+			// removes the scalar division (distRaw / len2) the projection required from the hot path
+			// (that division sat on the critical dependency chain).
+			//
+			// Each sub-triangle area vector dotted with raw_normal gives a (scaled) barycentric weight:
+			//   da = dot(cross(s-p1, s-p2), raw_normal)   (∝ weight of p0)
+			//   db = dot(cross(s-p2, s-p0), raw_normal)   (∝ weight of p1)
+			// The three area vectors sum identically to raw_normal, so the third weight is
+			// dc = len2 - da - db — no need to compute its cross product or dot. The centre projects
+			// inside the triangle iff all three weights are non-negative:
+			//   da >= 0 && db >= 0 && (da + db) <= len2.
+			// raw_normal (not a sign-flipped normal) is the correct reference, since the sub-triangle
+			// windings follow the original triangle winding.
+			//
+			// da is tested first so we can bail before computing db: db needs its own subtract, cross
+			// and dot, all wasted when the centre already fails on the first edge. (sp1/sp2 feed da;
+			// sp0 feeds only db.)
+			auto sp1 = (s.pos() - p1.pos()).get128();
+			auto sp2 = (s.pos() - p2.pos()).get128();
+			float da = _mm_cvtss_f32(_mm_dp_ps(cross_product(sp1, sp2), raw_normal, 0x71));
+			if (da < 0) {
+				return false;
+			}
+			auto sp0 = (s.pos() - p0.pos()).get128();
+			float db = _mm_cvtss_f32(_mm_dp_ps(cross_product(sp2, sp0), raw_normal, 0x71));
+			if (db < 0 || da + db > len2) {
+				return false;
+			}
+
+			// ---- Accept path: the centre projects inside the triangle. Everything below (margin/
+			// penetration, the sqrt/normalize, the plane test, and the contact output) is needed only
+			// on this surviving path, so it is deferred past the cheaper rejects above. ----
+
+			// Per-contact margin and penetration band.
+			auto r = s.marginMultiplier() * this->sp0->margin;
+			// Average the three vertex margin multipliers in SIMD: sum the packed VertexPos data (the
+			// margin multiplier lives in the w-lane) and read w once, instead of three scalar
+			// w-extracts plus scalar adds.
+			auto marginSum = _mm_add_ps(_mm_add_ps(p0.m_data, p1.m_data), p2.m_data);
+			auto margin = _mm_cvtss_f32(pshufd<0xFF>(marginSum)) / 3;
 			auto penetration = this->sp1->penetration * margin;
 			margin *= this->sp1->margin;
 			if (penetration > -FLT_EPSILON && penetration < FLT_EPSILON) {
 				penetration = 0;
 			}
 
+			// Signed plane distance for the contact-plane test. distRaw = dot(s-p0, raw_normal) =
+			// distanceFromPlane * len (original winding). len (the sqrt) is needed here because the test
+			// compares the true distance against the margin. The unit normal VECTOR, however, is only
+			// needed for the contact output, so we merely track its sign flips here (a bool) and build
+			// the vector — a divide plus a conditional negate — once, on the accept path below. That
+			// keeps both off the plane-test reject path.
+			float distRaw = _mm_cvtss_f32(_mm_dp_ps(sp0, raw_normal, 0x71));
+			auto len = _mm_sqrt_ps(_mm_set_ss(len2));
+			float distanceFromPlane = distRaw / _mm_cvtss_f32(len);
+			bool negateNormal = false;
+			if (penetration < 0) {
+				distanceFromPlane = -distanceFromPlane;
+				penetration = -penetration;
+				negateNormal = true;
+			}
+
+			float radiusWithMargin = r + margin;
+			bool isInsideContactPlane;
+			if (penetration >= FLT_EPSILON)
+				isInsideContactPlane = distanceFromPlane < radiusWithMargin && distanceFromPlane >= -penetration;
+			else {
+				if (distanceFromPlane < 0) {
+					distanceFromPlane = -distanceFromPlane;
+					negateNormal = !negateNormal;
+				}
+				isInsideContactPlane = distanceFromPlane < radiusWithMargin;
+			}
+			if (!isInsideContactPlane) {
+				return false;
+			}
+
+			// Accept path. Build the unit normal now (deferred past the plane-test reject above) and
+			// apply the accumulated sign. distanceFromPlane already carries the matching sign.
+			auto normal = _mm_div_ps(raw_normal, pshufd<0>(len));
+			if (negateNormal) {
+				normal = _mm_sub_ps(_mm_setzero_ps(), normal);
+			}
+
+			// Projection of the sphere centre onto the triangle plane (only needed for the contact
+			// point). It uses the unflipped raw_normal and distRaw, so it is independent of the normal
+			// sign tracking above; the len2 form is exact regardless of winding:
+			//   projection = s - normal * distanceFromPlane = s - raw_normal * (distRaw / len2).
+			auto projection = nmsub_ps(raw_normal, _mm_set1_ps(distRaw / len2), s.pos().get128());
+
+			res.colliderA = a;
+			res.colliderB = b;
+			res.normOnB.set128(normal);
+			res.posA = s.pos() - res.normOnB * r;
+			res.posB.set128(projection);
+			res.depth = distanceFromPlane - radiusWithMargin;
+			return res.depth < -FLT_EPSILON;
+		}
+
+#if 0
+		// PREVIOUS REFERENCE IMPLEMENTATION (kept as dead code for comparison / rollback).
+		//
+		// Functionally equivalent to the active checkCollide above. The key difference: this version
+		// computes the in-plane 'projection' of the sphere centre up front and runs the point-in-
+		// triangle test on it, which forces the scalar division (distRaw / len2) onto the hot reject
+		// path. The active version proves the projection cancels out of the barycentric determinants
+		// (translation along the plane normal preserves barycentric coordinates), tests the sphere
+		// centre directly, and defers the projection + division to the accept path.
+		bool checkCollide_projectionBased(Collider* a, Collider* b, CollisionResult& res)
+		{
+			auto s = this->v0[a->vertex];
+			auto p0 = this->v1[b->vertices[0]];
+			auto p1 = this->v1[b->vertices[1]];
+			auto p2 = this->v1[b->vertices[2]];
+
 			auto ab = (p1.pos() - p0.pos()).get128();
 			auto ac = (p2.pos() - p0.pos()).get128();
 			auto raw_normal = cross_product(ab, ac);
-			auto len = _mm_sqrt_ps(_mm_dp_ps(raw_normal, raw_normal, 0x77));
-			if (_mm_cvtss_f32(len) < FLT_EPSILON) {
+			// len2 = |raw_normal|^2 = (2*triangle area)^2. Reject degenerate triangles without a
+			// sqrt. The actual sqrt/normalize is deferred to the very end (see below) so the common
+			// reject paths never pay for it.
+			float len2 = _mm_cvtss_f32(_mm_dp_ps(raw_normal, raw_normal, 0x71));
+			if (len2 < FLT_EPSILON * FLT_EPSILON) {
 				return false;
-			}
-			auto normal = _mm_div_ps(raw_normal, len);
-			if (penetration < 0) {
-				normal = _mm_sub_ps(_mm_setzero_ps(), normal);
-				penetration = -penetration;
 			}
 
 			auto ap = (s.pos() - p0.pos()).get128();
-			auto distance = _mm_dp_ps(ap, normal, 0x77);
-			float distanceFromPlane = _mm_cvtss_f32(distance);
-			auto projection = _mm_sub_ps(s.pos().get128(), _mm_mul_ps(normal, distance));
+			// distRaw = dot(ap, raw_normal) = (signed plane distance) * len. Unnormalized, original winding.
+			float distRaw = _mm_cvtss_f32(_mm_dp_ps(ap, raw_normal, 0x71));
+
+			// Projection of the sphere center onto the triangle plane.
+			//   projection = s - normal * dot(ap, normal)
+			//             = s - (raw_normal/len) * (distRaw/len)
+			//             = s - raw_normal * (distRaw / len2)
+			// The normal-flips below cancel in this product, so this is exact regardless of winding
+			// and needs only len2 (no sqrt).
+			auto projection = nmsub_ps(raw_normal, _mm_set1_ps(distRaw / len2), s.pos().get128());
+
+			// Point-in-triangle via barycentric coordinates from sub-triangle area vectors.
+			//
+			// Build the sub-triangles fanning out from the projected point to each edge and take the
+			// scalar triple product of each against raw_normal (= cross(p1-p0, p2-p0)):
+			//   da = dot(cross(bp, cp), raw_normal)   (∝ barycentric weight of p0)
+			//   db = dot(cross(cp, ap), raw_normal)   (∝ barycentric weight of p1)
+			// The three sub-triangle area vectors sum identically to raw_normal for any in-plane
+			// point, so the third weight is dc = len2 - da - db — no need to compute its cross
+			// product or dot. The projection is inside if all three weights are non-negative:
+			//   da >= 0 && db >= 0 && (da + db) <= len2.
+			// raw_normal (not the possibly-flipped 'normal') is the correct reference since the
+			// sub-triangle windings follow the original triangle winding. No sqrt here.
+			//
+			// This runs BEFORE the plane-distance test (the two checks are AND-combined, so order is
+			// irrelevant to the result) precisely so out-of-triangle rejects skip the sqrt/normalize.
+			// Test da first and bail before computing db: db needs its own cross product, dot, and the
+			// 'ap' subtract, all of which are wasted work when the projection already fails on the
+			// first edge. (bp/cp feed da; ap feeds only db.)
+			auto bp = _mm_sub_ps(projection, p1.pos().get128());
+			auto cp = _mm_sub_ps(projection, p2.pos().get128());
+			float da = _mm_cvtss_f32(_mm_dp_ps(cross_product(bp, cp), raw_normal, 0x71));
+			if (da < 0) {
+				return false;
+			}
+			ap = _mm_sub_ps(projection, p0.pos().get128());
+			float db = _mm_cvtss_f32(_mm_dp_ps(cross_product(cp, ap), raw_normal, 0x71));
+			if (db < 0 || da + db > len2) {
+				return false;
+			}
+
+			// Confirmed inside the triangle. Everything below — margin/penetration, the sqrt/normalize,
+			// the plane test and the contact output — is needed only on this surviving path, so it is
+			// deferred past the cheaper degenerate and point-in-triangle rejects above.
+			auto r = s.marginMultiplier() * this->sp0->margin;
+			// Average the three vertex margin multipliers in SIMD: sum the packed VertexPos data
+			// (margin multiplier lives in the w-lane) and read w once, instead of three scalar
+			// w-extracts plus scalar adds.
+			auto marginSum = _mm_add_ps(_mm_add_ps(p0.m_data, p1.m_data), p2.m_data);
+			auto margin = _mm_cvtss_f32(pshufd<0xFF>(marginSum)) / 3;
+			auto penetration = this->sp1->penetration * margin;
+			margin *= this->sp1->margin;
+			if (penetration > -FLT_EPSILON && penetration < FLT_EPSILON) {
+				penetration = 0;
+			}
+
+			// distanceFromPlane = dot(ap_orig, normal) = distRaw / len.
+			auto len = _mm_sqrt_ps(_mm_set_ss(len2));
+			auto normal = _mm_div_ps(raw_normal, pshufd<0>(len));
+			float distanceFromPlane = distRaw / _mm_cvtss_f32(len);
+			if (penetration < 0) {
+				normal = _mm_sub_ps(_mm_setzero_ps(), normal);
+				distanceFromPlane = -distanceFromPlane;
+				penetration = -penetration;
+			}
+
 			float radiusWithMargin = r + margin;
 			bool isInsideContactPlane;
 			if (penetration >= FLT_EPSILON)
@@ -180,35 +378,15 @@ namespace hdt
 				return false;
 			}
 
-			// Compute (twice) area of each triangle between projection and two triangle points
-			ap = _mm_sub_ps(projection, p0.pos().get128());
-			auto bp = _mm_sub_ps(projection, p1.pos().get128());
-			auto cp = _mm_sub_ps(projection, p2.pos().get128());
-			auto aa = cross_product(bp, cp);
-			ab = cross_product(cp, ap);
-			ac = cross_product(ap, bp);
-			aa = _mm_dp_ps(aa, aa, 0x74);
-			ab = _mm_dp_ps(ab, ab, 0x72);
-			ac = _mm_dp_ps(ac, ac, 0x71);
-			aa = _mm_or_ps(aa, ab);
-			aa = _mm_or_ps(aa, ac);
-			aa = _mm_sqrt_ps(aa);
-			// Now if every pair of elements in aa sums to no more than area, then the point is inside the triangle
-			aa = _mm_add_ps(aa, _mm_shuffle_ps(aa, aa, _MM_SHUFFLE(3, 0, 2, 1)));
-			aa = _mm_cmpgt_ps(aa, len);
-			auto pointInTriangle = _mm_test_all_zeros(_mm_set_epi32(0, -1, -1, -1), _mm_castps_si128(aa));
-
 			res.colliderA = a;
 			res.colliderB = b;
-			if (pointInTriangle) {
-				res.normOnB.set128(normal);
-				res.posA = s.pos() - res.normOnB * r;
-				res.posB.set128(projection);
-				res.depth = distanceFromPlane - radiusWithMargin;
-				return res.depth < -FLT_EPSILON;
-			}
-			return false;
+			res.normOnB.set128(normal);
+			res.posA = s.pos() - res.normOnB * r;
+			res.posB.set128(projection);
+			res.depth = distanceFromPlane - radiusWithMargin;
+			return res.depth < -FLT_EPSILON;
 		}
+#endif
 	};
 
 	template <typename T, bool SwapResults>
@@ -223,6 +401,9 @@ namespace hdt
 		// O(N*M) is nearly always faster or within a margin of error. Not worth the extra boilerplate code
 		void dispatch(ColliderTree* a, ColliderTree* b, std::vector<Aabb*>& listA, std::vector<Aabb*>& listB, const Aabb& refinedBForPruningA)
 		{
+			if (this->numResults.load(std::memory_order_relaxed) >= SkinnedMeshAlgorithm::MaxCollisionCount)
+				return;
+			BT_PROFILE("dispatch_body");
 			CollisionResult result;
 			CollisionResult temp;
 			bool hasResult = false;
@@ -265,7 +446,10 @@ namespace hdt
 		{
 			std::vector<std::pair<ColliderTree*, ColliderTree*>> pairs;
 			pairs.reserve(this->c0->colliders.size() + this->c1->colliders.size());
-			this->c0->checkCollisionL(this->c1, pairs);
+			{
+				BT_PROFILE("BVH");
+				this->c0->checkCollisionL(this->c1, pairs);
+			}
 			if (pairs.empty())
 				return 0;
 
@@ -276,7 +460,7 @@ namespace hdt
 			}
 
 			decltype(auto) func = [this](const std::pair<ColliderTree*, ColliderTree*>& pair) {
-				if (this->numResults >= SkinnedMeshAlgorithm::MaxCollisionCount)
+				if (this->numResults.load(std::memory_order_relaxed) >= SkinnedMeshAlgorithm::MaxCollisionCount)
 					return;
 
 				auto a = pair.first, b = pair.second;
@@ -299,23 +483,26 @@ namespace hdt
 				listA.reserve(asize);
 				listB.reserve(bsize);
 
-				// Colliders in A that intersect full bounding box of B. Compute a new bounding box for just those - this
-				// can be MUCH smaller than the original bounding box for A (consider the case where we have two spheres
-				// colliding, offset by an equal amount in all three axes).
-				for (auto i = abeg; i < aend; ++i) {
-					if (i->collideWith(aabbB)) {
-						listA.push_back(i);
-						aabbA.merge(*i);
+				{
+					BT_PROFILE("filter_lists");
+					// Colliders in A that intersect full bounding box of B. Compute a new bounding box for just those - this
+					// can be MUCH smaller than the original bounding box for A (consider the case where we have two spheres
+					// colliding, offset by an equal amount in all three axes).
+					for (auto i = abeg; i < aend; ++i) {
+						if (i->collideWith(aabbB)) {
+							listA.push_back(i);
+							aabbA.merge(*i);
+						}
 					}
-				}
 
-				// Colliders in B that intersect the new bounding box for A. Compute a new bounding box for those too.
-				if (listA.size()) {
-					aabbB.invalidate();
-					for (auto i = bbeg; i < bend; ++i) {
-						if (i->collideWith(aabbA)) {
-							listB.push_back(i);
-							aabbB.merge(*i);
+					// Colliders in B that intersect the new bounding box for A. Compute a new bounding box for those too.
+					if (listA.size()) {
+						aabbB.invalidate();
+						for (auto i = bbeg; i < bend; ++i) {
+							if (i->collideWith(aabbA)) {
+								listB.push_back(i);
+								aabbB.merge(*i);
+							}
 						}
 					}
 				}
@@ -324,12 +511,15 @@ namespace hdt
 				this->dispatch(a, b, listA, listB, aabbB);
 			};
 
-			if (pairs.size() >= 32)
-				// isolate: thread parked here waiting for inner work must not steal an outer
-				// processCollision task — that would alias thread_local MergeBuffer/listA/listB.
-				tbb::this_task_arena::isolate([&] { tbb::parallel_for_each(pairs.begin(), pairs.end(), func); });
-			else
-				for (auto& i : pairs) func(i);
+			{
+				BT_PROFILE("dispatch");
+				if (pairs.size() >= 32)
+					// isolate: thread parked here waiting for inner work must not steal an outer
+					// processCollision task — that would alias thread_local MergeBuffer/listA/listB.
+					tbb::this_task_arena::isolate([&] { tbb::parallel_for_each(pairs.begin(), pairs.end(), func); });
+				else
+					for (auto& i : pairs) func(i);
+			}
 
 			return this->numResults;
 		}
@@ -349,6 +539,13 @@ namespace hdt
 	template <class T0, class T1>
 	void SkinnedMeshAlgorithm::MergeBuffer::doMerge(T0* a, T1* b, CollisionResult* collision, int count)
 	{
+		// Cache these outside the collision loop: they don't change across results and each
+		// access otherwise requires two pointer dereferences inside a tight nested loop.
+		const int bpcA = a->getBonePerCollider();
+		const int bpcB = b->getBonePerCollider();
+		auto* bonesA = a->m_owner->m_skinnedBones.data();
+		auto* bonesB = b->m_owner->m_skinnedBones.data();
+
 		for (int i = 0; i < count; ++i) {
 			auto& res = collision[i];
 			if (res.depth >= -FLT_EPSILON)
@@ -370,19 +567,21 @@ namespace hdt
 			auto posAScaled = res.posA * w2;
 			auto posBScaled = res.posB * w2;
 
-			for (int ib = 0; ib < a->getBonePerCollider(); ++ib) {
+			for (int ib = 0; ib < bpcA; ++ib) {
 				auto w0 = a->getColliderBoneWeight(res.colliderA, ib);
 				int boneIdx0 = a->getColliderBoneIndex(res.colliderA, ib);
-				if (w0 <= a->m_owner->m_skinnedBones[boneIdx0].weightThreshold)
+				if (w0 <= bonesA[boneIdx0].weightThreshold)
 					continue;
 
-				for (int jb = 0; jb < b->getBonePerCollider(); ++jb) {
+				bool kinA = bonesA[boneIdx0].isKinematic;
+
+				for (int jb = 0; jb < bpcB; ++jb) {
 					auto w1 = b->getColliderBoneWeight(res.colliderB, jb);
 					int boneIdx1 = b->getColliderBoneIndex(res.colliderB, jb);
-					if (w1 <= b->m_owner->m_skinnedBones[boneIdx1].weightThreshold)
+					if (w1 <= bonesB[boneIdx1].weightThreshold)
 						continue;
 
-					if (a->m_owner->m_skinnedBones[boneIdx0].isKinematic && b->m_owner->m_skinnedBones[boneIdx1].isKinematic)
+					if (kinA && bonesB[boneIdx1].isKinematic)
 						continue;
 
 					auto c = getAndTrack(boneIdx0, boneIdx1);
@@ -461,20 +660,32 @@ namespace hdt
 	template <class T0, class T1>
 	void SkinnedMeshAlgorithm::processCollision(T0* shape0, T1* shape1, MergeBuffer& merge, CollisionResult* collision)
 	{
-		int count = std::min(checkCollide(shape0, shape1, collision), MaxCollisionCount);
+		int count;
+		{
+			BT_PROFILE("checkCollide");
+			count = std::min(checkCollide(shape0, shape1, collision), MaxCollisionCount);
+		}
 		if (count > 0) {
-			// results come back in random order from parallel workers, sort so doMerge's
-			// early break actually bails on shallow contacts instead of random ones
-			std::sort(collision, collision + count, [](const CollisionResult& a, const CollisionResult& b) {
-				return a.depth < b.depth;
-			});
-			merge.doMerge(shape0, shape1, collision, count);
+			{
+				BT_PROFILE("sort");
+				// results come back in random order from parallel workers, sort so doMerge's
+				// early break actually bails on shallow contacts instead of random ones
+				std::sort(collision, collision + count, [](const CollisionResult& a, const CollisionResult& b) {
+					return a.depth < b.depth;
+				});
+			}
+			{
+				BT_PROFILE("doMerge");
+				merge.doMerge(shape0, shape1, collision, count);
+			}
 		}
 	}
 
 	void SkinnedMeshAlgorithm::processCollision(SkinnedMeshBody* body0, SkinnedMeshBody* body1,
 		CollisionDispatcher* dispatcher)
 	{
+		BT_PROFILE("processCollision");
+
 		// thread_local so we don't heap-alloc these 200+ times per frame.
 		// MergeBuffer::resize() is O(1) after first call (generation counter, no zeroing).
 		// Safe against TBB work-stealing re-entrancy: SkinnedMeshAlgorithm::processCollision
@@ -501,6 +712,9 @@ namespace hdt
 		else
 			processCollision(body0->m_shape->asPerVertexShape(), body1->m_shape->asPerVertexShape(), merge, collision.get());
 
-		merge.apply(body0, body1, dispatcher);
+		{
+			BT_PROFILE("apply");
+			merge.apply(body0, body1, dispatcher);
+		}
 	}
 }
