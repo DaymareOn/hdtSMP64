@@ -7,6 +7,14 @@ namespace hdt
 {
 	static const int MaxCollisionPairs = 4024;
 
+	// Collider-tree depth cap. insertCollider descends one level per skinning bone (sorted by weight),
+	// so this bounds how finely colliders are bucketed into leaves. Lower values give fewer, larger
+	// leaves => fewer broad-phase node-pairs, but looser per-leaf AABBs and a larger listA x listB
+	// narrow-phase per pair. Profiling (depths 2/3/4) found 4 is the sweet spot: depth 3 was within
+	// noise and depth 2 was markedly worse (per-pair narrow-phase cost roughly tripled, outweighing
+	// the ~20% pair-count reduction). Change here and recompile to re-test.
+	static constexpr size_t MaxTreeDepth = 4;
+
 	struct alignas(16) Collider
 	{
 		Collider()
