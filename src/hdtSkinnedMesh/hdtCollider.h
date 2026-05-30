@@ -5,7 +5,7 @@
 
 namespace hdt
 {
-	static const int MaxCollisionPairs = 4024;
+	static const int MaxCollisionPairs = 6024;
 
 	// Collider-tree depth cap. insertCollider descends one level per skinning bone (sorted by weight),
 	// so this bounds how finely colliders are bucketed into leaves. Lower values give fewer, larger
