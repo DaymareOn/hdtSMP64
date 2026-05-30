@@ -7,7 +7,7 @@ namespace hdt
 	void ColliderTree::insertCollider(const U32* keys, size_t keyCount, const Collider& c)
 	{
 		ColliderTree* p = this;
-		for (size_t i = 0; i < keyCount && i < 4; ++i) {
+		for (size_t i = 0; i < keyCount && i < MaxTreeDepth; ++i) {
 			auto f = std::find_if(p->children.begin(), p->children.end(), [=](const ColliderTree& n) { return n.key == keys[i]; });
 			if (f == p->children.end()) {
 				p->children.push_back(ColliderTree(keys[i]));
