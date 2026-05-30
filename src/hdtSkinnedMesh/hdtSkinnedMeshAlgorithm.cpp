@@ -404,27 +404,160 @@ namespace hdt
 			if (this->numResults.load(std::memory_order_relaxed) >= SkinnedMeshAlgorithm::MaxCollisionCount)
 				return;
 			BT_PROFILE("dispatch_body");
-			CollisionResult result;
-			CollisionResult temp;
-			bool hasResult = false;
+
+			if (!(listA.size() && listB.size()))
+				return;
 
 			auto abeg = a->aabb;
 			auto bbeg = b->aabb;
 
-			if (listA.size() && listB.size()) {
+			CollisionResult result;
+			CollisionResult temp;
+			bool hasResult = false;
+
+			// Narrow-phase one candidate (i,j) collider pair and keep the deepest contact found. The
+			// deepest-wins rule is order-independent, so the SoA batch below (which visits j in groups)
+			// and the scalar path produce identical results.
+			auto tryPair = [&](Aabb* i, Aabb* j) {
+				if (this->checkCollide(&a->cbuf[i - abeg], &b->cbuf[j - bbeg], temp)) {
+					if (!hasResult || result.depth > temp.depth) {
+						hasResult = true;
+						result = temp;
+					}
+				}
+			};
+
+			const size_t nB = listB.size();
+
+			// Heuristic: the SoA gather below is O(nB) done once and amortised across listA, and the
+			// 4-wide test only helps once nB fills a lane or two. For small/narrow cases the plain
+			// scalar double loop (each collideWith already tests all 3 axes at once in SSE) is cheaper.
+			// Thresholds are rough — worth tuning against a profile.
+			if (nB < 8 || listA.size() < 2) {
 				for (auto i : listA) {
 					if (!i->collideWith(refinedBForPruningA))
 						continue;
 					for (auto j : listB) {
-						if (!i->collideWith(*j))
-							continue;
-						if (this->checkCollide(&a->cbuf[i - abeg], &b->cbuf[j - bbeg], temp)) {
-							if (!hasResult || result.depth > temp.depth) {
-								hasResult = true;
-								result = temp;
-							}
+						if (i->collideWith(*j))
+							tryPair(i, j);
+					}
+				}
+				if (hasResult)
+					this->addResult(result);
+				return;
+			}
+
+			// Gather listB's AABBs into per-axis SoA lanes once, then batch the broad-phase overlap test
+			// below (one listA box 'i' against several listB boxes per iteration). The gather is reused
+			// across every listA element, so its O(nB) cost amortises over |listA|.
+			thread_local std::vector<float> bMinX, bMinY, bMinZ, bMaxX, bMaxY, bMaxZ;
+			bMinX.resize(nB);
+			bMinY.resize(nB);
+			bMinZ.resize(nB);
+			bMaxX.resize(nB);
+			bMaxY.resize(nB);
+			bMaxZ.resize(nB);
+			// AoS->SoA via 4x4 transpose: load four boxes' min vectors (each xyzw), transpose so the
+			// lanes become X[4]/Y[4]/Z[4]/W[4], and store the xyz rows into the per-axis arrays. Same for
+			// the maxes. Replaces 24 scalar lane-extracts/box with a handful of SSE shuffles per 4 boxes.
+			size_t g = 0;
+			for (; g + 4 <= nB; g += 4) {
+				__m128 mn0 = listB[g]->m_min;
+				__m128 mn1 = listB[g + 1]->m_min;
+				__m128 mn2 = listB[g + 2]->m_min;
+				__m128 mn3 = listB[g + 3]->m_min;
+				_MM_TRANSPOSE4_PS(mn0, mn1, mn2, mn3);  // mn0=X, mn1=Y, mn2=Z (mn3=W, unused)
+				_mm_storeu_ps(&bMinX[g], mn0);
+				_mm_storeu_ps(&bMinY[g], mn1);
+				_mm_storeu_ps(&bMinZ[g], mn2);
+
+				__m128 mx0 = listB[g]->m_max;
+				__m128 mx1 = listB[g + 1]->m_max;
+				__m128 mx2 = listB[g + 2]->m_max;
+				__m128 mx3 = listB[g + 3]->m_max;
+				_MM_TRANSPOSE4_PS(mx0, mx1, mx2, mx3);
+				_mm_storeu_ps(&bMaxX[g], mx0);
+				_mm_storeu_ps(&bMaxY[g], mx1);
+				_mm_storeu_ps(&bMaxZ[g], mx2);
+			}
+			for (; g < nB; ++g) {
+				const Aabb& box = *listB[g];
+				bMinX[g] = box.m_min.m128_f32[0];
+				bMinY[g] = box.m_min.m128_f32[1];
+				bMinZ[g] = box.m_min.m128_f32[2];
+				bMaxX[g] = box.m_max.m128_f32[0];
+				bMaxY[g] = box.m_max.m128_f32[1];
+				bMaxZ[g] = box.m_max.m128_f32[2];
+			}
+
+			// Boxes overlap on an axis iff (jMax >= iMin) && (iMax >= jMin); they overlap iff all three
+			// axes do. This matches Aabb::collideWith exactly at the >= boundary (it negates a strict <),
+			// only the xyz lanes participate (no w contamination), and the ordered GE compare rejects on
+			// NaN — identical between the AVX2 and SSE widths. The avx2/avx512 builds (__AVX2__) test 8
+			// boxes per iteration; the noavx/avx builds fall back to 4-wide SSE. Any tail below the SIMD
+			// width is handled by the shared scalar remainder.
+			for (auto i : listA) {
+				if (!i->collideWith(refinedBForPruningA))
+					continue;
+
+				size_t p = 0;
+#if defined(__AVX2__)
+				{
+					const __m256 iMinX = _mm256_set1_ps(i->m_min.m128_f32[0]);
+					const __m256 iMinY = _mm256_set1_ps(i->m_min.m128_f32[1]);
+					const __m256 iMinZ = _mm256_set1_ps(i->m_min.m128_f32[2]);
+					const __m256 iMaxX = _mm256_set1_ps(i->m_max.m128_f32[0]);
+					const __m256 iMaxY = _mm256_set1_ps(i->m_max.m128_f32[1]);
+					const __m256 iMaxZ = _mm256_set1_ps(i->m_max.m128_f32[2]);
+					for (; p + 8 <= nB; p += 8) {
+						__m256 ov = _mm256_and_ps(
+							_mm256_cmp_ps(_mm256_loadu_ps(&bMaxX[p]), iMinX, _CMP_GE_OQ),
+							_mm256_cmp_ps(iMaxX, _mm256_loadu_ps(&bMinX[p]), _CMP_GE_OQ));
+						ov = _mm256_and_ps(ov,
+							_mm256_and_ps(_mm256_cmp_ps(_mm256_loadu_ps(&bMaxY[p]), iMinY, _CMP_GE_OQ),
+								_mm256_cmp_ps(iMaxY, _mm256_loadu_ps(&bMinY[p]), _CMP_GE_OQ)));
+						ov = _mm256_and_ps(ov,
+							_mm256_and_ps(_mm256_cmp_ps(_mm256_loadu_ps(&bMaxZ[p]), iMinZ, _CMP_GE_OQ),
+								_mm256_cmp_ps(iMaxZ, _mm256_loadu_ps(&bMinZ[p]), _CMP_GE_OQ)));
+						int mask = _mm256_movemask_ps(ov);  // 8 bits: which of these 8 j boxes overlap i
+						while (mask) {
+							int bit = std::countr_zero(static_cast<unsigned>(mask));
+							mask &= mask - 1;
+							tryPair(i, listB[p + bit]);
 						}
 					}
+				}
+#else
+				{
+					const __m128 iMinX = setAll0(i->m_min);
+					const __m128 iMinY = setAll1(i->m_min);
+					const __m128 iMinZ = setAll2(i->m_min);
+					const __m128 iMaxX = setAll0(i->m_max);
+					const __m128 iMaxY = setAll1(i->m_max);
+					const __m128 iMaxZ = setAll2(i->m_max);
+					for (; p + 4 <= nB; p += 4) {
+						__m128 ov = _mm_and_ps(
+							_mm_cmpge_ps(_mm_loadu_ps(&bMaxX[p]), iMinX),
+							_mm_cmpge_ps(iMaxX, _mm_loadu_ps(&bMinX[p])));
+						ov = _mm_and_ps(ov,
+							_mm_and_ps(_mm_cmpge_ps(_mm_loadu_ps(&bMaxY[p]), iMinY),
+								_mm_cmpge_ps(iMaxY, _mm_loadu_ps(&bMinY[p]))));
+						ov = _mm_and_ps(ov,
+							_mm_and_ps(_mm_cmpge_ps(_mm_loadu_ps(&bMaxZ[p]), iMinZ),
+								_mm_cmpge_ps(iMaxZ, _mm_loadu_ps(&bMinZ[p]))));
+						int mask = _mm_movemask_ps(ov);  // 4 bits: which of these 4 j boxes overlap i
+						while (mask) {
+							int bit = std::countr_zero(static_cast<unsigned>(mask));
+							mask &= mask - 1;
+							tryPair(i, listB[p + bit]);
+						}
+					}
+				}
+#endif
+				// Scalar remainder: boxes left over below the SIMD width.
+				for (; p < nB; ++p) {
+					if (i->collideWith(*listB[p]))
+						tryPair(i, listB[p]);
 				}
 			}
 
