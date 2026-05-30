@@ -143,10 +143,16 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
 				"/bigobj" # Increase Number of Sections in .obj file
 				"/WX" # Warnings as errors
 				"$<$<CONFIG:DEBUG>:>"
-				"$<$<OR:$<CONFIG:RELEASE>,$<CONFIG:PROFILE>>:/Zc:inline;/JMC-;/Ob3>")
+				# /Gy,/Gw: function/data COMDATs so the linker's /OPT:REF and /OPT:ICF can actually strip
+				#          unused and fold identical code (also tightens hot-path locality).
+				# /GL:      whole-program optimization — pairs with /LTCG below to enable cross-TU inlining
+				#          (e.g. checkSphereSphere into checkCollide) and interprocedural analysis across
+				#          all our objects. Pure optimization, no numeric change. Costs link time.
+				"$<$<OR:$<CONFIG:RELEASE>,$<CONFIG:PROFILE>>:/Zc:inline;/JMC-;/Ob3;/Gy;/Gw;/GL>")
 
+	# /LTCG must accompany /GL (and requires /INCREMENTAL:NO, already set for these configs).
 	target_link_options("${PROJECT_NAME}" PRIVATE "$<$<CONFIG:DEBUG>:/INCREMENTAL;/OPT:NOREF;/OPT:NOICF>"
-						"$<$<OR:$<CONFIG:RELEASE>,$<CONFIG:PROFILE>>:/INCREMENTAL:NO;/OPT:REF;/OPT:ICF;/DEBUG:FULL>")
+						"$<$<OR:$<CONFIG:RELEASE>,$<CONFIG:PROFILE>>:/INCREMENTAL:NO;/OPT:REF;/OPT:ICF;/DEBUG:FULL;/LTCG>")
 endif()
 
 target_include_directories("${PROJECT_NAME}" PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/src" "${SOURCE_DIR}"
