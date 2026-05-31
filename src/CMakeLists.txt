@@ -79,6 +79,18 @@ set(SOURCE_FILES
 	"${SOURCE_DIR}/hdtConvertNi.h"
 	"${SOURCE_DIR}/hdtSkyrimSystem.cpp"
 	"${SOURCE_DIR}/hdtSkyrimSystem.h"
+	"${SOURCE_DIR}/hdtAssetValidator.cpp"
+	"${SOURCE_DIR}/hdtAssetValidator.h"
+	"${SOURCE_DIR}/hdtXSDValidator.cpp"
+	"${SOURCE_DIR}/hdtXSDValidator.h"
+	"${SOURCE_DIR}/hdtSCHValidator.cpp"
+	"${SOURCE_DIR}/hdtSCHValidator.h"
+	"${SOURCE_DIR}/hdtNIFValidator.cpp"
+	"${SOURCE_DIR}/hdtNIFValidator.h"
+	"${SOURCE_DIR}/hdtNIFImprover.cpp"
+	"${SOURCE_DIR}/hdtNIFImprover.h"
+	"${SOURCE_DIR}/hdtXMLImprover.cpp"
+	"${SOURCE_DIR}/hdtXMLImprover.h"
 	"${SOURCE_DIR}/XmlInspector/CharactersReader.hpp"
 	"${SOURCE_DIR}/XmlInspector/CharactersWriter.hpp"
 	"${SOURCE_DIR}/XmlInspector/XmlInspector.hpp"
@@ -193,6 +205,7 @@ find_package(Bullet CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
 find_package(xbyak REQUIRED CONFIG)
 find_package(TBB CONFIG REQUIRED)
+find_package(pugixml CONFIG REQUIRED)
 
 include_directories(${BULLET_INCLUDE_DIRS})
 
@@ -206,7 +219,8 @@ target_link_libraries(
 			debug
 			${DETOURS_LIBRARY_DEBUG}
 			${BULLET_LIBRARIES}
-			TBB::tbb)
+			TBB::tbb
+			pugixml::pugixml)
 
 target_precompile_headers("${PROJECT_NAME}" PRIVATE "${SOURCE_DIR}/PCH.h")
 

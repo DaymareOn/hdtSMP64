@@ -1,6 +1,7 @@
 #include "config.h"
 #include "Hooks.h"
 #include "XmlReader.h"
+#include "hdtAssetValidator.h"
 #include "hdtSkyrimPhysicsWorld.h"
 
 namespace hdt
@@ -117,6 +118,30 @@ namespace hdt
 		}
 	}
 
+	static void validation(XMLReader& reader)
+	{
+		while (reader.Inspect()) {
+			switch (reader.GetInspected()) {
+			case XMLReader::Inspected::StartTag:
+				if (reader.GetLocalName() == "enabled") {
+					g_validationConfig.enabled = reader.readBool();
+				} else if (reader.GetLocalName() == "warn-triangle-count") {
+					g_validationConfig.warnTriangleCount = reader.readInt();
+				} else if (reader.GetLocalName() == "output-dir") {
+					g_validationConfig.outputDir = reader.readText();
+				} else if (reader.GetLocalName() == "improve-nifs") {
+					g_validationConfig.improveNIFs = reader.readBool();
+				} else {
+					logger::warn("Unknown config : {}", reader.GetLocalName());
+					reader.skipCurrentElement();
+				}
+				break;
+			case XMLReader::Inspected::EndTag:
+				return;
+			}
+		}
+	}
+
 	static void config(XMLReader& reader)
 	{
 		while (reader.Inspect()) {
@@ -128,6 +153,8 @@ namespace hdt
 					wind(reader);
 				} else if (reader.GetLocalName() == "smp") {
 					smp(reader);
+				} else if (reader.GetLocalName() == "validation") {
+					validation(reader);
 				} else {
 					logger::warn("Unknown config : {}", reader.GetLocalName());
 					reader.skipCurrentElement();

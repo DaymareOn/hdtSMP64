@@ -255,4 +255,11 @@
     -->
     <distanceForMaxWind>3000.0</distanceForMaxWind>
   </wind>
+  <validation>
+    <enabled>true</enabled>
+    <report-file-enabled>true</report-file-enabled>
+    <warn-triangle-count>10000</warn-triangle-count>
+    <output-dir></output-dir>
+    <improve-nifs>false</improve-nifs>
+  </validation>
 </configs>
