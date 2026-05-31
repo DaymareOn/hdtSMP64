@@ -140,10 +140,6 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
 				"/Zi" # Debug Information Format
 				"/permissive-" # Standards conformance
 				"/Zc:preprocessor" # Enable preprocessor conformance mode
-<<<<<<< Updated upstream
-				"/bigobj" # Increase Number of Sections in .obj file
-				"/WX" # Warnings as errors
-=======
 				"/bigobj"        # Increase Number of Sections in .obj file
 				"/W4"            # Elevated warnings: unreachable code (C4702), unused vars (C4189), etc.
 				"/wd4100"        # Suppress: unreferenced formal parameter (pervasive in SKSE callbacks)
@@ -152,7 +148,6 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
 				"/external:anglebrackets" # Treat angle-bracket includes as external
 				"/external:W0"   # No warnings from external headers (vcpkg, system)
 				"$<$<CONFIG:DEBUG>:/analyze;/analyze:external->"  # Static analysis in Debug only; skip external headers
->>>>>>> Stashed changes
 				"$<$<CONFIG:DEBUG>:>"
 				# /Gy,/Gw: function/data COMDATs so the linker's /OPT:REF and /OPT:ICF can actually strip
 				#          unused and fold identical code (also tightens hot-path locality).
