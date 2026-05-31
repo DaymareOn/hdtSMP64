@@ -4,7 +4,8 @@
 #include "hdtSkinnedMeshAlgorithm.h"
 #include "hdtSkyrimPhysicsWorld.h"
 #include "hdtSkyrimSystem.h"
-#include <random>
+#include <algorithm>
+#include <cmath>
 #include <thread>
 #include <unordered_map>
 #include <unordered_set>
@@ -150,7 +151,7 @@ namespace hdt
 	{
 		applyGravity();
 		if (hdt::SkyrimPhysicsWorld::get()->m_enableWind)
-			applyWind();
+			applyWind(remainingTimeStep);
 
 		while (remainingTimeStep > fixedTimeStep) {
 			internalSingleStepSimulation(fixedTimeStep);
@@ -223,18 +224,76 @@ namespace hdt
 		btDiscreteDynamicsWorldMt::applyGravity();
 	}
 
-	void SkinnedMeshWorld::applyWind()
+	void SkinnedMeshWorld::applyWind(btScalar timeStep)
 	{
+		constexpr btScalar kMaxFrameStep = 0.1f;
+		constexpr btScalar kTimeWrap = 4096.0f;
+		constexpr btScalar kResponseToBodyVelocity = 0.08f;
+		constexpr btScalar kGustSpeedPerForce = 7.0f;
+		constexpr btScalar kMinGustSpeed = 180.0f;
+		constexpr btScalar kMaxGustSpeed = 1200.0f;
+		constexpr btScalar kCrosswindTimeScale = 0.004f;
+		constexpr btScalar kVerticalPhaseScale = 0.006f;
+		constexpr btScalar kPressureCenterOffset = 0.8f;
+
+		BT_PROFILE("HDTSMP_applyWind");
+
+		const btScalar windMagnitude = m_windSpeed.length();
+		if (btFuzzyZero(windMagnitude))
+			return;
+
+		m_windTime += clampScalar(timeStep, 0.0f, kMaxFrameStep);
+		if (m_windTime > kTimeWrap)
+			m_windTime -= kTimeWrap;
+
+		const btVector3 windDirection = m_windSpeed / windMagnitude;
+		const btVector3 up(0.0f, 0.0f, 1.0f);
+		btVector3 side = windDirection.cross(up);
+		if (btFuzzyZero(side.length2())) {
+			side = btVector3(1.0f, 0.0f, 0.0f);
+		} else {
+			side.normalize();
+		}
+
+		const btScalar gustSpeed = clampScalar(windMagnitude * kGustSpeedPerForce, kMinGustSpeed, kMaxGustSpeed);
+
 		for (auto& i : m_systems) {
 			auto system = static_cast<SkyrimSystem*>(i.get());
 			if (btFuzzyZero(system->m_windFactor))  // skip any systems that aren't affected by wind
 				continue;
 			for (auto& j : i->m_bones) {
 				auto body = &j->m_rig;
-				if (!body->isStaticOrKinematicObject() && j->m_windFactor != 0.0f && (rand() % 5))  // apply randomly 80% of the time to desync wind across bones
-				{
-					body->applyCentralForce(m_windSpeed * j->m_windFactor * system->m_windFactor);
-				}
+				if (body->isStaticOrKinematicObject() || btFuzzyZero(j->m_windFactor))
+					continue;
+
+				const btScalar windFactor = j->m_windFactor * system->m_windFactor;
+				const btVector3 origin = body->getWorldTransform().getOrigin();
+				// Move gust phases downwind so stronger wind carries the same gust across bones faster
+				const btScalar advectedTime = m_windTime - origin.dot(windDirection) / gustSpeed - origin.dot(side) * kCrosswindTimeScale;
+				const btScalar verticalPhase = origin.getZ() * kVerticalPhaseScale;
+
+				const btScalar longGust = std::sin(advectedTime * 0.55f + verticalPhase * 0.35f);
+				const btScalar midGust = std::sin(advectedTime * 1.35f + verticalPhase + longGust * 0.5f);
+				const btScalar flutter = std::sin(advectedTime * 4.15f + verticalPhase * 2.2f + midGust);
+				const btScalar gustPulse = 0.5f + 0.5f * std::sin(advectedTime * 0.85f + verticalPhase * 0.6f);
+				const btScalar gustBurst = gustPulse * gustPulse;
+				const btScalar gustScale = clampScalar(0.68f + longGust * 0.18f + midGust * 0.12f + flutter * 0.06f + gustBurst * 0.45f, 0.35f, 1.55f);
+
+				const btScalar relativeScale = clampScalar((m_windSpeed - body->getLinearVelocity() * kResponseToBodyVelocity).dot(windDirection) / windMagnitude,
+					0.0f,
+					1.4f);
+
+				const btScalar baseMagnitude = windMagnitude * windFactor;
+				const btScalar sidewaysFlutter = (midGust * 0.13f + flutter * 0.06f + gustBurst * 0.04f) * baseMagnitude;
+				const btScalar verticalFlutter = (std::sin(advectedTime * 1.9f + verticalPhase * 1.4f) * 0.018f + flutter * 0.01f) * baseMagnitude;
+
+				const btVector3 windForce =
+					m_windSpeed * windFactor * gustScale * relativeScale +
+					side * sidewaysFlutter +
+					up * verticalFlutter;
+
+				const btVector3 pressureOffset = (side * midGust + up * (0.35f + flutter * 0.25f)) * kPressureCenterOffset;
+				body->applyForce(windForce, pressureOffset);
 			}
 		}
 	}
