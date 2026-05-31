@@ -12,4 +12,5 @@ set(VCPKG_LIBRARY_LINKAGE static)
 #
 # Included by every overlay triplet (noavx/avx/avx2/avx512) so all four variants build their dependencies with the same
 # compiler.
+set(VCPKG_PLATFORM_TOOLSET v143)
 set(VCPKG_PLATFORM_TOOLSET_VERSION "14.44")
