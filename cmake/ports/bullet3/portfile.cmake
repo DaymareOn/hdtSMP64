@@ -19,6 +19,21 @@ vcpkg_from_github(
 	opencl.diff
 	tinyxml2.diff)
 
+# --- Patch verification -------------------------------------------------------
+# string(REPLACE) silently no-ops when its pattern misses (upstream whitespace
+# drift, a stale anchor), which previously let the non-Hookean solver patch fail
+# unnoticed. bullet_patch_check makes every patched marker show up in the build log
+# on BOTH CI and local builds, so we can be sure each piece actually landed.
+# Once trusted, flip WARNING -> FATAL_ERROR so a broken patch fails the build.
+function(bullet_patch_check content_var label marker)
+	string(FIND "${${content_var}}" "${marker}" _found)
+	if(_found EQUAL -1)
+		message(WARNING "[bullet3 patch] NOT APPLIED: ${label}  (marker absent)")
+	else()
+		message(STATUS "[bullet3 patch] applied:     ${label}")
+	endif()
+endfunction()
+
 # Apply non-Hookean spring modifications
 file(READ "${SOURCE_PATH}/src/BulletDynamics/ConstraintSolver/btGeneric6DofSpring2Constraint.h" HEADER_CONTENT)
 string(
@@ -64,6 +79,9 @@ string(
 		HEADER_CONTENT
 		"${HEADER_CONTENT}")
 file(WRITE "${SOURCE_PATH}/src/BulletDynamics/ConstraintSolver/btGeneric6DofSpring2Constraint.h" "${HEADER_CONTENT}")
+bullet_patch_check(HEADER_CONTENT "rotational motor: non-Hookean members"    "btScalar m_nonHookeanDamping")
+bullet_patch_check(HEADER_CONTENT "translational motor: non-Hookean members" "btVector3 m_nonHookeanDamping")
+bullet_patch_check(HEADER_CONTENT "non-Hookean setter declarations"          "void setNonHookeanDamping(int index, btScalar factor)")
 
 file(READ "${SOURCE_PATH}/src/BulletDynamics/ConstraintSolver/btGeneric6DofSpring2Constraint.cpp" CPP_CONTENT)
 string(
@@ -85,6 +103,9 @@ string(
 		CPP_CONTENT
 		"${CPP_CONTENT}")
 file(WRITE "${SOURCE_PATH}/src/BulletDynamics/ConstraintSolver/btGeneric6DofSpring2Constraint.cpp" "${CPP_CONTENT}")
+bullet_patch_check(CPP_CONTENT "linear-limit non-Hookean wiring"   "m_nonHookeanDamping = m_linearLimits")
+bullet_patch_check(CPP_CONTENT "NON-HOOKEAN SOLVER LOGIC"          "Avoid blowing shit up")
+bullet_patch_check(CPP_CONTENT "non-Hookean setter definitions"    "void btGeneric6DofSpring2Constraint::setNonHookeanDamping")
 
 # oneTBB (TBB >= 2021) removed task_scheduler_init.  Port btThreads.cpp to the oneTBB API: use tbb::global_control for
 # thread-count limiting and tbb::info::default_concurrency() instead of the removed default_num_threads().
@@ -100,6 +121,7 @@ string(
 			"m_tbbSchedulerInit = new tbb::global_control(tbb::global_control::max_allowed_parallelism, m_numThreads);"
 			THREADS_CPP "${THREADS_CPP}")
 file(WRITE "${SOURCE_PATH}/src/LinearMath/btThreads.cpp" "${THREADS_CPP}")
+bullet_patch_check(THREADS_CPP "oneTBB global_control port" "tbb::global_control")
 
 # Runtime profiler gate. Bullet still compiles the profiler support, but disabled BT_PROFILE scopes become a cheap
 # inline bool check instead of two indirect calls into empty profile callbacks.
@@ -123,6 +145,7 @@ string(
 		QUICKPROF_HEADER
 		"${QUICKPROF_HEADER}")
 file(WRITE "${SOURCE_PATH}/src/LinearMath/btQuickprof.h" "${QUICKPROF_HEADER}")
+bullet_patch_check(QUICKPROF_HEADER "profiler runtime gate (header)" "btIsProfileEnabled")
 
 file(READ "${SOURCE_PATH}/src/LinearMath/btQuickprof.cpp" QUICKPROF_CPP)
 string(
@@ -138,6 +161,7 @@ string(
 		QUICKPROF_CPP
 		"${QUICKPROF_CPP}")
 file(WRITE "${SOURCE_PATH}/src/LinearMath/btQuickprof.cpp" "${QUICKPROF_CPP}")
+bullet_patch_check(QUICKPROF_CPP "profiler runtime gate (impl)" "btSetProfileEnabled")
 
 file(REMOVE_RECURSE "${SOURCE_PATH}/examples/ThirdPartyLibs")
 
