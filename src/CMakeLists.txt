@@ -140,19 +140,18 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
 				"/permissive-" # Standards conformance
 				"/Zc:preprocessor" # Enable preprocessor conformance mode
 				"/bigobj" # Increase Number of Sections in .obj file
-				"/W4"            # Elevated warnings: unreachable code (C4702), unused vars (C4189), etc.
-				"/wd4100"        # Suppress: unreferenced formal parameter (pervasive in SKSE callbacks)
-				"/wd4201"        # Suppress: nameless struct/union (used throughout CommonLibSSE)
-				"/WX"            # Warnings as errors
+				"/W4" # Elevated warnings: unreachable code (C4702), unused vars (C4189), etc.
+				"/wd4100" # Suppress: unreferenced formal parameter (pervasive in SKSE callbacks)
+				"/wd4201" # Suppress: nameless struct/union (used throughout CommonLibSSE)
+				"/WX" # Warnings as errors
 				"/external:anglebrackets" # Treat angle-bracket includes as external
-				"/external:W0"   # No warnings from external headers (vcpkg, system)
+				"/external:W0" # No warnings from external headers (vcpkg, system)
 				# /sdl adds extra runtime security checks that cost measurably in the per-frame physics hot loops. Keep
 				# it in Debug; drop it from the shipped Release/Profile builds. (/GS stack cookies are NOT dropped.)
-				# Release/Profile speed flags:
-				#   /Zc:inline strip unreferenced COMDATs  /JMC- disable Just-My-Code  /Ob3 most aggressive inlining
-				#   /Gw       global-data COMDATs so /OPT:REF + LTCG can drop/place statics
-				#   /fp:fast  let the optimizer emit FMA and reassociate FP math (large for FP-heavy physics)
-				"$<$<CONFIG:DEBUG>:/analyze;/analyze:external->"  # Static analysis in Debug only; skip external headers
+				# Release/Profile speed flags: /Zc:inline strip unreferenced COMDATs  /JMC- disable Just-My-Code  /Ob3
+				# most aggressive inlining /Gw       global-data COMDATs so /OPT:REF + LTCG can drop/place statics
+				# /fp:fast  let the optimizer emit FMA and reassociate FP math (large for FP-heavy physics)
+				"$<$<CONFIG:DEBUG>:/analyze;/analyze:external->" # Static analysis in Debug only; skip external headers
 				"$<$<OR:$<CONFIG:RELEASE>,$<CONFIG:PROFILE>>:/Zc:inline;/JMC-;/Ob3;/Gw;/fp:fast>")
 
 	target_link_options("${PROJECT_NAME}" PRIVATE "$<$<CONFIG:DEBUG>:/INCREMENTAL;/OPT:NOREF;/OPT:NOICF>"
@@ -175,9 +174,11 @@ endif()
 # Profile-Guided Optimization (opt-in, MSVC only) -- layered on top of LTCG, the largest realistic win for the hot
 # paths. Because Bullet is compiled with /GL (see cmake/triplets/_perf_flags.cmake) and folded into this DLL's LTCG, a
 # single PGO pass over hdtSMP64 also profiles the heavy Bullet math. Two-stage workflow, see docs/PERFORMANCE.md:
-#   -DFSMP_PGO=INSTRUMENT  build an instrumented DLL, then run the standard physics-heavy scene in-game to emit .pgc data
-#   -DFSMP_PGO=OPTIMIZE    rebuild using the merged .pgd profile
-set(FSMP_PGO "OFF" CACHE STRING "Profile-Guided Optimization stage: OFF | INSTRUMENT | OPTIMIZE")
+# -DFSMP_PGO=INSTRUMENT  build an instrumented DLL, then run the standard physics-heavy scene in-game to emit .pgc data
+# -DFSMP_PGO=OPTIMIZE    rebuild using the merged .pgd profile
+set(FSMP_PGO
+	"OFF"
+	CACHE STRING "Profile-Guided Optimization stage: OFF | INSTRUMENT | OPTIMIZE")
 set_property(CACHE FSMP_PGO PROPERTY STRINGS OFF INSTRUMENT OPTIMIZE)
 if(NOT FSMP_PGO STREQUAL "OFF")
 	if(NOT "${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
