@@ -159,7 +159,7 @@ void DumpNodeChildren(RE::NiAVObject* node)
 							geometry->world.translate.z);
 
 						if (geometry->GetGeometryRuntimeData().skinInstance && geometry->GetGeometryRuntimeData().skinInstance->skinData) {
-							for (uint32_t boneIdx = 0; boneIdx < geometry->GetGeometryRuntimeData().skinInstance->skinData->bones; boneIdx++) {
+							for (uint32_t boneIdx = 0; boneIdx < geometry->GetGeometryRuntimeData().skinInstance->skinData->GetBoneCount(); boneIdx++) {
 								auto bone = geometry->GetGeometryRuntimeData().skinInstance->bones[boneIdx];
 								logger::info(
 									"Bone {} - {} {} [{:.2f}, {:.2f}, {:.2f}]",
