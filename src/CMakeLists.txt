@@ -148,7 +148,6 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
 				"/external:anglebrackets" # Treat angle-bracket includes as external
 				"/external:W0"   # No warnings from external headers (vcpkg, system)
 				"$<$<CONFIG:DEBUG>:/analyze;/analyze:external->"  # Static analysis in Debug only; skip external headers
-				"$<$<CONFIG:DEBUG>:>"
 				# /Gy,/Gw: function/data COMDATs so the linker's /OPT:REF and /OPT:ICF can actually strip
 				#          unused and fold identical code (also tightens hot-path locality).
 				# /GL:      whole-program optimization — pairs with /LTCG below to enable cross-TU inlining
