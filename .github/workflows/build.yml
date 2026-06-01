@@ -4,7 +4,7 @@ on:
     branches:
       - master
       - dev
-      - hardenrelease
+      - betterperfflags
     paths:
       - "**.cpp"
       - "**.h"
@@ -25,8 +25,7 @@ on:
     branches:
       - master
       - dev
-      - hardenrelease
-      - copilot/update-dev-build-versioning
+      - betterperfflags
     paths:
       - "**.cpp"
       - "**.h"
