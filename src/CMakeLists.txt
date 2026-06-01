@@ -148,7 +148,6 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
 				"/external:anglebrackets" # Treat angle-bracket includes as external
 				"/external:W0"   # No warnings from external headers (vcpkg, system)
 				"$<$<CONFIG:DEBUG>:/analyze;/analyze:external->"  # Static analysis in Debug only; skip external headers
-				"$<$<CONFIG:DEBUG>:>"
 				"$<$<OR:$<CONFIG:RELEASE>,$<CONFIG:PROFILE>>:/Zc:inline;/JMC-;/Ob3>")
 
 	target_link_options("${PROJECT_NAME}" PRIVATE "$<$<CONFIG:DEBUG>:/INCREMENTAL;/OPT:NOREF;/OPT:NOICF>"
