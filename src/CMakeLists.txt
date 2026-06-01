@@ -148,11 +148,10 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
 				"/external:W0" # No warnings from external headers (vcpkg, system)
 				# /sdl adds extra runtime security checks that cost measurably in the per-frame physics hot loops. Keep
 				# it in Debug; drop it from the shipped Release/Profile builds. (/GS stack cookies are NOT dropped.)
-				# Release/Profile speed flags:
-				#   /Zc:inline strip unreferenced COMDATs  /JMC- disable Just-My-Code  /Ob3 most aggressive inlining
-				#   /Gw       global-data COMDATs so /OPT:REF + LTCG can drop/place static data
-				#   /fp:fast  let the optimizer emit FMA and reassociate FP math (large for FP-heavy physics)
-				"$<$<CONFIG:DEBUG>:/analyze;/analyze:external->"  # Static analysis in Debug only; skip external headers
+				# Release/Profile speed flags: /Zc:inline strip unreferenced COMDATs  /JMC- disable Just-My-Code  /Ob3
+				# most aggressive inlining /Gw       global-data COMDATs so /OPT:REF + LTCG can drop/place static data
+				# /fp:fast  let the optimizer emit FMA and reassociate FP math (large for FP-heavy physics)
+				"$<$<CONFIG:DEBUG>:/analyze;/analyze:external->" # Static analysis in Debug only; skip external headers
 				"$<$<OR:$<CONFIG:RELEASE>,$<CONFIG:PROFILE>>:/Zc:inline;/JMC-;/Ob3;/Gw;/fp:fast>")
 
 	target_link_options("${PROJECT_NAME}" PRIVATE "$<$<CONFIG:DEBUG>:/INCREMENTAL;/OPT:NOREF;/OPT:NOICF>"
