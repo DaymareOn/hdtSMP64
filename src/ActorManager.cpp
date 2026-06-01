@@ -1343,7 +1343,7 @@ namespace hdt
 									rootFadeNode->ProcessClone(c);
 									auto clonedRoot = static_cast<RE::BSFadeNode*>(clonedObj);
 
-									// VR stuff probably still needed?
+									// NOTE: This is likely not needed due to: https://github.com/alandtse/CommonLibVR/commit/2f535530072827b8e8961f853232bec6b219ecff
 									// VR: NiSkinInstance::LinkObject fails to resolve internal bone refs,
 									// storing the bone name as a raw char* instead of a resolved NiNode*.
 									// Bone NiNodes are self-contained in the face geometry NIF, so resolve
@@ -1362,7 +1362,7 @@ namespace hdt
 											if (!grd.skinInstance || !grd.skinInstance->skinData)
 												continue;
 											std::uint32_t vrResolved = 0, vrFailed = 0;
-											for (std::uint32_t bi = 0; bi < grd.skinInstance->skinData->bones; ++bi) {
+											for (std::uint32_t bi = 0; bi < grd.skinInstance->skinData->GetBoneCount(); ++bi) {
 												auto bone = grd.skinInstance->bones[bi];
 												if (!bone || isValidNiObject(bone))
 													continue;
@@ -1418,7 +1418,7 @@ namespace hdt
 		bool hasMerged = false;
 		bool hasRenames = false;
 
-		for (uint32_t boneIdx = 0; boneIdx < geometry->GetGeometryRuntimeData().skinInstance->skinData->bones; boneIdx++) {
+		for (uint32_t boneIdx = 0; boneIdx < geometry->GetGeometryRuntimeData().skinInstance->skinData->GetBoneCount(); boneIdx++) {
 			RE::BSFixedString boneName("");
 
 			// skin the way the game does via FMD
@@ -1432,7 +1432,7 @@ namespace hdt
 				const auto& rd = origGeom->GetGeometryRuntimeData();
 				if (rd.skinInstance && reinterpret_cast<uintptr_t>(rd.skinInstance.get()) <= kCanonicalUserSpaceMax) {
 					auto skinData = rd.skinInstance->skinData.get();
-					if (skinData && reinterpret_cast<uintptr_t>(skinData) <= kCanonicalUserSpaceMax && boneIdx < skinData->bones) {
+					if (skinData && reinterpret_cast<uintptr_t>(skinData) <= kCanonicalUserSpaceMax && boneIdx < skinData->GetBoneCount()) {
 						if (rd.skinInstance->bones && reinterpret_cast<uintptr_t>(rd.skinInstance->bones) <= kCanonicalUserSpaceMax) {
 							auto bone = rd.skinInstance->bones[boneIdx];
 							if (isValidNiObject(bone)) {
@@ -1452,7 +1452,7 @@ namespace hdt
 				const auto& activeSkin = geometry->GetGeometryRuntimeData().skinInstance;
 				if (activeSkin && reinterpret_cast<uintptr_t>(activeSkin.get()) <= kCanonicalUserSpaceMax) {
 					auto skinData = activeSkin->skinData.get();
-					if (skinData && reinterpret_cast<uintptr_t>(skinData) <= kCanonicalUserSpaceMax && boneIdx < skinData->bones) {
+					if (skinData && reinterpret_cast<uintptr_t>(skinData) <= kCanonicalUserSpaceMax && boneIdx < skinData->GetBoneCount()) {
 						if (activeSkin->bones && reinterpret_cast<uintptr_t>(activeSkin->bones) <= kCanonicalUserSpaceMax) {
 							auto bone = activeSkin->bones[boneIdx];
 							if (isValidNiObject(bone)) {

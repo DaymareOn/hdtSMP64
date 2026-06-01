@@ -284,7 +284,7 @@ namespace Hooks
 				RE::NiAVObject* object = armor->GetObjectByName(NodeName);
 				RE::BSTriShape* triShape = object ? object->AsTriShape() : nullptr;
 				if (triShape) {
-					auto size = triShape->GetGeometryRuntimeData().skinInstance->skinData->bones;
+					auto size = triShape->GetGeometryRuntimeData().skinInstance->skinData->GetBoneCount();
 					for (uint32_t idx = 0; idx < size; idx++)  // all good here
 					{
 						auto bone = triShape->GetGeometryRuntimeData().skinInstance->bones[idx];
@@ -307,7 +307,7 @@ namespace Hooks
 				RE::NiAVObject* object = ret->GetObjectByName(NodeName);
 				RE::BSTriShape* triShape = object ? object->AsTriShape() : nullptr;
 				if (triShape) {
-					auto size = triShape->GetGeometryRuntimeData().skinInstance->skinData->bones;
+					auto size = triShape->GetGeometryRuntimeData().skinInstance->skinData->GetBoneCount();
 					for (uint32_t idx = 0; idx < size; idx++) {
 						auto bone = triShape->GetGeometryRuntimeData().skinInstance->bones[idx];
 						if (bone == nullptr) {
