@@ -194,6 +194,32 @@
       ],
       "name": "vs2022-windows-avx512",
       "toolset": "v143"
+    },
+    {
+      "binaryDir": "${sourceDir}/out/build/pgo-avx2",
+      "cacheVariables": {
+        "FSMP_PGO": {
+          "type": "STRING",
+          "value": "INSTRUMENT"
+        }
+      },
+      "inherits": [
+        "vs2022-windows-avx2"
+      ],
+      "name": "vs2022-windows-avx2-pgo-instrument"
+    },
+    {
+      "binaryDir": "${sourceDir}/out/build/pgo-avx2",
+      "cacheVariables": {
+        "FSMP_PGO": {
+          "type": "STRING",
+          "value": "OPTIMIZE"
+        }
+      },
+      "inherits": [
+        "vs2022-windows-avx2"
+      ],
+      "name": "vs2022-windows-avx2-pgo-optimize"
     }
   ],
   "buildPresets": [
@@ -207,6 +233,18 @@
       "name": "avx2-release",
       "displayName": "Release",
       "configurePreset": "vs2022-windows-avx2",
+      "configuration": "Release"
+    },
+    {
+      "name": "avx2-pgo-instrument",
+      "displayName": "Release (PGO instrument)",
+      "configurePreset": "vs2022-windows-avx2-pgo-instrument",
+      "configuration": "Release"
+    },
+    {
+      "name": "avx2-pgo-optimize",
+      "displayName": "Release (PGO optimize)",
+      "configurePreset": "vs2022-windows-avx2-pgo-optimize",
       "configuration": "Release"
     }
   ],
