@@ -4,7 +4,10 @@ on:
     branches:
       - master
       - dev
-      - betterperfflags
+      # Publish any branch under ci/ (e.g. ci/betterperfflags) to build all AVX variants
+      # and a prerelease, without editing this file. The "/" lives only in the branch
+      # name; the versioning step below sanitizes it to "-" in the version string.
+      - "ci/**"
     paths:
       - "**.cpp"
       - "**.h"
@@ -25,7 +28,7 @@ on:
     branches:
       - master
       - dev
-      - betterperfflags
+      - "ci/**"
     paths:
       - "**.cpp"
       - "**.h"
