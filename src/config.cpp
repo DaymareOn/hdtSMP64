@@ -146,13 +146,6 @@ namespace hdt
 			return;
 		}
 
-		// Store original locale
-		char saved_locale[32];
-		strcpy_s(saved_locale, std::setlocale(LC_NUMERIC, nullptr));
-
-		// Set locale to en_US
-		std::setlocale(LC_NUMERIC, "en_US");
-
 		XMLReader reader((uint8_t*)bytes.data(), bytes.size());
 
 		while (reader.Inspect()) {
@@ -165,9 +158,6 @@ namespace hdt
 				}
 			}
 		}
-
-		// Restore original locale
-		std::setlocale(LC_NUMERIC, saved_locale);
 	}
 
 	void logConfig()
