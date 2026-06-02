@@ -4,7 +4,10 @@ on:
     branches:
       - master
       - dev
-      - hardenrelease
+      # Publish any branch under ci/ (e.g. ci/betterperfflags) to build all AVX variants
+      # and a prerelease, without editing this file. The "/" lives only in the branch
+      # name; the versioning step below sanitizes it to "-" in the version string.
+      - "ci/**"
     paths:
       - "**.cpp"
       - "**.h"
@@ -25,8 +28,7 @@ on:
     branches:
       - master
       - dev
-      - hardenrelease
-      - copilot/update-dev-build-versioning
+      - "ci/**"
     paths:
       - "**.cpp"
       - "**.h"
@@ -150,8 +152,10 @@ jobs:
           path: |
             out/build/${{ matrix.preset }}/vcpkg_installed
             ~\AppData\Local\vcpkg\archives
-          # Adding the preset name to the key ensures the presets don't overwrite each other's cache
-          key: vcpkg-${{ runner.os }}-${{ github.ref_name }}-${{ matrix.preset }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/ports/**') }}
+          # Adding the preset name to the key ensures the presets don't overwrite each other's cache.
+          # cmake/triplets/** is hashed so that changing dependency compile/link flags (e.g. /GL /LTCG /fp:fast in
+          # _perf_flags.cmake) invalidates the cache and forces vcpkg to rebuild the dependencies with the new flags.
+          key: vcpkg-${{ runner.os }}-${{ github.ref_name }}-${{ matrix.preset }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/ports/**', 'cmake/triplets/**') }}
           restore-keys: |
             vcpkg-${{ runner.os }}-${{ github.ref_name }}-${{ matrix.preset }}-
 

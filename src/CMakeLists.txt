@@ -135,8 +135,7 @@ target_compile_features("${PROJECT_NAME}" PRIVATE cxx_std_20)
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
 	target_compile_options(
 		"${PROJECT_NAME}"
-		PRIVATE "/sdl" # Enable Additional Security Checks
-				"/utf-8" # Set Source and Executable character sets to UTF-8
+		PRIVATE "/utf-8" # Set Source and Executable character sets to UTF-8
 				"/Zi" # Debug Information Format
 				"/permissive-" # Standards conformance
 				"/Zc:preprocessor" # Enable preprocessor conformance mode
@@ -147,11 +146,56 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
 				"/WX" # Warnings as errors
 				"/external:anglebrackets" # Treat angle-bracket includes as external
 				"/external:W0" # No warnings from external headers (vcpkg, system)
+				# /sdl adds extra runtime security checks that cost measurably in the per-frame physics hot loops. Keep
+				# it in Debug; drop it from the shipped Release/Profile builds. (/GS stack cookies are NOT dropped.)
+				# Release/Profile speed flags: /Zc:inline strip unreferenced COMDATs  /JMC- disable Just-My-Code  /Ob3
+				# most aggressive inlining /Gw       global-data COMDATs so /OPT:REF + LTCG can drop/place static data
+				# /fp:fast  let the optimizer emit FMA and reassociate FP math (large for FP-heavy physics)
 				"$<$<CONFIG:DEBUG>:/analyze;/analyze:external->" # Static analysis in Debug only; skip external headers
-				"$<$<OR:$<CONFIG:RELEASE>,$<CONFIG:PROFILE>>:/Zc:inline;/JMC-;/Ob3>")
+				"$<$<OR:$<CONFIG:RELEASE>,$<CONFIG:PROFILE>>:/Zc:inline;/JMC-;/Ob3;/Gw;/fp:fast>")
 
 	target_link_options("${PROJECT_NAME}" PRIVATE "$<$<CONFIG:DEBUG>:/INCREMENTAL;/OPT:NOREF;/OPT:NOICF>"
 						"$<$<OR:$<CONFIG:RELEASE>,$<CONFIG:PROFILE>>:/INCREMENTAL:NO;/OPT:REF;/OPT:ICF;/DEBUG:FULL>")
+endif()
+
+# Whole-program optimization (LTCG/IPO) on the shipped DLL. The hot physics loops span several translation units
+# (collision, body, world) plus statically-linked Bullet, so cross-TU / cross-library inlining is the single biggest
+# "free" runtime win. This mirrors what CommonLibSSE already enables. Release-like configs only; adds /GL to compile and
+# /LTCG to link, which coexist with the /OPT:REF /OPT:ICF above.
+include(CheckIPOSupported)
+check_ipo_supported(RESULT _fsmp_ipo_ok OUTPUT _fsmp_ipo_msg)
+if(_fsmp_ipo_ok)
+	set_property(TARGET "${PROJECT_NAME}" PROPERTY INTERPROCEDURAL_OPTIMIZATION_RELEASE ON)
+	set_property(TARGET "${PROJECT_NAME}" PROPERTY INTERPROCEDURAL_OPTIMIZATION_PROFILE ON)
+else()
+	message(WARNING "FSMP: IPO/LTCG unsupported; shipping without whole-program optimization: ${_fsmp_ipo_msg}")
+endif()
+
+# Profile-Guided Optimization (opt-in, MSVC only) -- layered on top of LTCG, the largest realistic win for the hot
+# paths. Because Bullet is compiled with /GL (see cmake/triplets/_perf_flags.cmake) and folded into this DLL's LTCG, a
+# single PGO pass over hdtSMP64 also profiles the heavy Bullet math. Two-stage workflow, see docs/PERFORMANCE.md:
+# -DFSMP_PGO=INSTRUMENT  build an instrumented DLL, then run the standard physics-heavy scene in-game to emit .pgc data
+# -DFSMP_PGO=OPTIMIZE    rebuild using the merged .pgd profile
+set(FSMP_PGO
+	"OFF"
+	CACHE STRING "Profile-Guided Optimization stage: OFF | INSTRUMENT | OPTIMIZE")
+set_property(CACHE FSMP_PGO PROPERTY STRINGS OFF INSTRUMENT OPTIMIZE)
+if(NOT FSMP_PGO STREQUAL "OFF")
+	if(NOT "${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+		message(FATAL_ERROR "FSMP_PGO is only supported with MSVC (got '${CMAKE_CXX_COMPILER_ID}')")
+	endif()
+	if(NOT _fsmp_ipo_ok)
+		message(FATAL_ERROR "FSMP_PGO requires IPO/LTCG support, which this toolchain reports as unavailable")
+	endif()
+	# PGO requires /GL + /LTCG in whatever configuration is built, so force IPO on for the whole target.
+	set_property(TARGET "${PROJECT_NAME}" PROPERTY INTERPROCEDURAL_OPTIMIZATION ON)
+	if(FSMP_PGO STREQUAL "INSTRUMENT")
+		target_link_options("${PROJECT_NAME}" PRIVATE "/GENPROFILE")
+	elseif(FSMP_PGO STREQUAL "OPTIMIZE")
+		target_link_options("${PROJECT_NAME}" PRIVATE "/USEPROFILE")
+	else()
+		message(FATAL_ERROR "FSMP_PGO must be OFF, INSTRUMENT, or OPTIMIZE (got '${FSMP_PGO}')")
+	endif()
 endif()
 
 target_include_directories("${PROJECT_NAME}" PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/src" "${SOURCE_DIR}"
