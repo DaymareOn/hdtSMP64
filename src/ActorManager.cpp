@@ -132,6 +132,8 @@ namespace hdt
 
 			skeleton.attachArmor(e->armorModel, e->attachedNode);
 		} else {
+			if (!e->armorModel)
+				return RE::BSEventNotifyControl::kContinue;
 			skeleton.addArmor(e->armorModel);
 		}
 
@@ -392,6 +394,17 @@ namespace hdt
 		const auto cameraOrientation = cameraTransform.rotate * RE::NiPoint3(0., 1., 0.);  // The camera matrix is relative to the world.
 		m_cameraPositionDuringFrame = cameraPosition;
 
+		m_screenSizeThresholdScale = 0.f;
+		if (m_minScreenSizeFraction > 0.f) {
+			if (auto* worldSceneGraph = RE::DrawWorld::GetSingleton().worldSceneGraph) {
+				const float cameraFOVDegrees = static_cast<RE::BSSceneGraph*>(worldSceneGraph)->GetRuntimeData().cameraFOV;
+				if (cameraFOVDegrees > 0.f && cameraFOVDegrees < 180.f) {
+					const float tanHalfFOV = std::tan(cameraFOVDegrees * std::numbers::pi_v<float> / 360.f);
+					m_screenSizeThresholdScale = m_minScreenSizeFraction * m_minScreenSizeFraction * tanHalfFOV * tanHalfFOV;
+				}
+			}
+		}
+
 		for (auto& skel : m_skeletons)
 			skel.calculateDistanceAndOrientationDifferenceFromSource(cameraPosition, cameraOrientation);
 
@@ -427,11 +440,21 @@ namespace hdt
 		activeSkeletons = 0;
 		const float minCullingDistance2 = m_minCullingDistance * m_minCullingDistance;
 		for (auto& i : m_skeletons) {
+			// If the option is enabled, we skip dead actors when they are not the player,
+			// to save performance.
+			bool skipDeadActor = false;
+			if (m_skipDeadActors && !i.isPlayerCharacter()) {
+				const auto actor = skyrim_cast<RE::Actor*>(i.skeletonOwner.get());
+				if (actor && actor->IsDead()) {
+					skipDeadActor = true;
+				}
+			}
+
 			// Skeletons inside the minimum culling distance are kept active even when the budget cap
 			// is exceeded, so a shrinking auto-adjust cap can't strip physics from NPCs next to the camera.
 			const bool forceKeepNear = i.m_distanceFromCamera2 < minCullingDistance2;
 			const bool overBudget = activeSkeletons >= maxActiveSkeletons;
-			if (!i.hasPhysics || !i.updateAttachedState(playerCell, overBudget && !forceKeepNear))
+			if (!i.hasPhysics || !i.updateAttachedState(playerCell, overBudget && !forceKeepNear || skipDeadActor))
 				continue;
 
 			activeSkeletons++;
@@ -826,8 +849,7 @@ namespace hdt
 
 	void ActorManager::Skeleton::addArmor(RE::NiNode* armorModel)
 	{
-		if (armorModel)
-			logBrokenNifOnce(armorModel->name.c_str(), armorModel);
+		logBrokenNifOnce(armorModel->name.c_str(), armorModel);
 
 		IDType id = armors.size() ? armors.back().id + 1 : 0;
 		auto prefix = armorPrefix(id);
@@ -1045,6 +1067,22 @@ namespace hdt
 
 		if (!skeleton3D || (camera && !camera->NodeInFrustum(skeleton3D)))
 			return false;
+
+		// Is the skeleton too small on screen?
+		// Ie, is the NPC's projected bounding sphere smaller than the allowed fraction of screen height?
+		// screenFraction < minFraction <=> r / (distance * tan(fov/2)) < fr <=> r^2 < fr^2 * distance^2 * tan(fov/2)^2
+		if (manager->m_screenSizeThresholdScale > 0.f) {
+			const auto& bound = skeleton3D->worldBound;
+			const auto cameraToBound = bound.center - manager->m_cameraPositionDuringFrame;
+			const float distanceToBound2 = cameraToBound.x * cameraToBound.x + cameraToBound.y * cameraToBound.y + cameraToBound.z * cameraToBound.z;
+
+			if (distanceToBound2 > bound.radius * bound.radius) {
+				// Use the nearest point on the sphere for a conservative size estimate.
+				const float visibleDistance = std::sqrt(distanceToBound2) - bound.radius;
+				if (bound.radius * bound.radius < manager->m_screenSizeThresholdScale * visibleDistance * visibleDistance)
+					return false;
+			}
+		}
 
 		RE::NiPoint3 hitLocation;
 		auto* obstacle = Actor_CalculateLOS(owner, &manager->m_cameraPositionDuringFrame, &hitLocation, 6.28f);

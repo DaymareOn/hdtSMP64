@@ -31,31 +31,34 @@ namespace Hooks
 	{
 		bool needRegularCall = true;
 		if (hdt::ActorManager::instance()->skeletonNeedsParts(a_skeleton)) {
-			RE::TESForm* form = RE::TESForm::LookupByID(a_skeleton->GetUserData()->formID);
-			RE::Actor* actor = skyrim_cast<RE::Actor*>(form);
-			if (actor) {
-				RE::TESNPC* actorBase = skyrim_cast<RE::TESNPC*>(actor->data.objectReference);
-				uint32_t numHeadParts = 0;
-				RE::BGSHeadPart** Headparts = nullptr;
+			auto* userData = a_skeleton->GetUserData();
+			if (userData) {
+				RE::TESForm* form = RE::TESForm::LookupByID(userData->formID);
+				RE::Actor* actor = skyrim_cast<RE::Actor*>(form);
+				if (actor) {
+					RE::TESNPC* actorBase = skyrim_cast<RE::TESNPC*>(actor->data.objectReference);
+					uint32_t numHeadParts = 0;
+					RE::BGSHeadPart** Headparts = nullptr;
 
-				if (actorBase->HasOverlays()) {
-					numHeadParts = actorBase->GetNumBaseOverlays();
-					Headparts = actorBase->GetBaseOverlays();
-				} else {
-					numHeadParts = actorBase->numHeadParts;
-					Headparts = actorBase->headParts;
-				}
+					if (actorBase->HasOverlays()) {
+						numHeadParts = actorBase->GetNumBaseOverlays();
+						Headparts = actorBase->GetBaseOverlays();
+					} else {
+						numHeadParts = actorBase->numHeadParts;
+						Headparts = actorBase->headParts;
+					}
 
-				if (Headparts) {
-					for (uint32_t i = 0; i < numHeadParts; i++) {
-						if (Headparts[i]) {
-							ProcessHeadPart(a_this, Headparts[i], a_skeleton, a_unk);
+					if (Headparts) {
+						for (uint32_t i = 0; i < numHeadParts; i++) {
+							if (Headparts[i]) {
+								ProcessHeadPart(a_this, Headparts[i], a_skeleton, a_unk);
+							}
 						}
 					}
-				}
 
-				if (a_skeleton->GetUserData() && a_skeleton->GetUserData()->formID == 0x14) {
-					needRegularCall = false;
+					if (userData->formID == 0x14) {
+						needRegularCall = false;
+					}
 				}
 			}
 		}
@@ -67,6 +70,9 @@ namespace Hooks
 
 	void BSFaceGenNiNodeHooks::SkinSingleGeometry__Hook(RE::BSFaceGenNiNode* const a_this, RE::NiNode* a_skeleton, RE::BSGeometry* a_triShape, [[maybe_unused]] bool a_unk)
 	{
+		if (!a_skeleton)
+			return;
+
 		//
 		const char* name = "";
 		uint32_t formId = 0x0;
@@ -142,16 +148,14 @@ namespace Hooks
 
 	void BSFaceGenNiNodeHooks::SkinAllGeometry(RE::BSFaceGenNiNode* const a_this, RE::NiNode* a_skeleton, bool a_unk)
 	{
-		if (a_skeleton) {
-			const auto& children = a_this->GetChildren();
-			if (children.size() > 0) {
-				for (std::uint16_t i = 0; i < children.size(); i++) {
-					auto child = children[i];
-					if (child) {
-						auto triShape = child->AsTriShape();
-						if (triShape) {
-							SkinSingleGeometry__Hook(a_this, a_skeleton, triShape, a_unk);
-						}
+		const auto& children = a_this->GetChildren();
+		if (children.size() > 0) {
+			for (std::uint16_t i = 0; i < children.size(); i++) {
+				auto child = children[i];
+				if (child) {
+					auto triShape = child->AsTriShape();
+					if (triShape) {
+						SkinSingleGeometry__Hook(a_this, a_skeleton, triShape, a_unk);
 					}
 				}
 			}

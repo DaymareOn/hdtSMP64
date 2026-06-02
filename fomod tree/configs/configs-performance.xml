@@ -173,7 +173,16 @@
     -->
     <disable1stPersonViewPhysics>true</disable1stPersonViewPhysics>
 
+    <!-- ##################### DISTANCE AND SCREEN SIZE CULLING ############ -->
 
+    <!--
+      minScreenSizeFraction: (float 0-1) physics is skipped for non-player skeletons
+      whose bounding sphere diameter, projected onto the screen, is smaller than this
+      fraction of the screen height. For example, 0.02 skips skeletons that appear
+      smaller than 2% of screen height. 0 disables the check.
+      If no value is set, default is 0 (disabled).
+    -->
+    <minScreenSizeFraction>0.025</minScreenSizeFraction>
 
   </smp>
   <solver>
