@@ -236,6 +236,8 @@ namespace hdt
 
 	void SkyrimPhysicsWorld::updateActiveState()
 	{
+		BT_PROFILE("updateActiveState");
+
 		struct Group
 		{
 			std::unordered_set<RE::BSFixedString> tags;

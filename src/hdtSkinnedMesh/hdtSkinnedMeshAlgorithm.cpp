@@ -403,7 +403,7 @@ namespace hdt
 		{
 			if (this->numResults.load(std::memory_order_relaxed) >= SkinnedMeshAlgorithm::MaxCollisionCount)
 				return;
-			BT_PROFILE("dispatch_body");
+			//BT_PROFILE("dispatch_body");
 
 			if (!(listA.size() && listB.size()))
 				return;
@@ -582,6 +582,7 @@ namespace hdt
 
 			if (pairs.capacity() < 256)
 				pairs.reserve(256);
+
 			{
 				BT_PROFILE("BVH");
 				this->c0->checkCollisionL(this->c1, pairs);
@@ -650,12 +651,13 @@ namespace hdt
 
 			{
 				BT_PROFILE("dispatch");
-				if (pairs.size() >= 32)
-					// isolate: thread parked here waiting for inner work must not steal an outer
-					// processCollision task — that would alias thread_local MergeBuffer/listA/listB.
-					// Note: If this is ever changed from isolate, you'll need to review tons of thread_local usage!
-					tbb::this_task_arena::isolate([&] { tbb::parallel_for_each(pairs.begin(), pairs.end(), func); });
-				else
+				//if (pairs.size() >= 100000) // 32
+				// isolate: thread parked here waiting for inner work must not steal an outer
+				// processCollision task — that would alias thread_local MergeBuffer/listA/listB.
+				// processCollision task — that would alias thread_local MergeBuffer/listA/listB.
+				// Note: If this is ever changed from isolate, you'll need to review tons of thread_local usage!
+					//	tbb::this_task_arena::isolate([&] { tbb::parallel_for_each(pairs.begin(), pairs.end(), func); });
+				//else
 					for (auto& i : pairs) func(i);
 			}
 

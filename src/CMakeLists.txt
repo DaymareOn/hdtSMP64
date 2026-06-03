@@ -146,7 +146,7 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
 				"/wd4201" # Suppress: nameless struct/union (used throughout CommonLibSSE)
 				"/WX" # Warnings as errors
 				"/external:anglebrackets" # Treat angle-bracket includes as external
-				"/external:W0" # No warnings from external headers (vcpkg, system)
+				"/external:W0"   # No warnings from external headers (vcpkg, system)
 				"$<$<CONFIG:DEBUG>:/analyze;/analyze:external->" # Static analysis in Debug only; skip external headers
 				# /Gy,/Gw: function/data COMDATs so the linker's /OPT:REF and /OPT:ICF can actually strip
 				#          unused and fold identical code (also tightens hot-path locality).
