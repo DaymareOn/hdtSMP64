@@ -6,7 +6,7 @@
 #include "hdtSkyrimPhysicsWorld.h"
 
 // F16C isn't supported on super old processors. AVX2+ (AVX processors can have it, but not guaranteed)
-#if defined(__AVX2__) || defined(__AVX512F__)
+#if defined(__AVX__) || defined(__AVX2__) || defined(__AVX512F__)
 #	include <immintrin.h>
 #else
 // float32
@@ -774,7 +774,7 @@ namespace hdt
 
 				SkyrimSystem::BoneData* boneData = reinterpret_cast<SkyrimSystem::BoneData*>(&vertexBlock[j * vSize + boneOffset]);
 
-#if defined(__AVX2__) || defined(__AVX512F__)
+#if defined(__SSE2__) || defined(__AVX2__) || defined(__AVX512F__)
 				// batch convert all 4 bone weights FP16 to FP32 through F16C hardware instruction
 				__m128i halfWeights = _mm_loadl_epi64(reinterpret_cast<const __m128i*>(boneData->boneWeights));
 				_mm_storeu_ps(body->m_vertices[j + vertexStart].m_weight, _mm_cvtph_ps(halfWeights));
