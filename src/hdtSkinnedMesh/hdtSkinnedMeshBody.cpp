@@ -24,7 +24,7 @@ namespace hdt
 		return _mm_mul_ps(w, p.get128());
 	}
 
-#if defined(__AVX2__)
+#if defined(__FMA__) || defined(__AVX2__)
 	__forceinline __m128 calcVertexStateFMA(__m128 skinPos, const Bone& bone, __m128 w)
 	{
 		__m128 px = pshufd<0x00>(skinPos);
@@ -61,8 +61,7 @@ namespace hdt
 		const Bone* __restrict bones = bonesDst;
 
 		// We can use AVX2 here due to sequential memory reads..
-#if defined(__AVX2__)
-
+#if defined(__FMA__) || defined(__AVX2__)
 		constexpr int PF = 6;
 		int idx = 0;
 		for (; idx + 1 < size; idx += 2) {
