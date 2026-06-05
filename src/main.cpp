@@ -8,10 +8,6 @@
 #include "dhdtPapyrusFunctions.h"
 #include "hdtSkyrimPhysicsWorld.h"
 
-#include <charconv>
-#include <cstdint>
-#include <string_view>
-
 namespace
 {
 	std::uint64_t ParsePositiveDecimal(std::string_view a_value, std::uint64_t a_fallback)
@@ -224,11 +220,11 @@ void DumpNodeChildren(RE::NiAVObject* node)
 void SMPDebug_PrintDetailed(bool includeItems)
 {
 	static std::map<hdt::ActorManager::SkeletonState, const char*> stateStrings = {
-		{ hdt::ActorManager::SkeletonState::e_InactiveNotInScene, "Not in scene" },
-		{ hdt::ActorManager::SkeletonState::e_InactiveUnseenByPlayer, "Unseen by player" },
-		{ hdt::ActorManager::SkeletonState::e_InactiveTooFar, "Deactivated for performance" },
-		{ hdt::ActorManager::SkeletonState::e_ActiveIsPlayer, "Is player character" },
-		{ hdt::ActorManager::SkeletonState::e_ActiveNearPlayer, "Is near player" }
+		{ hdt::ActorManager::SkeletonState::kInactiveNotInScene, "Not in scene" },
+		{ hdt::ActorManager::SkeletonState::kInactiveUnseenByPlayer, "Unseen by player" },
+		{ hdt::ActorManager::SkeletonState::kInactiveTooFar, "Deactivated for performance" },
+		{ hdt::ActorManager::SkeletonState::kActiveIsPlayer, "Is player character" },
+		{ hdt::ActorManager::SkeletonState::kActiveNearPlayer, "Is near player" }
 	};
 
 	auto skeletons = hdt::ActorManager::instance()->getSkeletons();
@@ -251,7 +247,7 @@ void SMPDebug_PrintDetailed(bool includeItems)
 
 		RE::ConsoleLog::GetSingleton()->Print(
 			"[HDT-SMP] %s skeleton - owner %s (refr formid %08x, base formid %08x) - %s",
-			skeleton.state > hdt::ActorManager::SkeletonState::e_SkeletonActive ? "active" : "inactive",
+			skeleton.state > hdt::ActorManager::SkeletonState::kSkeletonActive ? "active" : "inactive",
 			ownerName ? ownerName->GetFullName() : "unk_name",
 			skelOwner ? skelOwner->formID : 0x00000000,
 			skelOwner && skelOwner->GetBaseObject() ? skelOwner->GetBaseObject()->formID : 0x00000000,
@@ -262,9 +258,9 @@ void SMPDebug_PrintDetailed(bool includeItems)
 				RE::ConsoleLog::GetSingleton()->Print(
 					"[HDT-SMP] -- tracked armor addon %s, %s",
 					armor.armorWorn->name.c_str(),
-					armor.state() != hdt::ActorManager::ItemState::e_NoPhysics ? armor.state() == hdt::ActorManager::ItemState::e_Active ? "has active physics system" : "has inactive physics system" : "has no physics system");
+					armor.state() != hdt::ActorManager::ItemState::kNoPhysics ? armor.state() == hdt::ActorManager::ItemState::kActive ? "has active physics system" : "has inactive physics system" : "has no physics system");
 
-				if (armor.state() != hdt::ActorManager::ItemState::e_NoPhysics) {
+				if (armor.state() != hdt::ActorManager::ItemState::kNoPhysics) {
 					for (auto mesh : armor.meshes()) {
 						RE::ConsoleLog::GetSingleton()->Print(
 							"[HDT-SMP] ---- has collision mesh %s",
@@ -278,9 +274,9 @@ void SMPDebug_PrintDetailed(bool includeItems)
 					RE::ConsoleLog::GetSingleton()->Print(
 						"[HDT-SMP] -- tracked headpart %s, %s",
 						headPart.headPart->name.c_str(),
-						headPart.state() != hdt::ActorManager::ItemState::e_NoPhysics ? headPart.state() == hdt::ActorManager::ItemState::e_Active ? "has active physics system" : "has inactive physics system" : "has no physics system");
+						headPart.state() != hdt::ActorManager::ItemState::kNoPhysics ? headPart.state() == hdt::ActorManager::ItemState::kActive ? "has active physics system" : "has inactive physics system" : "has no physics system");
 
-					if (headPart.state() != hdt::ActorManager::ItemState::e_NoPhysics) {
+					if (headPart.state() != hdt::ActorManager::ItemState::kNoPhysics) {
 						for (auto mesh : headPart.meshes()) {
 							RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] ---- has collision mesh %s", mesh->m_name.c_str());
 						}
@@ -401,13 +397,13 @@ bool SMPDebug_Execute(
 	size_t activeCollisionMeshes = 0;
 
 	for (auto skeleton : skeletons) {
-		if (skeleton.state > hdt::ActorManager::SkeletonState::e_SkeletonActive)
+		if (skeleton.state > hdt::ActorManager::SkeletonState::kSkeletonActive)
 			activeSkeletons++;
 
 		for (const auto armor : skeleton.getArmors()) {
 			armors++;
 
-			if (armor.state() == hdt::ActorManager::ItemState::e_Active) {
+			if (armor.state() == hdt::ActorManager::ItemState::kActive) {
 				activeArmors++;
 
 				activeCollisionMeshes += armor.meshes().size();
@@ -418,7 +414,7 @@ bool SMPDebug_Execute(
 			for (const auto headpart : skeleton.head.headParts) {
 				headParts++;
 
-				if (headpart.state() == hdt::ActorManager::ItemState::e_Active) {
+				if (headpart.state() == hdt::ActorManager::ItemState::kActive) {
 					activeHeadParts++;
 
 					activeCollisionMeshes += headpart.meshes().size();

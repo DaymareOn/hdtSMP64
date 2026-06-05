@@ -1,9 +1,7 @@
 #include "hdtDispatcher.h"
 #include "hdtSkinnedMeshAlgorithm.h"
 #include "hdtSkinnedMeshBody.h"
-
 #include <LinearMath/btPoolAllocator.h>
-#include <algorithm>
 
 namespace hdt
 {

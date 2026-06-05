@@ -2,7 +2,6 @@
 
 #include "hdtBulletHelper.h"
 #include "hdtConstraintGroup.h"
-#include <tbb/tbb.h>
 
 namespace hdt
 {

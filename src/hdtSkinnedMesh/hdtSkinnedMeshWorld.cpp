@@ -4,11 +4,7 @@
 #include "hdtSkinnedMeshAlgorithm.h"
 #include "hdtSkyrimPhysicsWorld.h"
 #include "hdtSkyrimSystem.h"
-#include <algorithm>
-#include <cmath>
-#include <thread>
-#include <unordered_map>
-#include <unordered_set>
+
 
 namespace hdt
 {

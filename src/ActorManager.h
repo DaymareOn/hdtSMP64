@@ -21,22 +21,23 @@ namespace hdt
 	public:
 		enum class ItemState
 		{
-			e_NoPhysics,
-			e_Inactive,
-			e_Active
+			kNoPhysics,
+			kInactive,
+			kActive
 		};
 
 		// Overall skeleton state, purely for console debug info
 		enum class SkeletonState
 		{
 			// Note order: inactive states must come before e_SkeletonActive, and active states after
-			e_InactiveNotInScene,
-			e_InactiveUnseenByPlayer,
-			e_InactiveTooFar,
-			e_SkeletonActive,
-			e_ActiveNearPlayer,
-			e_ActiveIsPlayer
+			kInactiveNotInScene,
+			kInactiveUnseenByPlayer,
+			kInactiveTooFar,
+			kSkeletonActive,
+			kActiveNearPlayer,
+			kActiveIsPlayer
 		};
+		
 		int activeSkeletons = 0;
 
 	private:

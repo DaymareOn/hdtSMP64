@@ -1,6 +1,5 @@
 #include "hdtSkinnedMeshAlgorithm.h"
 #include "hdtCollider.h"
-#include <tbb/task_arena.h>
 
 namespace hdt
 {

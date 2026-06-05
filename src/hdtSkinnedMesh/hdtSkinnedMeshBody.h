@@ -99,9 +99,9 @@ namespace hdt
 		bool canCollideWith(const SkinnedMeshBone* bone) const
 		{
 			if (!m_canCollideWithBones.empty()) {
-				return m_canCollideWithBones.contains(const_cast<SkinnedMeshBone*>(bone));
+				return std::ranges::contains(m_canCollideWithBones, const_cast<SkinnedMeshBone*>(bone));
 			}
-			return !m_noCollideWithBones.contains(const_cast<SkinnedMeshBone*>(bone));
+			return std::ranges::contains(m_noCollideWithBones, const_cast<SkinnedMeshBone*>(bone)) == falase;
 		}
 
 		virtual bool canCollideWith(const SkinnedMeshBody* body) const;

@@ -8,27 +8,28 @@ namespace hdt
 {
 	class SkyrimSystem;
 
-	class SkyrimBody : public SkinnedMeshBody
+	class SkyrimBody : 
+		public SkinnedMeshBody
 	{
 	public:
-		SkyrimBody();
-		~SkyrimBody();
+		SkyrimBody() = default;
+		~SkyrimBody() = default;
 
 		enum class SharedType
 		{
-			SHARED_PUBLIC,
-			SHARED_INTERNAL,
-			SHARED_EXTERNAL,
-			SHARED_PRIVATE,
+			kPublic,
+			kInternal,
+			kExternal,
+			kPrivate,
 		};
-
-		SkyrimSystem* m_mesh;
-		SharedType m_shared;
-		bool m_disabled = false;
-		int m_disablePriority = 0;
-		RE::BSFixedString m_disableTag;
 
 		bool canCollideWith(const SkinnedMeshBody* body) const override;
 		void internalUpdate() override;
+
+		SkyrimSystem*     m_mesh = nullptr;
+		SharedType        m_shared = SharedType::kPublic;
+		bool              m_disabled = false;
+		int               m_disablePriority = 0;
+		RE::BSFixedString m_disableTag;
 	};
 }

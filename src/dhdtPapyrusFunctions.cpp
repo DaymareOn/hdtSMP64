@@ -275,7 +275,7 @@ bool hdt::papyrus::impl::ReloadPhysicsFileImpl(uint32_t on_actor_formID, uint32_
 						return false;
 					}
 
-					bool wasActive = (armor.state() == hdt::ActorManager::ItemState::e_Active);
+					bool wasActive = (armor.state() == hdt::ActorManager::ItemState::kActive);
 					RE::BSTSmartPointer<SkyrimSystem> oldSystem = armor.m_physics;
 
 					// Gotta detach it from Bullet to safely transferCurrentPosesBetweenSystems
@@ -382,7 +382,7 @@ bool hdt::papyrus::impl::SwapPhysicsFileImpl(uint32_t on_actor_formID, std::stri
 						return false;
 					}
 
-					bool wasActive = (armor.state() == hdt::ActorManager::ItemState::e_Active);
+					bool wasActive = (armor.state() == hdt::ActorManager::ItemState::kActive);
 					RE::BSTSmartPointer<SkyrimSystem> oldSystem = armor.m_physics;
 
 					// Gotta detach it from Bullet to safely transferCurrentPosesBetweenSystems

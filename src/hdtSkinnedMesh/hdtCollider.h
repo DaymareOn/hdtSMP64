@@ -1,7 +1,6 @@
 #pragma once
 
 #include "hdtAABB.h"
-#include <functional>
 
 namespace hdt
 {

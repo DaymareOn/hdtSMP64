@@ -1,8 +1,5 @@
 #pragma once
 
-#include <array>
-#include <random>
-
 namespace hdt
 {
 	class WeatherManager
@@ -20,7 +17,8 @@ namespace hdt
 		WeatherManager() = default;
 		~WeatherManager() = default;
 
-		static constexpr std::array NOT_EXTERIOR_WORLDS = {
+		static constexpr std::array<uint32_t, 20> NOT_EXTERIOR_WORLDS = 
+		{
 			0x69857u, 0x1EE62u, 0x20DCBu, 0x1FAE2u, 0x34240u,
 			0x50015u, 0x2C965u, 0x29AB7u, 0x4F838u, 0x3A9D6u,
 			0x243DEu, 0xC97EBu, 0xC350Du, 0x1CDD3u, 0x1CDD9u,

@@ -2,7 +2,6 @@
 
 #include "BulletCollision/CollisionDispatch/btCollisionDispatcherMt.h"
 #include "hdtBulletHelper.h"
-#include <vector>
 
 namespace hdt
 {

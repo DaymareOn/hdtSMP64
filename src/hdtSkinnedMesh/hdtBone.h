@@ -4,8 +4,7 @@
 
 namespace hdt
 {
-	_CRT_ALIGN(16)
-	struct Bone
+	struct alignas(16) Bone
 	{
 		Bone() { _mm_store_ps(m_reserved, _mm_setzero_ps()); }
 

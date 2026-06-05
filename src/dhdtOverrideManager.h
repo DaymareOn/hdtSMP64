@@ -9,7 +9,6 @@ namespace hdt
 {
 	namespace Override
 	{
-
 		//The formID of the armoraddon in ArmorAttachEvent cannot be acquired, which makes it impossible to check override by the formID upon attaching armoraddon.
 		class OverrideManager : public Serializer<void>
 		{

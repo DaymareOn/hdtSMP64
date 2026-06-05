@@ -1,5 +1,5 @@
 #include "dhdtOverrideManager.h"
-#include <dhdtPapyrusFunctions.h>
+#include "dhdtPapyrusFunctions.h"
 
 using namespace hdt::Override;
 

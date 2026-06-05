@@ -3,12 +3,6 @@
 #include <btBulletCollisionCommon.h>
 #include <btBulletDynamicsCommon.h>
 
-#include <algorithm>
-#include <bit>
-#include <cassert>
-#include <cfloat>
-#include <intrin.h>
-
 #undef min
 #undef max
 
@@ -38,6 +32,8 @@ namespace hdt
 	inline __m128 setAll2(__m128 m) { return pshufd<0xAA>(m); }
 	inline __m128 setAll3(__m128 m) { return pshufd<0xFF>(m); }
 
+	// this is a MSVC extension, guard it to avoid issues with clang amonst other compillers
+#if defined(_MSC_VER) && !defined(__clang__)
 	inline __m128& operator+=(__m128& l, __m128 r)
 	{
 		l = _mm_add_ps(l, r);
@@ -73,6 +69,7 @@ namespace hdt
 		l = _mm_mul_ps(l, setAll(r));
 		return l;
 	}
+#endif
 
 	inline __m128 cross(__m128 a, __m128 b)
 	{
@@ -136,7 +133,25 @@ namespace hdt
 
 	inline U32 aligned2Pow(U32 lim)
 	{
-		return std::bit_floor(lim);
+    	if (x == 0)
+        {
+			return 0;
+		}
+
+#if defined(_MSC_VER)
+	    unsigned long index;
+	    _BitScanReverse(&index, x);
+	    return 1u << index;
+#elif defined(__GNUC__) || defined(__clang__)
+	    return 1u << (31 - __builtin_clz(x));
+#else
+	    x |= x >> 1;
+	    x |= x >> 2;
+	    x |= x >> 4;
+	    x |= x >> 8;
+	    x |= x >> 16;
+	    return x - (x >> 1);
+	#endif
 	}
 
 	inline btScalar clampScalar(btScalar value, btScalar low, btScalar high)

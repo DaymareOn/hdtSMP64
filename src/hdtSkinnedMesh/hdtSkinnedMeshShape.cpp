@@ -1,6 +1,5 @@
 #include "hdtSkinnedMeshShape.h"
 
-#include <tbb/tbb.h>
 
 namespace hdt
 {
@@ -96,7 +95,7 @@ namespace hdt
 			flags[i.vertex] = true;
 	}
 
-	void PerVertexShape::remapVertices(UINT* map)
+	void PerVertexShape::remapVertices(uint32_t* map)
 	{
 		for (auto& i : m_colliders)
 			i.vertex = map[i.vertex];
@@ -180,7 +179,7 @@ namespace hdt
 		m_verticesCollision->markUsedVertices(flags);
 	}
 
-	void PerTriangleShape::remapVertices(UINT* map)
+	void PerTriangleShape::remapVertices(uint32_t* map)
 	{
 		for (auto& i : m_colliders) {
 			i.vertices[0] = map[i.vertices[0]];

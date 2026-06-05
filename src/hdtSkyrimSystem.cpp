@@ -835,16 +835,16 @@ namespace hdt
 				} else if (nodeName == "shared") {
 					auto str = m_reader->readText();
 					if (str == "public") {
-						body->m_shared = SkyrimBody::SharedType::SHARED_PUBLIC;
+						body->m_shared = SkyrimBody::SharedType::kPublic;
 					} else if (str == "internal") {
-						body->m_shared = SkyrimBody::SharedType::SHARED_INTERNAL;
+						body->m_shared = SkyrimBody::SharedType::kInternal;
 					} else if (str == "external") {
-						body->m_shared = SkyrimBody::SharedType::SHARED_EXTERNAL;
+						body->m_shared = SkyrimBody::SharedType::kExternal;
 					} else if (str == "private") {
-						body->m_shared = SkyrimBody::SharedType::SHARED_PRIVATE;
+						body->m_shared = SkyrimBody::SharedType::kPrivate;
 					} else {
 						logger::warn("unknown shared value, use default value \"public\"");
-						body->m_shared = SkyrimBody::SharedType::SHARED_PUBLIC;
+						body->m_shared = SkyrimBody::SharedType::kPublic;
 					}
 				} else if (nodeName == "tag") {
 					body->m_tags.push_back(m_reader->readText());
@@ -932,16 +932,16 @@ namespace hdt
 				} else if (nodeName == "shared") {
 					auto str = m_reader->readText();
 					if (str == "public") {
-						body->m_shared = SkyrimBody::SharedType::SHARED_PUBLIC;
+						body->m_shared = SkyrimBody::SharedType::kPublic;
 					} else if (str == "internal") {
-						body->m_shared = SkyrimBody::SharedType::SHARED_INTERNAL;
+						body->m_shared = SkyrimBody::SharedType::kInternal;
 					} else if (str == "external") {
-						body->m_shared = SkyrimBody::SharedType::SHARED_EXTERNAL;
+						body->m_shared = SkyrimBody::SharedType::kExternal;
 					} else if (str == "private") {
-						body->m_shared = SkyrimBody::SharedType::SHARED_PRIVATE;
+						body->m_shared = SkyrimBody::SharedType::kPrivate;
 					} else {
 						logger::warn("unknown shared value, use default value \"public\"");
-						body->m_shared = SkyrimBody::SharedType::SHARED_PUBLIC;
+						body->m_shared = SkyrimBody::SharedType::kPublic;
 					}
 				} else if (nodeName == "prenetration" || nodeName == "penetration") {
 					shape->m_shapeProp.penetration = m_reader->readFloat();

@@ -1,9 +1,7 @@
 #include "hdtCollider.h"
-#include <algorithm>
 
 namespace hdt
 {
-
 	void ColliderTree::insertCollider(const U32* keys, size_t keyCount, const Collider& c)
 	{
 		ColliderTree* p = this;

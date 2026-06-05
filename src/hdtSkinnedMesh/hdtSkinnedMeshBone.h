@@ -2,13 +2,12 @@
 
 #include "hdtAABB.h"
 #include "hdtBulletHelper.h"
-#include <memory>
 
 namespace hdt
 {
 	class SkinnedMeshBody;
-	_CRT_ALIGN(16)
-	struct SkinnedMeshBone :
+	
+	struct alignas(16) SkinnedMeshBone :
 		public RE::BSIntrusiveRefCounted
 	{
 		BT_DECLARE_ALIGNED_ALLOCATOR();

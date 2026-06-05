@@ -8,7 +8,7 @@ namespace hdt
 	{
 		Vertex()
 		{
-			ZeroMemory(this, sizeof(*this));
+			memset(this, 0, sizeof(*this));
 		}
 
 		Vertex(float x, float y, float z) :

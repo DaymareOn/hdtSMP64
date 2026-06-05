@@ -1,7 +1,6 @@
 #include "hdtSkinnedMeshBody.h"
 #include "hdtSkinnedMeshShape.h"
 
-#include <tbb/tbb.h>
 
 namespace hdt
 {
@@ -214,11 +213,11 @@ namespace hdt
 		m_shape->finishBuild();
 
 		bool* flags = new bool[m_vertices.size()];
-		ZeroMemory(flags, m_vertices.size());
+		memset(flags, 0, m_vertices.size());
 		m_shape->markUsedVertices(flags);
 
-		UINT numUsed = 0;
-		std::vector<UINT> map(m_vertices.size());
+		uint32_t numUsed = 0;
+		std::vector<uint32_t> map(m_vertices.size());
 		for (int i = 0; i < m_vertices.size(); ++i) {
 			if (flags[i]) {
 				m_vertices[numUsed] = m_vertices[i];

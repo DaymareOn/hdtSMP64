@@ -27,7 +27,7 @@ namespace hdt
 		virtual void finishBuild() = 0;
 		virtual void internalUpdate() = 0;
 		virtual void markUsedVertices(bool* flags) = 0;
-		virtual void remapVertices(UINT* map) = 0;
+		virtual void remapVertices(uint32_t* map) = 0;
 
 		virtual float getColliderBoneWeight(const Collider* c, int boneIdx) = 0;
 		virtual int getColliderBoneIndex(const Collider* c, int boneIdx) = 0;
@@ -58,7 +58,7 @@ namespace hdt
 
 		void finishBuild() override;
 		void markUsedVertices(bool* flags) override;
-		void remapVertices(UINT* map) override;
+		void remapVertices(uint32_t* map) override;
 		void autoGen();
 
 		struct ShapeProp
@@ -92,7 +92,7 @@ namespace hdt
 
 		void finishBuild() override;
 		void markUsedVertices(bool* flags) override;
-		void remapVertices(UINT* map) override;
+		void remapVertices(uint32_t* map) override;
 
 		void addTriangle(int p0, int p1, int p2);
 

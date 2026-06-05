@@ -1,10 +1,6 @@
 #include "WeatherManager.h"
 #include "hdtSkyrimPhysicsWorld.h"
 
-#include <algorithm>
-#include <cmath>
-#include <numbers>
-
 namespace hdt
 {
 	WeatherManager* WeatherManager::get()

@@ -3,34 +3,25 @@
 
 namespace hdt
 {
-	SkyrimBody::SkyrimBody()
-	{
-		m_mesh = nullptr;
-		m_shared = SharedType::SHARED_PUBLIC;
-	}
-
-	SkyrimBody::~SkyrimBody()
-	{
-	}
-
 	bool SkyrimBody::canCollideWith(const SkinnedMeshBody* rhs) const
 	{
 		auto body = (SkyrimBody*)rhs;
 		if (m_disabled || body->m_disabled)
 			return false;
 
-		switch (m_shared) {
-		case SharedType::SHARED_PUBLIC:
+		switch (m_shared) 
+		{
+		case SharedType::kPublic:
 			break;
-		case SharedType::SHARED_INTERNAL:
+		case SharedType::kInternal:
 			if (m_mesh->m_skeleton != body->m_mesh->m_skeleton)
 				return false;
 			break;
-		case SharedType::SHARED_EXTERNAL:
+		case SharedType::kExternal:
 			if (m_mesh->m_skeleton == body->m_mesh->m_skeleton)
 				return false;
 			break;
-		case SharedType::SHARED_PRIVATE:
+		case SharedType::kPrivate:
 			if (m_mesh != body->m_mesh)
 				return false;
 			break;
