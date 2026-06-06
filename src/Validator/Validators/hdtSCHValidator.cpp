@@ -1,0 +1,128 @@
+#include "hdtSCHValidator.h"
+
+#include "NetImmerseUtils.h"
+#include "../Schema/hdtSCHSchemaModel.h"
+#include "../Parser/hdtSCHSchemaParser.h"
+#include "../Config/hdtValidatorPaths.h"
+#include "../Utils/hdtStringUtils.h"
+#include "../Utils/hdtXMLUtils.h"
+
+#include <pugixml.hpp>
+
+#include <mutex>
+
+namespace hdt
+{
+	namespace
+	{
+		// Supported placeholders: {name} (element local name), {value} (trimmed text content).
+		std::string resolveMessageTemplate(std::string msgTemplate, const pugi::xml_node& node)
+		{
+			ReplaceAllInPlace(msgTemplate, "{name}", std::string(XmlLocalName(node.name())));
+			ReplaceAllInPlace(msgTemplate, "{value}", TrimAsciiWhitespace(node.text().as_string()));
+			return msgTemplate;
+		}
+	}  // namespace
+
+	// ── Schema loading ────────────────────────────────────────────────────────
+
+	static CompiledSchema g_compiledSchema;
+	static std::once_flag g_schemaOnce;
+
+	// Lazy-loads and caches the compiled Schematron schema.
+	// Thread-safe via std::call_once; result is stable after first call.
+	static const CompiledSchema& getOrLoadCompiledSchema()
+	{
+		std::call_once(g_schemaOnce, []() {
+			// Schema files are always on disk; direct filesystem read is correct here.
+			std::string bytes = readAllFile2(kPhysicsSCHPath);
+
+			if (bytes.empty()) {
+				logger::warn(
+					"[SCHValidator] Could not load Schematron schema from '{}'; "
+					"Schematron validation will be skipped.",
+					kPhysicsSCHPath);
+				return;
+			}
+
+			pugi::xml_document schDoc;
+			auto parseResult = schDoc.load_buffer(bytes.data(), bytes.size());
+			if (!parseResult) {
+				logger::warn("[SCHValidator] Failed to parse Schematron schema '{}': {}",
+					kPhysicsSCHPath, parseResult.description());
+				return;
+			}
+
+			if (!ParseCompiledSchemaFromSCH(schDoc, g_compiledSchema)) {
+				logger::warn("[SCHValidator] Failed to compile Schematron schema '{}'.",
+					kPhysicsSCHPath);
+				return;
+			}
+
+			logger::info("[SCHValidator] Loaded Schematron schema: {} rule(s).",
+				g_compiledSchema.rules.size());
+		});
+
+		return g_compiledSchema;
+	}
+
+	// ── Public API ────────────────────────────────────────────────────────────
+
+	// Sets result.hasErrors / result.hasWarnings according to each matched rule role.
+	SCHValidationResult ValidatePhysicsXMLWithSchematron(const std::string& xmlPath)
+	{
+		SCHValidationResult result;
+
+		const CompiledSchema& schema = getOrLoadCompiledSchema();
+		if (!schema.loaded)
+			return result;
+
+		// Physics XML configs are always loose files on disk, never BSA-packed.
+		std::string bytes = readAllFile2(xmlPath.c_str());
+		if (bytes.empty())
+			return result;  // File-not-found is reported by the XSD validator
+
+		pugi::xml_document doc;
+		auto parseResult = doc.load_buffer(bytes.data(), bytes.size());
+		if (!parseResult) {
+			SCHViolation v;
+			v.xmlPath   = xmlPath;
+			v.location  = "/";
+			v.message   = std::string("XML parse error: ") + parseResult.description();
+			v.role      = SCHRole::Error;
+			result.violations.push_back(std::move(v));
+			result.hasErrors = true;
+			return result;
+		}
+
+		for (const auto& rule : schema.rules) {
+			pugi::xpath_node_set matches;
+			try {
+				matches = doc.select_nodes(rule.xpathExpr.c_str());
+			} catch (const pugi::xpath_exception& e) {
+				logger::warn("[SCHValidator] XPath error evaluating '{}': {}",
+					rule.xpathExpr, e.what());
+				continue;
+			}
+
+			for (const auto& xnode : matches) {
+				SCHViolation v;
+				v.xmlPath   = xmlPath;
+				v.location  = BuildNodeLocationPath(xnode.node());
+				v.line      = OffsetToLineNumber(bytes, xnode.node().offset_debug());
+				v.message   = resolveMessageTemplate(rule.message, xnode.node());
+				v.role      = rule.role;
+
+				if (rule.role == SCHRole::Error)
+					result.hasErrors = true;
+				else
+					result.hasWarnings = true;
+
+				result.violations.push_back(std::move(v));
+			}
+		}
+
+		return result;
+	}
+
+}  // namespace hdt
