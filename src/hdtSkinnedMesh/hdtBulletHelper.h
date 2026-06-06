@@ -133,24 +133,21 @@ namespace hdt
 
 	inline U32 aligned2Pow(U32 lim)
 	{
-    	if (x == 0)
-        {
+		if (lim == 0)
 			return 0;
-		}
-
 #if defined(_MSC_VER)
 	    unsigned long index;
-	    _BitScanReverse(&index, x);
+	    _BitScanReverse(&index, lim);
 	    return 1u << index;
 #elif defined(__GNUC__) || defined(__clang__)
-	    return 1u << (31 - __builtin_clz(x));
+	    return 1u << (31 - __builtin_clz(lim));
 #else
-	    x |= x >> 1;
-	    x |= x >> 2;
-	    x |= x >> 4;
-	    x |= x >> 8;
-	    x |= x >> 16;
-	    return x - (x >> 1);
+	    lim |= lim >> 1;
+	    lim |= lim >> 2;
+	    lim |= lim >> 4;
+	    lim |= lim >> 8;
+	    lim |= lim >> 16;
+	    return lim - (lim >> 1);
 	#endif
 	}
 
