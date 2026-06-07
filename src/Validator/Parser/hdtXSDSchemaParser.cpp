@@ -153,7 +153,6 @@ namespace hdt
 		std::unordered_map<std::string, std::unordered_set<std::string>>
 			parseAllElementEnumerations(pugi::xml_node schema)
 		{
-
 			std::unordered_map<std::string, std::unordered_set<std::string>> namedEnums;
 			for (auto st : schema.children("xsd:simpleType")) {
 				const char* name = st.attribute("name").as_string("");
@@ -357,7 +356,6 @@ namespace hdt
 			std::unordered_map<std::string, TypeConstraint>& elementTextConstraints,
 			std::unordered_map<std::string, std::unordered_map<std::string, TypeConstraint>>& elementAttrConstraints)
 		{
-
 			std::unordered_map<std::string, TypeConstraint> namedSimpleTypes;
 			for (auto st : schema.children("xsd:simpleType")) {
 				const char* typeName = st.attribute("name").as_string("");
