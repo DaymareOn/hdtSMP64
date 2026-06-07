@@ -1,11 +1,11 @@
 #include "hdtXSDValidator.h"
 
+#include "../Config/hdtValidatorPaths.h"
+#include "../Parser/hdtXSDSchemaParser.h"
+#include "../Schema/hdtXSDSchemaModel.h"
+#include "../Utils/hdtStringUtils.h"
 #include "NetImmerseUtils.h"
 #include "XmlReader.h"
-#include "../Config/hdtValidatorPaths.h"
-#include "../Schema/hdtXSDSchemaModel.h"
-#include "../Parser/hdtXSDSchemaParser.h"
-#include "../Utils/hdtStringUtils.h"
 
 #include <pugixml.hpp>
 

@@ -19,9 +19,9 @@ namespace hdt
 		constexpr uint32_t kVersion_20_0_0_4 = 0x14000004u;
 		constexpr uint32_t kVersion_20_0_0_5 = 0x14000005u;
 		constexpr uint32_t kVersion_20_2_0_7 = 0x14020007u;
-		constexpr uint32_t kMaxStringLength   = 4096u;
-		constexpr uint16_t kMaxBlockTypes     = 16384u;
-		constexpr size_t   kHeaderScanLimit   = 256u;
+		constexpr uint32_t kMaxStringLength = 4096u;
+		constexpr uint16_t kMaxBlockTypes = 16384u;
+		constexpr size_t kHeaderScanLimit = 256u;
 
 		// NifSkope nif.xml: #BSSTREAMHEADER# condition (expanded):
 		//   (VER == 10.0.1.2) OR
@@ -32,9 +32,7 @@ namespace hdt
 		{
 			if (version == kVersion_10_0_1_2)
 				return true;
-			const bool verMatch = (version == kVersion_20_2_0_7)
-			                   || (version == kVersion_20_0_0_5)
-			                   || (version >= kVersion_10_1_0_0 && version <= kVersion_20_0_0_4 && userVersion <= 11u);
+			const bool verMatch = (version == kVersion_20_2_0_7) || (version == kVersion_20_0_0_5) || (version >= kVersion_10_1_0_0 && version <= kVersion_20_0_0_4 && userVersion <= 11u);
 			return verMatch && userVersion >= 3u;
 		}
 
@@ -76,16 +74,16 @@ namespace hdt
 		void parseBSStreamHeader(NifReader& r, ParsedNif& parsed)
 		{
 			parsed.bsVersion = r.readU32();
-			parsed.author    = r.readShortSizedStr();
+			parsed.author = r.readShortSizedStr();
 			if (parsed.bsVersion > 130u)
-				parsed.bsUnknownInt  = r.readU32();
+				parsed.bsUnknownInt = r.readU32();
 			if (parsed.bsVersion < 131u)
 				parsed.processScript = r.readShortSizedStr();
 			parsed.exportScript = r.readShortSizedStr();
 			if (parsed.bsVersion >= 103u && parsed.bsVersion < 170u)
 				parsed.maxFilepath = r.readShortSizedStr();
 			if (parsed.bsVersion >= 170u) {
-				const uint8_t len    = r.readU8();
+				const uint8_t len = r.readU8();
 				parsed.bsUnknownData = r.readBytes(len);
 			}
 		}
@@ -95,11 +93,17 @@ namespace hdt
 		void skipBSStreamHeader(NifReader& r, uint32_t bsVer)
 		{
 			r.skipShortSizedStr();  // author
-			if (bsVer > 130u) r.readU32();
-			if (bsVer < 131u) r.skipShortSizedStr();
+			if (bsVer > 130u)
+				r.readU32();
+			if (bsVer < 131u)
+				r.skipShortSizedStr();
 			r.skipShortSizedStr();  // exportScript
-			if (bsVer >= 103u && bsVer < 170u) r.skipShortSizedStr();
-			if (bsVer >= 170u) { uint8_t len = r.readU8(); r.skip(len); }
+			if (bsVer >= 103u && bsVer < 170u)
+				r.skipShortSizedStr();
+			if (bsVer >= 170u) {
+				uint8_t len = r.readU8();
+				r.skip(len);
+			}
 		}
 
 	}  // namespace
@@ -275,7 +279,8 @@ namespace hdt
 	std::optional<ParsedNif> parseNif(const std::vector<uint8_t>& data, std::string* outError)
 	{
 		auto fail = [&](const std::string& msg) -> std::optional<ParsedNif> {
-			if (outError) *outError = msg;
+			if (outError)
+				*outError = msg;
 			return std::nullopt;
 		};
 
@@ -285,18 +290,21 @@ namespace hdt
 		{
 			const size_t limit = std::min(data.size(), kHeaderScanLimit);
 			for (size_t i = 0; i < limit; ++i) {
-				if (data[i] == '\n') { headerEnd = i + 1; break; }
+				if (data[i] == '\n') {
+					headerEnd = i + 1;
+					break;
+				}
 			}
 			if (headerEnd == 0)
 				return fail("missing NIF header newline");
 		}
 		{
 			size_t len = headerEnd;
-			while (len > 0 && (data[len-1] == '\0' || data[len-1] == '\n' || data[len-1] == '\r'))
+			while (len > 0 && (data[len - 1] == '\0' || data[len - 1] == '\n' || data[len - 1] == '\r'))
 				--len;
 			const std::string hdr(reinterpret_cast<const char*>(data.data()), len);
-			if (hdr.find(nif::kNifHeaderMagic)       == std::string::npos &&
-			    hdr.find(nif::kNifHeaderMagicLegacy) == std::string::npos)
+			if (hdr.find(nif::kNifHeaderMagic) == std::string::npos &&
+				hdr.find(nif::kNifHeaderMagicLegacy) == std::string::npos)
 				return fail("not a NIF file: '" + hdr + "'");
 		}
 
@@ -310,8 +318,10 @@ namespace hdt
 			// (always little-endian; endianness byte comes after).
 			parsed.version = r.readU32();
 			if (parsed.version != kVersion_20_2_0_7)
-				return fail("unsupported NIF version: 0x" + [](uint32_t v){
-					char b[9] = {}; std::snprintf(b, sizeof(b), "%08X", v); return std::string(b);
+				return fail("unsupported NIF version: 0x" + [](uint32_t v) {
+					char b[9] = {};
+					std::snprintf(b, sizeof(b), "%08X", v);
+					return std::string(b);
 				}(parsed.version));
 
 			// ── Endian Type ───────────────────────────────────────────────────
@@ -421,16 +431,19 @@ namespace hdt
 				if (numRoots <= nif::kMaxBlocks) {
 					parsed.footerRoots.reserve(numRoots);
 					for (uint32_t i = 0; i < numRoots; ++i) {
-						if (!r.canRead(4)) break;
+						if (!r.canRead(4))
+							break;
 						parsed.footerRoots.push_back(static_cast<int32_t>(r.readU32()));
 					}
 				}
 			}
 
 			return parsed;
+		} catch (const std::exception& e) {
+			return fail(std::string("parse exception: ") + e.what());
+		} catch (...) {
+			return fail("parse exception: unknown");
 		}
-		catch (const std::exception& e) { return fail(std::string("parse exception: ") + e.what()); }
-		catch (...)                      { return fail("parse exception: unknown"); }
 	}
 
 	// ── Serialize ─────────────────────────────────────────────────────────────
@@ -440,10 +453,9 @@ namespace hdt
 		// Pre-compute the exact output size to avoid any reallocation.
 		// Without this, an 8 MB NIF triggers ~13 doubling reallocations under
 		// 32-thread contention — each a malloc+memcpy+free on the global heap.
-		size_t expectedSize = parsed.headerPrefix.size()
-		    + 4                                           // version
-		    + (parsed.hasExplicitEndiannessByte ? 1 : 0) // endianness
-		    + 4 + 4;                                      // userVersion + numBlocks
+		size_t expectedSize = parsed.headerPrefix.size() + 4                // version
+		                      + (parsed.hasExplicitEndiannessByte ? 1 : 0)  // endianness
+		                      + 4 + 4;                                      // userVersion + numBlocks
 		if (hasBSStreamHeader(parsed.version, parsed.userVersion)) {
 			// Mirrors parseBSStreamHeader field-by-field.
 			expectedSize += 4 + 1 + parsed.author.size();  // bsVersion + author
@@ -458,13 +470,13 @@ namespace hdt
 				expectedSize += 1 + parsed.bsUnknownData.size();
 		}
 		expectedSize += 2;  // numBlockTypes
-		for (const auto& t : parsed.blockTypes)    expectedSize += 4 + t.size();
+		for (const auto& t : parsed.blockTypes) expectedSize += 4 + t.size();
 		expectedSize += 2 * parsed.blockTypeIndex.size();  // block type index
 		expectedSize += 4 * parsed.blocks.size();          // block sizes
 		expectedSize += 4 + 4;                             // numStrings + maxStringLen
-		for (const auto& s : parsed.strings)       expectedSize += 4 + s.size();
+		for (const auto& s : parsed.strings) expectedSize += 4 + s.size();
 		expectedSize += 4 + 4 * parsed.groups.size();
-		for (const auto& b : parsed.blocks)        expectedSize += b.size();
+		for (const auto& b : parsed.blocks) expectedSize += b.size();
 		expectedSize += 4 + 4 * parsed.footerRoots.size();
 
 		std::vector<uint8_t> out;
@@ -472,11 +484,13 @@ namespace hdt
 		const bool writeBigEndianPayload = parsed.hasExplicitEndiannessByte && parsed.endianness == 0;
 
 		auto appendU16Endian = [&](uint16_t v) {
-			if (writeBigEndianPayload) v = byteSwap16(v);
+			if (writeBigEndianPayload)
+				v = byteSwap16(v);
 			appendU16(out, v);
 		};
 		auto appendU32Endian = [&](uint32_t v) {
-			if (writeBigEndianPayload) v = byteSwap32(v);
+			if (writeBigEndianPayload)
+				v = byteSwap32(v);
 			appendU32(out, v);
 		};
 		auto appendSizedStrEndian = [&](const std::string& s) {
@@ -583,9 +597,14 @@ namespace hdt
 			{
 				bool found = false;
 				for (size_t i = 0; i < std::min(bytes.size(), kHeaderScanLimit); ++i) {
-					if (bytes[i] == '\n') { r.skip(i + 1); found = true; break; }
+					if (bytes[i] == '\n') {
+						r.skip(i + 1);
+						found = true;
+						break;
+					}
 				}
-				if (!found) return "re-parse: missing header newline";
+				if (!found)
+					return "re-parse: missing header newline";
 			}
 
 			uint32_t version = r.readU32();

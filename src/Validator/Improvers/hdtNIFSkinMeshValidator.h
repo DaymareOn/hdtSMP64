@@ -10,9 +10,9 @@ namespace hdt
 
 	struct NifSkinMeshIssue
 	{
-		int         triShapeBlockIndex = -1;
+		int triShapeBlockIndex = -1;
 		std::string shapeType;
-		std::string reasonCode;   // mirrors decimateCandidateFailClosed reason strings
+		std::string reasonCode;  // mirrors decimateCandidateFailClosed reason strings
 	};
 
 	/// Runs steps 4–11 from decimateCandidateFailClosed on every skinned mesh candidate
@@ -27,8 +27,8 @@ namespace hdt
 	/// supported SSE NiSkinPartition or when the arrays already match.
 	struct PartitionMismatchInfo
 	{
-		size_t   trianglesOffset;      // byte offset of the triangles array in the block
-		size_t   trianglesCopyOffset;  // byte offset of the trianglesCopy array in the block
+		size_t trianglesOffset;      // byte offset of the triangles array in the block
+		size_t trianglesCopyOffset;  // byte offset of the trianglesCopy array in the block
 		uint16_t numTriangles;
 	};
 	std::optional<PartitionMismatchInfo> checkPartitionTriangleMismatch(

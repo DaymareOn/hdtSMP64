@@ -1,11 +1,11 @@
 #include "hdtSCHValidator.h"
 
-#include "NetImmerseUtils.h"
-#include "../Schema/hdtSCHSchemaModel.h"
-#include "../Parser/hdtSCHSchemaParser.h"
 #include "../Config/hdtValidatorPaths.h"
+#include "../Parser/hdtSCHSchemaParser.h"
+#include "../Schema/hdtSCHSchemaModel.h"
 #include "../Utils/hdtStringUtils.h"
 #include "../Utils/hdtXMLUtils.h"
+#include "NetImmerseUtils.h"
 
 #include <pugixml.hpp>
 
@@ -86,10 +86,10 @@ namespace hdt
 		auto parseResult = doc.load_buffer(bytes.data(), bytes.size());
 		if (!parseResult) {
 			SCHViolation v;
-			v.xmlPath   = xmlPath;
-			v.location  = "/";
-			v.message   = std::string("XML parse error: ") + parseResult.description();
-			v.role      = SCHRole::Error;
+			v.xmlPath = xmlPath;
+			v.location = "/";
+			v.message = std::string("XML parse error: ") + parseResult.description();
+			v.role = SCHRole::Error;
 			result.violations.push_back(std::move(v));
 			result.hasErrors = true;
 			return result;
@@ -107,11 +107,11 @@ namespace hdt
 
 			for (const auto& xnode : matches) {
 				SCHViolation v;
-				v.xmlPath   = xmlPath;
-				v.location  = BuildNodeLocationPath(xnode.node());
-				v.line      = OffsetToLineNumber(bytes, xnode.node().offset_debug());
-				v.message   = resolveMessageTemplate(rule.message, xnode.node());
-				v.role      = rule.role;
+				v.xmlPath = xmlPath;
+				v.location = BuildNodeLocationPath(xnode.node());
+				v.line = OffsetToLineNumber(bytes, xnode.node().offset_debug());
+				v.message = resolveMessageTemplate(rule.message, xnode.node());
+				v.role = rule.role;
 
 				if (rule.role == SCHRole::Error)
 					result.hasErrors = true;

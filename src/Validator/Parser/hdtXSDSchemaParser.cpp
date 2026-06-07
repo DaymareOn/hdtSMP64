@@ -148,7 +148,7 @@ namespace hdt
 
 		/// Parses all top-level elements and returns their allowed enumeration values.
 		std::unordered_map<std::string, std::unordered_set<std::string>>
-		parseAllElementEnumerations(const pugi::xml_document& doc)
+			parseAllElementEnumerations(const pugi::xml_document& doc)
 		{
 			pugi::xml_node schema = doc.first_child();
 
@@ -185,7 +185,7 @@ namespace hdt
 
 		/// Parses required attributes per top-level element.
 		std::unordered_map<std::string, std::vector<std::string>>
-		parseAllRequiredAttrs(const pugi::xml_document& doc)
+			parseAllRequiredAttrs(const pugi::xml_document& doc)
 		{
 			std::unordered_map<std::string, std::vector<std::string>> result;
 			for (auto elem : doc.first_child().children("xsd:element")) {
@@ -283,7 +283,7 @@ namespace hdt
 
 		/// Builds allowed-children maps and the known-element set from XSD elements/types.
 		std::unordered_map<std::string, std::unordered_set<std::string>>
-		parseAllowedChildren(const pugi::xml_document& doc, std::unordered_set<std::string>& knownElements)
+			parseAllowedChildren(const pugi::xml_document& doc, std::unordered_set<std::string>& knownElements)
 		{
 			pugi::xml_node schema = doc.first_child();
 			std::unordered_map<std::string, std::unordered_set<std::string>> typeChildren;

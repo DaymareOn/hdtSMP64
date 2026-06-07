@@ -30,8 +30,17 @@ namespace hdt
 				if ((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9'))
 					return true;
 				switch (ch) {
-				case '/': case '\\': case '_': case '-': case '.': case ' ':
-				case '[': case ']': case '(': case ')': case '\'':
+				case '/':
+				case '\\':
+				case '_':
+				case '-':
+				case '.':
+				case ' ':
+				case '[':
+				case ']':
+				case '(':
+				case ')':
+				case '\'':
 					return true;
 				default:
 					return false;
@@ -81,9 +90,9 @@ namespace hdt
 			auto paths = extractXmlPathsFromRawBytes(data);
 			if (paths.empty())
 				return;
-			result.hasPhysicsData    = true;
+			result.hasPhysicsData = true;
 			result.allPhysicsXmlPaths = std::move(paths);
-			result.physicsXmlPath    = result.allPhysicsXmlPaths.front();
+			result.physicsXmlPath = result.allPhysicsXmlPaths.front();
 		}
 
 	}  // namespace
@@ -106,9 +115,7 @@ namespace hdt
 
 		auto fileSize = file.tellg();
 		if (fileSize <= 0 || static_cast<size_t>(fileSize) > nif::kMaxNifFileSize) {
-			result.errors.push_back(fileSize <= 0
-				? "File is empty or unreadable: " + nifPath
-				: "File exceeds max supported size: " + nifPath);
+			result.errors.push_back(fileSize <= 0 ? "File is empty or unreadable: " + nifPath : "File exceeds max supported size: " + nifPath);
 			return result;
 		}
 
@@ -141,7 +148,7 @@ namespace hdt
 			data.resize(totalSize);
 			file.seekg(static_cast<std::streamoff>(probeSize));
 			file.read(reinterpret_cast<char*>(data.data() + probeSize),
-			          static_cast<std::streamsize>(totalSize - probeSize));
+				static_cast<std::streamsize>(totalSize - probeSize));
 		}
 		file.close();
 
@@ -151,11 +158,17 @@ namespace hdt
 		// Do not use the first NUL as header boundary: that can be inside binary fields.
 		size_t headerEnd = 0;
 		for (size_t i = 0; i < std::min(data.size(), nif::kHeaderProbeLimit); ++i) {
-			if (data[i] == '\n') { headerEnd = i; break; }
+			if (data[i] == '\n') {
+				headerEnd = i;
+				break;
+			}
 		}
 		if (headerEnd == 0) {
 			for (size_t i = 0; i < std::min(data.size(), nif::kHeaderProbeLimit); ++i) {
-				if (data[i] == 0x00) { headerEnd = i; break; }
+				if (data[i] == 0x00) {
+					headerEnd = i;
+					break;
+				}
 			}
 		}
 		if (headerEnd == 0) {
@@ -168,7 +181,7 @@ namespace hdt
 			headerStr.pop_back();
 
 		const bool hasKnownMagic =
-			headerStr.find(nif::kNifHeaderMagic)       != std::string::npos ||
+			headerStr.find(nif::kNifHeaderMagic) != std::string::npos ||
 			headerStr.find(nif::kNifHeaderMagicLegacy) != std::string::npos;
 		if (!hasKnownMagic) {
 			result.errors.push_back("Missing NIF header magic: " + nifPath);
@@ -195,11 +208,14 @@ namespace hdt
 
 				bool hasMarker = false;
 				for (const auto& s : parsed.strings) {
-					if (s == nif::kPhysicsMarker) { hasMarker = true; break; }
+					if (s == nif::kPhysicsMarker) {
+						hasMarker = true;
+						break;
+					}
 				}
 
 				if (hasMarker) {
-					result.hasPhysicsData    = true;
+					result.hasPhysicsData = true;
 					result.allPhysicsXmlPaths = nif::FindXmlPathsInNif(parsed);
 					if (!result.allPhysicsXmlPaths.empty()) {
 						result.physicsXmlPath = result.allPhysicsXmlPaths[0];

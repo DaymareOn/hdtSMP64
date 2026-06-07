@@ -11,8 +11,8 @@ namespace hdt
 {
 	namespace
 	{
-		constexpr float kMinSaneScale              = 1e-6f;
-		constexpr float kMaxSaneScale              = 1000.f;
+		constexpr float kMinSaneScale = 1e-6f;
+		constexpr float kMaxSaneScale = 1000.f;
 		constexpr float kRootScaleDeviationThreshold = 0.5f;
 
 		/// Recursively collects non-empty NiNode names from a skeleton subtree.
@@ -176,7 +176,7 @@ namespace hdt
 
 		if (root->world.scale > kMinSaneScale && std::abs(root->world.scale - 1.0f) > kRootScaleDeviationThreshold) {
 			result.warnings.push_back(nifPath + ": root scale " +
-				std::to_string(root->world.scale) + " deviates significantly from 1.0");
+									  std::to_string(root->world.scale) + " deviates significantly from 1.0");
 		}
 
 		result.isValid = result.errors.empty();

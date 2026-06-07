@@ -146,8 +146,8 @@ namespace hdt
 	inline std::string GetNifPairBaseStem(const std::string& normPath)
 	{
 		if (normPath.size() > 6 &&
-		    (normPath.substr(normPath.size() - 6) == "_0.nif" ||
-		     normPath.substr(normPath.size() - 6) == "_1.nif"))
+			(normPath.substr(normPath.size() - 6) == "_0.nif" ||
+				normPath.substr(normPath.size() - 6) == "_1.nif"))
 			return normPath.substr(0, normPath.size() - 6);
 		return normPath.size() > 4 ? normPath.substr(0, normPath.size() - 4) : normPath;
 	}

@@ -11,7 +11,7 @@ namespace hdt
 	struct XSDViolation
 	{
 		std::string xmlPath;
-		int line   = 0;
+		int line = 0;
 		int column = 0;
 		std::string elementPath;
 		std::string message;

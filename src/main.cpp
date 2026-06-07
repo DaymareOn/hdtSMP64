@@ -2,11 +2,11 @@
 #include "Events.h"
 #include "Hooks.h"
 #include "PluginInterfaceImpl.h"
+#include "Validator/hdtAssetValidator.h"
 #include "WeatherManager.h"
 #include "config.h"
 #include "dhdtOverrideManager.h"
 #include "dhdtPapyrusFunctions.h"
-#include "Validator/hdtAssetValidator.h"
 #include "hdtSkyrimPhysicsWorld.h"
 
 #include <atomic>

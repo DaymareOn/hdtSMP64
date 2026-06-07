@@ -333,7 +333,7 @@ static const char* kBuiltinSchema = R"XML(<?xml version="1.0" encoding="utf-8"?>
     <add name="Flags" type="ushort"/>
   </niobject>
 )XML"
-R"XML(  <niobject name="NiWireframeProperty" inherit="NiProperty">
+									R"XML(  <niobject name="NiWireframeProperty" inherit="NiProperty">
     <add name="Flags" type="ushort"/>
   </niobject>
   <niobject name="NiZBufferProperty" inherit="NiProperty">
@@ -524,7 +524,7 @@ R"XML(  <niobject name="NiWireframeProperty" inherit="NiProperty">
   <niobject name="bhkRigidBody"  inherit="bhkEntity"/>
   <niobject name="bhkRigidBodyT" inherit="bhkRigidBody"/>
 )XML"
-R"XML(  <niobject name="bhkSimpleShapePhantom" inherit="bhkWorldObject"/>
+									R"XML(  <niobject name="bhkSimpleShapePhantom" inherit="bhkWorldObject"/>
 
   <niobject name="bhkShape"           inherit="bhkRefObject" abstract="true"/>
   <niobject name="bhkSphereRepShape"  inherit="bhkShape" abstract="true">
@@ -666,503 +666,579 @@ R"XML(  <niobject name="bhkSimpleShapePhantom" inherit="bhkWorldObject"/>
 namespace hdt
 {
 
-const char* getBuiltinNifSchemaXml() { return kBuiltinSchema; }
+	const char* getBuiltinNifSchemaXml() { return kBuiltinSchema; }
 
-const NifSchema& globalNifSchema()
-{
-	static NifSchema s_schema;
-	static std::once_flag s_flag;
-	std::call_once(s_flag, [] { s_schema.loadForSSE(); });
-	return s_schema;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Version parsing helpers
-// ─────────────────────────────────────────────────────────────────────────────
-
-uint32_t NifSchema::parseVerStr(const std::string& v)
-{
-	if (v.empty()) return 0;
-	uint32_t a = 0, b = 0, c = 0, d = 0;
-	if (std::sscanf(v.c_str(), "%u.%u.%u.%u", &a, &b, &c, &d) < 1) return 0;
-	return (a << 24) | (b << 16) | (c << 8) | d;
-}
-
-bool NifSchema::versionOk(
-	const std::string& ver1,  const std::string& ver2,
-	const std::string& uver1, const std::string& uver2,
-	const std::string& bsver1,const std::string& bsver2) const
-{
-	if (!ver1.empty()  && m_ver.version     < parseVerStr(ver1))  return false;
-	if (!ver2.empty()  && m_ver.version     > parseVerStr(ver2))  return false;
-	if (!uver1.empty() && m_ver.userVersion < std::stoul(uver1)) return false;
-	if (!uver2.empty() && m_ver.userVersion > std::stoul(uver2)) return false;
-	if (!bsver1.empty()&& m_ver.bsVersion   < std::stoul(bsver1)) return false;
-	if (!bsver2.empty()&& m_ver.bsVersion   > std::stoul(bsver2)) return false;
-	return true;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Schema loading
-// ─────────────────────────────────────────────────────────────────────────────
-
-bool NifSchema::loadFromString(const char* xml, const NifSchemaVersion& ver)
-{
-	m_ver = ver;
-	m_basics.clear();
-	m_types.clear();
-
-	pugi::xml_document doc;
-	auto res = doc.load_string(xml);
-	if (!res) return false;
-
-	auto root = doc.child("niftoolsxml");
-	if (!root) return false;
-
-	// ── 1. Basic types ───────────────────────────────────────────────────────
-	for (auto node : root.children("basic")) {
-		std::string name  = node.attribute("name").as_string();
-		size_t      count = static_cast<size_t>(node.attribute("count").as_uint(0));
-		bool        isref = node.attribute("isref").as_bool(false);
-		bool        isptr = node.attribute("isptr").as_bool(false);
-		if (name.empty() || count == 0) continue;
-		m_basics[name] = { count, isref, isptr };
+	const NifSchema& globalNifSchema()
+	{
+		static NifSchema s_schema;
+		static std::once_flag s_flag;
+		std::call_once(s_flag, [] { s_schema.loadForSSE(); });
+		return s_schema;
 	}
 
-	// ── 2. Enum / bitfield types (treated as their storage primitive) ────────
-	auto registerStorage = [&](pugi::xml_node n) {
-		std::string name    = n.attribute("name").as_string();
-		std::string storage = n.attribute("storage").as_string("uint");
-		if (name.empty()) return;
-		auto it = m_basics.find(storage);
-		if (it != m_basics.end())
-			m_basics[name] = { it->second.size, false };
-	};
-	for (auto node : root.children("enum"))     registerStorage(node);
-	for (auto node : root.children("bitfield")) registerStorage(node);
+	// ─────────────────────────────────────────────────────────────────────────────
+	// Version parsing helpers
+	// ─────────────────────────────────────────────────────────────────────────────
 
-	// ── 3. Compound and niobject types ───────────────────────────────────────
-	auto parseType = [&](pugi::xml_node node, bool isBlock) {
-		std::string name    = node.attribute("name").as_string();
-		std::string inherit = node.attribute("inherit").as_string();
-		if (name.empty()) return;
-
-		NifTypeDef def;
-		def.name    = name;
-		def.inherit = inherit;
-		def.isBlock = isBlock;
-
-		for (auto add : node.children("add")) {
-			// Pre-evaluate version conditions
-			if (!versionOk(
-					add.attribute("ver1").as_string(),
-					add.attribute("ver2").as_string(),
-					add.attribute("userver").as_string(),
-					add.attribute("userver2").as_string(),
-					add.attribute("bsver").as_string(),
-					add.attribute("bsver2").as_string()))
-				continue;
-
-			NifFieldDef f;
-			f.name = add.attribute("name").as_string();
-			f.type = add.attribute("type").as_string();
-			f.arr1 = add.attribute("arr1").as_string();
-			f.cond = add.attribute("cond").as_string();
-			if (f.name.empty() || f.type.empty()) continue;
-			def.fields.push_back(std::move(f));
-		}
-		m_types[name] = std::move(def);
-	};
-
-	for (auto node : root.children("compound"))  parseType(node, false);
-	for (auto node : root.children("niobject"))  parseType(node, true);
-
-	// ── 4. Compute hasAnyRefs for every type ─────────────────────────────────
-	// A type has refs if any field is a Ref/Ptr basic, or any field's compound
-	// type transitively has refs, or the inherited parent has refs.
-	// Iterative fixed-point: safe even if inheritance chains are arbitrarily deep.
+	uint32_t NifSchema::parseVerStr(const std::string& v)
 	{
-		bool changed = true;
-		while (changed) {
-			changed = false;
-			for (auto& [name, def] : m_types) {
-				if (def.hasAnyRefs) continue;
-				bool has = false;
-				if (!def.inherit.empty()) {
-					auto it = m_types.find(def.inherit);
-					if (it != m_types.end() && it->second.hasAnyRefs)
-						has = true;
-				}
-				if (!has) {
-					for (const auto& field : def.fields) {
-						auto bit = m_basics.find(field.type);
-						if (bit != m_basics.end() && bit->second.isRef) { has = true; break; }
-						auto tit = m_types.find(field.type);
-						if (tit != m_types.end() && tit->second.hasAnyRefs) { has = true; break; }
+		if (v.empty())
+			return 0;
+		uint32_t a = 0, b = 0, c = 0, d = 0;
+		if (std::sscanf(v.c_str(), "%u.%u.%u.%u", &a, &b, &c, &d) < 1)
+			return 0;
+		return (a << 24) | (b << 16) | (c << 8) | d;
+	}
+
+	bool NifSchema::versionOk(
+		const std::string& ver1, const std::string& ver2,
+		const std::string& uver1, const std::string& uver2,
+		const std::string& bsver1, const std::string& bsver2) const
+	{
+		if (!ver1.empty() && m_ver.version < parseVerStr(ver1))
+			return false;
+		if (!ver2.empty() && m_ver.version > parseVerStr(ver2))
+			return false;
+		if (!uver1.empty() && m_ver.userVersion < std::stoul(uver1))
+			return false;
+		if (!uver2.empty() && m_ver.userVersion > std::stoul(uver2))
+			return false;
+		if (!bsver1.empty() && m_ver.bsVersion < std::stoul(bsver1))
+			return false;
+		if (!bsver2.empty() && m_ver.bsVersion > std::stoul(bsver2))
+			return false;
+		return true;
+	}
+
+	// ─────────────────────────────────────────────────────────────────────────────
+	// Schema loading
+	// ─────────────────────────────────────────────────────────────────────────────
+
+	bool NifSchema::loadFromString(const char* xml, const NifSchemaVersion& ver)
+	{
+		m_ver = ver;
+		m_basics.clear();
+		m_types.clear();
+
+		pugi::xml_document doc;
+		auto res = doc.load_string(xml);
+		if (!res)
+			return false;
+
+		auto root = doc.child("niftoolsxml");
+		if (!root)
+			return false;
+
+		// ── 1. Basic types ───────────────────────────────────────────────────────
+		for (auto node : root.children("basic")) {
+			std::string name = node.attribute("name").as_string();
+			size_t count = static_cast<size_t>(node.attribute("count").as_uint(0));
+			bool isref = node.attribute("isref").as_bool(false);
+			bool isptr = node.attribute("isptr").as_bool(false);
+			if (name.empty() || count == 0)
+				continue;
+			m_basics[name] = { count, isref, isptr };
+		}
+
+		// ── 2. Enum / bitfield types (treated as their storage primitive) ────────
+		auto registerStorage = [&](pugi::xml_node n) {
+			std::string name = n.attribute("name").as_string();
+			std::string storage = n.attribute("storage").as_string("uint");
+			if (name.empty())
+				return;
+			auto it = m_basics.find(storage);
+			if (it != m_basics.end())
+				m_basics[name] = { it->second.size, false };
+		};
+		for (auto node : root.children("enum")) registerStorage(node);
+		for (auto node : root.children("bitfield")) registerStorage(node);
+
+		// ── 3. Compound and niobject types ───────────────────────────────────────
+		auto parseType = [&](pugi::xml_node node, bool isBlock) {
+			std::string name = node.attribute("name").as_string();
+			std::string inherit = node.attribute("inherit").as_string();
+			if (name.empty())
+				return;
+
+			NifTypeDef def;
+			def.name = name;
+			def.inherit = inherit;
+			def.isBlock = isBlock;
+
+			for (auto add : node.children("add")) {
+				// Pre-evaluate version conditions
+				if (!versionOk(
+						add.attribute("ver1").as_string(),
+						add.attribute("ver2").as_string(),
+						add.attribute("userver").as_string(),
+						add.attribute("userver2").as_string(),
+						add.attribute("bsver").as_string(),
+						add.attribute("bsver2").as_string()))
+					continue;
+
+				NifFieldDef f;
+				f.name = add.attribute("name").as_string();
+				f.type = add.attribute("type").as_string();
+				f.arr1 = add.attribute("arr1").as_string();
+				f.cond = add.attribute("cond").as_string();
+				if (f.name.empty() || f.type.empty())
+					continue;
+				def.fields.push_back(std::move(f));
+			}
+			m_types[name] = std::move(def);
+		};
+
+		for (auto node : root.children("compound")) parseType(node, false);
+		for (auto node : root.children("niobject")) parseType(node, true);
+
+		// ── 4. Compute hasAnyRefs for every type ─────────────────────────────────
+		// A type has refs if any field is a Ref/Ptr basic, or any field's compound
+		// type transitively has refs, or the inherited parent has refs.
+		// Iterative fixed-point: safe even if inheritance chains are arbitrarily deep.
+		{
+			bool changed = true;
+			while (changed) {
+				changed = false;
+				for (auto& [name, def] : m_types) {
+					if (def.hasAnyRefs)
+						continue;
+					bool has = false;
+					if (!def.inherit.empty()) {
+						auto it = m_types.find(def.inherit);
+						if (it != m_types.end() && it->second.hasAnyRefs)
+							has = true;
+					}
+					if (!has) {
+						for (const auto& field : def.fields) {
+							auto bit = m_basics.find(field.type);
+							if (bit != m_basics.end() && bit->second.isRef) {
+								has = true;
+								break;
+							}
+							auto tit = m_types.find(field.type);
+							if (tit != m_types.end() && tit->second.hasAnyRefs) {
+								has = true;
+								break;
+							}
+						}
+					}
+					if (has) {
+						def.hasAnyRefs = true;
+						changed = true;
 					}
 				}
-				if (has) { def.hasAnyRefs = true; changed = true; }
 			}
 		}
+
+		return true;
 	}
 
-	return true;
-}
+	bool NifSchema::loadForSSE(const std::string& externalXmlPath)
+	{
+		const NifSchemaVersion sseVer{ 0x14020007u, 12u, 100u };
 
-bool NifSchema::loadForSSE(const std::string& externalXmlPath)
-{
-	const NifSchemaVersion sseVer{ 0x14020007u, 12u, 100u };
+		// Candidate paths to try, in priority order:
+		//   1. Caller-supplied path
+		//   2. NifSkope installations (gives full type coverage)
+		//   3. Built-in SSE schema (always succeeds)
+		static const char* kCandidates[] = {
+			nullptr,  // placeholder for externalXmlPath
+			"C:/Program Files/NifSkope 2.0 Dev 9/res/nif.xml",
+			"C:/Program Files/NifSkope 2.0/res/nif.xml",
+			"C:/Program Files (x86)/NifSkope/res/nif.xml",
+			"C:/Program Files/NifSkope/res/nif.xml",
+		};
 
-	// Candidate paths to try, in priority order:
-	//   1. Caller-supplied path
-	//   2. NifSkope installations (gives full type coverage)
-	//   3. Built-in SSE schema (always succeeds)
-	static const char* kCandidates[] = {
-		nullptr,  // placeholder for externalXmlPath
-		"C:/Program Files/NifSkope 2.0 Dev 9/res/nif.xml",
-		"C:/Program Files/NifSkope 2.0/res/nif.xml",
-		"C:/Program Files (x86)/NifSkope/res/nif.xml",
-		"C:/Program Files/NifSkope/res/nif.xml",
-	};
+		auto tryFile = [&](const std::string& path) -> bool {
+			if (path.empty())
+				return false;
+			std::ifstream f(path, std::ios::binary | std::ios::ate);
+			if (!f.is_open())
+				return false;
+			auto sz = f.tellg();
+			if (sz <= 0 || sz > 64 * 1024 * 1024)
+				return false;
+			std::string buf(static_cast<size_t>(sz), '\0');
+			f.seekg(0);
+			f.read(buf.data(), sz);
+			if (f.gcount() != static_cast<std::streamsize>(sz))
+				return false;
+			return loadFromString(buf.c_str(), sseVer);
+		};
 
-	auto tryFile = [&](const std::string& path) -> bool {
-		if (path.empty()) return false;
-		std::ifstream f(path, std::ios::binary | std::ios::ate);
-		if (!f.is_open()) return false;
-		auto sz = f.tellg();
-		if (sz <= 0 || sz > 64 * 1024 * 1024) return false;
-		std::string buf(static_cast<size_t>(sz), '\0');
-		f.seekg(0); f.read(buf.data(), sz);
-		if (f.gcount() != static_cast<std::streamsize>(sz)) return false;
-		return loadFromString(buf.c_str(), sseVer);
-	};
+		if (tryFile(externalXmlPath))
+			return true;
+		for (size_t i = 1; i < std::size(kCandidates); ++i)
+			if (tryFile(kCandidates[i]))
+				return true;
 
-	if (tryFile(externalXmlPath)) return true;
-	for (size_t i = 1; i < std::size(kCandidates); ++i)
-		if (tryFile(kCandidates[i])) return true;
-
-	return loadFromString(kBuiltinSchema, sseVer);
-}
-
-const NifBasicType* NifSchema::findBasic(const std::string& name) const
-{
-	auto it = m_basics.find(name);
-	return it != m_basics.end() ? &it->second : nullptr;
-}
-
-const NifTypeDef* NifSchema::findType(const std::string& name) const
-{
-	auto it = m_types.find(name);
-	return it != m_types.end() ? &it->second : nullptr;
-}
-
-bool NifSchema::isKnown(const std::string& name) const
-{
-	return m_basics.count(name) > 0 || m_types.count(name) > 0;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Block walker
-// ─────────────────────────────────────────────────────────────────────────────
-
-namespace {
-
-struct WalkCtx
-{
-	const uint8_t*                   data;
-	size_t                           dataSize;
-	size_t                           pos      = 0;
-	int32_t                          numBlocks;
-	bool                             ok       = true;
-	LinkFilter                       filter   = LinkFilter::All;
-	bool                             log      = false;  // emit per-field trace
-	bool                             detail   = false;  // populate refArr1 + scalarPos
-	std::map<std::string, uint32_t>  vals;     // count fields (value)
-	std::vector<size_t>              refs;
-	// detail mode only:
-	std::vector<std::string>         refArr1;    // parallel to refs: arr1 name or ""
-	std::map<std::string, size_t>    scalarPos;  // scalar field name → byte offset
-};
-
-bool evalCond(const std::string& cond, const WalkCtx& ctx)
-{
-	if (cond.empty()) return true;
-	// Strip outer whitespace
-	const char* p = cond.c_str();
-	while (*p == ' ') ++p;
-
-	// Pattern: "fieldName", "fieldName != N", "fieldName == N", "fieldName > N"
-	// Find operator position
-	const char* op = nullptr;
-	int         opType = 0; // 1==, 2!=, 3>, 4<
-	const char* q = p;
-	while (*q && *q != '=' && *q != '!' && *q != '>' && *q != '<') ++q;
-	if (*q == '=' && *(q+1) == '=') { op = q; opType = 1; }
-	else if (*q == '!' && *(q+1) == '=') { op = q; opType = 2; }
-	else if (*q == '>') { op = q; opType = 3; }
-	else if (*q == '<') { op = q; opType = 4; }
-
-	if (!op) {
-		// Just a field name — truthy check
-		auto it = ctx.vals.find(std::string(p));
-		return it != ctx.vals.end() && it->second != 0;
+		return loadFromString(kBuiltinSchema, sseVer);
 	}
 
-	std::string field(p, op - p);
-	while (!field.empty() && field.back() == ' ') field.pop_back();
-	const char* rhs = op + (opType == 1 || opType == 2 ? 2 : 1);
-	while (*rhs == ' ') ++rhs;
-	uint32_t rhsVal = static_cast<uint32_t>(std::strtoul(rhs, nullptr, 0));
-
-	auto it = ctx.vals.find(field);
-	uint32_t lhsVal = (it != ctx.vals.end()) ? it->second : 0;
-	if (opType == 1) return lhsVal == rhsVal;
-	if (opType == 2) return lhsVal != rhsVal;
-	if (opType == 3) return lhsVal > rhsVal;
-	if (opType == 4) return lhsVal < rhsVal;
-	return true;
-}
-
-uint32_t resolveCount(const std::string& expr, const WalkCtx& ctx)
-{
-	if (expr.empty()) return 1;
-	// Check for a bare integer literal
-	bool allDigits = true;
-	for (char c : expr) if (!std::isdigit(static_cast<unsigned char>(c))) { allDigits = false; break; }
-	if (allDigits && !expr.empty()) return static_cast<uint32_t>(std::stoul(expr));
-
-	// Simple arithmetic: "FieldName / N" or "FieldName * N"
-	auto slash = expr.find('/');
-	auto star  = expr.find('*');
-	if (slash != std::string::npos || star != std::string::npos) {
-		size_t opPos = (slash != std::string::npos) ? slash : star;
-		std::string field = expr.substr(0, opPos);
-		while (!field.empty() && field.back() == ' ') field.pop_back();
-		uint32_t divisor = static_cast<uint32_t>(
-			std::strtoul(expr.c_str() + opPos + 1, nullptr, 10));
-		if (divisor == 0) divisor = 1;
-		auto it = ctx.vals.find(field);
-		uint32_t base = (it != ctx.vals.end()) ? it->second : 0;
-		return (slash != std::string::npos) ? base / divisor : base * divisor;
+	const NifBasicType* NifSchema::findBasic(const std::string& name) const
+	{
+		auto it = m_basics.find(name);
+		return it != m_basics.end() ? &it->second : nullptr;
 	}
 
-	// Plain field name lookup
-	auto it = ctx.vals.find(expr);
-	return (it != ctx.vals.end()) ? it->second : 0;
-}
+	const NifTypeDef* NifSchema::findType(const std::string& name) const
+	{
+		auto it = m_types.find(name);
+		return it != m_types.end() ? &it->second : nullptr;
+	}
 
-// Forward declarations
-void walkTypeName(const NifSchema& schema, const std::string& typeName, WalkCtx& ctx);
-void walkTypeDef (const NifSchema& schema, const NifTypeDef&  def,      WalkCtx& ctx);
+	bool NifSchema::isKnown(const std::string& name) const
+	{
+		return m_basics.count(name) > 0 || m_types.count(name) > 0;
+	}
 
-void walkTypeDef(const NifSchema& schema, const NifTypeDef& def, WalkCtx& ctx)
-{
-	if (!ctx.ok) return;
-	if (ctx.log)
-		logger::info("[Walker]   walkTypeDef '{}' (inherit='{}') pos={}", def.name, def.inherit, ctx.pos);
-	// Walk parent type first
-	if (!def.inherit.empty()) {
-		auto* parent = schema.findType(def.inherit);
-		if (!parent) {
-			if (ctx.log) logger::info("[Walker]     parent '{}' NOT FOUND → fail", def.inherit);
-			ctx.ok = false; return;
+	// ─────────────────────────────────────────────────────────────────────────────
+	// Block walker
+	// ─────────────────────────────────────────────────────────────────────────────
+
+	namespace
+	{
+
+		struct WalkCtx
+		{
+			const uint8_t* data;
+			size_t dataSize;
+			size_t pos = 0;
+			int32_t numBlocks;
+			bool ok = true;
+			LinkFilter filter = LinkFilter::All;
+			bool log = false;                      // emit per-field trace
+			bool detail = false;                   // populate refArr1 + scalarPos
+			std::map<std::string, uint32_t> vals;  // count fields (value)
+			std::vector<size_t> refs;
+			// detail mode only:
+			std::vector<std::string> refArr1;         // parallel to refs: arr1 name or ""
+			std::map<std::string, size_t> scalarPos;  // scalar field name → byte offset
+		};
+
+		bool evalCond(const std::string& cond, const WalkCtx& ctx)
+		{
+			if (cond.empty())
+				return true;
+			// Strip outer whitespace
+			const char* p = cond.c_str();
+			while (*p == ' ') ++p;
+
+			// Pattern: "fieldName", "fieldName != N", "fieldName == N", "fieldName > N"
+			// Find operator position
+			const char* op = nullptr;
+			int opType = 0;  // 1==, 2!=, 3>, 4<
+			const char* q = p;
+			while (*q && *q != '=' && *q != '!' && *q != '>' && *q != '<') ++q;
+			if (*q == '=' && *(q + 1) == '=') {
+				op = q;
+				opType = 1;
+			} else if (*q == '!' && *(q + 1) == '=') {
+				op = q;
+				opType = 2;
+			} else if (*q == '>') {
+				op = q;
+				opType = 3;
+			} else if (*q == '<') {
+				op = q;
+				opType = 4;
+			}
+
+			if (!op) {
+				// Just a field name — truthy check
+				auto it = ctx.vals.find(std::string(p));
+				return it != ctx.vals.end() && it->second != 0;
+			}
+
+			std::string field(p, op - p);
+			while (!field.empty() && field.back() == ' ') field.pop_back();
+			const char* rhs = op + (opType == 1 || opType == 2 ? 2 : 1);
+			while (*rhs == ' ') ++rhs;
+			uint32_t rhsVal = static_cast<uint32_t>(std::strtoul(rhs, nullptr, 0));
+
+			auto it = ctx.vals.find(field);
+			uint32_t lhsVal = (it != ctx.vals.end()) ? it->second : 0;
+			if (opType == 1)
+				return lhsVal == rhsVal;
+			if (opType == 2)
+				return lhsVal != rhsVal;
+			if (opType == 3)
+				return lhsVal > rhsVal;
+			if (opType == 4)
+				return lhsVal < rhsVal;
+			return true;
 		}
-		walkTypeDef(schema, *parent, ctx);
-	}
-	// Walk own fields
-	for (const auto& field : def.fields) {
-		if (!ctx.ok) return;
-		bool condOk = field.cond.empty() || evalCond(field.cond, ctx);
-		if (ctx.log)
-			logger::info("[Walker]     field '{}' type='{}' arr1='{}' cond='{}' condOk={}",
-			             field.name, field.type, field.arr1, field.cond, condOk);
-		if (!condOk) continue;
 
-		uint32_t count = field.arr1.empty() ? 1u : resolveCount(field.arr1, ctx);
-		if (ctx.log && !field.arr1.empty())
-			logger::info("[Walker]       count={} (from arr1='{}')", count, field.arr1);
+		uint32_t resolveCount(const std::string& expr, const WalkCtx& ctx)
+		{
+			if (expr.empty())
+				return 1;
+			// Check for a bare integer literal
+			bool allDigits = true;
+			for (char c : expr)
+				if (!std::isdigit(static_cast<unsigned char>(c))) {
+					allDigits = false;
+					break;
+				}
+			if (allDigits && !expr.empty())
+				return static_cast<uint32_t>(std::stoul(expr));
 
-		auto* basic = schema.findBasic(field.type);
-		if (basic) {
+			// Simple arithmetic: "FieldName / N" or "FieldName * N"
+			auto slash = expr.find('/');
+			auto star = expr.find('*');
+			if (slash != std::string::npos || star != std::string::npos) {
+				size_t opPos = (slash != std::string::npos) ? slash : star;
+				std::string field = expr.substr(0, opPos);
+				while (!field.empty() && field.back() == ' ') field.pop_back();
+				uint32_t divisor = static_cast<uint32_t>(
+					std::strtoul(expr.c_str() + opPos + 1, nullptr, 10));
+				if (divisor == 0)
+					divisor = 1;
+				auto it = ctx.vals.find(field);
+				uint32_t base = (it != ctx.vals.end()) ? it->second : 0;
+				return (slash != std::string::npos) ? base / divisor : base * divisor;
+			}
+
+			// Plain field name lookup
+			auto it = ctx.vals.find(expr);
+			return (it != ctx.vals.end()) ? it->second : 0;
+		}
+
+		// Forward declarations
+		void walkTypeName(const NifSchema& schema, const std::string& typeName, WalkCtx& ctx);
+		void walkTypeDef(const NifSchema& schema, const NifTypeDef& def, WalkCtx& ctx);
+
+		void walkTypeDef(const NifSchema& schema, const NifTypeDef& def, WalkCtx& ctx)
+		{
+			if (!ctx.ok)
+				return;
 			if (ctx.log)
-				logger::info("[Walker]       basic type size={} isRef={} isPtr={}",
-				             basic->size, basic->isRef, basic->isPtr);
-			// Non-ref large array: bulk skip
-			if (count > 1 && !basic->isRef) {
-				size_t total = static_cast<size_t>(count) * basic->size;
-				if (ctx.pos + total > ctx.dataSize) { ctx.ok = false; return; }
-				if (ctx.log)
-					logger::info("[Walker]       bulk skip {} bytes (count={} × size={})",
-					             total, count, basic->size);
-				ctx.pos += total;
-				continue;
-			}
-			// Element-by-element (scalar or ref array)
-			// Cap count for Ref arrays to what physically fits. A garbage arr1 value
-			// (e.g. Num Children = 458751 in an unusual NIF) would otherwise exhaust
-			// the block mid-array, set ctx.ok = false, and discard all refs already
-			// collected. Non-ref scalars use the bounds check below as the hard stop.
-			uint32_t effCount = count;
-			if (basic->isRef && basic->size > 0 && !field.arr1.empty()) {
-				uint32_t maxFit = (ctx.dataSize > ctx.pos)
-				                ? static_cast<uint32_t>((ctx.dataSize - ctx.pos) / basic->size)
-				                : 0u;
-				effCount = std::min(effCount, maxFit);
-			}
-			for (uint32_t i = 0; i < effCount && ctx.ok; ++i) {
-				if (ctx.pos + basic->size > ctx.dataSize) { ctx.ok = false; return; }
-				if (basic->isRef) {
-					bool collect = (ctx.filter == LinkFilter::All)
-					            || (ctx.filter == LinkFilter::RefOnly && !basic->isPtr)
-					            || (ctx.filter == LinkFilter::PtrOnly &&  basic->isPtr);
-					int32_t rawVal = -1;
-					std::memcpy(&rawVal, ctx.data + ctx.pos, 4);
+				logger::info("[Walker]   walkTypeDef '{}' (inherit='{}') pos={}", def.name, def.inherit, ctx.pos);
+			// Walk parent type first
+			if (!def.inherit.empty()) {
+				auto* parent = schema.findType(def.inherit);
+				if (!parent) {
 					if (ctx.log)
-						logger::info("[Walker]       Ref field '{}' [{}] off={} val={} isPtr={} filter={} collect={}",
-						             field.name, i, ctx.pos, rawVal, basic->isPtr,
-						             (ctx.filter==LinkFilter::All?"All":ctx.filter==LinkFilter::RefOnly?"RefOnly":"PtrOnly"),
-						             collect);
-					if (collect) {
-						ctx.refs.push_back(ctx.pos);
-						if (ctx.detail)
-							ctx.refArr1.push_back(field.arr1);
-					}
-				} else if (field.arr1.empty()) {
-					// Store scalar value for later count resolution
-					uint32_t v = 0;
-					if      (basic->size == 1) v = ctx.data[ctx.pos];
-					else if (basic->size == 2) { uint16_t u; std::memcpy(&u, ctx.data + ctx.pos, 2); v = u; }
-					else if (basic->size == 4) std::memcpy(&v, ctx.data + ctx.pos, 4);
-					ctx.vals[field.name] = v;
-					if (ctx.detail)
-						ctx.scalarPos[field.name] = ctx.pos;
-					if (ctx.log)
-						logger::info("[Walker]       scalar '{}' = {} stored at pos={}", field.name, v, ctx.pos);
+						logger::info("[Walker]     parent '{}' NOT FOUND → fail", def.inherit);
+					ctx.ok = false;
+					return;
 				}
-				ctx.pos += basic->size;
+				walkTypeDef(schema, *parent, ctx);
 			}
-		} else {
-			auto* compound = schema.findType(field.type);
-			if (!compound) {
+			// Walk own fields
+			for (const auto& field : def.fields) {
+				if (!ctx.ok)
+					return;
+				bool condOk = field.cond.empty() || evalCond(field.cond, ctx);
 				if (ctx.log)
-					logger::info("[Walker]       compound '{}' NOT FOUND → fail", field.type);
-				ctx.ok = false; return;
+					logger::info("[Walker]     field '{}' type='{}' arr1='{}' cond='{}' condOk={}",
+						field.name, field.type, field.arr1, field.cond, condOk);
+				if (!condOk)
+					continue;
+
+				uint32_t count = field.arr1.empty() ? 1u : resolveCount(field.arr1, ctx);
+				if (ctx.log && !field.arr1.empty())
+					logger::info("[Walker]       count={} (from arr1='{}')", count, field.arr1);
+
+				auto* basic = schema.findBasic(field.type);
+				if (basic) {
+					if (ctx.log)
+						logger::info("[Walker]       basic type size={} isRef={} isPtr={}",
+							basic->size, basic->isRef, basic->isPtr);
+					// Non-ref large array: bulk skip
+					if (count > 1 && !basic->isRef) {
+						size_t total = static_cast<size_t>(count) * basic->size;
+						if (ctx.pos + total > ctx.dataSize) {
+							ctx.ok = false;
+							return;
+						}
+						if (ctx.log)
+							logger::info("[Walker]       bulk skip {} bytes (count={} × size={})",
+								total, count, basic->size);
+						ctx.pos += total;
+						continue;
+					}
+					// Element-by-element (scalar or ref array)
+					// Cap count for Ref arrays to what physically fits. A garbage arr1 value
+					// (e.g. Num Children = 458751 in an unusual NIF) would otherwise exhaust
+					// the block mid-array, set ctx.ok = false, and discard all refs already
+					// collected. Non-ref scalars use the bounds check below as the hard stop.
+					uint32_t effCount = count;
+					if (basic->isRef && basic->size > 0 && !field.arr1.empty()) {
+						uint32_t maxFit = (ctx.dataSize > ctx.pos) ? static_cast<uint32_t>((ctx.dataSize - ctx.pos) / basic->size) : 0u;
+						effCount = std::min(effCount, maxFit);
+					}
+					for (uint32_t i = 0; i < effCount && ctx.ok; ++i) {
+						if (ctx.pos + basic->size > ctx.dataSize) {
+							ctx.ok = false;
+							return;
+						}
+						if (basic->isRef) {
+							bool collect = (ctx.filter == LinkFilter::All) || (ctx.filter == LinkFilter::RefOnly && !basic->isPtr) || (ctx.filter == LinkFilter::PtrOnly && basic->isPtr);
+							int32_t rawVal = -1;
+							std::memcpy(&rawVal, ctx.data + ctx.pos, 4);
+							if (ctx.log)
+								logger::info("[Walker]       Ref field '{}' [{}] off={} val={} isPtr={} filter={} collect={}",
+									field.name, i, ctx.pos, rawVal, basic->isPtr,
+									(ctx.filter == LinkFilter::All ? "All" : ctx.filter == LinkFilter::RefOnly ? "RefOnly" :
+																												 "PtrOnly"),
+									collect);
+							if (collect) {
+								ctx.refs.push_back(ctx.pos);
+								if (ctx.detail)
+									ctx.refArr1.push_back(field.arr1);
+							}
+						} else if (field.arr1.empty()) {
+							// Store scalar value for later count resolution
+							uint32_t v = 0;
+							if (basic->size == 1)
+								v = ctx.data[ctx.pos];
+							else if (basic->size == 2) {
+								uint16_t u;
+								std::memcpy(&u, ctx.data + ctx.pos, 2);
+								v = u;
+							} else if (basic->size == 4)
+								std::memcpy(&v, ctx.data + ctx.pos, 4);
+							ctx.vals[field.name] = v;
+							if (ctx.detail)
+								ctx.scalarPos[field.name] = ctx.pos;
+							if (ctx.log)
+								logger::info("[Walker]       scalar '{}' = {} stored at pos={}", field.name, v, ctx.pos);
+						}
+						ctx.pos += basic->size;
+					}
+				} else {
+					auto* compound = schema.findType(field.type);
+					if (!compound) {
+						if (ctx.log)
+							logger::info("[Walker]       compound '{}' NOT FOUND → fail", field.type);
+						ctx.ok = false;
+						return;
+					}
+					if (ctx.log)
+						logger::info("[Walker]       recurse into compound '{}'", field.type);
+					for (uint32_t i = 0; i < count && ctx.ok; ++i)
+						walkTypeDef(schema, *compound, ctx);
+				}
 			}
-			if (ctx.log) logger::info("[Walker]       recurse into compound '{}'", field.type);
-			for (uint32_t i = 0; i < count && ctx.ok; ++i)
-				walkTypeDef(schema, *compound, ctx);
 		}
-	}
-}
 
-void walkTypeName(const NifSchema& schema, const std::string& typeName, WalkCtx& ctx)
-{
-	if (!ctx.ok) return;
-	auto* def = schema.findType(typeName);
-	if (!def) {
-		if (ctx.log) logger::info("[Walker] walkTypeName '{}' → NOT FOUND in schema → nullopt", typeName);
-		ctx.ok = false; return;
-	}
-	if (ctx.log) logger::info("[Walker] walkTypeName '{}' → found", typeName);
-	walkTypeDef(schema, *def, ctx);
-}
+		void walkTypeName(const NifSchema& schema, const std::string& typeName, WalkCtx& ctx)
+		{
+			if (!ctx.ok)
+				return;
+			auto* def = schema.findType(typeName);
+			if (!def) {
+				if (ctx.log)
+					logger::info("[Walker] walkTypeName '{}' → NOT FOUND in schema → nullopt", typeName);
+				ctx.ok = false;
+				return;
+			}
+			if (ctx.log)
+				logger::info("[Walker] walkTypeName '{}' → found", typeName);
+			walkTypeDef(schema, *def, ctx);
+		}
 
-} // anonymous namespace
+	}  // anonymous namespace
 
-std::optional<std::vector<size_t>> walkBlockRefs(
-	const NifSchema&   schema,
-	const std::string& blockTypeName,
-	const uint8_t*     data,
-	size_t             dataSize,
-	int32_t            totalBlocks,
-	LinkFilter         filter,
-	bool               log)
-{
-	// Short-circuit: if the type is known and has no Ref/Ptr fields anywhere in
-	// its hierarchy, there is nothing to collect.  This avoids walking large
-	// data-only blocks such as bhkCompressedMeshShapeData (1000+ chunks) that
-	// account for the vast majority of remapAfterRemoval walker cost.
+	std::optional<std::vector<size_t>> walkBlockRefs(
+		const NifSchema& schema,
+		const std::string& blockTypeName,
+		const uint8_t* data,
+		size_t dataSize,
+		int32_t totalBlocks,
+		LinkFilter filter,
+		bool log)
 	{
-		auto* def = schema.findType(blockTypeName);
-		if (def && !def->hasAnyRefs)
-			return std::vector<size_t>{};
+		// Short-circuit: if the type is known and has no Ref/Ptr fields anywhere in
+		// its hierarchy, there is nothing to collect.  This avoids walking large
+		// data-only blocks such as bhkCompressedMeshShapeData (1000+ chunks) that
+		// account for the vast majority of remapAfterRemoval walker cost.
+		{
+			auto* def = schema.findType(blockTypeName);
+			if (def && !def->hasAnyRefs)
+				return std::vector<size_t>{};
+		}
+
+		WalkCtx ctx;
+		ctx.data = data;
+		ctx.dataSize = dataSize;
+		ctx.filter = filter;
+		ctx.numBlocks = totalBlocks;
+		ctx.log = log;
+
+		if (log)
+			logger::info("[Walker] walkBlockRefs type='{}' filter={} dataSize={}",
+				blockTypeName,
+				(filter == LinkFilter::All ? "All" : filter == LinkFilter::RefOnly ? "RefOnly" :
+																					 "PtrOnly"),
+				dataSize);
+
+		walkTypeName(schema, blockTypeName, ctx);
+
+		// If the walk failed due to bounds overflow (e.g. a garbage Num Children count that
+		// exhausts the block, or a trailing field like Num Effects that doesn't fit), but
+		// refs were already collected before the overflow, return those partial results.
+		// Returning nullopt would discard valid refs and cause getChildLinks to falsely
+		// report no children, making bogus-node detection incorrectly remove live nodes.
+		// True "unknown type" failures also set ctx.ok=false but produce no refs, so they
+		// still return nullopt (the callers treat nullopt and empty-set the same way).
+		if (!ctx.ok && ctx.refs.empty())
+			return std::nullopt;
+
+		// All offsets recorded by the walker are at schema-declared Ref fields.
+		// Include them all: valid refs, null refs (-1), and anything in between.
+		// The caller applies remap[v] which handles each case correctly.
+		std::vector<size_t> result;
+		result.reserve(ctx.refs.size());
+		for (size_t off : ctx.refs) {
+			if (off + 4 <= dataSize)
+				result.push_back(off);
+		}
+		std::sort(result.begin(), result.end());
+		result.erase(std::unique(result.begin(), result.end()), result.end());
+		return result;
 	}
 
-	WalkCtx ctx;
-	ctx.data      = data;
-	ctx.dataSize  = dataSize;
-	ctx.filter    = filter;
-	ctx.numBlocks = totalBlocks;
-	ctx.log       = log;
-
-	if (log)
-		logger::info("[Walker] walkBlockRefs type='{}' filter={} dataSize={}",
-		             blockTypeName,
-		             (filter==LinkFilter::All?"All":filter==LinkFilter::RefOnly?"RefOnly":"PtrOnly"),
-		             dataSize);
-
-	walkTypeName(schema, blockTypeName, ctx);
-
-	// If the walk failed due to bounds overflow (e.g. a garbage Num Children count that
-	// exhausts the block, or a trailing field like Num Effects that doesn't fit), but
-	// refs were already collected before the overflow, return those partial results.
-	// Returning nullopt would discard valid refs and cause getChildLinks to falsely
-	// report no children, making bogus-node detection incorrectly remove live nodes.
-	// True "unknown type" failures also set ctx.ok=false but produce no refs, so they
-	// still return nullopt (the callers treat nullopt and empty-set the same way).
-	if (!ctx.ok && ctx.refs.empty()) return std::nullopt;
-
-	// All offsets recorded by the walker are at schema-declared Ref fields.
-	// Include them all: valid refs, null refs (-1), and anything in between.
-	// The caller applies remap[v] which handles each case correctly.
-	std::vector<size_t> result;
-	result.reserve(ctx.refs.size());
-	for (size_t off : ctx.refs) {
-		if (off + 4 <= dataSize)
-			result.push_back(off);
-	}
-	std::sort(result.begin(), result.end());
-	result.erase(std::unique(result.begin(), result.end()), result.end());
-	return result;
-}
-
-std::optional<BlockRefDetails> walkBlockRefDetails(
-	const NifSchema&   schema,
-	const std::string& blockTypeName,
-	const uint8_t*     data,
-	size_t             dataSize,
-	int32_t            totalBlocks)
-{
-	// Same short-circuit as walkBlockRefs: data-only types have no refs to remap.
+	std::optional<BlockRefDetails> walkBlockRefDetails(
+		const NifSchema& schema,
+		const std::string& blockTypeName,
+		const uint8_t* data,
+		size_t dataSize,
+		int32_t totalBlocks)
 	{
-		auto* def = schema.findType(blockTypeName);
-		if (def && !def->hasAnyRefs)
-			return BlockRefDetails{};
+		// Same short-circuit as walkBlockRefs: data-only types have no refs to remap.
+		{
+			auto* def = schema.findType(blockTypeName);
+			if (def && !def->hasAnyRefs)
+				return BlockRefDetails{};
+		}
+
+		WalkCtx ctx;
+		ctx.data = data;
+		ctx.dataSize = dataSize;
+		ctx.filter = LinkFilter::All;
+		ctx.numBlocks = totalBlocks;
+		ctx.detail = true;
+
+		walkTypeName(schema, blockTypeName, ctx);
+
+		if (!ctx.ok && ctx.refs.empty())
+			return std::nullopt;
+
+		BlockRefDetails result;
+		result.refs.reserve(ctx.refs.size());
+		for (size_t i = 0; i < ctx.refs.size(); ++i) {
+			size_t off = ctx.refs[i];
+			if (off + 4 > dataSize)
+				continue;
+			BlockRefDetail d;
+			d.offset = off;
+			d.arr1 = (i < ctx.refArr1.size()) ? ctx.refArr1[i] : std::string{};
+			result.refs.push_back(std::move(d));
+		}
+		result.countFieldPos = std::move(ctx.scalarPos);
+		return result;
 	}
 
-	WalkCtx ctx;
-	ctx.data      = data;
-	ctx.dataSize  = dataSize;
-	ctx.filter    = LinkFilter::All;
-	ctx.numBlocks = totalBlocks;
-	ctx.detail    = true;
-
-	walkTypeName(schema, blockTypeName, ctx);
-
-	if (!ctx.ok && ctx.refs.empty()) return std::nullopt;
-
-	BlockRefDetails result;
-	result.refs.reserve(ctx.refs.size());
-	for (size_t i = 0; i < ctx.refs.size(); ++i) {
-		size_t off = ctx.refs[i];
-		if (off + 4 > dataSize) continue;
-		BlockRefDetail d;
-		d.offset = off;
-		d.arr1   = (i < ctx.refArr1.size()) ? ctx.refArr1[i] : std::string{};
-		result.refs.push_back(std::move(d));
-	}
-	result.countFieldPos = std::move(ctx.scalarPos);
-	return result;
-}
-
-} // namespace hdt
+}  // namespace hdt

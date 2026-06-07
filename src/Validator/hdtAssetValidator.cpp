@@ -1,25 +1,25 @@
 #include "hdtAssetValidator.h"
 
 #ifdef _WIN32
-#  ifndef WIN32_LEAN_AND_MEAN
-#    define WIN32_LEAN_AND_MEAN
-#  endif
-#  include <windows.h>
+#	ifndef WIN32_LEAN_AND_MEAN
+#		define WIN32_LEAN_AND_MEAN
+#	endif
+#	include <windows.h>
 #endif
 #include "ActorManager.h"
-#include "NetImmerseUtils.h"
+#include "Config/hdtValidatorPaths.h"
+#include "Improvers/hdtNIFBinaryIO.h"
 #include "Improvers/hdtNIFOrphanedSkinImprover.h"
 #include "Improvers/hdtNIFSkinMeshValidator.h"
-#include "Improvers/hdtNIFBinaryIO.h"
-#include "Utils/hdtNIFBinaryUtils.h"
-#include "Validators/hdtNIFValidator.h"
-#include "Validators/hdtSCHValidator.h"
-#include "Config/hdtValidatorPaths.h"
+#include "NetImmerseUtils.h"
 #include "Utils/hdtConcurrencyUtils.h"
+#include "Utils/hdtNIFBinaryUtils.h"
 #include "Utils/hdtStringUtils.h"
-#include "Utils/hdtXMLUtils.h"
 #include "Utils/hdtTemplateDefaults.h"
 #include "Utils/hdtTimeUtils.h"
+#include "Utils/hdtXMLUtils.h"
+#include "Validators/hdtNIFValidator.h"
+#include "Validators/hdtSCHValidator.h"
 #include "Validators/hdtXSDValidator.h"
 
 #include <pugixml.hpp>
@@ -32,10 +32,10 @@
 #include <fstream>
 #include <future>
 #include <iomanip>
+#include <map>
 #include <sstream>
 #include <string>
 #include <thread>
-#include <map>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -43,18 +43,18 @@
 namespace hdt
 {
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// §1  Global state
-// ═══════════════════════════════════════════════════════════════════════════════
+	// ═══════════════════════════════════════════════════════════════════════════════
+	// §1  Global state
+	// ═══════════════════════════════════════════════════════════════════════════════
 
 	ValidationConfig g_validationConfig;
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// §2  Violation classifiers
-//     Pure predicates on XSD/SCH violation objects — no I/O, no side effects.
-//     Order: XSD helpers, then SCH helpers, each group ending with the
-//     aggregate hasBlocking* check that the pipeline uses as a gate.
-// ═══════════════════════════════════════════════════════════════════════════════
+	// ═══════════════════════════════════════════════════════════════════════════════
+	// §2  Violation classifiers
+	//     Pure predicates on XSD/SCH violation objects — no I/O, no side effects.
+	//     Order: XSD helpers, then SCH helpers, each group ending with the
+	//     aggregate hasBlocking* check that the pipeline uses as a gate.
+	// ═══════════════════════════════════════════════════════════════════════════════
 
 	// Lazy-loads (once) the set of XSD element names typed "factor".
 	// Used to decide whether an out-of-range SCH violation is a silent runtime
@@ -153,11 +153,11 @@ namespace hdt
 		});
 	}
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// §3  Report helpers
-//     Build and write report content.  Order: per-XML violation formatter →
-//     parallel batch validator → file writer → errors-only formatter.
-// ═══════════════════════════════════════════════════════════════════════════════
+	// ═══════════════════════════════════════════════════════════════════════════════
+	// §3  Report helpers
+	//     Build and write report content.  Order: per-XML violation formatter →
+	//     parallel batch validator → file writer → errors-only formatter.
+	// ═══════════════════════════════════════════════════════════════════════════════
 
 	using XMLValidationPair = std::pair<XSDValidationResult, SCHValidationResult>;
 
@@ -202,8 +202,8 @@ namespace hdt
 				report.warnings.push_back(msg);
 				report.hasWarnings = true;
 				out << "    [WARNING] " << info.location << " (line " << info.line << "): "
-				    << info.tagName << " is shadowed by later " << info.shadowingTagName
-				    << " in the same constraint/default block and has no effect; this tag can be removed.\n";
+					<< info.tagName << " is shadowed by later " << info.shadowingTagName
+					<< " in the same constraint/default block and has no effect; this tag can be removed.\n";
 				return;
 			}
 
@@ -213,8 +213,8 @@ namespace hdt
 			report.warnings.push_back(msg);
 			report.hasWarnings = true;
 			out << "    [WARNING] " << info.location << " (line " << info.line << "): "
-			    << info.tagName
-			    << " is set to the effective inherited default value. This tag is unnecessary and can be removed.\n";
+				<< info.tagName
+				<< " is set to the effective inherited default value. This tag is unnecessary and can be removed.\n";
 		};
 
 		for (const auto& v : xsdResult.violations) {
@@ -262,7 +262,7 @@ namespace hdt
 			}
 
 			if (isRedundantDefaultValueSchWarning(v) &&
-			    templateRedundantByLocation.find(v.location) == templateRedundantByLocation.end()) {
+				templateRedundantByLocation.find(v.location) == templateRedundantByLocation.end()) {
 				// This warning was matched against theoretical XSD defaults, but the tag is
 				// not redundant relative to the effective inherited template at runtime.
 				continue;
@@ -361,12 +361,12 @@ namespace hdt
 		return reportStream.str();
 	}
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// §4  Discovery
-//     Locate assets on disk or at runtime.  Order: file-system leaf helpers →
-//     BBP discovery → Win32 NIF scanner (private to discoverPhysicsAssets) →
-//     discoverPhysicsAssets → path collector.
-// ═══════════════════════════════════════════════════════════════════════════════
+	// ═══════════════════════════════════════════════════════════════════════════════
+	// §4  Discovery
+	//     Locate assets on disk or at runtime.  Order: file-system leaf helpers →
+	//     BBP discovery → Win32 NIF scanner (private to discoverPhysicsAssets) →
+	//     discoverPhysicsAssets → path collector.
+	// ═══════════════════════════════════════════════════════════════════════════════
 
 	/// Discovers TRI collision files related to a given NIF.
 	/// TRI files are canonical and not weight-variant split:
@@ -435,10 +435,9 @@ namespace hdt
 		// Avoid expensive full mesh scans during equipped validation.
 		xmlFs.replace_extension(".nif");
 		for (const auto& candidate : {
-			xmlFs,
-			xmlFs.parent_path() / (xmlFs.stem().string() + "_0.nif"),
-			xmlFs.parent_path() / (xmlFs.stem().string() + "_1.nif")
-		}) {
+				 xmlFs,
+				 xmlFs.parent_path() / (xmlFs.stem().string() + "_0.nif"),
+				 xmlFs.parent_path() / (xmlFs.stem().string() + "_1.nif") }) {
 			if (candidate.empty())
 				continue;
 			if (!fs::exists(candidate, ec) || ec || !fs::is_regular_file(candidate, ec) || ec)
@@ -533,7 +532,7 @@ namespace hdt
 	// the driver level. It is ineffective through MO2's VFS because the VFS hook
 	// enumerates all entries before applying the pattern.
 	static void findNifsNative(const std::filesystem::path& dir,
-	                            std::vector<std::string>& out)
+		std::vector<std::string>& out)
 	{
 		// Single pass: enumerate all entries, collect NIFs and recurse into dirs.
 		// Previously used two passes (*.nif + FindExSearchLimitToDirectories) but
@@ -544,10 +543,11 @@ namespace hdt
 		WIN32_FIND_DATAW fd;
 
 		HANDLE h = FindFirstFileExW((dirW + L"\\*").c_str(),
-		                             FindExInfoBasic, &fd,
-		                             FindExSearchNameMatch,
-		                             nullptr, FIND_FIRST_EX_LARGE_FETCH);
-		if (h == INVALID_HANDLE_VALUE) return;
+			FindExInfoBasic, &fd,
+			FindExSearchNameMatch,
+			nullptr, FIND_FIRST_EX_LARGE_FETCH);
+		if (h == INVALID_HANDLE_VALUE)
+			return;
 
 		do {
 			if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
@@ -556,7 +556,7 @@ namespace hdt
 			} else {
 				// Check for .nif extension (case-insensitive)
 				const wchar_t* name = fd.cFileName;
-				const wchar_t* dot  = wcsrchr(name, L'.');
+				const wchar_t* dot = wcsrchr(name, L'.');
 				if (dot && _wcsicmp(dot, L".nif") == 0) {
 					try {
 						out.push_back(PathToUtf8(dir / name));
@@ -687,36 +687,42 @@ namespace hdt
 			// Timing each dir reveals which ones are slow to open (VFS overhead).
 			auto tp1a = Clock::now();
 			std::vector<std::string> nifPaths;
-			std::vector<fs::path>    scanTasks; // dirs for parallel scan
+			std::vector<fs::path> scanTasks;  // dirs for parallel scan
 
 			// Physical mods directory bypass: enumerate each mod's directory
 			// directly on NTFS, avoiding MO2 VFS hook overhead entirely.
 			// Driven by <mods-dir> in configs.xml; falls back to the VFS scan of
 			// data/ when modsDir is empty (Vortex users, or unconfigured installs).
-			const fs::path kPhysModsDir = !g_validationConfig.modsDir.empty()
-			    ? fs::path(g_validationConfig.modsDir) : fs::path{};
-			const bool physScan = !kPhysModsDir.empty()
-			    && fs::exists(kPhysModsDir, ec) && fs::is_directory(kPhysModsDir, ec);
+			const fs::path kPhysModsDir = !g_validationConfig.modsDir.empty() ? fs::path(g_validationConfig.modsDir) : fs::path{};
+			const bool physScan = !kPhysModsDir.empty() && fs::exists(kPhysModsDir, ec) && fs::is_directory(kPhysModsDir, ec);
 			ec.clear();
 
 			if (physScan) {
 				logger::info("[Validator][PROF] Phase 1: using physical mods dir: {}", PathToUtf8(kPhysModsDir));
 				for (auto& entry : fs::directory_iterator(kPhysModsDir, ec)) {
-					if (ec) { ec.clear(); continue; }
+					if (ec) {
+						ec.clear();
+						continue;
+					}
 					if (entry.is_directory(ec) && !ec)
 						scanTasks.push_back(entry.path());
 				}
 			} else {
 				// VFS scan of data/ (original path)
 				for (auto& entry : fs::directory_iterator(scanRoot, ec)) {
-					if (ec) { ec.clear(); continue; }
+					if (ec) {
+						ec.clear();
+						continue;
+					}
 					if (entry.is_directory(ec) && !ec) {
 						scanTasks.push_back(entry.path());
 					} else if (entry.is_regular_file(ec) && !ec) {
 						auto ext = PathToUtf8(entry.path().extension());
 						std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
 						if (ext == ".nif") {
-							try { nifPaths.push_back(PathToUtf8(entry.path())); } catch (...) {}
+							try {
+								nifPaths.push_back(PathToUtf8(entry.path()));
+							} catch (...) {}
 						}
 					}
 				}
@@ -750,15 +756,24 @@ namespace hdt
 							// VFS fallback: single-pass recursive_directory_iterator.
 							std::error_code ec2;
 							for (auto& entry : fs::recursive_directory_iterator(
-									scanTasks[j],
-									fs::directory_options::skip_permission_denied,
-									ec2)) {
-								if (ec2) { ec2.clear(); continue; }
-								if (!entry.is_regular_file(ec2) || ec2) { ec2.clear(); continue; }
+									 scanTasks[j],
+									 fs::directory_options::skip_permission_denied,
+									 ec2)) {
+								if (ec2) {
+									ec2.clear();
+									continue;
+								}
+								if (!entry.is_regular_file(ec2) || ec2) {
+									ec2.clear();
+									continue;
+								}
 								auto ext = PathToUtf8(entry.path().extension());
 								std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-								if (ext != ".nif") continue;
-								try { perDirNifs[j].push_back(PathToUtf8(entry.path())); } catch (...) {}
+								if (ext != ".nif")
+									continue;
+								try {
+									perDirNifs[j].push_back(PathToUtf8(entry.path()));
+								} catch (...) {}
 							}
 						}
 						taskMs[j] = msElapsed(tTask, Clock::now());
@@ -778,13 +793,16 @@ namespace hdt
 				for (size_t j = 0; j < scanTasks.size(); ++j) {
 					// Prefix = "c:/Modlists/JOJ/mods/<ModName>/" (forward slashes, trailing /)
 					std::string prefix = PathToUtf8(scanTasks[j]);
-					if (!prefix.empty() && prefix.back() != '/') prefix += '/';
+					if (!prefix.empty() && prefix.back() != '/')
+						prefix += '/';
 
 					for (auto& physPath : perDirNifs[j]) {
-						if (physPath.size() <= prefix.size()) continue;
+						if (physPath.size() <= prefix.size())
+							continue;
 						// Case-insensitive prefix strip (Windows paths may differ in case)
 						bool prefixMatch = _strnicmp(physPath.c_str(), prefix.c_str(), prefix.size()) == 0;
-						if (!prefixMatch) continue;
+						if (!prefixMatch)
+							continue;
 						std::string rel = physPath.substr(prefix.size());
 						std::string virt = "data/" + rel;
 						if (seen.insert(virt).second)
@@ -809,7 +827,12 @@ namespace hdt
 
 			// Per-task parallel scan timings (top 15 slowest) — shows which
 			// second-level dirs dominate the parallel scan wall time.
-			struct TaskStat { std::string path; long long ms; size_t nifs; };
+			struct TaskStat
+			{
+				std::string path;
+				long long ms;
+				size_t nifs;
+			};
 			std::vector<TaskStat> taskStats;
 			taskStats.reserve(scanTasks.size());
 			for (size_t j = 0; j < scanTasks.size(); ++j)
@@ -892,10 +915,10 @@ namespace hdt
 		}
 	}
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// §5  Validation pipeline
-//     Phase-ordered validators called by runValidationCore.
-// ═══════════════════════════════════════════════════════════════════════════════
+	// ═══════════════════════════════════════════════════════════════════════════════
+	// §5  Validation pipeline
+	//     Phase-ordered validators called by runValidationCore.
+	// ═══════════════════════════════════════════════════════════════════════════════
 
 	/// Validates that _0.nif and _1.nif NIF pairs reference the same physics XML at the same block positions.
 	/// For every _0.nif, checks that the matching _1.nif exists and references identical physics data.
@@ -1064,10 +1087,10 @@ namespace hdt
 		}
 	}
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// §7  Orchestration
-//     runValidationCore drives the full pipeline in phase order.
-// ═══════════════════════════════════════════════════════════════════════════════
+	// ═══════════════════════════════════════════════════════════════════════════════
+	// §7  Orchestration
+	//     runValidationCore drives the full pipeline in phase order.
+	// ═══════════════════════════════════════════════════════════════════════════════
 
 	/// Executes the complete validation pipeline (full or equipped-only) and generates a report.
 	/// Full pipeline (equippedOnly=false):
@@ -1085,24 +1108,29 @@ namespace hdt
 		AssetValidationResult& report, std::ostream& out)
 	{
 		for (const auto& asset : nifAssets) {
-			if (!asset.nifExists) continue;
+			if (!asset.nifExists)
+				continue;
 
 			std::ifstream in(asset.nifPath, std::ios::binary | std::ios::ate);
-			if (!in.is_open()) continue;
+			if (!in.is_open())
+				continue;
 			auto sz = in.tellg();
-			if (sz <= 0 || sz > static_cast<std::streamoff>(nif::kMaxNifFileSize)) continue;
+			if (sz <= 0 || sz > static_cast<std::streamoff>(nif::kMaxNifFileSize))
+				continue;
 			std::vector<uint8_t> data(static_cast<size_t>(sz));
 			in.seekg(0);
 			in.read(reinterpret_cast<char*>(data.data()), sz);
-			if (in.gcount() != static_cast<std::streamsize>(sz)) continue;
+			if (in.gcount() != static_cast<std::streamsize>(sz))
+				continue;
 
 			auto parsedOpt = parseNif(data);
-			if (!parsedOpt) continue;
+			if (!parsedOpt)
+				continue;
 
 			if (isPreSESkyrimNif(*parsedOpt)) {
 				std::string warn = asset.nifPath + ": appears to be a Skyrim LE / pre-SE NIF (bsVersion " +
-					std::to_string(parsedOpt->bsVersion) +
-					"); FSMP requires SE-format meshes. Convert with SSE NIF Optimizer. 'smp trim nif' will skip it.";
+				                   std::to_string(parsedOpt->bsVersion) +
+				                   "); FSMP requires SE-format meshes. Convert with SSE NIF Optimizer. 'smp trim nif' will skip it.";
 				report.warnings.push_back(warn);
 				report.hasWarnings = true;
 				out << "  [NIF]  " << asset.nifPath << "\n";
@@ -1113,13 +1141,13 @@ namespace hdt
 			int count = countOrphanedSkinInstances(*parsedOpt);
 			if (count > 0) {
 				std::string err = asset.nifPath + ": " + std::to_string(count) +
-					" NiSkinInstance block(s) with no NiSkinPartition ref"
-					" — would crash the physics runtime. Run 'smp fix nif' to fix.";
+				                  " NiSkinInstance block(s) with no NiSkinPartition ref"
+				                  " — would crash the physics runtime. Run 'smp fix nif' to fix.";
 				report.errors.push_back(err);
 				report.hasErrors = true;
 				out << "  [NIF]  " << asset.nifPath << "\n";
 				out << "    [ERROR] " << count << " NiSkinInstance block(s) missing NiSkinPartition"
-					" — would crash the physics runtime. Run 'smp fix nif' to fix.\n";
+												  " — would crash the physics runtime. Run 'smp fix nif' to fix.\n";
 			}
 
 			auto skinIssues = detectNIFSkinMeshIssues(*parsedOpt);
@@ -1140,27 +1168,33 @@ namespace hdt
 						isError = false;
 					} else if (issue.reasonCode == "shape-partition-count-mismatch") {
 						msg = "BSTriShape[" + std::to_string(issue.triShapeBlockIndex) +
-						      "] (" + issue.shapeType + "): BSTriShape and NiSkinPartition report different"
+						      "] (" + issue.shapeType +
+						      "): BSTriShape and NiSkinPartition report different"
 						      " vertex or triangle counts — data corruption.";
 					} else if (issue.reasonCode == "unsupported-non-permutation-vertex-map") {
 						msg = "BSTriShape[" + std::to_string(issue.triShapeBlockIndex) +
-						      "] (" + issue.shapeType + "): NiSkinPartition vertex map is not a bijection"
+						      "] (" + issue.shapeType +
+						      "): NiSkinPartition vertex map is not a bijection"
 						      " — malformed data.";
 					} else if (issue.reasonCode == "shape-partition-vertexdata-mismatch") {
 						msg = "BSTriShape[" + std::to_string(issue.triShapeBlockIndex) +
-						      "] (" + issue.shapeType + "): BSTriShape and NiSkinPartition vertex data"
+						      "] (" + issue.shapeType +
+						      "): BSTriShape and NiSkinPartition vertex data"
 						      " are inconsistent — data corruption.";
 					} else if (issue.reasonCode == "partition-triangle-copy-mismatch") {
 						msg = "BSTriShape[" + std::to_string(issue.triShapeBlockIndex) +
-						      "] (" + issue.shapeType + "): NiSkinPartition has two inconsistent triangle"
+						      "] (" + issue.shapeType +
+						      "): NiSkinPartition has two inconsistent triangle"
 						      " arrays. Run 'smp fix nif' to fix.";
 					} else if (issue.reasonCode == "shape-partition-triangle-mismatch") {
 						msg = "BSTriShape[" + std::to_string(issue.triShapeBlockIndex) +
-						      "] (" + issue.shapeType + "): BSTriShape and NiSkinPartition triangle lists"
+						      "] (" + issue.shapeType +
+						      "): BSTriShape and NiSkinPartition triangle lists"
 						      " are inconsistent — data corruption.";
 					} else if (issue.reasonCode == "triangle-index-out-of-range") {
 						msg = "BSTriShape[" + std::to_string(issue.triShapeBlockIndex) +
-						      "] (" + issue.shapeType + "): NiSkinPartition triangle references a"
+						      "] (" + issue.shapeType +
+						      "): NiSkinPartition triangle references a"
 						      " non-existent vertex — data corruption.";
 					} else {
 						msg = "BSTriShape[" + std::to_string(issue.triShapeBlockIndex) +
@@ -1199,7 +1233,7 @@ namespace hdt
 			report.totalNIFsScanned = report.equippedNifsDiscovered;
 			bodyStream << "  Found " << equippedAssets.size() << " equipped physics item(s).\n";
 			bodyStream << "  NIF discovery metrics: filesystem=0, equipped=" << report.equippedNifsDiscovered
-				<< ", scan violations=" << report.nifScanViolationCount << "\n";
+					   << ", scan violations=" << report.nifScanViolationCount << "\n";
 
 			if (!nifScanViolations.empty()) {
 				bodyStream << "\n  -- NIF Scan Violations --\n";
@@ -1323,7 +1357,6 @@ namespace hdt
 				bodyStream << "\n== Phase 3.5: NIF Structural Validation ==\n";
 				validateNIFStructure(nifAssets, report, bodyStream);
 			}
-
 		}
 
 		// Stop timer
@@ -1363,8 +1396,8 @@ namespace hdt
 		reportStream << "  XMLs passed:   " << report.xmlPassCount << "\n";
 		reportStream << "  XMLs failed:   " << report.xmlErrorCount << "\n";
 		reportStream << "  NIF discovery: filesystem=" << report.filesystemNifFilesDiscovered
-			<< ", equipped=" << report.equippedNifsDiscovered
-			<< ", scan violations=" << report.nifScanViolationCount << "\n";
+					 << ", equipped=" << report.equippedNifsDiscovered
+					 << ", scan violations=" << report.nifScanViolationCount << "\n";
 		reportStream << "  Warnings:      " << report.warnings.size() << "\n";
 		reportStream << "  Errors:        " << report.errors.size() << "\n";
 		reportStream << "\n";
@@ -1376,9 +1409,9 @@ namespace hdt
 		return reportStream.str();
 	}
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// §8  Public API
-// ═══════════════════════════════════════════════════════════════════════════════
+	// ═══════════════════════════════════════════════════════════════════════════════
+	// §8  Public API
+	// ═══════════════════════════════════════════════════════════════════════════════
 
 	/// Validates all physics assets (NIFs and XMLs) and writes a detailed report to disk.
 	/// Runs either the full pipeline (all NIFs) or equipped-only pipeline (equipped items only).

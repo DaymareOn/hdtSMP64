@@ -42,25 +42,25 @@ namespace hdt
 	{
 		std::vector<uint8_t> headerPrefix;
 
-		uint32_t version   = 0;
-		uint8_t  endianness = 0;           // 0=big, 1=little
-		bool     hasExplicitEndiannessByte = true;
+		uint32_t version = 0;
+		uint8_t endianness = 0;  // 0=big, 1=little
+		bool hasExplicitEndiannessByte = true;
 		uint32_t userVersion = 0;
 
 		// BSStreamHeader fields (nif.xml BSStreamHeader, exact per-field conditions):
-		uint32_t    bsVersion     = 0;
+		uint32_t bsVersion = 0;
 		std::string author;
-		uint32_t    bsUnknownInt  = 0;      // cond: bsVersion > 130
-		std::string processScript;          // cond: bsVersion < 131
-		std::string exportScript;           // always present when BSStreamHeader present
-		std::string maxFilepath;            // cond: bsVersion >= 103 && < 170
-		std::vector<uint8_t> bsUnknownData; // cond: bsVersion >= 170 (ExportDataSF)
+		uint32_t bsUnknownInt = 0;           // cond: bsVersion > 130
+		std::string processScript;           // cond: bsVersion < 131
+		std::string exportScript;            // always present when BSStreamHeader present
+		std::string maxFilepath;             // cond: bsVersion >= 103 && < 170
+		std::vector<uint8_t> bsUnknownData;  // cond: bsVersion >= 170 (ExportDataSF)
 
-		std::vector<std::string>          blockTypes;
-		std::vector<uint16_t>             blockTypeIndex;
+		std::vector<std::string> blockTypes;
+		std::vector<uint16_t> blockTypeIndex;
 		std::vector<std::vector<uint8_t>> blocks;
-		std::vector<std::string>          strings;
-		std::vector<uint32_t>             groups;
+		std::vector<std::string> strings;
+		std::vector<uint32_t> groups;
 
 		// nif.xml Footer: Num Roots (uint) + Roots (Ref[Num Roots]), since 3.3.0.13
 		std::vector<int32_t> footerRoots;
@@ -72,7 +72,8 @@ namespace hdt
 		if (idx < 0 || idx >= static_cast<int32_t>(parsed.blockTypeIndex.size()))
 			return std::nullopt;
 		uint16_t tIdx = parsed.blockTypeIndex[static_cast<size_t>(idx)];
-		if (tIdx >= parsed.blockTypes.size()) return std::nullopt;
+		if (tIdx >= parsed.blockTypes.size())
+			return std::nullopt;
 		return parsed.blockTypes[tIdx];
 	}
 

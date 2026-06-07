@@ -20,12 +20,12 @@ crash or misbehave in game.
 
 Open the in-game console (`~`) and type:
 
-| Command | What it does |
-|---------|--------------|
-| `smp report` | Validate **all** physics assets in the load order. Full report. |
-| `smp report gear` | Validate **only the gear currently equipped** on tracked actors (you + nearby NPCs). Fast. |
-| `smp report error` | Full scan, but the report lists **errors only** (no warnings/info). |
-| `smp report gear error` | Equipped-only, errors-only. |
+| Command                 | What it does                                                                               |
+| ----------------------- | ------------------------------------------------------------------------------------------ |
+| `smp report`            | Validate **all** physics assets in the load order. Full report.                            |
+| `smp report gear`       | Validate **only the gear currently equipped** on tracked actors (you + nearby NPCs). Fast. |
+| `smp report error`      | Full scan, but the report lists **errors only** (no warnings/info).                        |
+| `smp report gear error` | Equipped-only, errors-only.                                                                |
 
 (`smp help` lists every `smp` command and its usage, if you forget the syntax.)
 
@@ -93,26 +93,26 @@ Each finding is tagged `[ERROR]` or `[WARNING]`:
 
 ### Common errors and what to do
 
-| Message (abridged) | Meaning | Action |
-|--------------------|---------|--------|
-| `NIF … references missing XML: <path>` | The NIF points at a physics XML that isn't installed. | Install the XML, or fix the path baked into the NIF. |
-| `<file>:<line>: <element> - <message>` | XSD/Schematron violation in a physics XML (bad attribute, enum, range, or cross-ref). | Edit the XML per the message. |
-| `… NiSkinInstance block(s) with no NiSkinPartition ref — would crash the physics runtime` | Corrupt skinned mesh; the engine would dereference a null partition. | Re-export the mesh, or repair it (NIF repair is a separate FSMP command). |
-| `BSTriShape[i] (…): … data corruption` / `triangle references a non-existent vertex` | The mesh's skin partition is internally inconsistent. | Re-export / repair the NIF. |
-| `_0.nif has physics data but the matching _1.nif … was not found or has no physics reference` | A weight-variant body pair is mismatched. | Ensure both `_0` and `_1` reference the same physics XML. |
-| `_0/_1 NIF pair reference different physics XMLs` / `different number of physics XML blocks` | The pair will behave inconsistently between weights. | Make the pair match. |
+| Message (abridged)                                                                            | Meaning                                                                               | Action                                                                    |
+| --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `NIF … references missing XML: <path>`                                                        | The NIF points at a physics XML that isn't installed.                                 | Install the XML, or fix the path baked into the NIF.                      |
+| `<file>:<line>: <element> - <message>`                                                        | XSD/Schematron violation in a physics XML (bad attribute, enum, range, or cross-ref). | Edit the XML per the message.                                             |
+| `… NiSkinInstance block(s) with no NiSkinPartition ref — would crash the physics runtime`     | Corrupt skinned mesh; the engine would dereference a null partition.                  | Re-export the mesh, or repair it (NIF repair is a separate FSMP command). |
+| `BSTriShape[i] (…): … data corruption` / `triangle references a non-existent vertex`          | The mesh's skin partition is internally inconsistent.                                 | Re-export / repair the NIF.                                               |
+| `_0.nif has physics data but the matching _1.nif … was not found or has no physics reference` | A weight-variant body pair is mismatched.                                             | Ensure both `_0` and `_1` reference the same physics XML.                 |
+| `_0/_1 NIF pair reference different physics XMLs` / `different number of physics XML blocks`  | The pair will behave inconsistently between weights.                                  | Make the pair match.                                                      |
 
 ### Common warnings and what they mean
 
-| Message (abridged) | Meaning |
-|--------------------|---------|
-| `Multiple "HDT Skinned Mesh Physics Object" blocks found (N); only the first is used` | The NIF has extra physics references that the runtime ignores. |
-| `<tag> is set to the effective inherited default value … can be removed` | The tag duplicates the inherited template default; deleting it changes nothing. |
-| `<tag> is shadowed by later <tag> … can be removed` | A later tag in the same block overrides this one. |
-| `… is out of range …; runtime clamps this value to [0, 1], so the effective value will be '<v>'` | An out-of-`[0,1]` "factor" value; the engine clamps it. |
-| `… is not allowed inside <…>; this tag will be ignored` | An unknown/misplaced element the runtime ignores. |
-| `Skyrim LE / pre-SE NIF (bsVersion <n>); FSMP requires SE-format meshes` | The NIF is Oldrim format. Convert it (e.g. SSE NIF Optimizer). |
-| `vertex format not recognised by this tool` | An SSE mesh layout the structural check doesn't analyse; skipped, not an error. |
+| Message (abridged)                                                                               | Meaning                                                                         |
+| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------- |
+| `Multiple "HDT Skinned Mesh Physics Object" blocks found (N); only the first is used`            | The NIF has extra physics references that the runtime ignores.                  |
+| `<tag> is set to the effective inherited default value … can be removed`                         | The tag duplicates the inherited template default; deleting it changes nothing. |
+| `<tag> is shadowed by later <tag> … can be removed`                                              | A later tag in the same block overrides this one.                               |
+| `… is out of range …; runtime clamps this value to [0, 1], so the effective value will be '<v>'` | An out-of-`[0,1]` "factor" value; the engine clamps it.                         |
+| `… is not allowed inside <…>; this tag will be ignored`                                          | An unknown/misplaced element the runtime ignores.                               |
+| `Skyrim LE / pre-SE NIF (bsVersion <n>); FSMP requires SE-format meshes`                         | The NIF is Oldrim format. Convert it (e.g. SSE NIF Optimizer).                  |
+| `vertex format not recognised by this tool`                                                      | An SSE mesh layout the structural check doesn't analyse; skipped, not an error. |
 
 ## 5. Configuration
 

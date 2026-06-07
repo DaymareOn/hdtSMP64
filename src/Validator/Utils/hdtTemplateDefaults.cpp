@@ -21,14 +21,14 @@ namespace hdt
 	{
 		// ── Types ─────────────────────────────────────────────────────────────
 
-		using FieldMap    = std::unordered_map<std::string, std::string>;
+		using FieldMap = std::unordered_map<std::string, std::string>;
 		using TemplateMap = std::unordered_map<std::string, FieldMap>;
 
 		struct AnalysisResult
 		{
-			std::unordered_set<std::string>      locations;
+			std::unordered_set<std::string> locations;
 			std::vector<TemplateRedundantChildInfo> infos;
-			std::vector<pugi::xml_node>          removableNodes;
+			std::vector<pugi::xml_node> removableNodes;
 		};
 
 		// Schematron-parsed default values, split by family and by global (all families).
@@ -113,8 +113,8 @@ namespace hdt
 			std::string basis = "0,0,0,1";
 			std::string origin = "0,0,0";
 			std::string axisAngle;
-			bool hasBasis    = false;
-			bool hasOrigin   = false;
+			bool hasBasis = false;
+			bool hasOrigin = false;
 			bool hasAxisAngle = false;
 
 			for (auto child = transformNode.first_child(); child; child = child.next_sibling()) {
@@ -123,12 +123,12 @@ namespace hdt
 
 				const std::string name = std::string(XmlLocalName(child.name()));
 				if (name == "basis") {
-					hasBasis    = true;
+					hasBasis = true;
 					hasAxisAngle = false;
 					basis = normalizeQuaternionAttrs(child);
 				} else if (name == "basis-axis-angle") {
 					hasAxisAngle = true;
-					hasBasis    = false;
+					hasBasis = false;
 					axisAngle = normalizeAttrNumber(child, "x") + "," +
 					            normalizeAttrNumber(child, "y") + "," +
 					            normalizeAttrNumber(child, "z") + "," +
@@ -156,7 +156,7 @@ namespace hdt
 		static std::string normalizeLerpValue(const pugi::xml_node& lerpNode)
 		{
 			std::string translationLerp = "0";
-			std::string rotationLerp    = "0";
+			std::string rotationLerp = "0";
 
 			for (auto child = lerpNode.first_child(); child; child = child.next_sibling()) {
 				if (child.type() != pugi::node_element)
@@ -307,14 +307,14 @@ namespace hdt
 
 			static const std::regex boolRule(R"(f:([A-Za-z0-9_\-]+)\[\s*normalize-space\(\.\)\s*=\s*'([^']+)')");
 			for (auto it = std::sregex_iterator(context.begin(), context.end(), boolRule); it != std::sregex_iterator(); ++it) {
-				std::string tag   = (*it)[1].str();
+				std::string tag = (*it)[1].str();
 				std::string value = normalizeBoolText((*it)[2].str());
 				out[tag] = value;
 			}
 
 			static const std::regex vecRule(R"(f:([A-Za-z0-9_\-]+)\[\s*number\(@x\)\s*=\s*([-0-9.]+)\s*and\s*number\(@y\)\s*=\s*([-0-9.]+)\s*and\s*number\(@z\)\s*=\s*([-0-9.]+))");
 			for (auto it = std::sregex_iterator(context.begin(), context.end(), vecRule); it != std::sregex_iterator(); ++it) {
-				std::string tag   = (*it)[1].str();
+				std::string tag = (*it)[1].str();
 				std::string value = normalizeNumericText((*it)[2].str()) + "," +
 				                    normalizeNumericText((*it)[3].str()) + "," +
 				                    normalizeNumericText((*it)[4].str());
@@ -375,7 +375,7 @@ namespace hdt
 
 						for (auto family : families) {
 							for (const auto& kv : fields) {
-								std::string k        = kv.first;
+								std::string k = kv.first;
 								const std::string& v = kv.second;
 								if (family == Family::ConeTwist)
 									k = canonicalFieldForConetwist(k);
@@ -444,12 +444,12 @@ namespace hdt
 			defaults[Family::Bone].insert_or_assign("centerOfMassTransform", makeTransformDefaultKey());
 			// Runtime default is FrameInB; frameInA is an explicit body-A-space choice and is only
 			// tracked for redundancy when it is repeated in template inheritance.
-			defaults[Family::Generic].insert_or_assign("__frameSpec",     "B:" + makeTransformDefaultKey());
-			defaults[Family::Generic].insert_or_assign("frameInB",        makeTransformDefaultKey());
-			defaults[Family::Generic].insert_or_assign("linearDamping",   "0,0,0");
-			defaults[Family::Generic].insert_or_assign("angularDamping",  "0,0,0");
-			defaults[Family::ConeTwist].insert_or_assign("__frameSpec",   "B:" + makeTransformDefaultKey());
-			defaults[Family::ConeTwist].insert_or_assign("frameInB",      makeTransformDefaultKey());
+			defaults[Family::Generic].insert_or_assign("__frameSpec", "B:" + makeTransformDefaultKey());
+			defaults[Family::Generic].insert_or_assign("frameInB", makeTransformDefaultKey());
+			defaults[Family::Generic].insert_or_assign("linearDamping", "0,0,0");
+			defaults[Family::Generic].insert_or_assign("angularDamping", "0,0,0");
+			defaults[Family::ConeTwist].insert_or_assign("__frameSpec", "B:" + makeTransformDefaultKey());
+			defaults[Family::ConeTwist].insert_or_assign("frameInB", makeTransformDefaultKey());
 
 			return defaults;
 		}
@@ -530,7 +530,7 @@ namespace hdt
 
 				if (isDefaultNodeName(localName)) {
 					const std::string templateName = TrimAsciiWhitespace(node.attribute("name").as_string());
-					const std::string extendsName  = TrimAsciiWhitespace(node.attribute("extends").as_string());
+					const std::string extendsName = TrimAsciiWhitespace(node.attribute("extends").as_string());
 
 					bool needed = false;
 					if (templateName.empty()) {
@@ -609,11 +609,11 @@ namespace hdt
 
 				if (isDefaultNodeName(localName)) {
 					const std::string extendsName = node.attribute("extends").as_string();
-					effective    = getEffectiveTemplate(familyTemplates[family], extendsName);
+					effective = getEffectiveTemplate(familyTemplates[family], extendsName);
 					templateName = node.attribute("name").as_string();
 				} else {
 					templateName = node.attribute("template").as_string();
-					effective    = getEffectiveTemplate(familyTemplates[family], templateName);
+					effective = getEffectiveTemplate(familyTemplates[family], templateName);
 				}
 
 				// Pre-scan to find the last frame tag: only it is effective.
@@ -624,7 +624,7 @@ namespace hdt
 						continue;
 					const std::string childName = std::string(XmlLocalName(child.name()));
 					if (isFrameTagName(family, childName)) {
-						lastFrameTag     = child;
+						lastFrameTag = child;
 						lastFrameTagName = childName;
 					}
 				}
@@ -640,10 +640,10 @@ namespace hdt
 					if (isFrameTagName(family, childName)) {
 						if (child != lastFrameTag) {
 							TemplateRedundantChildInfo info;
-							info.location               = BuildNodeLocationPath(child);
-							info.tagName                = childName;
+							info.location = BuildNodeLocationPath(child);
+							info.tagName = childName;
 							info.shadowedByLaterFrameTag = true;
-							info.shadowingTagName        = lastFrameTagName;
+							info.shadowingTagName = lastFrameTagName;
 							if (sourceBytes)
 								info.line = OffsetToLineNumber(*sourceBytes, child.offset_debug());
 
@@ -653,7 +653,7 @@ namespace hdt
 								result.removableNodes.push_back(child);
 							continue;
 						}
-						fieldKey     = "__frameSpec";
+						fieldKey = "__frameSpec";
 						currentValue = normalizeFrameSpec(childName, child);
 					} else {
 						fieldKey = fieldKeyFor(family, childName);
@@ -671,7 +671,7 @@ namespace hdt
 					if (isRedundant) {
 						TemplateRedundantChildInfo info;
 						info.location = BuildNodeLocationPath(child);
-						info.tagName  = childName;
+						info.tagName = childName;
 						if (sourceBytes)
 							info.line = OffsetToLineNumber(*sourceBytes, child.offset_debug());
 
@@ -720,7 +720,7 @@ namespace hdt
 				if (family == Family::None || !isDefaultNodeName(localName))
 					continue;
 
-				const std::string extendsName  = TrimAsciiWhitespace(node.attribute("extends").as_string());
+				const std::string extendsName = TrimAsciiWhitespace(node.attribute("extends").as_string());
 				const std::string templateName = TrimAsciiWhitespace(node.attribute("name").as_string());
 				FieldMap effective = getEffectiveTemplate(familyTemplates[family], extendsName);
 
@@ -744,7 +744,7 @@ namespace hdt
 					if (isFrameTagName(family, childName)) {
 						if (child != lastFrameTag)
 							continue;
-						fieldKey     = "__frameSpec";
+						fieldKey = "__frameSpec";
 						currentValue = normalizeFrameSpec(childName, child);
 					} else {
 						fieldKey = fieldKeyFor(family, childName);

@@ -9,7 +9,7 @@ namespace hdt
 
 	struct ValidationConfig
 	{
-		std::string modsDir;    // mods folder (MO2 mods/ or Vortex staging) scanned natively, bypassing the VFS
+		std::string modsDir;  // mods folder (MO2 mods/ or Vortex staging) scanned natively, bypassing the VFS
 	};
 
 	extern ValidationConfig g_validationConfig;

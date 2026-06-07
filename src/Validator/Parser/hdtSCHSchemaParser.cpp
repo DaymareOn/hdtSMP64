@@ -24,18 +24,19 @@ namespace hdt
 					msg += child.value();
 					break;
 
-				case pugi::node_element: {
-					std::string_view localName = XmlLocalName(child.name());
-					if (localName == "name") {
-						msg += "{name}";
-					} else if (localName == "value-of") {
-						std::string selectExpr = TrimAsciiWhitespace(child.attribute("select").as_string());
-						if (selectExpr == "." || selectExpr == "text()") {
-							msg += "{value}";
+				case pugi::node_element:
+					{
+						std::string_view localName = XmlLocalName(child.name());
+						if (localName == "name") {
+							msg += "{name}";
+						} else if (localName == "value-of") {
+							std::string selectExpr = TrimAsciiWhitespace(child.attribute("select").as_string());
+							if (selectExpr == "." || selectExpr == "text()") {
+								msg += "{value}";
+							}
 						}
+						break;
 					}
-					break;
-				}
 
 				default:
 					break;
