@@ -142,15 +142,17 @@ namespace hdt
 							attrCons[aName] = tc;
 					}
 				}
-				gatherComplexTypeAttrs(child, namedSimpleTypes, attrCons);
+				// Skip recursing into xsd:element children to avoid collecting nested element attributes
+				if (childTag != "xsd:element") {
+					gatherComplexTypeAttrs(child, namedSimpleTypes, attrCons);
+				}
 			}
 		}
 
 		/// Parses all top-level elements and returns their allowed enumeration values.
 		std::unordered_map<std::string, std::unordered_set<std::string>>
-			parseAllElementEnumerations(const pugi::xml_document& doc)
+			parseAllElementEnumerations(pugi::xml_node schema)
 		{
-			pugi::xml_node schema = doc.first_child();
 
 			std::unordered_map<std::string, std::unordered_set<std::string>> namedEnums;
 			for (auto st : schema.children("xsd:simpleType")) {
@@ -185,15 +187,40 @@ namespace hdt
 
 		/// Parses required attributes per top-level element.
 		std::unordered_map<std::string, std::vector<std::string>>
-			parseAllRequiredAttrs(const pugi::xml_document& doc)
+			parseAllRequiredAttrs(pugi::xml_node schema)
 		{
+			// First, collect all named complexTypes and their required attributes
+			std::unordered_map<std::string, std::vector<std::string>> namedComplexTypeRequiredAttrs;
+			for (auto ct : schema.children("xsd:complexType")) {
+				const char* typeName = ct.attribute("name").as_string("");
+				if (!typeName[0])
+					continue;
+				std::vector<std::string> attrs;
+				collectRequiredAttrs(ct, attrs);
+				if (!attrs.empty())
+					namedComplexTypeRequiredAttrs[typeName] = std::move(attrs);
+			}
+
 			std::unordered_map<std::string, std::vector<std::string>> result;
-			for (auto elem : doc.first_child().children("xsd:element")) {
+			for (auto elem : schema.children("xsd:element")) {
 				const char* name = elem.attribute("name").as_string("");
 				if (!name[0])
 					continue;
 				std::vector<std::string> attrs;
+				// First collect inline required attributes
 				collectRequiredAttrs(elem, attrs);
+				// If element has a type attribute, also include required attributes from that named complexType
+				const char* typeName = elem.attribute("type").as_string("");
+				if (typeName[0]) {
+					const auto it = namedComplexTypeRequiredAttrs.find(typeName);
+					if (it != namedComplexTypeRequiredAttrs.end()) {
+						for (const auto& attr : it->second) {
+							// Avoid duplicates
+							if (std::find(attrs.begin(), attrs.end(), attr) == attrs.end())
+								attrs.push_back(attr);
+						}
+					}
+				}
 				if (!attrs.empty())
 					result[name] = std::move(attrs);
 			}
@@ -272,20 +299,19 @@ namespace hdt
 			}
 		}
 
-		/// Parses all key/keyref constraints from the schema document.
+		/// Parses all key/keyref constraints from the schema node.
 		void parseKeyConstraints(
-			const pugi::xml_document& doc,
+			pugi::xml_node schema,
 			std::unordered_map<std::string, PhysicsSchema::KeyDef>& keyDefs,
 			std::unordered_map<std::string, PhysicsSchema::KeyRefDef>& keyRefDefs)
 		{
-			collectKeyNodes(doc.first_child(), keyDefs, keyRefDefs);
+			collectKeyNodes(schema, keyDefs, keyRefDefs);
 		}
 
 		/// Builds allowed-children maps and the known-element set from XSD elements/types.
 		std::unordered_map<std::string, std::unordered_set<std::string>>
-			parseAllowedChildren(const pugi::xml_document& doc, std::unordered_set<std::string>& knownElements)
+			parseAllowedChildren(pugi::xml_node schema, std::unordered_set<std::string>& knownElements)
 		{
-			pugi::xml_node schema = doc.first_child();
 			std::unordered_map<std::string, std::unordered_set<std::string>> typeChildren;
 			for (auto ct : schema.children("xsd:complexType")) {
 				const char* typeName = ct.attribute("name").as_string("");
@@ -327,11 +353,10 @@ namespace hdt
 
 		/// Parses text and attribute type constraints for all top-level schema elements.
 		void parseAllTypeConstraints(
-			const pugi::xml_document& doc,
+			pugi::xml_node schema,
 			std::unordered_map<std::string, TypeConstraint>& elementTextConstraints,
 			std::unordered_map<std::string, std::unordered_map<std::string, TypeConstraint>>& elementAttrConstraints)
 		{
-			pugi::xml_node schema = doc.first_child();
 
 			std::unordered_map<std::string, TypeConstraint> namedSimpleTypes;
 			for (auto st : schema.children("xsd:simpleType")) {
@@ -400,13 +425,22 @@ namespace hdt
 	/// Parses XSD-derived validation metadata into PhysicsSchema for runtime checks.
 	bool ParsePhysicsSchemaFromXSD(const pugi::xml_document& doc, PhysicsSchema& schema)
 	{
-		schema.elementEnums = parseAllElementEnumerations(doc);
+		// Use document_element() to get the xsd:schema root node
+		pugi::xml_node schemaNode = doc.document_element();
+		if (!schemaNode) {
+			// Fall back to child("xsd:schema") if document_element fails
+			schemaNode = doc.child("xsd:schema");
+		}
+		if (!schemaNode)
+			return false;
+
+		schema.elementEnums = parseAllElementEnumerations(schemaNode);
 		schema.rootTag = "system";
-		parseKeyConstraints(doc, schema.keyDefs, schema.keyRefDefs);
-		schema.requiredAttrs = parseAllRequiredAttrs(doc);
+		parseKeyConstraints(schemaNode, schema.keyDefs, schema.keyRefDefs);
+		schema.requiredAttrs = parseAllRequiredAttrs(schemaNode);
 		schema.knownElements.clear();
-		schema.allowedChildren = parseAllowedChildren(doc, schema.knownElements);
-		parseAllTypeConstraints(doc, schema.elementTextConstraints, schema.elementAttrConstraints);
+		schema.allowedChildren = parseAllowedChildren(schemaNode, schema.knownElements);
+		parseAllTypeConstraints(schemaNode, schema.elementTextConstraints, schema.elementAttrConstraints);
 		return true;
 	}
 

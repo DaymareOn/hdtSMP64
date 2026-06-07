@@ -92,7 +92,8 @@ namespace hdt
 	{
 		schema = CompiledSchema{};
 
-		auto schemaRoot = schDoc.first_child();
+		// Use document_element() to get the actual <schema> root element
+		auto schemaRoot = schDoc.document_element();
 		if (!schemaRoot) {
 			return false;
 		}
@@ -139,8 +140,9 @@ namespace hdt
 			}
 		}
 
-		schema.loaded = true;
-		return true;
+		// Only set loaded = true if we successfully compiled at least one rule
+		schema.loaded = !schema.rules.empty();
+		return schema.loaded;
 	}
 
 }  // namespace hdt
