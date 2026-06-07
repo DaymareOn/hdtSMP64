@@ -162,7 +162,6 @@ namespace hdt
 		result.boneCount = static_cast<uint32_t>(result.boneNames.size());
 
 		if (result.boneCount == 0) {
-			result.isValid = false;
 			result.errors.push_back(nifPath + ": no bones found in skeleton");
 		}
 
