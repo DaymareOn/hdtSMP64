@@ -6,11 +6,14 @@
 #include "config.h"
 #include "dhdtOverrideManager.h"
 #include "dhdtPapyrusFunctions.h"
+#include "Validator/hdtAssetValidator.h"
 #include "hdtSkyrimPhysicsWorld.h"
 
+#include <atomic>
 #include <charconv>
 #include <cstdint>
 #include <string_view>
+#include <thread>
 
 namespace
 {
@@ -314,6 +317,34 @@ bool SMPDebug_Execute(
 
 	logger::debug("SMPCommand: {} {} {}"sv, buffer, buffer2, buffer3);
 
+	if (_strnicmp(buffer, "help", MAX_PATH) == 0) {
+		auto* console = RE::ConsoleLog::GetSingleton();
+		console->Print("[HDT-SMP] Available smp commands:");
+		console->Print("  smp help");
+		console->Print("    Show this command reference.");
+		console->Print("  smp reset");
+		console->Print("    Reload SMP config and reset all active physics systems.");
+		console->Print("  smp dumptree");
+		console->Print("    Dump the targeted reference's 3D node tree to console.");
+		console->Print("  smp detail");
+		console->Print("    Print detailed tracked skeleton/item diagnostics.");
+		console->Print("  smp list");
+		console->Print("    Print a compact tracked skeleton summary.");
+		console->Print("  smp profile [sample_frames] [print_every_frames]");
+		console->Print("    Toggle physics profiler capture; defaults are 240/240.");
+		console->Print("  smp on");
+		console->Print("    Enable SMP simulation.");
+		console->Print("  smp off");
+		console->Print("    Disable SMP simulation.");
+		console->Print("  smp QueryOverride");
+		console->Print("    Print current dynamic override data.");
+		console->Print("  smp report [gear] [error]");
+		console->Print("    Run the physics-asset validator in the background and write a report file.");
+		console->Print("    gear  = validate equipped gear only.");
+		console->Print("    error = write an errors-only report (no warnings/info).");
+		return true;
+	}
+
 	if (_strnicmp(buffer, "reset", MAX_PATH) == 0) {
 		logger::debug("smp reset: reloading config and resetting physics world"sv);
 		RE::ConsoleLog::GetSingleton()->Print("running full smp reset");
@@ -388,6 +419,88 @@ bool SMPDebug_Execute(
 
 	if (_strnicmp(buffer, "QueryOverride", MAX_PATH) == 0) {
 		RE::ConsoleLog::GetSingleton()->Print(hdt::Override::OverrideManager::GetSingleton()->queryOverrideData().c_str());
+		return true;
+	}
+
+	if (_strnicmp(buffer, "report", MAX_PATH) == 0) {
+		static std::atomic<bool> s_validationRunning{ false };
+
+		bool gearOnly = false;
+		bool errorReport = false;
+		auto parseValidateModeArg = [&](const char* arg) {
+			if (arg[0] == '\0')
+				return true;
+			if (_stricmp(arg, "gear") == 0) {
+				gearOnly = true;
+				return true;
+			}
+			if (_stricmp(arg, "error") == 0) {
+				errorReport = true;
+				return true;
+			}
+			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Unknown report mode: %s", arg);
+			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Usage: smp report [gear] [error]");
+			return false;
+		};
+
+		if (!parseValidateModeArg(buffer2) || !parseValidateModeArg(buffer3))
+			return true;
+
+		if (s_validationRunning.exchange(true)) {
+			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Validation is already running.");
+			return true;
+		}
+		if (gearOnly && errorReport) {
+			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Equipped gear report (error report) started in background. Results will appear when complete.");
+		} else if (gearOnly) {
+			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Equipped gear report started in background. Results will appear when complete.");
+		} else if (errorReport) {
+			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Report (error report) started in background. Results will appear when complete.");
+		} else {
+			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Report started in background. Results will appear when complete.");
+		}
+		std::thread([gearOnly, errorReport]() {
+			try {
+				const char* validationLabel = gearOnly ? "Equipped gear report" : "Report";
+				std::string reportPath;
+				auto result = hdt::ValidatePhysicsAssets(
+					reportPath,
+					gearOnly,
+					errorReport ? hdt::ValidationReportMode::ErrorsOnly : hdt::ValidationReportMode::Full);
+				auto* console = RE::ConsoleLog::GetSingleton();
+				if (errorReport) {
+					console->Print(
+						"[HDT-SMP] %s complete in %.2fs: %d XML(s) found, %d failed (error report: errors only)",
+						validationLabel,
+						result.elapsedSeconds,
+						result.totalXMLsFound,
+						result.xmlErrorCount);
+				} else {
+					console->Print(
+						"[HDT-SMP] %s complete in %.2fs: %d XML(s) found, %d passed, %d failed, %d warning(s)",
+						validationLabel,
+						result.elapsedSeconds,
+						result.totalXMLsFound, result.xmlPassCount, result.xmlErrorCount,
+						(int)result.warnings.size());
+				}
+				if (!reportPath.empty()) {
+					if (errorReport) {
+						console->Print("[HDT-SMP] Errors-only report written to: %s", reportPath.c_str());
+					} else {
+						console->Print("[HDT-SMP] Report written to: %s", reportPath.c_str());
+					}
+				} else {
+					console->Print("[HDT-SMP] Warning: report file could not be written");
+				}
+			} catch (const std::exception& e) {
+				RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Report failed with error: %s", e.what());
+				logger::error("[Validator] smp report threw: {}", e.what());
+			} catch (...) {
+				RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Report failed with an unknown error");
+				logger::error("[Validator] smp report threw an unknown exception");
+			}
+			s_validationRunning.store(false);
+		}).detach();
 		return true;
 	}
 
@@ -614,7 +727,7 @@ extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* a_s
 
 		unusedCommand->functionName = "SMPDebug";
 		unusedCommand->shortName = "smp";
-		unusedCommand->helpString = "smp <reset>";
+		unusedCommand->helpString = "smp <help|reset|report [gear] [error]>";
 		unusedCommand->referenceFunction = 0;
 		unusedCommand->numParams = 3;
 		unusedCommand->params = params;
