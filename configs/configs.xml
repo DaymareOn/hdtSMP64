@@ -267,4 +267,16 @@
     -->
     <distanceForMaxWind>3000.0</distanceForMaxWind>
   </wind>
+
+  <validation>
+
+    <!--
+      mods-dir: (string) optional path to the mod manager's mods folder (MO2 mods/ or
+      Vortex staging). When set, 'smp report' scans each mod directory natively instead of
+      through the virtual file system, which is much faster on large load orders.
+      Leave empty to scan data/ through the VFS.
+    -->
+    <mods-dir></mods-dir>
+
+  </validation>
 </configs>
