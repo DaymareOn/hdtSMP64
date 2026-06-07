@@ -85,6 +85,40 @@ set(SOURCE_FILES
 	"${SOURCE_DIR}/XmlReader.h"
 	"${SOURCE_DIR}/XmlReader.cpp"
 	"${SOURCE_DIR}/NetImmerseUtils.h"
+	"${SOURCE_DIR}/Validator/hdtAssetValidator.cpp"
+	"${SOURCE_DIR}/Validator/hdtAssetValidator.h"
+	"${SOURCE_DIR}/Validator/Config/hdtValidatorPaths.h"
+	"${SOURCE_DIR}/Validator/Schema/hdtXSDSchemaModel.h"
+	"${SOURCE_DIR}/Validator/Schema/hdtSCHSchemaModel.h"
+	"${SOURCE_DIR}/Validator/Schema/hdtNifSchema.cpp"
+	"${SOURCE_DIR}/Validator/Schema/hdtNifSchema.h"
+	"${SOURCE_DIR}/Validator/Parser/hdtXSDSchemaParser.cpp"
+	"${SOURCE_DIR}/Validator/Parser/hdtXSDSchemaParser.h"
+	"${SOURCE_DIR}/Validator/Parser/hdtSCHSchemaParser.cpp"
+	"${SOURCE_DIR}/Validator/Parser/hdtSCHSchemaParser.h"
+	"${SOURCE_DIR}/Validator/Parser/hdtNIFBinaryParser.cpp"
+	"${SOURCE_DIR}/Validator/Parser/hdtNIFBinaryParser.h"
+	"${SOURCE_DIR}/Validator/Validators/hdtNIFValidator.h"
+	"${SOURCE_DIR}/Validator/Validators/hdtXSDValidator.cpp"
+	"${SOURCE_DIR}/Validator/Validators/hdtXSDValidator.h"
+	"${SOURCE_DIR}/Validator/Validators/hdtSCHValidator.cpp"
+	"${SOURCE_DIR}/Validator/Validators/hdtSCHValidator.h"
+	"${SOURCE_DIR}/Validator/Validators/hdtNIFPhysicsXMLExtractor.cpp"
+	"${SOURCE_DIR}/Validator/Validators/hdtNIFStructureValidator.cpp"
+	"${SOURCE_DIR}/Validator/Improvers/hdtNIFBinaryIO.cpp"
+	"${SOURCE_DIR}/Validator/Improvers/hdtNIFBinaryIO.h"
+	"${SOURCE_DIR}/Validator/Improvers/hdtNIFOrphanedSkinImprover.cpp"
+	"${SOURCE_DIR}/Validator/Improvers/hdtNIFOrphanedSkinImprover.h"
+	"${SOURCE_DIR}/Validator/Improvers/hdtNIFSkinMeshValidator.cpp"
+	"${SOURCE_DIR}/Validator/Improvers/hdtNIFSkinMeshValidator.h"
+	"${SOURCE_DIR}/Validator/Utils/hdtConcurrencyUtils.h"
+	"${SOURCE_DIR}/Validator/Utils/hdtStringUtils.h"
+	"${SOURCE_DIR}/Validator/Utils/hdtTemplateDefaults.cpp"
+	"${SOURCE_DIR}/Validator/Utils/hdtTemplateDefaults.h"
+	"${SOURCE_DIR}/Validator/Utils/hdtTimeUtils.h"
+	"${SOURCE_DIR}/Validator/Utils/hdtXMLUtils.h"
+	"${SOURCE_DIR}/Validator/Utils/hdtNIFBinaryUtils.h"
+	"${SOURCE_DIR}/Validator/Utils/hdtValidatorFamily.h"
 	"${SOURCE_DIR}/main.h"
 	"${SOURCE_DIR}/main.cpp"
 	"${SOURCE_DIR}/PCH.h")
@@ -198,6 +232,7 @@ find_package(Bullet CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
 find_package(xbyak REQUIRED CONFIG)
 find_package(TBB CONFIG REQUIRED)
+find_package(pugixml CONFIG REQUIRED)
 
 include_directories(${BULLET_INCLUDE_DIRS})
 
@@ -211,7 +246,8 @@ target_link_libraries(
 			debug
 			${DETOURS_LIBRARY_DEBUG}
 			${BULLET_LIBRARIES}
-			TBB::tbb)
+			TBB::tbb
+			pugixml::pugixml)
 
 target_precompile_headers("${PROJECT_NAME}" PRIVATE "${SOURCE_DIR}/PCH.h")
 
