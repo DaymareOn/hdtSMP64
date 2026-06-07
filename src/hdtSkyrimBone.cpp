@@ -53,6 +53,7 @@ namespace hdt
 			static const btVector3 zero(0, 0, 0);
 			m_rig.setWorldTransform(dest);
 			m_rig.setInterpolationWorldTransform(dest);
+			m_prevRigTransform = dest;  // D1: no interpolation across a hard reset
 			m_rig.setLinearVelocity(zero);
 			m_rig.setAngularVelocity(zero);
 			m_rig.setInterpolationLinearVelocity(zero);
@@ -89,10 +90,11 @@ namespace hdt
 		//}
 	}
 
-	void SkyrimBone::writeTransform()
+	void SkyrimBone::writeTransform(float alpha)
 	{
 		//if (m_rig.isStaticOrKinematicObject()) return;
-		auto transform = m_rig.getWorldTransform() * m_rigToLocal;
+		// D1: blend between the previous and current solved transforms for smooth high-fps rendering.
+		auto transform = interpolatedWorldTransform(alpha) * m_rigToLocal;
 
 		m_currentTransform.setBasis(transform.getBasis());
 		m_currentTransform.setOrigin(transform.getOrigin());

@@ -22,7 +22,8 @@ namespace hdt
 
 		virtual float prepareForRead(float timeStep) { return timeStep; }
 		virtual void readTransform(float timeStep);
-		virtual void writeTransform();
+		virtual void writeTransform(float alpha = 1.0f);
+		void snapshotInterpolation();
 
 		void internalUpdate();
 

@@ -48,11 +48,19 @@ namespace hdt
 			});
 		}
 
-		void writeTransform()
+		void writeTransform(float alpha = 1.0f)
 		{
 			// Main-thread "Apply" phase: write simulated bone transforms back to the game skeleton.
+			// alpha < 1 blends toward the previous solved step for smooth rendering above the
+			// fixed physics rate (D1); alpha == 1 applies the latest solved state verbatim.
 			BT_PROFILE("writeTransform");
-			for (int i = 0; i < m_systems.size(); ++i) m_systems[i]->writeTransform();
+			for (int i = 0; i < m_systems.size(); ++i) m_systems[i]->writeTransform(alpha);
+		}
+
+		// Capture the current solved state as the interpolation start point, before stepping again.
+		void snapshotInterpolation()
+		{
+			for (int i = 0; i < m_systems.size(); ++i) m_systems[i]->snapshotInterpolation();
 		}
 
 		void applyGravity() override;

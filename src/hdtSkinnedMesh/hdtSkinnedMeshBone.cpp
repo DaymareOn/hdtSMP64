@@ -12,6 +12,9 @@ namespace hdt
 		m_marginMultipler = 1.0f;
 
 		m_rig.setUserPointer(this);
+
+		// Seed the interpolation start so the first render frames before any step are coherent.
+		m_prevRigTransform = m_rig.getWorldTransform();
 	}
 
 	SkinnedMeshBone::~SkinnedMeshBone()

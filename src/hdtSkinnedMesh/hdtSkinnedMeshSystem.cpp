@@ -24,14 +24,27 @@ namespace hdt
 		}
 	}
 
-	void SkinnedMeshSystem::writeTransform()
+	void SkinnedMeshSystem::writeTransform(float alpha)
 	{
 		for (int i = 0; i < m_bones.size(); ++i) {
 			if (m_bones[i]->m_rig.isKinematicObject()) {
 				continue;
 			}
 
-			m_bones[i]->writeTransform();
+			m_bones[i]->writeTransform(alpha);
+		}
+	}
+
+	void SkinnedMeshSystem::snapshotInterpolation()
+	{
+		// Only the dynamic bones are simulated (and written back), so only they need a snapshot;
+		// kinematic bones are skipped here exactly as in writeTransform.
+		for (int i = 0; i < m_bones.size(); ++i) {
+			if (m_bones[i]->m_rig.isKinematicObject()) {
+				continue;
+			}
+
+			m_bones[i]->snapshotInterpolation();
 		}
 	}
 
