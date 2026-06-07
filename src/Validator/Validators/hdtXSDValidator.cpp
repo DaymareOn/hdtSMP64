@@ -130,12 +130,27 @@ namespace hdt
 			return;
 		}
 
-		if (tc.base == TypeConstraint::Base::Float || tc.base == TypeConstraint::Base::Integer) {
+		if (tc.base == TypeConstraint::Base::Integer) {
+			// Reject floating-point lexical forms for integers (containing '.' or 'e'/'E')
+			if (val.find('.') != std::string::npos || val.find('e') != std::string::npos || val.find('E') != std::string::npos) {
+				ctx.addViolationWithCurrentPath(row, col, where + " has invalid integer value '" + val + "'");
+				return;
+			}
+			int64_t ival = 0;
+			const auto [ptr, ec] = std::from_chars(val.data(), val.data() + val.size(), ival);
+			if (ec != std::errc{} || ptr != val.data() + val.size()) {
+				ctx.addViolationWithCurrentPath(row, col, where + " has invalid integer value '" + val + "'");
+				return;
+			}
+			if (tc.hasMin && static_cast<double>(ival) < tc.minInclusive)
+				ctx.addViolationWithCurrentPath(row, col, where + " value " + val + " is below minimum " + std::to_string(tc.minInclusive));
+			if (tc.hasMax && static_cast<double>(ival) > tc.maxInclusive)
+				ctx.addViolationWithCurrentPath(row, col, where + " value " + val + " is above maximum " + std::to_string(tc.maxInclusive));
+		} else if (tc.base == TypeConstraint::Base::Float) {
 			double dval = 0.0;
 			const auto [ptr, ec] = std::from_chars(val.data(), val.data() + val.size(), dval);
 			if (ec != std::errc{} || ptr != val.data() + val.size()) {
-				const std::string typeName = (tc.base == TypeConstraint::Base::Float) ? "float" : "integer";
-				ctx.addViolationWithCurrentPath(row, col, where + " has invalid " + typeName + " value '" + val + "'");
+				ctx.addViolationWithCurrentPath(row, col, where + " has invalid float value '" + val + "'");
 				return;
 			}
 			if (tc.hasMin && dval < tc.minInclusive)
