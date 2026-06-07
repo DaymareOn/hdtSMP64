@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <string_view>
 
 namespace hdt
 {
@@ -48,6 +49,14 @@ namespace hdt
 		constexpr const char* kTypeBSSkinInstance = "BSSkin::Instance";
 		constexpr const char* kTypeNiSkinPartition = "NiSkinPartition";
 		constexpr const char* kTypeNiSkinData = "NiSkinData";
+
+		// Allowlist of SSE skinned-mesh geometry block types the structural checks analyse.
+		// Derived layouts (BSSubIndexTriShape, BSMeshLODTriShape, …) carry extra trailing
+		// fields the parser does not model, so they are intentionally excluded.
+		inline bool isSupportedSSETriShapeType(std::string_view type)
+		{
+			return type == kTypeBSTriShape || type == kTypeBSDynamicTriShape;
+		}
 
 		// Returns true if `needle` appears anywhere in the byte buffer.
 		inline bool ContainsAsciiSequence(const uint8_t* data, size_t size, const char* needle)

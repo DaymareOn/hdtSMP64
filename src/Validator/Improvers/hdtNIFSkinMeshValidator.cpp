@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <array>
 #include <cstring>
+#include <limits>
 #include <optional>
 #include <string>
 #include <unordered_set>
@@ -131,8 +132,7 @@ namespace hdt
 			const std::string& shapeType,
 			uint32_t bsVersion)
 		{
-			if (bsVersion != nif::kSSEBsVersion ||
-				(shapeType != nif::kTypeBSTriShape && shapeType != nif::kTypeBSDynamicTriShape))
+			if (bsVersion != nif::kSSEBsVersion || !nif::isSupportedSSETriShapeType(shapeType))
 				return std::nullopt;
 
 			try {
@@ -398,7 +398,7 @@ namespace hdt
 				auto tOpt = blockTypeOf(parsed, i);
 				if (!tOpt)
 					continue;
-				if (*tOpt != nif::kTypeBSTriShape && *tOpt != nif::kTypeBSDynamicTriShape)
+				if (!nif::isSupportedSSETriShapeType(*tOpt))
 					continue;
 
 				SkinMeshCandidate c;
