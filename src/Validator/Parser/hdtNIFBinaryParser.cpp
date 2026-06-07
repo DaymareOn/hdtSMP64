@@ -35,7 +35,9 @@ namespace hdt
 			for (size_t i = 0; i < parsed.blocks.size(); ++i) {
 				if (i >= parsed.blockTypeIndex.size())
 					break;
-				if (parsed.blockTypeIndex[i] != static_cast<uint16_t>(niStrExtraTypeIdx))
+				// Mask off PhysX high-bit (0x8000) before comparison
+				uint16_t masked = parsed.blockTypeIndex[i] & 0x7FFF;
+				if (masked != static_cast<uint16_t>(niStrExtraTypeIdx))
 					continue;
 
 				const auto& block = parsed.blocks[i];

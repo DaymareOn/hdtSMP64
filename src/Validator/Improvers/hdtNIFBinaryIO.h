@@ -72,9 +72,11 @@ namespace hdt
 		if (idx < 0 || idx >= static_cast<int32_t>(parsed.blockTypeIndex.size()))
 			return std::nullopt;
 		uint16_t tIdx = parsed.blockTypeIndex[static_cast<size_t>(idx)];
-		if (tIdx >= parsed.blockTypes.size())
+		// Mask off PhysX high-bit (0x8000) before bounds-checking and lookup
+		uint16_t masked = tIdx & 0x7FFF;
+		if (masked >= parsed.blockTypes.size())
 			return std::nullopt;
-		return parsed.blockTypes[tIdx];
+		return parsed.blockTypes[masked];
 	}
 
 	// BSStreamHeader version stamped on Skyrim Special Edition / AE / VR NIFs.

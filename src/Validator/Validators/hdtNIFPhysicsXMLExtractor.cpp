@@ -173,6 +173,7 @@ namespace hdt
 		}
 		if (headerEnd == 0) {
 			result.errors.push_back("NIF header terminator not found: " + nifPath);
+			applyFallbackPaths(result, data);
 			return result;
 		}
 
@@ -185,6 +186,7 @@ namespace hdt
 			headerStr.find(nif::kNifHeaderMagicLegacy) != std::string::npos;
 		if (!hasKnownMagic) {
 			result.errors.push_back("Missing NIF header magic: " + nifPath);
+			applyFallbackPaths(result, data);
 			return result;
 		}
 
@@ -197,9 +199,11 @@ namespace hdt
 
 				for (size_t i = 0; i < parsed.blockTypeIndex.size(); ++i) {
 					uint16_t tIdx = parsed.blockTypeIndex[i];
-					if (tIdx >= parsed.blockTypes.size())
+					// Mask off PhysX high-bit (0x8000) before bounds-checking
+					uint16_t masked = tIdx & 0x7FFF;
+					if (masked >= parsed.blockTypes.size())
 						continue;
-					const auto& bt = parsed.blockTypes[tIdx];
+					const auto& bt = parsed.blockTypes[masked];
 					if (bt == nif::kTypeBSTriShape || bt == nif::kTypeBSDynamicTriShape)
 						result.hasGeometry = true;
 					else if (bt == nif::kTypeNiSkinInstance || bt == nif::kTypeBSSkinInstance)
