@@ -9,6 +9,20 @@ namespace hdt
 {
 	static const float* timeStamp = (float*)0x12E355C;
 
+	static inline int64_t QueryPerformanceCounter()
+	{
+		int64_t counter;
+		REX::W32::QueryPerformanceCounter(&counter);
+		return counter;
+	}
+	
+	static inline int64_t QueryPerformanceFrequency()
+	{
+		int64_t frequency;
+		REX::W32::QueryPerformanceFrequency(&frequency);
+		return frequency;
+	}
+
 	SkyrimPhysicsWorld::SkyrimPhysicsWorld(void)
 	{
 		gDisableDeactivation = true;
@@ -140,11 +154,9 @@ namespace hdt
 
 		_MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
 
-		LARGE_INTEGER ticks;
 		int64_t startTime = 0;
 		if (m_doMetrics) {
-			QueryPerformanceCounter(&ticks);
-			startTime = ticks.QuadPart;
+			startTime = QueryPerformanceCounter();
 		}
 
 		g_pluginInterface.onPreStep({ getCollisionObjectArray(), remainingTimeStep });
@@ -161,12 +173,10 @@ namespace hdt
 
 		g_pluginInterface.onPostStep({ getCollisionObjectArray(), remainingTimeStep });
 
-		if (m_doMetrics) {
-			QueryPerformanceCounter(&ticks);
-			int64_t endTime = ticks.QuadPart;
-			QueryPerformanceFrequency(&ticks);
-			// float ticks_per_ms = static_cast<float>(ticks.QuadPart) * 1e-3;
-			float lastProcessingTime = (endTime - startTime) / static_cast<float>(ticks.QuadPart) * 1e3f;
+		if (m_doMetrics) 
+		{
+			int64_t endTime = QueryPerformanceCounter();
+			float lastProcessingTime = (endTime - startTime) / static_cast<float>(QueryPerformanceFrequency()) * 1e3f;
 			m_2ndStepAverageProcessingTime = (m_2ndStepAverageProcessingTime + lastProcessingTime) * 0.5f;
 		}
 
@@ -336,12 +346,10 @@ namespace hdt
 			WeatherManager::runWeatherTick(RE::GetSecondsSinceLastFrame());
 		}
 
-		LARGE_INTEGER ticks;
 		int64_t startTime = 0;
 		int64_t endTime = 0;
 		if (m_doMetrics) {
-			QueryPerformanceCounter(&ticks);
-			startTime = ticks.QuadPart;
+			startTime = QueryPerformanceCounter();
 		}
 
 		std::lock_guard<decltype(m_lock)> l(m_lock);
@@ -355,11 +363,9 @@ namespace hdt
 		}
 
 		if (m_doMetrics) {
-			QueryPerformanceCounter(&ticks);
-			endTime = ticks.QuadPart;
-			QueryPerformanceFrequency(&ticks);
-			// float ticks_per_ms = static_cast<float>(ticks.QuadPart) * 1e-3;
-			m_SMPProcessingTimeInMainLoop = (endTime - startTime) / static_cast<float>(ticks.QuadPart) * 1e3f;
+			
+			endTime = QueryPerformanceCounter();
+			m_SMPProcessingTimeInMainLoop = (endTime - startTime) / static_cast<float>(QueryPerformanceFrequency()) * 1e3f;
 		}
 
 		return RE::BSEventNotifyControl::kContinue;
@@ -367,31 +373,25 @@ namespace hdt
 
 	RE::BSEventNotifyControl SkyrimPhysicsWorld::ProcessEvent(const Events::FrameSyncEvent*, RE::BSTEventSource<Events::FrameSyncEvent>*)
 	{
-		if (m_doMetrics) {
-			LARGE_INTEGER ticks, freq;
-			QueryPerformanceCounter(&ticks);
-			int64_t t0 = ticks.QuadPart;
-
+		if (m_doMetrics) 
+		{
+			int64_t t0 = QueryPerformanceCounter();
 			m_tasks.wait();
+			int64_t t1 = QueryPerformanceCounter();;
 
-			QueryPerformanceCounter(&ticks);
-			int64_t t1 = ticks.QuadPart;
-
-			if (m_pendingTransformUpdate) {
+			if (m_pendingTransformUpdate) 
+			{
 				std::lock_guard<decltype(m_lock)> l(m_lock);
 				writeTransform();
 				m_pendingTransformUpdate = false;
 			}
 
-			QueryPerformanceCounter(&ticks);
-			int64_t t2 = ticks.QuadPart;
-			QueryPerformanceFrequency(&freq);
-			float f = static_cast<float>(freq.QuadPart);
-
+			int64_t t2 = QueryPerformanceCounter();
+			
+			float f = static_cast<float>(QueryPerformanceFrequency());
 			float instWaitTime = (t1 - t0) / f * 1000.0f;
 			float instWriteTime = (t2 - t1) / f * 1000.0f;
 			float instSetupTime = m_SMPProcessingTimeInMainLoop;
-
 			float instFpsImpact = instSetupTime + instWaitTime + instWriteTime;
 
 			m_averageSMPProcessingTimeInMainLoop = (m_averageSMPProcessingTimeInMainLoop * (m_sampleSize - 1) + instFpsImpact) / m_sampleSize;
@@ -400,7 +400,6 @@ namespace hdt
 			static float avgSetupTime = 0.0f;
 			static float avgWaitTime = 0.0f;
 			static float avgWriteTime = 0.0f;
-
 			avgSetupTime = (avgSetupTime * (m_sampleSize - 1) + instSetupTime) / m_sampleSize;
 			avgWaitTime = (avgWaitTime * (m_sampleSize - 1) + instWaitTime) / m_sampleSize;
 			avgWriteTime = (avgWriteTime * (m_sampleSize - 1) + instWriteTime) / m_sampleSize;
@@ -410,7 +409,6 @@ namespace hdt
 
 			// How much of that background math was successfully hidden?
 			float avgHiddenTime = std::max(0.0f, avgBackgroundCalcTime - avgWaitTime);
-
 			float avgTotalCpuWork = avgSetupTime + avgBackgroundCalcTime + avgWriteTime;
 
 			logger::info(

@@ -2,7 +2,6 @@
 
 namespace hdt
 {
-
 	// Returns true if obj looks like a valid NiObject safe to call virtuals on.
 	// VR's NiStream can leave bones[] slots as null or as raw char* pointers for
 	// unresolved bone references. A char* used as a pointer has its first 8 bytes
@@ -80,19 +79,10 @@ namespace hdt
 			return "";
 		}
 
-		//
 		std::string file = "";
-
-		//
 		size_t required = stream.stream->totalSize;
-
-		//
 		file.resize(required);
-
-		//
 		stream.read((char*)file.data(), (uint32_t)required);
-
-		//
 		return file;
 	}
 
