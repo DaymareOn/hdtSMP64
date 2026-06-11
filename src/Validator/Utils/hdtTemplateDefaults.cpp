@@ -737,7 +737,7 @@ namespace hdt
 		static void applyCollisionListOverrides(const pugi::xml_node& node, FieldMap& effective)
 		{
 			std::vector<std::string> canTags, noTags, canBones, noBones;
-			bool hasTagCollide  = false;
+			bool hasTagCollide = false;
 			bool hasBoneCollide = false;
 
 			for (auto child = node.first_child(); child; child = child.next_sibling()) {
@@ -745,21 +745,30 @@ namespace hdt
 					continue;
 				const std::string name = std::string(XmlLocalName(child.name()));
 				const std::string text = TrimAsciiWhitespace(child.text().as_string());
-				if (name == "can-collide-with-tag") { hasTagCollide = true; canTags.push_back(text); }
-				else if (name == "no-collide-with-tag") { hasTagCollide = true; noTags.push_back(text); }
-				else if (name == "can-collide-with-bone") { hasBoneCollide = true; canBones.push_back(text); }
-				else if (name == "no-collide-with-bone") { hasBoneCollide = true; noBones.push_back(text); }
+				if (name == "can-collide-with-tag") {
+					hasTagCollide = true;
+					canTags.push_back(text);
+				} else if (name == "no-collide-with-tag") {
+					hasTagCollide = true;
+					noTags.push_back(text);
+				} else if (name == "can-collide-with-bone") {
+					hasBoneCollide = true;
+					canBones.push_back(text);
+				} else if (name == "no-collide-with-bone") {
+					hasBoneCollide = true;
+					noBones.push_back(text);
+				}
 			}
 
 			// Writing just one side (say only a "no" list) still wipes BOTH lists, so the
 			// other side ends up empty here rather than keeping whatever was inherited.
 			if (hasTagCollide) {
 				effective["__canCollideWithTags"] = canonicalCollisionSet(std::move(canTags));
-				effective["__noCollideWithTags"]  = canonicalCollisionSet(std::move(noTags));
+				effective["__noCollideWithTags"] = canonicalCollisionSet(std::move(noTags));
 			}
 			if (hasBoneCollide) {
 				effective["__canCollideWithBones"] = canonicalCollisionSet(std::move(canBones));
-				effective["__noCollideWithBones"]  = canonicalCollisionSet(std::move(noBones));
+				effective["__noCollideWithBones"] = canonicalCollisionSet(std::move(noBones));
 			}
 		}
 
