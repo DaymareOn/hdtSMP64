@@ -202,6 +202,21 @@ namespace hdt
 			return localTag == "frameInA" || localTag == "frameInB" || localTag == "frameInLerp";
 		}
 
+		// These four tags say which things a shape may or may not bump into. They work
+		// differently from normal settings: the moment a shape (or template) writes ANY of
+		// them, the game throws away the whole collision list it inherited from its template
+		// and keeps only the ones written right here (see SkyrimSystemCreator::readPerVertexShape
+		// / readPerVertexShapeTemplate). So re-writing a tag the template already had is NOT a
+		// pointless repeat — delete it and the tag is gone. That makes "this equals the
+		// inherited default, so drop it" wrong for these tags, so we leave them out of that
+		// check. (Plain <tag> is different: it ADDS to the inherited list instead of replacing
+		// it, so repeating one there really is redundant.)
+		static bool isReplaceSemanticsCollisionList(const std::string& localTag)
+		{
+			return localTag == "can-collide-with-tag" || localTag == "no-collide-with-tag" ||
+			       localTag == "can-collide-with-bone" || localTag == "no-collide-with-bone";
+		}
+
 		// ConeTwist constraint fields have accrued legacy aliases across FSMP versions.
 		// Canonicalise all synonyms so template inheritance comparison works correctly.
 		static std::string canonicalFieldForConetwist(const std::string& tag)
@@ -636,6 +651,11 @@ namespace hdt
 					const std::string childName = std::string(XmlLocalName(child.name()));
 					std::string fieldKey;
 					std::string currentValue;
+
+					// Collision lists don't keep an inherited value to compare against (the game
+					// wipes it the moment one is written), so skip them here.
+					if (isReplaceSemanticsCollisionList(childName))
+						continue;
 
 					if (isFrameTagName(family, childName)) {
 						if (child != lastFrameTag) {
