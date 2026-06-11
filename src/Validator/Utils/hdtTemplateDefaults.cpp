@@ -712,6 +712,57 @@ namespace hdt
 			return result;
 		}
 
+		// Turns a list of collision tags/bones into one string we can compare. The game
+		// stores these as a set — order doesn't matter and duplicates don't count — so we
+		// sort the values and throw out repeats before gluing them together. Two lists with
+		// the same members (in any order, with any repeats) then come out as the same string.
+		static std::string canonicalCollisionSet(std::vector<std::string> values)
+		{
+			std::sort(values.begin(), values.end());
+			values.erase(std::unique(values.begin(), values.end()), values.end());
+			std::string out;
+			for (const auto& v : values) {
+				out += v;
+				out.push_back('\x1f');  // unit separator: cannot occur in tag/bone text
+			}
+			return out;
+		}
+
+		// Records this template's finished collision lists so two templates can be told apart.
+		// We copy the game's rule: if the node writes ANY tag-collision line, both its "can"
+		// and "no" tag lists are first wiped clean, then filled only from what's written here
+		// (bones work the same way; see SkyrimSystemCreator::readPerVertexShapeTemplate). Each
+		// finished list is saved as a single entry, so two templates count as the same only
+		// when every collision member matches — but the order they were written in is ignored.
+		static void applyCollisionListOverrides(const pugi::xml_node& node, FieldMap& effective)
+		{
+			std::vector<std::string> canTags, noTags, canBones, noBones;
+			bool hasTagCollide  = false;
+			bool hasBoneCollide = false;
+
+			for (auto child = node.first_child(); child; child = child.next_sibling()) {
+				if (child.type() != pugi::node_element)
+					continue;
+				const std::string name = std::string(XmlLocalName(child.name()));
+				const std::string text = TrimAsciiWhitespace(child.text().as_string());
+				if (name == "can-collide-with-tag") { hasTagCollide = true; canTags.push_back(text); }
+				else if (name == "no-collide-with-tag") { hasTagCollide = true; noTags.push_back(text); }
+				else if (name == "can-collide-with-bone") { hasBoneCollide = true; canBones.push_back(text); }
+				else if (name == "no-collide-with-bone") { hasBoneCollide = true; noBones.push_back(text); }
+			}
+
+			// Writing just one side (say only a "no" list) still wipes BOTH lists, so the
+			// other side ends up empty here rather than keeping whatever was inherited.
+			if (hasTagCollide) {
+				effective["__canCollideWithTags"] = canonicalCollisionSet(std::move(canTags));
+				effective["__noCollideWithTags"]  = canonicalCollisionSet(std::move(noTags));
+			}
+			if (hasBoneCollide) {
+				effective["__canCollideWithBones"] = canonicalCollisionSet(std::move(canBones));
+				effective["__noCollideWithBones"]  = canonicalCollisionSet(std::move(noBones));
+			}
+		}
+
 		// Walk default nodes in document order to compute each one's effective
 		// FieldMap, then detect duplicates by signature.  Two templates are
 		// equivalent when they produce identical canonical field sets after
@@ -761,6 +812,11 @@ namespace hdt
 					std::string fieldKey;
 					std::string currentValue;
 
+					// Collision lists are handled as whole sets just after this loop, not one
+					// value at a time, so skip them here.
+					if (isReplaceSemanticsCollisionList(childName))
+						continue;
+
 					if (isFrameTagName(family, childName)) {
 						if (child != lastFrameTag)
 							continue;
@@ -775,6 +831,8 @@ namespace hdt
 
 					effective[fieldKey] = currentValue;
 				}
+
+				applyCollisionListOverrides(node, effective);
 
 				familyTemplates[family][templateName] = effective;
 				if (templateName.empty())
