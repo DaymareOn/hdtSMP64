@@ -728,7 +728,10 @@ namespace hdt
 			std::string out;
 			for (const auto& v : values) {
 				out += v;
-				out.push_back('\x1f');  // unit separator: cannot occur in tag/bone text
+				// Glue character between values: an invisible control character that can
+				// never appear inside a tag or bone name, so two different lists can
+				// never accidentally glue into the same string.
+				out.push_back('\x1f');
 			}
 			return out;
 		}

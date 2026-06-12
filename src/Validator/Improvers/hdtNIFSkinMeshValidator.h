@@ -20,8 +20,9 @@ namespace hdt
 	/// Stops at the first fatal inconsistency per candidate (step 6 = count mismatch);
 	/// continues across all others so that all issues are surfaced in one pass.
 	/// When the binary parser rejects a shape or partition layout, the file is re-read
-	/// through nifly (once, lazily, from nifPath): a shape that nifly reads with sane
-	/// geometry is accepted silently instead of warned as unsupported.
+	/// through nifly (at most once, and only if something was actually rejected): a
+	/// shape that nifly reads with sane geometry is accepted silently instead of
+	/// warned as unsupported.
 	std::vector<NifSkinMeshIssue> detectNIFSkinMeshIssues(const ParsedNif& parsed, const std::string& nifPath);
 
 	/// Per-block query used by the repair pass: returns the byte offsets needed to

@@ -18,14 +18,16 @@ namespace hdt
 		std::unordered_map<uint32_t, NiflyShapeVerdict> verdictByBlockIndex;  // one entry per shape block
 	};
 
-	/// Reads a NIF with nifly and grades every shape in it, keyed by block index.
-	/// nifly understands layouts our hand-rolled binary parsers do not (e.g. SSE
-	/// skinned shapes whose geometry lives only in the NiSkinPartition, with zeroed
-	/// counts in the BSTriShape — the BodySlide/OutfitStudio export convention), so
-	/// this is the second opinion consulted when the binary parser rejects a shape.
-	/// A shape is ReadableAndSane when every triangle index — in the shape and in
-	/// each skin partition — points at an existing vertex. Empty shapes (zero
-	/// vertices, zero triangles, empty partitions) are sane: BodySlide ShapeData
-	/// files legitimately contain them, and they reference nothing that could crash.
+	/// Reads a NIF with the nifly library and gives every shape in it a verdict,
+	/// stored under the shape's block number. nifly can read file layouts our own
+	/// binary parsers cannot — for example SSE skinned shapes that keep all their
+	/// geometry inside the NiSkinPartition and store zero counts in the BSTriShape
+	/// (how BodySlide/OutfitStudio exports them). So when our parser gives up on a
+	/// shape, this audit is the second opinion that decides whether the shape is
+	/// actually fine. A shape is ReadableAndSane when every triangle index — in the
+	/// shape and in each skin partition — points at a vertex that exists. Empty
+	/// shapes (zero vertices, zero triangles, empty partitions) count as sane:
+	/// BodySlide ShapeData files legitimately contain them, and a shape that holds
+	/// nothing cannot point at anything that would crash.
 	NiflyShapeAudit AuditNifShapesWithNifly(const std::string& nifPath);
 }

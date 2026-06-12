@@ -9,17 +9,21 @@ namespace hdt
 {
 	namespace
 	{
-		// Crash-class index checks on one shape, using nifly's post-load view.
-		// nifly's PrepareData() already moved partition-stored vertex/triangle data
-		// back into the shape, so GetNumVertices/GetTriangles see the real geometry
-		// regardless of which layout the file used. The partition arrays are checked
-		// too because the game renders skinned meshes from the partition, not the shape.
+		// Checks that nothing in this shape points at a vertex that doesn't exist —
+		// the kind of mistake that crashes the game. By the time we get here, nifly's
+		// loader has already moved any vertex/triangle data that the file kept inside
+		// the skin partition back into the shape, so GetNumVertices/GetTriangles show
+		// the real geometry no matter how the file chose to store it. We also check the
+		// partition's own lists, because the game draws skinned meshes from the
+		// partition, not from the shape.
 		bool isShapeGeometrySane(nifly::NifFile& nif, nifly::NiShape* shape)
 		{
-			// numVerts == 0 is NOT broken by itself: BodySlide ShapeData files contain
-			// legitimately empty shapes (a part zeroed out at one weight). An empty shape
-			// is vacuously safe — and if triangles or partition maps DO reference vertices
-			// that don't exist, every index check below fails (any unsigned index >= 0).
+			// A shape with zero vertices is NOT broken by itself: BodySlide ShapeData
+			// files legitimately contain empty shapes (a part zeroed out at one slider
+			// weight). An empty shape holds nothing, so nothing in it can go wrong —
+			// and if triangles or partition entries DO point at vertices that don't
+			// exist, every index check below catches them (with zero vertices, every
+			// index counts as out of range).
 			const uint16_t numVerts = shape->GetNumVertices();
 
 			std::vector<nifly::Triangle> tris;
@@ -68,7 +72,8 @@ namespace hdt
 				out.verdictByBlockIndex[blockId] = isShapeGeometrySane(nif, shape) ? NiflyShapeVerdict::ReadableAndSane : NiflyShapeVerdict::GeometryBroken;
 			}
 		} catch (...) {
-			// A throwing load is treated the same as a failed load: not readable.
+			// If nifly blows up with an error while loading, treat it exactly like a
+			// load that returned failure: the file is not readable.
 			out.fileLoaded = false;
 			out.verdictByBlockIndex.clear();
 		}

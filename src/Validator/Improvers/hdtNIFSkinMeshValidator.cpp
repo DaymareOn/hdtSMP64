@@ -442,9 +442,9 @@ namespace hdt
 		std::vector<NifSkinMeshIssue> issues;
 		auto candidates = discoverSkinMeshCandidates(parsed);
 
-		// Second opinion for layouts the binary parser does not know (e.g. SSE shapes
-		// whose geometry lives only in the NiSkinPartition). Loaded at most once per
-		// file, and only when a candidate is actually rejected.
+		// Second opinion for file layouts our binary parser does not know (e.g. SSE
+		// shapes that keep all their geometry inside the NiSkinPartition). The file is
+		// loaded through nifly at most once, and only when a shape was actually rejected.
 		std::optional<NiflyShapeAudit> niflyAudit;
 		auto niflyAcceptsShape = [&](int blockIndex) {
 			if (!niflyAudit)
