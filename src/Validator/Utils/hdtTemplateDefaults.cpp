@@ -680,6 +680,11 @@ namespace hdt
 						if (fieldKey.empty())
 							continue;
 						currentValue = normalizedValueForField(family, fieldKey, child);
+						// weight-threshold sets the threshold of ONE bone (named by its bone
+						// attribute), so two elements for different bones are independent —
+						// never duplicates of each other. Track one value per bone.
+						if (childName == "weight-threshold")
+							fieldKey += "@" + TrimAsciiWhitespace(child.attribute("bone").as_string());
 					}
 
 					if (fieldKey.empty())
@@ -836,6 +841,10 @@ namespace hdt
 						if (fieldKey.empty())
 							continue;
 						currentValue = normalizedValueForField(family, fieldKey, child);
+						// One value per bone (see the redundancy loop above): templates with
+						// thresholds on different bones must not count as the same template.
+						if (childName == "weight-threshold")
+							fieldKey += "@" + TrimAsciiWhitespace(child.attribute("bone").as_string());
 					}
 
 					effective[fieldKey] = currentValue;
