@@ -16,9 +16,11 @@ namespace hdt
 		// too because the game renders skinned meshes from the partition, not the shape.
 		bool isShapeGeometrySane(nifly::NifFile& nif, nifly::NiShape* shape)
 		{
+			// numVerts == 0 is NOT broken by itself: BodySlide ShapeData files contain
+			// legitimately empty shapes (a part zeroed out at one weight). An empty shape
+			// is vacuously safe — and if triangles or partition maps DO reference vertices
+			// that don't exist, every index check below fails (any unsigned index >= 0).
 			const uint16_t numVerts = shape->GetNumVertices();
-			if (numVerts == 0)
-				return false;
 
 			std::vector<nifly::Triangle> tris;
 			if (!shape->GetTriangles(tris))

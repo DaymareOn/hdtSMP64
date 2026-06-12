@@ -23,7 +23,9 @@ namespace hdt
 	/// skinned shapes whose geometry lives only in the NiSkinPartition, with zeroed
 	/// counts in the BSTriShape — the BodySlide/OutfitStudio export convention), so
 	/// this is the second opinion consulted when the binary parser rejects a shape.
-	/// A shape is ReadableAndSane when it has vertices and every triangle index —
-	/// in the shape and in each skin partition — points at an existing vertex.
+	/// A shape is ReadableAndSane when every triangle index — in the shape and in
+	/// each skin partition — points at an existing vertex. Empty shapes (zero
+	/// vertices, zero triangles, empty partitions) are sane: BodySlide ShapeData
+	/// files legitimately contain them, and they reference nothing that could crash.
 	NiflyShapeAudit AuditNifShapesWithNifly(const std::string& nifPath);
 }
