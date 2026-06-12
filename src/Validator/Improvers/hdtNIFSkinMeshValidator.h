@@ -19,7 +19,11 @@ namespace hdt
 	/// in read-only mode. Returns one issue per failing check per candidate.
 	/// Stops at the first fatal inconsistency per candidate (step 6 = count mismatch);
 	/// continues across all others so that all issues are surfaced in one pass.
-	std::vector<NifSkinMeshIssue> detectNIFSkinMeshIssues(const ParsedNif& parsed);
+	/// When the binary parser rejects a shape or partition layout, the file is re-read
+	/// through nifly (at most once, and only if something was actually rejected): a
+	/// shape that nifly reads with sane geometry is accepted silently instead of
+	/// warned as unsupported.
+	std::vector<NifSkinMeshIssue> detectNIFSkinMeshIssues(const ParsedNif& parsed, const std::string& nifPath);
 
 	/// Per-block query used by the repair pass: returns the byte offsets needed to
 	/// overwrite trianglesCopy with triangles in-place, but only when the two arrays

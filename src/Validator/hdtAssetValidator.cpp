@@ -1150,7 +1150,7 @@ namespace hdt
 												  " — would crash the physics runtime. Run 'smp fix nif' to fix.\n";
 			}
 
-			auto skinIssues = detectNIFSkinMeshIssues(*parsedOpt);
+			auto skinIssues = detectNIFSkinMeshIssues(*parsedOpt, asset.nifPath);
 			if (!skinIssues.empty()) {
 				out << "  [NIF]  " << asset.nifPath << "\n";
 				for (const auto& issue : skinIssues) {

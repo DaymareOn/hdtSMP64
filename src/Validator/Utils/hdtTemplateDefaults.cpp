@@ -202,6 +202,21 @@ namespace hdt
 			return localTag == "frameInA" || localTag == "frameInB" || localTag == "frameInLerp";
 		}
 
+		// These four tags say which things a shape may or may not bump into. They work
+		// differently from normal settings: the moment a shape (or template) writes ANY of
+		// them, the game throws away the whole collision list it inherited from its template
+		// and keeps only the ones written right here (see SkyrimSystemCreator::readPerVertexShape
+		// / readPerVertexShapeTemplate). So re-writing a tag the template already had is NOT a
+		// pointless repeat — delete it and the tag is gone. That makes "this equals the
+		// inherited default, so drop it" wrong for these tags, so we leave them out of that
+		// check. (Plain <tag> is different: it ADDS to the inherited list instead of replacing
+		// it, so repeating one there really is redundant.)
+		static bool isReplaceSemanticsCollisionList(const std::string& localTag)
+		{
+			return localTag == "can-collide-with-tag" || localTag == "no-collide-with-tag" ||
+			       localTag == "can-collide-with-bone" || localTag == "no-collide-with-bone";
+		}
+
 		// ConeTwist constraint fields have accrued legacy aliases across FSMP versions.
 		// Canonicalise all synonyms so template inheritance comparison works correctly.
 		static std::string canonicalFieldForConetwist(const std::string& tag)
@@ -637,6 +652,11 @@ namespace hdt
 					std::string fieldKey;
 					std::string currentValue;
 
+					// Collision lists don't keep an inherited value to compare against (the game
+					// wipes it the moment one is written), so skip them here.
+					if (isReplaceSemanticsCollisionList(childName))
+						continue;
+
 					if (isFrameTagName(family, childName)) {
 						if (child != lastFrameTag) {
 							TemplateRedundantChildInfo info;
@@ -660,6 +680,11 @@ namespace hdt
 						if (fieldKey.empty())
 							continue;
 						currentValue = normalizedValueForField(family, fieldKey, child);
+						// weight-threshold sets the threshold of ONE bone (named by its bone
+						// attribute), so two elements for different bones are independent —
+						// never duplicates of each other. Track one value per bone.
+						if (childName == "weight-threshold")
+							fieldKey += "@" + TrimAsciiWhitespace(child.attribute("bone").as_string());
 					}
 
 					if (fieldKey.empty())
@@ -690,6 +715,69 @@ namespace hdt
 			}
 
 			return result;
+		}
+
+		// Turns a list of collision tags/bones into one string we can compare. The game
+		// stores these as a set — order doesn't matter and duplicates don't count — so we
+		// sort the values and throw out repeats before gluing them together. Two lists with
+		// the same members (in any order, with any repeats) then come out as the same string.
+		static std::string canonicalCollisionSet(std::vector<std::string> values)
+		{
+			std::sort(values.begin(), values.end());
+			values.erase(std::unique(values.begin(), values.end()), values.end());
+			std::string out;
+			for (const auto& v : values) {
+				out += v;
+				// Glue character between values: an invisible control character that can
+				// never appear inside a tag or bone name, so two different lists can
+				// never accidentally glue into the same string.
+				out.push_back('\x1f');
+			}
+			return out;
+		}
+
+		// Records this template's finished collision lists so two templates can be told apart.
+		// We copy the game's rule: if the node writes ANY tag-collision line, both its "can"
+		// and "no" tag lists are first wiped clean, then filled only from what's written here
+		// (bones work the same way; see SkyrimSystemCreator::readPerVertexShapeTemplate). Each
+		// finished list is saved as a single entry, so two templates count as the same only
+		// when every collision member matches — but the order they were written in is ignored.
+		static void applyCollisionListOverrides(const pugi::xml_node& node, FieldMap& effective)
+		{
+			std::vector<std::string> canTags, noTags, canBones, noBones;
+			bool hasTagCollide = false;
+			bool hasBoneCollide = false;
+
+			for (auto child = node.first_child(); child; child = child.next_sibling()) {
+				if (child.type() != pugi::node_element)
+					continue;
+				const std::string name = std::string(XmlLocalName(child.name()));
+				const std::string text = TrimAsciiWhitespace(child.text().as_string());
+				if (name == "can-collide-with-tag") {
+					hasTagCollide = true;
+					canTags.push_back(text);
+				} else if (name == "no-collide-with-tag") {
+					hasTagCollide = true;
+					noTags.push_back(text);
+				} else if (name == "can-collide-with-bone") {
+					hasBoneCollide = true;
+					canBones.push_back(text);
+				} else if (name == "no-collide-with-bone") {
+					hasBoneCollide = true;
+					noBones.push_back(text);
+				}
+			}
+
+			// Writing just one side (say only a "no" list) still wipes BOTH lists, so the
+			// other side ends up empty here rather than keeping whatever was inherited.
+			if (hasTagCollide) {
+				effective["__canCollideWithTags"] = canonicalCollisionSet(std::move(canTags));
+				effective["__noCollideWithTags"] = canonicalCollisionSet(std::move(noTags));
+			}
+			if (hasBoneCollide) {
+				effective["__canCollideWithBones"] = canonicalCollisionSet(std::move(canBones));
+				effective["__noCollideWithBones"] = canonicalCollisionSet(std::move(noBones));
+			}
 		}
 
 		// Walk default nodes in document order to compute each one's effective
@@ -741,6 +829,11 @@ namespace hdt
 					std::string fieldKey;
 					std::string currentValue;
 
+					// Collision lists are handled as whole sets just after this loop, not one
+					// value at a time, so skip them here.
+					if (isReplaceSemanticsCollisionList(childName))
+						continue;
+
 					if (isFrameTagName(family, childName)) {
 						if (child != lastFrameTag)
 							continue;
@@ -751,10 +844,16 @@ namespace hdt
 						if (fieldKey.empty())
 							continue;
 						currentValue = normalizedValueForField(family, fieldKey, child);
+						// One value per bone (see the redundancy loop above): templates with
+						// thresholds on different bones must not count as the same template.
+						if (childName == "weight-threshold")
+							fieldKey += "@" + TrimAsciiWhitespace(child.attribute("bone").as_string());
 					}
 
 					effective[fieldKey] = currentValue;
 				}
+
+				applyCollisionListOverrides(node, effective);
 
 				familyTemplates[family][templateName] = effective;
 				if (templateName.empty())
