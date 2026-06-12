@@ -236,15 +236,15 @@ find_package(xbyak REQUIRED CONFIG)
 find_package(TBB CONFIG REQUIRED)
 find_package(pugixml CONFIG REQUIRED)
 
-# nifly (submodule: extern/nifly) — GPL-3.0 NIF library, Phase 0 of the nifly migration. It is built as its own
-# separate static library, so our strict warning settings (/W4 /WX) do NOT apply to it — those are attached only to
-# our own target. Linking against nifly (target_link_libraries below) automatically gives our code access to nifly's
-# public headers (include/ + external/). nifly's own tests are skipped: it only adds them when it is the top-level
-# CMake project, and here it is a subproject.
+# nifly (submodule: extern/nifly) — GPL-3.0 NIF library, Phase 0 of the nifly migration. It is built as its own separate
+# static library, so our strict warning settings (/W4 /WX) do NOT apply to it — those are attached only to our own
+# target. Linking against nifly (target_link_libraries below) automatically gives our code access to nifly's public
+# headers (include/ + external/). nifly's own tests are skipped: it only adds them when it is the top-level CMake
+# project, and here it is a subproject.
 set(BUILD_TESTING OFF)
-# nifly's include(CTest) declares an option named BUILD_TESTING. Under old CMake rules that declaration would ERASE
-# the value we just set on the line above, and CMake prints a warning about it. Forcing the newer rule (policy
-# CMP0077) makes the option respect the value we already set.
+# nifly's include(CTest) declares an option named BUILD_TESTING. Under old CMake rules that declaration would ERASE the
+# value we just set on the line above, and CMake prints a warning about it. Forcing the newer rule (policy CMP0077)
+# makes the option respect the value we already set.
 set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
 add_subdirectory("${ROOT_DIR}/extern/nifly" "${CMAKE_CURRENT_BINARY_DIR}/extern/nifly" EXCLUDE_FROM_ALL)
 
