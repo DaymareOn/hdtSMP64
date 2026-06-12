@@ -8,13 +8,13 @@ namespace hdt
 {
 	enum class NiflyShapeVerdict
 	{
-		ReadableAndSane,   // nifly read the shape and every vertex/triangle index is in range
-		GeometryBroken,    // nifly read the file but this shape's geometry is unusable
+		ReadableAndSane,  // nifly read the shape and every vertex/triangle index is in range
+		GeometryBroken,   // nifly read the file but this shape's geometry is unusable
 	};
 
 	struct NiflyShapeAudit
 	{
-		bool fileLoaded = false;                                       // false = nifly could not load the file at all
+		bool fileLoaded = false;                                              // false = nifly could not load the file at all
 		std::unordered_map<uint32_t, NiflyShapeVerdict> verdictByBlockIndex;  // one entry per shape block
 	};
 

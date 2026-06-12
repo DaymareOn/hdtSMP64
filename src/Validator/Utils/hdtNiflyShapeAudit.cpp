@@ -63,9 +63,7 @@ namespace hdt
 			out.fileLoaded = true;
 			for (auto* shape : nif.GetShapes()) {
 				const uint32_t blockId = nif.GetHeader().GetBlockID(shape);
-				out.verdictByBlockIndex[blockId] = isShapeGeometrySane(nif, shape)
-					? NiflyShapeVerdict::ReadableAndSane
-					: NiflyShapeVerdict::GeometryBroken;
+				out.verdictByBlockIndex[blockId] = isShapeGeometrySane(nif, shape) ? NiflyShapeVerdict::ReadableAndSane : NiflyShapeVerdict::GeometryBroken;
 			}
 		} catch (...) {
 			// A throwing load is treated the same as a failed load: not readable.
