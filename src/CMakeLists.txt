@@ -118,6 +118,8 @@ set(SOURCE_FILES
 	"${SOURCE_DIR}/Validator/Utils/hdtTimeUtils.h"
 	"${SOURCE_DIR}/Validator/Utils/hdtXMLUtils.h"
 	"${SOURCE_DIR}/Validator/Utils/hdtNIFBinaryUtils.h"
+	"${SOURCE_DIR}/Validator/Utils/hdtNiflyShapeAudit.cpp"
+	"${SOURCE_DIR}/Validator/Utils/hdtNiflyShapeAudit.h"
 	"${SOURCE_DIR}/Validator/Utils/hdtValidatorFamily.h"
 	"${SOURCE_DIR}/main.h"
 	"${SOURCE_DIR}/main.cpp"
@@ -234,6 +236,18 @@ find_package(xbyak REQUIRED CONFIG)
 find_package(TBB CONFIG REQUIRED)
 find_package(pugixml CONFIG REQUIRED)
 
+# nifly (submodule: extern/nifly) — GPL-3.0 NIF library, Phase 0 of the nifly migration.
+# Built as its own STATIC target, so it does NOT inherit the main target's /W4 /WX
+# (those are target-scoped to ${PROJECT_NAME}). Its PUBLIC include dirs (include/ + external/)
+# propagate via target_link_libraries. Tests are skipped: nifly only adds them when it is the
+# top-level CMake project, which it isn't here.
+set(BUILD_TESTING OFF)
+# nifly's include(CTest) calls option(BUILD_TESTING ...), but the submodule never sets
+# CMP0077; without it that option() clears the normal BUILD_TESTING variable above and CMake
+# emits a dev warning. Force the modern policy for the subproject so option() honors our value.
+set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
+add_subdirectory("${ROOT_DIR}/extern/nifly" "${CMAKE_CURRENT_BINARY_DIR}/extern/nifly" EXCLUDE_FROM_ALL)
+
 include_directories(${BULLET_INCLUDE_DIRS})
 
 target_link_libraries(
@@ -247,7 +261,8 @@ target_link_libraries(
 			${DETOURS_LIBRARY_DEBUG}
 			${BULLET_LIBRARIES}
 			TBB::tbb
-			pugixml::pugixml)
+			pugixml::pugixml
+			nifly)
 
 target_precompile_headers("${PROJECT_NAME}" PRIVATE "${SOURCE_DIR}/PCH.h")
 

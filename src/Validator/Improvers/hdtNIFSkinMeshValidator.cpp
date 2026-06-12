@@ -2,6 +2,7 @@
 
 #include "../Schema/hdtNifSchema.h"
 #include "../Utils/hdtNIFBinaryUtils.h"
+#include "../Utils/hdtNiflyShapeAudit.h"
 #include "hdtNIFBinaryIO.h"
 
 #include <algorithm>
@@ -436,10 +437,24 @@ namespace hdt
 
 	// ── Public API ────────────────────────────────────────────────────────────────
 
-	std::vector<NifSkinMeshIssue> detectNIFSkinMeshIssues(const ParsedNif& parsed)
+	std::vector<NifSkinMeshIssue> detectNIFSkinMeshIssues(const ParsedNif& parsed, const std::string& nifPath)
 	{
 		std::vector<NifSkinMeshIssue> issues;
 		auto candidates = discoverSkinMeshCandidates(parsed);
+
+		// Second opinion for layouts the binary parser does not know (e.g. SSE shapes
+		// whose geometry lives only in the NiSkinPartition). Loaded at most once per
+		// file, and only when a candidate is actually rejected.
+		std::optional<NiflyShapeAudit> niflyAudit;
+		auto niflyAcceptsShape = [&](int blockIndex) {
+			if (!niflyAudit)
+				niflyAudit = AuditNifShapesWithNifly(nifPath);
+			if (!niflyAudit->fileLoaded)
+				return false;
+			auto it = niflyAudit->verdictByBlockIndex.find(static_cast<uint32_t>(blockIndex));
+			return it != niflyAudit->verdictByBlockIndex.end() &&
+			       it->second == NiflyShapeVerdict::ReadableAndSane;
+		};
 
 		for (const auto& c : candidates) {
 			auto addIssue = [&](std::string reasonCode) {
@@ -452,14 +467,16 @@ namespace hdt
 			// Step 4
 			auto tsOpt = parseTriShape(tsBlock, c.shapeType, parsed.bsVersion);
 			if (!tsOpt) {
-				addIssue("unsupported-trishape-layout");
+				if (!niflyAcceptsShape(c.triShapeBlockIndex))
+					addIssue("unsupported-trishape-layout");
 				continue;
 			}
 
 			// Step 5 (tolerant — accepts triangle copy mismatch)
 			auto partOpt = parsePartitionTolerant(partBlock, parsed.bsVersion);
 			if (!partOpt) {
-				addIssue("unsupported-skin-partition-layout");
+				if (!niflyAcceptsShape(c.triShapeBlockIndex))
+					addIssue("unsupported-skin-partition-layout");
 				continue;
 			}
 
