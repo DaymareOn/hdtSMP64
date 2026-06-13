@@ -1,5 +1,6 @@
 #include "config.h"
 #include "Hooks.h"
+#include "Validator/hdtAssetValidator.h"
 #include "XmlReader.h"
 #include "hdtSkyrimPhysicsWorld.h"
 
@@ -117,6 +118,24 @@ namespace hdt
 		}
 	}
 
+	static void validation(XMLReader& reader)
+	{
+		while (reader.Inspect()) {
+			switch (reader.GetInspected()) {
+			case XMLReader::Inspected::StartTag:
+				if (reader.GetLocalName() == "mods-dir") {
+					g_validationConfig.modsDir = reader.readText();
+				} else {
+					logger::warn("Unknown config : {}", reader.GetLocalName());
+					reader.skipCurrentElement();
+				}
+				break;
+			case XMLReader::Inspected::EndTag:
+				return;
+			}
+		}
+	}
+
 	static void config(XMLReader& reader)
 	{
 		while (reader.Inspect()) {
@@ -128,6 +147,8 @@ namespace hdt
 					wind(reader);
 				} else if (reader.GetLocalName() == "smp") {
 					smp(reader);
+				} else if (reader.GetLocalName() == "validation") {
+					validation(reader);
 				} else {
 					logger::warn("Unknown config : {}", reader.GetLocalName());
 					reader.skipCurrentElement();
