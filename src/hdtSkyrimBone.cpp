@@ -22,71 +22,9 @@ namespace hdt
 
 	void SkyrimBone::readTransform(float timeStep)
 	{
-		auto oldScale = m_currentTransform.getScale();
-
-		m_currentTransform = convertNi(m_node->world);
-
-		auto newScale = m_currentTransform.getScale();
-		auto current = m_rig.getWorldTransform();
-		auto isStaticOrKinematic = m_rig.isStaticOrKinematicObject();
-		auto scaleChanged = !btFuzzyZero(newScale - oldScale);
-
-		if (scaleChanged) {
-			auto factor = oldScale / newScale;
-			if (!isStaticOrKinematic) {
-				auto factor2 = factor * factor;
-				auto factor3 = factor2 * factor;
-				auto factor5 = factor3 * factor2;
-				auto inertia = m_rig.getInvInertiaDiagLocal();
-				m_rig.setMassProps(1.0f / (m_rig.getInvMass() * factor3), btVector3(1, 1, 1));
-				m_rig.setInvInertiaDiagLocal(inertia * factor5);
-				m_rig.updateInertiaTensor();
-			}
-			auto invFactor = 1.0f / factor;
-			m_localToRig.getOrigin() *= invFactor;
-			m_rigToLocal.getOrigin() *= invFactor;
-			m_rig.getCollisionShape()->setLocalScaling(setAll(newScale));
-		}
-
-		auto dest = m_currentTransform.asTransform() * m_localToRig;
-		if (timeStep <= RESET_PHYSICS) {
-			static const btVector3 zero(0, 0, 0);
-			m_rig.setWorldTransform(dest);
-			m_rig.setInterpolationWorldTransform(dest);
-			m_rig.setLinearVelocity(zero);
-			m_rig.setAngularVelocity(zero);
-			m_rig.setInterpolationLinearVelocity(zero);
-			m_rig.setInterpolationAngularVelocity(zero);
-			m_rig.updateInertiaTensor();
-			//auto det = dest.getBasis().determinant();
-			//if (det < FLT_EPSILON || isnan(det) || isinf(det))
-			//	_WARNING("Invalid rotation matrix!!");
-			//det = m_rig.getInvInertiaTensorWorld().determinant();
-			//if (isnan(det) || isinf(det))
-			//	_WARNING("Invalid inertia tensor matrix!!");
-		} else if (isStaticOrKinematic) {
-			btVector3 linVel, angVel;
-			btTransformUtil::calculateVelocity(current, dest, timeStep, linVel, angVel);
-			m_rig.setLinearVelocity(linVel);
-			m_rig.setAngularVelocity(angVel);
-			m_rig.setInterpolationLinearVelocity(linVel);
-			m_rig.setInterpolationAngularVelocity(angVel);
-		}
-		//else
-		//{
-		//	auto det = m_rig.getWorldTransform().getBasis().determinant();
-		//	if (isnan(det))
-		//	{
-		//		_WARNING("Invalid world transform");
-		//		m_rig.setWorldTransform(dest);
-		//		m_rig.setInterpolationWorldTransform(dest);
-		//		m_rig.setLinearVelocity(btVector3(0, 0, 0));
-		//		m_rig.setAngularVelocity(btVector3(0, 0, 0));
-		//		m_rig.setInterpolationLinearVelocity(btVector3(0, 0, 0));
-		//		m_rig.setInterpolationAngularVelocity(btVector3(0, 0, 0));
-		//		m_rig.updateInertiaTensor();
-		//	}
-		//}
+		// The Skyrim layer only computes the driver target from the NiNode and the reset flag from
+		// the timestep; the apply-math lives in the shared core (D6) so offline replay runs it too.
+		applyKinematicTarget(convertNi(m_node->world), timeStep, timeStep <= RESET_PHYSICS);
 	}
 
 	void SkyrimBone::writeTransform()

@@ -30,8 +30,18 @@ namespace hdt
 
 		bool valid() const { return !m_bones.empty(); }
 
+		// Read-only views used by the replay capture snapshot builder (replay::buildSnapshot).
+		const std::vector<RE::BSTSmartPointer<SkinnedMeshBone>>& bonesView() const { return m_bones; }
+		const std::vector<RE::BSTSmartPointer<SkinnedMeshBody>>& meshesView() const { return m_meshes; }
+		const std::vector<RE::BSTSmartPointer<BoneScaleConstraint>>& constraintsView() const { return m_constraints; }
+
 		std::vector<std::shared_ptr<btCollisionShape>> m_shapeRefs;
 		SkinnedMeshWorld* m_world = nullptr;
+
+		// Per-system wind factor (full actor/skeleton, derived from obstructions). Hoisted from
+		// SkyrimSystem to the core base so the world's applyWind needs no Skyrim-layer cast and the
+		// replay harness can drive it; SkyrimSystem inherits it unchanged.
+		float m_windFactor = 1.0f;
 
 		bool block_resetting = false;
 		std::vector<RE::BSTSmartPointer<SkinnedMeshBone>>& getBones() { return m_bones; };

@@ -1,12 +1,16 @@
 #pragma once
 
 #include "hdtSkinnedMeshSystem.h"
-#include "hdtSkyrimSystem.h"
 #include <BulletCollision/CollisionDispatch/btSimulationIslandManager.h>
 #include <BulletDynamics/Dynamics/btDiscreteDynamicsWorldMt.h>
 
 namespace hdt
 {
+	// Sentinel timestep meaning "snap bones to their reference pose and zero velocities" (see
+	// SkinnedMeshBone::applyKinematicTarget). Lives on the core because the core's
+	// addSkinnedMeshSystem uses it; the Skyrim layer and the replay harness both reference it here.
+	constexpr float RESET_PHYSICS = -10.0f;
+
 	class SkinnedMeshWorld : protected btDiscreteDynamicsWorldMt
 	{
 	public:
@@ -62,6 +66,11 @@ namespace hdt
 
 		btVector3 m_windSpeed;       // world windspeed
 		btScalar m_windTime = 0.0f;  // wind simulation clock
+		// Global wind on/off. Lives on the core so the world's stepSimulation/applyWind need no
+		// reference to the Skyrim layer (lets the replay harness link the core standalone, §10).
+		// SkyrimPhysicsWorld re-publicizes this via a using-declaration so existing callers are
+		// unchanged.
+		bool m_enableWind = true;
 
 	private:
 		std::vector<SkinnedMeshBody*> _bodies;

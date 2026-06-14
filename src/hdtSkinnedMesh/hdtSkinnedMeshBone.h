@@ -33,6 +33,14 @@ namespace hdt
 		virtual void readTransform(float timeStep) = 0;
 		virtual void writeTransform() = 0;
 
+		// Applies a kinematic driver target to the rigid body. This is the shared, Skyrim-free
+		// apply-math used by both the in-game path (SkyrimBone::readTransform) and the offline
+		// replay path (ReplayBone::readTransform), so replay runs identical math by construction (D6).
+		// - updates m_currentTransform to target and rescales inertia/shape on a scale change,
+		// - reset == true  -> snap the body onto the target and zero all velocities,
+		// - reset == false -> for a static/kinematic body, derive lin/ang velocity from the move.
+		void applyKinematicTarget(const btQsTransform& target, float timeStep, bool reset);
+
 		void internalUpdate();
 
 		bool canCollideWith(SkinnedMeshBone* rhs);
