@@ -21,20 +21,23 @@ There are two things you can do:
 
 ## 2. Build the tool
 
-The tool is hidden behind a `BUILD_BENCHMARK` switch that is **off by default**, so a normal mod build
-ignores it. From the repo root:
+The tool builds **automatically with the mod** (the `BUILD_BENCHMARK` switch is on by default), and the
+build drops `smp_replay.exe` right next to `hdtSMP64.dll` in the same `SKSE/Plugins/` folder the DLL
+goes to. So just build the mod the usual way:
 
 ```powershell
-# Configure with the tool turned on
-cmake --preset vs2022-windows-avx2 -DBUILD_BENCHMARK=ON
-
-# Build just the tool
-cmake --build out/build/vs2022-windows-avx2 --config Release --target smp_replay
+cmake --preset vs2022-windows-avx2
+cmake --build out/build/vs2022-windows-avx2 --config Release
 ```
 
-The program lands at
-`out/build/vs2022-windows-avx2/tests/benchmark/Release/smp_replay.exe`. Swap the preset name for your
-platform (`vs2022-windows`, `-avx`, `-avx2`, `-avx512`).
+Afterwards you'll find `smp_replay.exe` in two places: in the build tree
+(`out/build/vs2022-windows-avx2/tests/benchmark/Release/`), and — because the build copies it — next to
+the DLL in your `SKSE/Plugins/` folder. The released mod ships it the same way, so anyone who installs
+the mod gets the tool too. Swap the preset name for your platform (`vs2022-windows`, `-avx`, `-avx2`,
+`-avx512`).
+
+Don't want it? Turn the switch off for a leaner, DLL-only build:
+`cmake --preset vs2022-windows-avx2 -DBUILD_BENCHMARK=OFF`.
 
 ## 3. Run the self-test (no recording needed)
 
@@ -231,10 +234,9 @@ arguments.
 
 ## 8. CI
 
-[.github/workflows/benchmark.yml](../.github/workflows/benchmark.yml) configures with
-`-DBUILD_BENCHMARK=ON`, builds `smp_replay`, and runs the tests (the self-test always; the parity check
-when `fixtures/parity.bin` exists). It builds nothing that ships — the tool is for developers and CI
-only.
+[.github/workflows/benchmark.yml](../.github/workflows/benchmark.yml) builds `smp_replay` and runs the
+tests on every push (the self-test always; the parity check when `fixtures/parity.bin` exists). The mod
+build itself also builds the tool (it's on by default) and ships it alongside the DLL — see §2.
 
 ## 9. If something goes wrong
 

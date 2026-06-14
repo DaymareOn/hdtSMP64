@@ -82,3 +82,17 @@ set(PARITY_FIXTURE "${CMAKE_CURRENT_SOURCE_DIR}/fixtures/parity.bin")
 if(EXISTS "${PARITY_FIXTURE}")
 	add_test(NAME smp_replay_parity COMMAND smp_replay "${PARITY_FIXTURE}" --threads 1 --check-golden)
 endif()
+
+# Deliver the tool next to hdtSMP64.dll, in the same SKSE/Plugins folder, on every build - so a normal
+# mod build (and the release package built from that folder) carries smp_replay.exe with the DLL.
+# COPY_OUTPUT and CompiledPluginsPath are inherited from the top-level CMakeLists. make_directory keeps
+# this safe even if the tool happens to build before the DLL has created the folder.
+if(COPY_OUTPUT)
+	add_custom_command(
+		TARGET smp_replay
+		POST_BUILD
+		COMMAND "${CMAKE_COMMAND}" -E make_directory "${CompiledPluginsPath}/SKSE/Plugins"
+		COMMAND "${CMAKE_COMMAND}" -E copy_if_different "$<TARGET_FILE:smp_replay>"
+				"${CompiledPluginsPath}/SKSE/Plugins/"
+		VERBATIM)
+endif()

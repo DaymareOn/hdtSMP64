@@ -33,10 +33,10 @@ option(ENABLE_SKYRIM_VR "Enable support for Skyrim VR in the dynamic runtime fea
 #
 set(BUILD_TESTS OFF)
 
-# Standalone physics replay/benchmark harness (smp_replay) + its doctest unit tests. OFF by default
-# so the shipped DLL build is untouched; CI flips it ON in a dedicated job (it is a dev/CI tool, never
-# packaged for players - see PLAN §17).
-option(BUILD_BENCHMARK "Build the standalone smp_replay benchmark/replay harness and its tests" OFF)
+# Standalone physics replay/benchmark tool (smp_replay) + its unit tests. ON by default: it builds
+# alongside the mod and (with COPY_OUTPUT) is delivered into the same SKSE/Plugins folder as the DLL,
+# so it ships with the mod, including the released package. Turn it OFF for a leaner DLL-only build.
+option(BUILD_BENCHMARK "Build the standalone smp_replay benchmark/replay tool and its tests" ON)
 
 # default definitions
 add_definitions(-DBT_USE_SSE_IN_API)
@@ -47,6 +47,9 @@ add_subdirectory(src)
 
 if(BUILD_BENCHMARK)
 	add_subdirectory(tests/benchmark)
+	# Tie the tool to the mod target so building the mod always builds (and, via COPY_OUTPUT, delivers)
+	# smp_replay too - even when someone builds only the DLL target.
+	add_dependencies("${PROJECT_NAME}" smp_replay)
 endif()
 
 include(cmake/packaging.cmake)
