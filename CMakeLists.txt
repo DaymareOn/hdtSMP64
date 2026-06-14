@@ -33,10 +33,20 @@ option(ENABLE_SKYRIM_VR "Enable support for Skyrim VR in the dynamic runtime fea
 #
 set(BUILD_TESTS OFF)
 
+# Standalone physics replay/benchmark harness (smp_replay) + its doctest unit tests. OFF by default
+# so the shipped DLL build is untouched; CI flips it ON in a dedicated job (it is a dev/CI tool, never
+# packaged for players - see PLAN §17).
+option(BUILD_BENCHMARK "Build the standalone smp_replay benchmark/replay harness and its tests" OFF)
+
 # default definitions
 add_definitions(-DBT_USE_SSE_IN_API)
 
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 
 add_subdirectory(src)
+
+if(BUILD_BENCHMARK)
+	add_subdirectory(tests/benchmark)
+endif()
+
 include(cmake/packaging.cmake)

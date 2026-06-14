@@ -1,0 +1,76 @@
+name: SMP replay harness (benchmark)
+
+# Builds the standalone smp_replay harness with BUILD_BENCHMARK=ON and runs its doctest suite via
+# CTest: format round-trip + trust-boundary, the applyKinematicTarget seam, the capture<->replay
+# snapshot round-trip, the end-to-end replay pipeline, and - when tests/benchmark/fixtures/parity.bin
+# exists - the single-threaded seam-parity gate (D8). This job never ships an artifact; smp_replay is
+# a dev/CI tool only (PLAN §17).
+
+on:
+  push:
+    branches: [master, dev, hardenrelease]
+    paths:
+      - "src/hdtSkinnedMesh/**"
+      - "src/Replay/**"
+      - "tests/benchmark/**"
+      - "CMakeLists.txt"
+      - "CMakePresets.json"
+      - "vcpkg.json"
+      - ".github/workflows/benchmark.yml"
+  pull_request:
+    branches: [master, dev, hardenrelease]
+    paths:
+      - "src/hdtSkinnedMesh/**"
+      - "src/Replay/**"
+      - "tests/benchmark/**"
+      - "CMakeLists.txt"
+      - "CMakePresets.json"
+      - "vcpkg.json"
+      - ".github/workflows/benchmark.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: benchmark-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: windows-2022
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Restore vcpkg dependencies and binary cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            out/build/vs2022-windows-avx2/vcpkg_installed
+            ~\AppData\Local\vcpkg\archives
+          key: vcpkg-benchmark-${{ runner.os }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/ports/**') }}
+          restore-keys: |
+            vcpkg-benchmark-${{ runner.os }}-
+
+      - name: Configure CMake (BUILD_BENCHMARK=ON)
+        shell: pwsh
+        run: |
+          $BinaryCachePath = "$env:LOCALAPPDATA\vcpkg\archives"
+          if (!(Test-Path $BinaryCachePath)) { New-Item -ItemType Directory -Force -Path $BinaryCachePath }
+          $env:VCPKG_BINARY_SOURCES = "clear;files,$BinaryCachePath,readwrite"
+          cmake --preset vs2022-windows-avx2 `
+            -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
+            -DVCPKG_MANIFEST_MODE=ON `
+            -DBUILD_BENCHMARK=ON `
+            -DCompiledPluginsPath="${{ github.workspace }}/out/build/vs2022-windows-avx2/plugins"
+
+      - name: Build smp_replay
+        run: cmake --build out/build/vs2022-windows-avx2 --config Release --target smp_replay
+
+      - name: Run harness self-test + parity gate
+        shell: pwsh
+        working-directory: out/build/vs2022-windows-avx2
+        run: ctest -C Release --output-on-failure
