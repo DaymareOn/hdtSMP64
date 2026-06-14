@@ -56,6 +56,146 @@ namespace hdt
 		physicsprofiler::setCapture(a_enabled, a_sampleFrames, a_printFrames);
 	}
 
+	replay::SolverConfig SkyrimPhysicsWorld::buildReplaySolverConfig()
+	{
+		replay::SolverConfig s;
+		s.gravity = replay::toVec3(getGravity());
+		const auto& si = getSolverInfo();
+		s.friction = si.m_friction;
+		s.splitImpulse = si.m_splitImpulse ? 1 : 0;
+		s.splitImpulsePenetrationThreshold = si.m_splitImpulsePenetrationThreshold;
+		s.erp2 = si.m_erp2;
+		s.globalCfm = si.m_globalCfm;
+		s.restitutionVelocityThreshold = si.m_restitutionVelocityThreshold;
+		s.solverMode = si.m_solverMode;
+		s.leastSquaresResidualThreshold = si.m_leastSquaresResidualThreshold;
+		s.timeTick = m_timeTick;
+		s.maxSubSteps = m_maxSubSteps;
+		s.enableWind = m_enableWind ? 1 : 0;
+		s.windStrength = m_windStrength;
+		s.distanceForNoWind = m_distanceForNoWind;
+		s.distanceForMaxWind = m_distanceForMaxWind;
+		s.disableDeactivation = gDisableDeactivation ? 1 : 0;
+		return s;
+	}
+
+	replay::Snapshot SkyrimPhysicsWorld::buildReplaySnapshot(SkyrimSystem* system)
+	{
+		auto [it, inserted] = m_replaySystemIds.try_emplace(system, m_replayNextSystemId);
+		if (inserted)
+			++m_replayNextSystemId;
+		replay::Snapshot snap = replay::buildSnapshot(*system, it->second);
+		// Carry the in-game build/read cost (file read + XML parse + NIF skin extraction + construction,
+		// timed in createOrUpdateSystem) into the capture so the benchmark can report it.
+		snap.buildTimeMicros = system->m_buildTimeMicros;
+		return snap;
+	}
+
+	void SkyrimPhysicsWorld::setReplayCapture(bool a_enabled, const std::string& a_path,
+		std::uint32_t a_frameCap, std::size_t a_sizeCap, bool a_golden)
+	{
+		auto simulationLock = lockSimulation();
+
+		if (a_enabled) {
+			m_replayCapturePath = a_path;
+			m_replayGolden = a_golden;
+			m_replaySystemIds.clear();
+			m_replayNextSystemId = 0;
+
+			std::vector<replay::Snapshot> initial;
+			initial.reserve(m_systems.size());
+			for (auto& i : m_systems) {
+				if (auto* s = dynamic_cast<SkyrimSystem*>(i.get()))
+					initial.push_back(buildReplaySnapshot(s));
+			}
+
+			m_replayCapture.begin(buildReplaySolverConfig(), std::move(initial),
+				std::string(Plugin::BUILD_INFO), 0, static_cast<std::uint32_t>(m_systems.size()),
+				a_golden, a_frameCap, a_sizeCap);
+			logger::info("Replay capture started -> {}", a_path);
+		} else if (m_replayCapture.active() || m_replayCapture.capReached()) {
+			if (!m_replayCapturePath.empty() && m_replayCapture.flushToFile(m_replayCapturePath))
+				logger::info("Replay capture flushed -> {} ({} bytes)", m_replayCapturePath, m_replayCapture.approxSizeBytes());
+			else
+				logger::error("Replay capture flush failed for {}", m_replayCapturePath);
+			m_replayCapture.reset();
+			m_replaySystemIds.clear();
+		}
+	}
+
+	void SkyrimPhysicsWorld::captureReplayFrame(float remainingTimeStep, float tick)
+	{
+		replay::Frame frame;
+		frame.remainingTimeStep = remainingTimeStep;
+		frame.tick = tick;
+		frame.windSpeed = replay::toVec3(m_windSpeed);
+		frame.reset = remainingTimeStep <= RESET_PHYSICS ? 1 : 0;
+
+		for (auto& i : m_systems) {
+			auto* s = dynamic_cast<SkyrimSystem*>(i.get());
+			if (!s)
+				continue;
+			auto idIt = m_replaySystemIds.find(s);
+			if (idIt == m_replaySystemIds.end())
+				continue;  // a system added before capture started but not snapshotted; skip
+			replay::captureFrameBones(*s, idIt->second, frame, m_replayGolden);
+		}
+
+		// addFrame auto-stops the buffer (without touching disk) once a frame/size cap is hit - that is
+		// the RAM fail-safe. Flushing to disk is the caller's job: updateReplayRecording() for a console
+		// recording, or the explicit SetReplayCapture(false) for the Papyrus path.
+		m_replayCapture.addFrame(std::move(frame));
+	}
+
+	void SkyrimPhysicsWorld::requestReplayRecording(float durationSec, std::size_t sizeCapBytes, std::string path)
+	{
+		// Stage only - the capture begins in updateReplayRecording() once the console is closed.
+		m_recordPath = std::move(path);
+		m_recordDurationSec = durationSec;
+		m_recordSizeCap = sizeCapBytes;
+		m_recordPending = true;
+	}
+
+	void SkyrimPhysicsWorld::updateReplayRecording()
+	{
+		if (!m_recordPending && !m_recordActive)
+			return;
+
+		auto* ui = RE::UI::GetSingleton();
+		const bool consoleOpen = ui && ui->IsMenuOpen(RE::Console::MENU_NAME);
+
+		if (m_recordPending) {
+			// Wait until the player has dismissed the console, then begin. setReplayCapture snapshots the
+			// live scene under the simulation lock, so it must run here (not under m_lock).
+			if (consoleOpen)
+				return;
+			setReplayCapture(true, m_recordPath, 0, m_recordSizeCap, false);
+			m_recordStart = std::chrono::steady_clock::now();
+			m_recordActive = true;
+			m_recordPending = false;
+			logger::info("smp record: started -> {} (<= {:.1f}s, <= {} bytes)",
+				m_recordPath, m_recordDurationSec, m_recordSizeCap);
+			if (auto* console = RE::ConsoleLog::GetSingleton())
+				console->Print("[HDT-SMP] Replay recording started.");
+			return;
+		}
+
+		// Active: stop on whichever limit is reached first - elapsed wall-clock time, or the size cap
+		// (the buffer raises capReached() once it auto-stops on size).
+		const float elapsed = std::chrono::duration<float>(std::chrono::steady_clock::now() - m_recordStart).count();
+		const bool timeUp = m_recordDurationSec > 0.0f && elapsed >= m_recordDurationSec;
+		const bool sizeUp = m_replayCapture.capReached();
+		if (!timeUp && !sizeUp)
+			return;
+
+		setReplayCapture(false);  // flushes to m_recordPath and resets the buffer
+		m_recordActive = false;
+		const char* why = sizeUp ? "size cap" : "time limit";
+		logger::info("smp record: stopped ({}) -> {}", why, m_recordPath);
+		if (auto* console = RE::ConsoleLog::GetSingleton())
+			console->Print("[HDT-SMP] Replay recording finished (%s). Saved to: %s", why, m_recordPath.c_str());
+	}
+
 	SkyrimPhysicsWorld::~SkyrimPhysicsWorld(void) noexcept
 	{
 	}
@@ -155,6 +295,11 @@ namespace hdt
 			auto offset = applyTranslationOffset();
 			stepSimulation(remainingTimeStep, 0, tick);
 			restoreTranslationOffset(offset);
+			// Capture the per-frame record here (D9): kinematic bones still carry this frame's input
+			// target in m_currentTransform, and dynamic bones carry their solved post-step pose in the
+			// rigid body - writeTransform (FrameSyncEvent) has not yet run.
+			if (m_replayCapture.active())
+				captureReplayFrame(remainingTimeStep, tick);
 			m_accumulatedInterval = 0;
 			m_pendingTransformUpdate = true;
 		}
@@ -291,11 +436,31 @@ namespace hdt
 
 		s->m_initialized = false;
 		SkinnedMeshWorld::addSkinnedMeshSystem(system);
+
+		// Scene-log: record the new system as a full sub-scene serialize at this frame (D3/D4).
+		if (m_replayCapture.active()) {
+			replay::SceneEvent e;
+			e.kind = replay::SceneEventKind::AddSystem;
+			e.snapshot = buildReplaySnapshot(s);
+			e.systemId = e.snapshot.systemId;
+			m_replayCapture.addSceneEvent(std::move(e));
+		}
 	}
 
 	void SkyrimPhysicsWorld::removeSkinnedMeshSystem(SkinnedMeshSystem* system)
 	{
 		std::lock_guard<decltype(m_lock)> l(m_lock);
+
+		// Scene-log: record the removal (id + frame) before the system goes away (D3/D4).
+		if (m_replayCapture.active()) {
+			auto it = m_replaySystemIds.find(system);
+			if (it != m_replaySystemIds.end()) {
+				replay::SceneEvent e;
+				e.kind = replay::SceneEventKind::RemoveSystem;
+				e.systemId = it->second;
+				m_replayCapture.addSceneEvent(std::move(e));
+			}
+		}
 
 		SkinnedMeshWorld::removeSkinnedMeshSystem(system);
 	}
@@ -331,6 +496,10 @@ namespace hdt
 		} else if (!(e->gamePaused || mm->GameIsPaused()) && m_suspended) {
 			resume();
 		}
+
+		// Drive the console-armed 'smp record' lifecycle (deferred start once the console closes, then
+		// time/size auto-stop). Must run outside m_lock - it may call setReplayCapture, which locks.
+		updateReplayRecording();
 
 		if (m_enableWind) {
 			WeatherManager::runWeatherTick(RE::GetSecondsSinceLastFrame());

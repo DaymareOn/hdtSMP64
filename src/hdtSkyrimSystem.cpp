@@ -5,6 +5,8 @@
 #include "XmlReader.h"
 #include "hdtSkyrimPhysicsWorld.h"
 
+#include <chrono>
+
 // F16C isn't supported on super old processors. AVX2+ (AVX processors can have it, but not guaranteed)
 #if defined(__AVX2__) || defined(__AVX512F__)
 #	include <immintrin.h>
@@ -196,6 +198,11 @@ namespace hdt
 
 	RE::BSTSmartPointer<SkyrimSystem> SkyrimSystemCreator::createOrUpdateSystem(RE::NiNode* skeleton, RE::NiAVObject* model, DefaultBBP::PhysicsFile_t* file, std::unordered_map<RE::BSFixedString, RE::BSFixedString>&& renameMap, SkyrimSystem* old_system)
 	{
+		// Time the whole build - reading the physics XML file, parsing it, extracting the NIF skin data,
+		// and constructing the system - so a replay capture can record the in-game build/read cost. The
+		// elapsed time is stored on m_mesh on the success path below.
+		const auto buildStart = std::chrono::steady_clock::now();
+
 		auto path = file->first;
 		if (path.empty()) {
 			return nullptr;
@@ -381,6 +388,9 @@ namespace hdt
 			RE::NiUpdateData updateData;
 			skeleton->Update(updateData);
 		}
+
+		m_mesh->m_buildTimeMicros = static_cast<std::uint32_t>(
+			std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - buildStart).count());
 
 		return m_mesh->valid() ? m_mesh : nullptr;
 	}

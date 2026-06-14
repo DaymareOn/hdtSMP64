@@ -25,6 +25,11 @@ namespace hdt
 		// - full = false -> soft reset, current bone poses are preserved
 		void ResetPhysics(RE::StaticFunctionTag* base, RE::Actor* actor, bool full);
 
+		// Toggle the physics replay capture (D9). enabled=true starts buffering to RAM; enabled=false
+		// flushes the capture to `path`. frameCap auto-stops after that many frames (0 = unlimited);
+		// golden=true also records dynamic-bone outputs for the seam-parity fixture.
+		bool SetReplayCapture(RE::StaticFunctionTag* base, bool enabled, RE::BSFixedString path, std::int32_t frameCap, bool golden);
+
 		namespace impl
 		{
 			bool ReloadPhysicsFileImpl(uint32_t on_actor_formID, uint32_t on_item_formID, std::string physics_file_path, bool persist, bool verbose_log);

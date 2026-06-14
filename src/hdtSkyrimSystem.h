@@ -37,7 +37,13 @@ namespace hdt
 		RE::NiPointer<RE::NiNode> m_skeleton;
 		RE::NiPointer<RE::NiNode> m_oldRoot;
 		bool m_initialized = false;
-		float m_windFactor = 1.f;  // wind factor for the system (i.e., full actor/skeleton) (calculated based off obstructions)
+
+		// Wall-clock cost (microseconds) of building this system - reading + parsing the physics XML and
+		// extracting the NIF skin data + constructing the bones/bodies/constraints - set by
+		// SkyrimSystemCreator::createOrUpdateSystem. Recorded into a replay capture so the benchmark can
+		// report the in-game build/read cost (which can't be re-run offline, the build path being engine-
+		// coupled). Defaults to 0 for systems built outside that path.
+		std::uint32_t m_buildTimeMicros = 0;
 
 		// angular velocity damper
 		btQuaternion m_lastRootRotation;

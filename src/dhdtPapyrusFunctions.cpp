@@ -10,6 +10,7 @@ bool RegisterFuncs(RE::BSScript::IVirtualMachine* registry)
 	registry->RegisterFunction("QueryCurrentPhysicsFile", "DynamicHDT", hdt::papyrus::QueryCurrentPhysicsFile);
 	registry->RegisterFunction("TogglePhysics", "DynamicHDT", hdt::papyrus::TogglePhysics);
 	registry->RegisterFunction("ResetPhysics", "DynamicHDT", hdt::papyrus::ResetPhysics);
+	registry->RegisterFunction("SetReplayCapture", "DynamicHDT", hdt::papyrus::SetReplayCapture);
 	//
 	return true;
 }
@@ -141,6 +142,18 @@ std::vector<bool> hdt::papyrus::impl::TogglePhysicsImpl(RE::Actor* actor, std::v
 	}
 
 	return result;
+}
+
+bool hdt::papyrus::SetReplayCapture(RE::StaticFunctionTag*, bool enabled, RE::BSFixedString path, std::int32_t frameCap, bool golden)
+{
+	if (enabled && (!path.c_str() || path.empty())) {
+		RE::ConsoleLog::GetSingleton()->Print("[DynamicHDT] -- SetReplayCapture: a path is required to start a capture.");
+		return false;
+	}
+
+	const std::uint32_t cap = frameCap > 0 ? static_cast<std::uint32_t>(frameCap) : 0u;
+	hdt::SkyrimPhysicsWorld::get()->setReplayCapture(enabled, enabled ? path.c_str() : "", cap, 0, golden);
+	return true;
 }
 
 void hdt::papyrus::ResetPhysics(RE::StaticFunctionTag*, RE::Actor* actor, bool full)

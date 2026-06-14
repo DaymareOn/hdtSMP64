@@ -12,6 +12,8 @@
 #include <atomic>
 #include <charconv>
 #include <cstdint>
+#include <ctime>
+#include <filesystem>
 #include <string_view>
 #include <thread>
 
@@ -31,6 +33,29 @@ namespace
 		}
 
 		return static_cast<std::uint64_t>(parsed);
+	}
+
+	// Builds the output path for an 'smp record' capture: a time-stamped file next to the plugin log
+	// (My Games/.../SKSE, where hdtsmp64.log lives) so the player can find it easily, falling back to
+	// the working directory if the log directory can't be resolved. The timestamp keeps repeated
+	// recordings from overwriting one another.
+	std::string makeReplayCapturePath()
+	{
+		std::filesystem::path dir;
+		if (auto logDir = logger::log_directory()) {
+			dir = *logDir;
+		} else {
+			dir = std::filesystem::current_path();
+		}
+
+		std::time_t now = std::time(nullptr);
+		std::tm local{};
+		localtime_s(&local, &now);
+		char stamp[32];
+		std::strftime(stamp, sizeof(stamp), "%Y%m%d_%H%M%S", &local);
+
+		dir /= fmt::format("hdtSMP_capture_{}.bin", stamp);
+		return dir.string();
 	}
 }
 
@@ -342,6 +367,10 @@ bool SMPDebug_Execute(
 		console->Print("    Run the physics-asset validator in the background and write a report file.");
 		console->Print("    gear  = validate equipped gear only.");
 		console->Print("    error = write an errors-only report (no warnings/info).");
+		console->Print("  smp record [seconds] [max_mb]");
+		console->Print("    Record an SMP replay capture for the offline benchmark harness.");
+		console->Print("    Begins when you close the console; stops after seconds (default 10)");
+		console->Print("    or max_mb (default 256), whichever comes first.");
 		return true;
 	}
 
@@ -398,6 +427,22 @@ bool SMPDebug_Execute(
 			RE::ConsoleLog::GetSingleton()->Print("HDT-SMP physics profiler disabled");
 		}
 
+		return true;
+	}
+
+	if (_strnicmp(buffer, "record", MAX_PATH) == 0) {
+		const auto seconds = ParsePositiveDecimal(buffer2, 10);
+		const auto maxMB = ParsePositiveDecimal(buffer3, 256);
+		const std::size_t sizeCap = static_cast<std::size_t>(maxMB) * 1024ull * 1024ull;
+		const std::string path = makeReplayCapturePath();
+
+		hdt::SkyrimPhysicsWorld::get()->requestReplayRecording(static_cast<float>(seconds), sizeCap, path);
+
+		auto* console = RE::ConsoleLog::GetSingleton();
+		console->Print("[HDT-SMP] Replay recording armed - it begins when you close the console.");
+		console->Print("[HDT-SMP] It stops after %llus or ~%lluMB, whichever comes first.",
+			static_cast<unsigned long long>(seconds), static_cast<unsigned long long>(maxMB));
+		console->Print("[HDT-SMP] Output: %s", path.c_str());
 		return true;
 	}
 
@@ -727,7 +772,7 @@ extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* a_s
 
 		unusedCommand->functionName = "SMPDebug";
 		unusedCommand->shortName = "smp";
-		unusedCommand->helpString = "smp <help|reset|report [gear] [error]>";
+		unusedCommand->helpString = "smp <help|reset|report [gear] [error]|record [seconds] [max_mb]>";
 		unusedCommand->referenceFunction = 0;
 		unusedCommand->numParams = 3;
 		unusedCommand->params = params;
