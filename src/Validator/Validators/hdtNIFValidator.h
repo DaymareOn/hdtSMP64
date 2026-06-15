@@ -19,6 +19,7 @@ namespace hdt
 		std::vector<std::string> allPhysicsXmlPaths;  // all found, for duplicate detection
 		bool hasGeometry = false;
 		bool hasSkinning = false;
+		bool hasOrphanedPhysicsMarker = false;  // marker string present but no NiStringExtraData block references it
 		std::vector<std::string> errors;
 	};
 

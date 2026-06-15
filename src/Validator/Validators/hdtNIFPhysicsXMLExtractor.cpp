@@ -59,9 +59,12 @@ namespace hdt
 				while (begin > 0 && isPathByte(data[begin - 1]))
 					--begin;
 
-				size_t end = i + 4;
-				while (end < data.size() && isPathByte(data[end]))
-					++end;
+				// The path ends at its ".xml" extension; don't scan past it. NIF
+				// string-table entries are length-prefixed (not null-terminated), so the
+				// byte right after ".xml" is the next entry's length prefix, whose low
+				// byte can be a path-valid character (e.g. 0x31 = '1') that would
+				// otherwise be wrongly appended to the path.
+				const size_t end = i + 4;
 
 				if (end <= begin)
 					continue;
@@ -224,9 +227,12 @@ namespace hdt
 					if (!result.allPhysicsXmlPaths.empty()) {
 						result.physicsXmlPath = result.allPhysicsXmlPaths[0];
 					} else {
-						applyFallbackPaths(result, data);
-						if (result.allPhysicsXmlPaths.empty())
-							result.errors.push_back("Physics marker found but no XML references were extracted: " + nifPath);
+						// The marker string is present but no NiStringExtraData block
+						// references it — a leftover/orphaned marker (e.g. the physics
+						// extra-data block was stripped, leaving its strings in the table).
+						// The NIF has no functional physics; flag it for a warning rather
+						// than treating its stale string-table paths as real references.
+						result.hasOrphanedPhysicsMarker = true;
 					}
 				}
 				return result;
