@@ -24,6 +24,7 @@ namespace hdt
 		std::vector<std::string> allPhysicsXmlPaths;  // all "HDT Skinned Mesh Physics Object" blocks
 		bool nifExists = false;
 		bool xmlExists = false;
+		bool hasOrphanedPhysicsMarker = false;  // marker string present but no NiStringExtraData block
 	};
 
 	// ── Validation ────────────────────────────────────────────────────────────

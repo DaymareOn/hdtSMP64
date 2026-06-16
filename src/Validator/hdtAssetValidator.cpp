@@ -868,6 +868,7 @@ namespace hdt
 						PhysicsAsset asset;
 						asset.nifPath = pathStr;
 						asset.nifExists = true;
+						asset.hasOrphanedPhysicsMarker = scanRes.hasOrphanedPhysicsMarker;
 						asset.relatedTRIPaths = discoverRelatedTRIFiles(pathStr);
 						asset.allPhysicsXmlPaths = scanRes.allPhysicsXmlPaths;
 
@@ -1039,6 +1040,16 @@ namespace hdt
 
 		for (const auto& asset : nifAssets) {
 			out << "  [NIF]  " << asset.nifPath << "\n";
+
+			// Warn about a leftover physics marker with no backing data block.
+			if (asset.hasOrphanedPhysicsMarker) {
+				report.warnings.push_back(asset.nifPath +
+										  ": has the \"HDT Skinned Mesh Physics Object\" marker string but no"
+										  " NiStringExtraData physics block; the marker is leftover and no physics is applied.");
+				report.hasWarnings = true;
+				out << "    [WARNING] Leftover \"HDT Skinned Mesh Physics Object\" marker with no"
+					   " NiStringExtraData block; no physics applied\n";
+			}
 
 			// Warn if multiple "HDT Skinned Mesh Physics Object" blocks found
 			if (asset.allPhysicsXmlPaths.size() > 1) {
