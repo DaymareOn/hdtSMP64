@@ -1044,8 +1044,8 @@ namespace hdt
 			// Warn about a leftover physics marker with no backing data block.
 			if (asset.hasOrphanedPhysicsMarker) {
 				report.warnings.push_back(asset.nifPath +
-					": has the \"HDT Skinned Mesh Physics Object\" marker string but no"
-					" NiStringExtraData physics block; the marker is leftover and no physics is applied.");
+										  ": has the \"HDT Skinned Mesh Physics Object\" marker string but no"
+										  " NiStringExtraData physics block; the marker is leftover and no physics is applied.");
 				report.hasWarnings = true;
 				out << "    [WARNING] Leftover \"HDT Skinned Mesh Physics Object\" marker with no"
 					   " NiStringExtraData block; no physics applied\n";
