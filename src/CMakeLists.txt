@@ -12,8 +12,6 @@ set(SOURCE_FILES
 	"${SOURCE_DIR}/hdtSkinnedMesh/hdtBulletHelper.h"
 	"${SOURCE_DIR}/hdtSkinnedMesh/hdtCollider.cpp"
 	"${SOURCE_DIR}/hdtSkinnedMesh/hdtCollider.h"
-	"${SOURCE_DIR}/hdtSkinnedMesh/hdtCollisionAlgorithm.cpp"
-	"${SOURCE_DIR}/hdtSkinnedMesh/hdtCollisionAlgorithm.h"
 	"${SOURCE_DIR}/hdtSkinnedMesh/hdtConeTwistConstraint.cpp"
 	"${SOURCE_DIR}/hdtSkinnedMesh/hdtConeTwistConstraint.h"
 	"${SOURCE_DIR}/hdtSkinnedMesh/hdtConstraintGroup.h"

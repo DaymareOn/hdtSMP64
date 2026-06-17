@@ -106,10 +106,26 @@ namespace hdt
 			auto s1 = this->v1[b->vertex];
 			auto r1 = s1.marginMultiplier() * this->sp1->margin;
 
-			auto ret = checkSphereSphere(s0.pos(), s1.pos(), r0, r1, res);
+			auto pos0 = s0.pos();
+			auto pos1 = s1.pos();
+			auto diff = pos0 - pos1;
+			auto dist2 = diff.length2();
+			auto radiusSum = r0 + r1;
+			if (dist2 > radiusSum * radiusSum)
+				return false;
+
+			auto len = btSqrt(dist2);
+			auto normal = btVector3(1, 0, 0);
+			if (len > FLT_EPSILON)
+				normal = diff / len;
+
+			res.normOnB = normal;
+			res.depth = len - radiusSum;
+			res.posA = pos0 - normal * r0;
+			res.posB = pos1 + normal * r1;
 			res.colliderA = a;
 			res.colliderB = b;
-			return ret;
+			return true;
 		}
 	};
 
@@ -176,6 +192,8 @@ namespace hdt
 				}
 				isInsideContactPlane = distanceFromPlane < radiusWithMargin;
 			}
+
+			// This has a very high early rejection rate, up to ~60% average
 			if (!isInsideContactPlane) {
 				return false;
 			}
