@@ -157,7 +157,7 @@ namespace hdt
 			auto p0 = this->v1[b->vertices[0]];
 			auto p1 = this->v1[b->vertices[1]];
 			auto p2 = this->v1[b->vertices[2]];
-			auto margin = (p0.marginMultiplier() + p1.marginMultiplier() + p2.marginMultiplier()) / 3;
+			auto margin = (p0.marginMultiplier() + p1.marginMultiplier() + p2.marginMultiplier()) * (1.0f / 3.0f);
 			auto penetration = this->sp1->penetration * margin;
 			margin *= this->sp1->margin;
 			if (penetration > -FLT_EPSILON && penetration < FLT_EPSILON) {
