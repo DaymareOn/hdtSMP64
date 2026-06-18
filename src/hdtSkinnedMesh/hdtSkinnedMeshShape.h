@@ -1,7 +1,6 @@
 #pragma once
 
 #include "hdtCollider.h"
-#include "hdtCollisionAlgorithm.h"
 #include "hdtSkinnedMeshBody.h"
 
 namespace hdt
@@ -82,11 +81,24 @@ namespace hdt
 		inline int getColliderBoneIndex(const Collider* c, int boneIdx) override final { return m_owner->m_vertices[c->vertices[boneIdx / 4]].getBoneIdx(boneIdx % 4); }
 		inline btVector3 baryCoord(const Collider* c, const btVector3& p) override final
 		{
-			return BaryCoord(
-				m_owner->m_vpos[c->vertices[0]].pos(),
-				m_owner->m_vpos[c->vertices[1]].pos(),
-				m_owner->m_vpos[c->vertices[2]].pos(),
-				p);
+			auto point0 = m_owner->m_vpos[c->vertices[0]].pos();
+			auto point1 = m_owner->m_vpos[c->vertices[1]].pos();
+			auto point2 = m_owner->m_vpos[c->vertices[2]].pos();
+			auto side0 = point0 - p;
+			auto side1 = point1 - p;
+			auto side2 = point2 - p;
+			auto area0 = btCross(side0, side1).get128();
+			auto area1 = btCross(side1, side2).get128();
+			auto area2 = btCross(side2, side0).get128();
+			area0 = _mm_dp_ps(area0, area0, 0x74);
+			area1 = _mm_dp_ps(area1, area1, 0x71);
+			area2 = _mm_dp_ps(area2, area2, 0x72);
+			area0 = _mm_or_ps(area0, area1);
+			area0 = _mm_or_ps(area0, area2);
+			area0 = _mm_sqrt_ps(area0);
+			area1 = _mm_set_ps1(1);
+			area1 = _mm_dp_ps(area1, area0, 0x77);
+			return _mm_div_ps(area0, area1);
 		}
 		inline float baryWeight(const btVector3& w, int boneIdx) override final { return w[boneIdx / 4]; }
 

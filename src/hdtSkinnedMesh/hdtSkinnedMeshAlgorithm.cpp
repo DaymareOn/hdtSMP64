@@ -106,10 +106,26 @@ namespace hdt
 			auto s1 = this->v1[b->vertex];
 			auto r1 = s1.marginMultiplier() * this->sp1->margin;
 
-			auto ret = checkSphereSphere(s0.pos(), s1.pos(), r0, r1, res);
+			auto pos0 = s0.pos();
+			auto pos1 = s1.pos();
+			auto diff = pos0 - pos1;
+			auto dist2 = diff.length2();
+			auto radiusSum = r0 + r1;
+			if (dist2 > radiusSum * radiusSum)
+				return false;
+
+			auto len = btSqrt(dist2);
+			auto normal = btVector3(1, 0, 0);
+			if (len > FLT_EPSILON)
+				normal = diff / len;
+
+			res.normOnB = normal;
+			res.depth = len - radiusSum;
+			res.posA = pos0 - normal * r0;
+			res.posB = pos1 + normal * r1;
 			res.colliderA = a;
 			res.colliderB = b;
-			return ret;
+			return true;
 		}
 	};
 
@@ -141,7 +157,7 @@ namespace hdt
 			auto p0 = this->v1[b->vertices[0]];
 			auto p1 = this->v1[b->vertices[1]];
 			auto p2 = this->v1[b->vertices[2]];
-			auto margin = (p0.marginMultiplier() + p1.marginMultiplier() + p2.marginMultiplier()) / 3;
+			auto margin = (p0.marginMultiplier() + p1.marginMultiplier() + p2.marginMultiplier()) * (1.0f / 3.0f);
 			auto penetration = this->sp1->penetration * margin;
 			margin *= this->sp1->margin;
 			if (penetration > -FLT_EPSILON && penetration < FLT_EPSILON) {
@@ -176,6 +192,8 @@ namespace hdt
 				}
 				isInsideContactPlane = distanceFromPlane < radiusWithMargin;
 			}
+
+			// This has a very high early rejection rate, up to ~60% average
 			if (!isInsideContactPlane) {
 				return false;
 			}
