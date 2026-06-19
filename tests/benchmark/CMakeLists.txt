@@ -36,6 +36,8 @@ set(HARNESS_SOURCES
 	"${CMAKE_CURRENT_SOURCE_DIR}/hdtReplaySystem.h"
 	"${CMAKE_CURRENT_SOURCE_DIR}/replayProfiler.cpp"
 	"${CMAKE_CURRENT_SOURCE_DIR}/replayProfiler.h"
+	"${CMAKE_CURRENT_SOURCE_DIR}/pprofWriter.cpp"
+	"${CMAKE_CURRENT_SOURCE_DIR}/pprofWriter.h"
 	"${CMAKE_CURRENT_SOURCE_DIR}/shim/ShimPCH.h"
 	"${SOURCE_DIR}/Replay/hdtReplayFormat.h"
 	"${SOURCE_DIR}/Replay/hdtReplayConvert.h"
@@ -48,7 +50,8 @@ set(TEST_SOURCES
 	"${CMAKE_CURRENT_SOURCE_DIR}/tests/test_format.cpp"
 	"${CMAKE_CURRENT_SOURCE_DIR}/tests/test_apply_kinematic.cpp"
 	"${CMAKE_CURRENT_SOURCE_DIR}/tests/test_replay_pipeline.cpp"
-	"${CMAKE_CURRENT_SOURCE_DIR}/tests/test_capture_snapshot.cpp")
+	"${CMAKE_CURRENT_SOURCE_DIR}/tests/test_capture_snapshot.cpp"
+	"${CMAKE_CURRENT_SOURCE_DIR}/tests/test_pprof.cpp")
 
 add_executable(smp_replay ${HARNESS_SOURCES} ${TEST_SOURCES} ${CORE_SOURCES})
 

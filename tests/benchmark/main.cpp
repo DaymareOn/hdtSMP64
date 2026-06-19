@@ -12,6 +12,7 @@
 #include <doctest/doctest.h>
 
 #include "Replay/hdtReplayFormat.h"
+#include "pprofWriter.h"
 #include "replayProfiler.h"
 #include "replayRunner.h"
 
@@ -69,14 +70,31 @@ namespace
 		std::fprintf(stderr,
 			"smp_replay - SMP physics replay & benchmark harness\n"
 			"usage:\n"
-			"  %s <capture.bin> [--frames N] [--threads N] [--warmup N]\n"
+			"  %s <capture.bin> [--frames N] [--threads N] [--warmup N] [--pprof PATH] [--no-pprof]\n"
 			"  %s --selftest\n"
 			"\n"
 			"  <capture.bin>   capture produced in-game via the Papyrus replay-capture toggle\n"
 			"  --frames N      number of frames to step (0 = the whole capture; loops if larger)\n"
 			"  --threads N     pin TBB worker threads (1 = single-threaded, for parity)\n"
-			"  --warmup N      discard the first N timed frames from the headline (default 0)\n",
+			"  --warmup N      discard the first N timed frames from the headline (default 0)\n"
+			"  --pprof PATH    write the Pass 2 breakdown as a pprof profile (default: <capture>.pb)\n"
+			"  --no-pprof      do not write a pprof profile\n"
+			"\n"
+			"  The pprof profile reflects the single-threaded Pass 2 scope composition; the Pass 1\n"
+			"  headline remains the parallel wall-clock timing source. Open with `pprof -http=: PATH`\n"
+			"  or compare two runs with `pprof -diff_base=A.pb B.pb`.\n",
 			exe, exe);
+	}
+
+	/// Derives the default pprof output path from the capture path: replaces the capture's file
+	/// extension with ".pb" (e.g. crowd.bin -> crowd.pb), or appends ".pb" when it has no extension.
+	std::string derivePprofPath(const std::string& capture)
+	{
+		const auto slash = capture.find_last_of("/\\");
+		const auto dot = capture.find_last_of('.');
+		if (dot != std::string::npos && (slash == std::string::npos || dot > slash))
+			return capture.substr(0, dot) + ".pb";
+		return capture + ".pb";
 	}
 
 	/// Runs the embedded doctest suite; returns its exit code (non-zero on any failure).
@@ -104,6 +122,9 @@ int main(int argc, char** argv)
 	int warmup = 0;
 	bool checkGolden = false;
 	float tolerance = 0.01f;
+	bool pprofEnabled = true;
+	bool pprofPathExplicit = false;
+	std::string pprofPath;
 
 	for (int i = 1; i < argc; ++i) {
 		const char* a = argv[i];
@@ -124,6 +145,13 @@ int main(int argc, char** argv)
 		} else if (std::strcmp(a, "--tolerance") == 0) {
 			if (i + 1 < argc)
 				tolerance = static_cast<float>(std::atof(argv[++i]));
+		} else if (std::strcmp(a, "--pprof") == 0) {
+			if (i + 1 < argc) {
+				pprofPath = argv[++i];
+				pprofPathExplicit = true;
+			}
+		} else if (std::strcmp(a, "--no-pprof") == 0) {
+			pprofEnabled = false;
 		} else if (a[0] == '-') {
 			std::fprintf(stderr, "unknown option: %s\n", a);
 			printUsage(argv[0]);
@@ -250,6 +278,16 @@ int main(int argc, char** argv)
 		prof::uninstall();
 		std::printf("\n[Pass 2] per-scope breakdown (single-threaded; total time per BT_PROFILE scope)\n");
 		prof::report();
+
+		if (pprofEnabled) {
+			const std::string outPath = pprofPathExplicit ? pprofPath : derivePprofPath(path);
+			try {
+				writePprofProfile(prof::tree(), outPath);
+				std::printf("\nwrote pprof profile: %s  (open: pprof -http=: %s)\n", outPath.c_str(), outPath.c_str());
+			} catch (const std::exception& e) {
+				std::fprintf(stderr, "warning: failed to write pprof profile: %s\n", e.what());
+			}
+		}
 	}
 
 	return 0;
