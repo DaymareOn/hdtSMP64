@@ -1415,6 +1415,13 @@ namespace hdt
 			bodyStream << "  Scanned " << filesystemNifFilesDiscovered << " NIF file(s) in data/meshes.\n";
 			bodyStream << "  Found " << nifAssets.size() << " NIF file(s) referencing physics configs.\n";
 			bodyStream << "  Identified " << relatedTRINorm.size() << " related TRI file(s).\n";
+			// The skeleton missing-node cross-reference is gear-only by design: a filesystem
+			// scan has no equipped actor, so there is no skeleton to resolve <bone>/constraint
+			// node names against. Say so here so a full-scan reader doesn't assume it ran.
+			bodyStream << "  Note: the skeleton missing-node check (each <bone> name and each constraint\n"
+					   << "        bodyA/bodyB vs the actor's skeleton) runs only in 'smp report gear';\n"
+					   << "        a full filesystem scan has no equipped skeleton to check against, so it\n"
+					   << "        is skipped here. Run 'smp report gear' to perform it.\n";
 
 			if (!nifScanViolations.empty()) {
 				bodyStream << "\n  -- NIF Scan Violations --\n";
