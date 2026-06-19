@@ -780,6 +780,70 @@ namespace hdt
 			}
 		}
 
+		// Build a node's complete effective FieldMap the way the runtime resolves one:
+		// start from the inherited template (a default node inherits via `extends`, an
+		// instance via `template`; both fall back to the unnamed "" default), overlay each
+		// own field tag — counting only the LAST frame tag, since earlier ones are shadowed
+		// — then fold collision lists in as whole replace-semantics sets. Shared by every
+		// walk that needs a node's final settings, so an instance and an equivalent default
+		// normalise to the same map. (The per-child redundancy walk does NOT use this: it
+		// must interleave detection with each overlay, so it keeps its own copy of the loop.)
+		static FieldMap computeNodeEffectiveFields(
+			const pugi::xml_node& node,
+			const Family family,
+			const bool isDefaultNode,
+			const TemplateMap& familyTemplate)
+		{
+			const std::string parentName = isDefaultNode
+				? TrimAsciiWhitespace(node.attribute("extends").as_string())
+				: TrimAsciiWhitespace(node.attribute("template").as_string());
+			FieldMap effective = getEffectiveTemplate(familyTemplate, parentName);
+
+			// Pre-scan for the last frame tag: only it is effective (constraints only;
+			// other families have no frame tags, so this stays empty for them).
+			pugi::xml_node lastFrameTag;
+			for (auto child = node.first_child(); child; child = child.next_sibling()) {
+				if (child.type() != pugi::node_element)
+					continue;
+				if (isFrameTagName(family, std::string(XmlLocalName(child.name()))))
+					lastFrameTag = child;
+			}
+
+			for (auto child = node.first_child(); child; child = child.next_sibling()) {
+				if (child.type() != pugi::node_element)
+					continue;
+
+				const std::string childName = std::string(XmlLocalName(child.name()));
+				std::string fieldKey;
+				std::string currentValue;
+
+				// Collision lists are folded in as whole sets below, not value-by-value.
+				if (isReplaceSemanticsCollisionList(childName))
+					continue;
+
+				if (isFrameTagName(family, childName)) {
+					if (child != lastFrameTag)
+						continue;
+					fieldKey = "__frameSpec";
+					currentValue = normalizeFrameSpec(childName, child);
+				} else {
+					fieldKey = fieldKeyFor(family, childName);
+					if (fieldKey.empty())
+						continue;
+					currentValue = normalizedValueForField(family, fieldKey, child);
+					// weight-threshold sets the threshold of ONE named bone, so keep one
+					// value per bone — templates with thresholds on different bones differ.
+					if (childName == "weight-threshold")
+						fieldKey += "@" + TrimAsciiWhitespace(child.attribute("bone").as_string());
+				}
+
+				effective[fieldKey] = currentValue;
+			}
+
+			applyCollisionListOverrides(node, effective);
+			return effective;
+		}
+
 		// Walk default nodes in document order to compute each one's effective
 		// FieldMap, then detect duplicates by signature.  Two templates are
 		// equivalent when they produce identical canonical field sets after
@@ -808,52 +872,8 @@ namespace hdt
 				if (family == Family::None || !isDefaultNodeName(localName))
 					continue;
 
-				const std::string extendsName = TrimAsciiWhitespace(node.attribute("extends").as_string());
 				const std::string templateName = TrimAsciiWhitespace(node.attribute("name").as_string());
-				FieldMap effective = getEffectiveTemplate(familyTemplates[family], extendsName);
-
-				pugi::xml_node lastFrameTag;
-				for (auto child = node.first_child(); child; child = child.next_sibling()) {
-					if (child.type() != pugi::node_element)
-						continue;
-					const std::string childName = std::string(XmlLocalName(child.name()));
-					if (isFrameTagName(family, childName))
-						lastFrameTag = child;
-				}
-
-				for (auto child = node.first_child(); child; child = child.next_sibling()) {
-					if (child.type() != pugi::node_element)
-						continue;
-
-					const std::string childName = std::string(XmlLocalName(child.name()));
-					std::string fieldKey;
-					std::string currentValue;
-
-					// Collision lists are handled as whole sets just after this loop, not one
-					// value at a time, so skip them here.
-					if (isReplaceSemanticsCollisionList(childName))
-						continue;
-
-					if (isFrameTagName(family, childName)) {
-						if (child != lastFrameTag)
-							continue;
-						fieldKey = "__frameSpec";
-						currentValue = normalizeFrameSpec(childName, child);
-					} else {
-						fieldKey = fieldKeyFor(family, childName);
-						if (fieldKey.empty())
-							continue;
-						currentValue = normalizedValueForField(family, fieldKey, child);
-						// One value per bone (see the redundancy loop above): templates with
-						// thresholds on different bones must not count as the same template.
-						if (childName == "weight-threshold")
-							fieldKey += "@" + TrimAsciiWhitespace(child.attribute("bone").as_string());
-					}
-
-					effective[fieldKey] = currentValue;
-				}
-
-				applyCollisionListOverrides(node, effective);
+				FieldMap effective = computeNodeEffectiveFields(node, family, /*isDefaultNode=*/true, familyTemplates[family]);
 
 				familyTemplates[family][templateName] = effective;
 				if (templateName.empty())
@@ -866,6 +886,81 @@ namespace hdt
 			}
 
 			return aliases;
+		}
+
+		// Detect top-level <bone> declarations whose complete effective settings are
+		// identical to the bone the engine auto-creates on demand for an undeclared
+		// node — the unnamed bone-default, a kinematic (mass-0) body.
+		//
+		// Why these are removable: when a node is referenced by a constraint or shape
+		// but has no <bone> of its own, FSMP fabricates one from getBoneTemplate("")
+		// (the unnamed bone-default). So a <bone> that only restates that default adds
+		// nothing — a referenced node would get an identical body anyway, and an
+		// unreferenced one leaves the declaration inert — and can be deleted either way.
+		//
+		// The check reuses the same effective-template machinery as the redundant-child
+		// and template-equivalence walks: step through top-level nodes in document order,
+		// keep boneTemplates[""] current as bone-default nodes are seen, and for each
+		// plain <bone> build its full effective FieldMap (inherited template + own field
+		// tags + collision-list overrides) exactly as a bone-default's is built, then
+		// compare it to boneTemplates[""] at that point.
+		//
+		// It is conservative in both directions. Every element child either overwrites a
+		// known field key or, being unmodelled, injects its own tag-name key — so a bone
+		// carrying anything beyond the defaults (a non-default value, a collision-list
+		// override, an unexpected child) ends up with a FieldMap that differs from the
+		// default and is left alone. And with the .sch defaults absent, boneTemplates[""]
+		// holds fewer keys, so an explicit non-default field can only fail to match —
+		// the walk under-reports rather than ever flagging a non-default bone.
+		static std::vector<RedundantBoneInfo> collectRedundantBoneDeclarations(
+			const pugi::xml_document& doc,
+			const std::string* sourceBytes)
+		{
+			std::vector<RedundantBoneInfo> out;
+			auto sysNode = findSystemNode(doc);
+			if (!sysNode)
+				return out;
+
+			const auto baseDefaults = makeBaseDefaults();
+			TemplateMap boneTemplates;
+			{
+				auto it = baseDefaults.find(Family::Bone);
+				boneTemplates[""] = (it != baseDefaults.end()) ? it->second : FieldMap{};
+			}
+
+			for (auto node = sysNode.first_child(); node; node = node.next_sibling()) {
+				if (node.type() != pugi::node_element)
+					continue;
+
+				const std::string localName = std::string(XmlLocalName(node.name()));
+				// Only the bone family touches boneTemplates; everything else is irrelevant
+				// to both the inheritance state and the candidate set, so skip it.
+				if (familyForNode(localName) != Family::Bone)
+					continue;
+
+				const bool isDefault = isDefaultNodeName(localName);  // "bone-default"
+				// Same effective-map construction as the bone-default templates, so a <bone>
+				// and an equivalent bone-default normalise to the same map and compare equal.
+				FieldMap effective = computeNodeEffectiveFields(node, Family::Bone, isDefault, boneTemplates);
+
+				if (isDefault) {
+					const std::string templateName = TrimAsciiWhitespace(node.attribute("name").as_string());
+					boneTemplates[templateName] = std::move(effective);
+					continue;
+				}
+
+				auto defaultIt = boneTemplates.find("");
+				if (defaultIt != boneTemplates.end() && effective == defaultIt->second) {
+					RedundantBoneInfo info;
+					info.location = BuildNodeLocationPath(node);
+					info.boneName = TrimAsciiWhitespace(node.attribute("name").as_string());
+					if (sourceBytes)
+						info.line = OffsetToLineNumber(*sourceBytes, node.offset_debug());
+					out.push_back(std::move(info));
+				}
+			}
+
+			return out;
 		}
 
 	}  // anonymous namespace
@@ -918,6 +1013,13 @@ namespace hdt
 		const pugi::xml_document& doc)
 	{
 		return collectEquivalentDefaultTemplateAliases(doc);
+	}
+
+	std::vector<RedundantBoneInfo> CollectRedundantBoneDeclarations(
+		const pugi::xml_document& doc,
+		const std::string* sourceBytes)
+	{
+		return collectRedundantBoneDeclarations(doc, sourceBytes);
 	}
 
 }  // namespace hdt

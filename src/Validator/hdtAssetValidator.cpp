@@ -162,13 +162,23 @@ namespace hdt
 
 	using XMLValidationPair = std::pair<XSDValidationResult, SCHValidationResult>;
 
-	// Load xmlPath from disk and collect per-element redundancy info.
-	// Called by appendXmlViolationsToReport to cross-reference SCH default-value
-	// warnings against actual runtime-effective template inheritance — a warning is
-	// suppressed when the tag is not redundant relative to the inherited template.
-	static std::vector<TemplateRedundantChildInfo> collectTemplateRedundantChildrenForXml(const std::string& xmlPath)
+	// The two flavours of template redundancy reported for one XML file: per-element
+	// tags that restate an inherited default, and whole <bone> declarations that only
+	// restate the auto-created default bone.
+	struct XmlRedundancyInfo
 	{
-		std::vector<TemplateRedundantChildInfo> result;
+		std::vector<TemplateRedundantChildInfo> redundantChildren;
+		std::vector<RedundantBoneInfo> redundantBones;
+	};
+
+	// Load xmlPath from disk once and collect both redundancy flavours from the parsed
+	// document. The per-element info lets appendXmlViolationsToReport cross-reference SCH
+	// default-value warnings against actual runtime-effective template inheritance — a
+	// warning is suppressed when the tag is not redundant relative to the inherited
+	// template — while the bone info drives the redundant-<bone> warnings directly.
+	static XmlRedundancyInfo collectXmlRedundancyInfo(const std::string& xmlPath)
+	{
+		XmlRedundancyInfo result;
 
 		std::string bytes = readAllFile2(xmlPath.c_str());
 		if (bytes.empty())
@@ -179,7 +189,9 @@ namespace hdt
 		if (!parseResult)
 			return result;
 
-		return CollectTemplateRedundantChildrenInfo(doc, &bytes);
+		result.redundantChildren = CollectTemplateRedundantChildrenInfo(doc, &bytes);
+		result.redundantBones = CollectRedundantBoneDeclarations(doc, &bytes);
+		return result;
 	}
 
 	/// Appends XSD violations, SCH violations, and template-redundant warnings for one XML
@@ -189,9 +201,9 @@ namespace hdt
 		AssetValidationResult& report, std::ostream& out)
 	{
 		const auto& [xsdResult, schResult] = pair;
-		const auto templateRedundantChildren = collectTemplateRedundantChildrenForXml(xmlPath);
+		const auto redundancyInfo = collectXmlRedundancyInfo(xmlPath);
 		std::unordered_map<std::string, TemplateRedundantChildInfo> templateRedundantByLocation;
-		for (const auto& info : templateRedundantChildren)
+		for (const auto& info : redundancyInfo.redundantChildren)
 			templateRedundantByLocation[info.location] = info;
 		std::unordered_set<std::string> emittedTemplateRedundantLocations;
 
@@ -290,6 +302,22 @@ namespace hdt
 				continue;
 
 			emitTemplateRedundantWarning(info);
+		}
+
+		// Whole <bone> declarations that only restate the auto-created default bone:
+		// the engine would fabricate an identical body on demand, so the declaration
+		// is removable. See CollectRedundantBoneDeclarations for the comparison.
+		for (const auto& bone : redundancyInfo.redundantBones) {
+			const std::string named = bone.boneName.empty() ? std::string() : " \"" + bone.boneName + "\"";
+			std::string msg = xmlPath + ":" + std::to_string(bone.line) + ": " + bone.location +
+			                  " - <bone>" + named +
+			                  " only restates the default bone settings; the engine creates an"
+			                  " identical bone on demand, so this declaration is unnecessary and can be removed.";
+			report.warnings.push_back(msg);
+			report.hasWarnings = true;
+			out << "    [WARNING] " << bone.location << " (line " << bone.line << "): <bone>" << named
+				<< " only restates the default bone settings; the engine creates an identical bone on"
+				   " demand, so this declaration can be removed.\n";
 		}
 	}
 
