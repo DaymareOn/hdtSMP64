@@ -18,6 +18,7 @@
 #include "Utils/hdtTemplateDefaults.h"
 #include "Utils/hdtTimeUtils.h"
 #include "Utils/hdtXMLUtils.h"
+#include "Validators/hdtNIFBoneRefValidator.h"
 #include "Validators/hdtNIFValidator.h"
 #include "Validators/hdtSCHValidator.h"
 #include "Validators/hdtXSDValidator.h"
@@ -161,13 +162,23 @@ namespace hdt
 
 	using XMLValidationPair = std::pair<XSDValidationResult, SCHValidationResult>;
 
-	// Load xmlPath from disk and collect per-element redundancy info.
-	// Called by appendXmlViolationsToReport to cross-reference SCH default-value
-	// warnings against actual runtime-effective template inheritance — a warning is
-	// suppressed when the tag is not redundant relative to the inherited template.
-	static std::vector<TemplateRedundantChildInfo> collectTemplateRedundantChildrenForXml(const std::string& xmlPath)
+	// The two flavours of template redundancy reported for one XML file: per-element
+	// tags that restate an inherited default, and whole <bone> declarations that only
+	// restate the auto-created default bone.
+	struct XmlRedundancyInfo
 	{
-		std::vector<TemplateRedundantChildInfo> result;
+		std::vector<TemplateRedundantChildInfo> redundantChildren;
+		std::vector<RedundantBoneInfo> redundantBones;
+	};
+
+	// Load xmlPath from disk once and collect both redundancy flavours from the parsed
+	// document. The per-element info lets appendXmlViolationsToReport cross-reference SCH
+	// default-value warnings against actual runtime-effective template inheritance — a
+	// warning is suppressed when the tag is not redundant relative to the inherited
+	// template — while the bone info drives the redundant-<bone> warnings directly.
+	static XmlRedundancyInfo collectXmlRedundancyInfo(const std::string& xmlPath)
+	{
+		XmlRedundancyInfo result;
 
 		std::string bytes = readAllFile2(xmlPath.c_str());
 		if (bytes.empty())
@@ -178,7 +189,9 @@ namespace hdt
 		if (!parseResult)
 			return result;
 
-		return CollectTemplateRedundantChildrenInfo(doc, &bytes);
+		result.redundantChildren = CollectTemplateRedundantChildrenInfo(doc, &bytes);
+		result.redundantBones = CollectRedundantBoneDeclarations(doc, &bytes);
+		return result;
 	}
 
 	/// Appends XSD violations, SCH violations, and template-redundant warnings for one XML
@@ -188,9 +201,9 @@ namespace hdt
 		AssetValidationResult& report, std::ostream& out)
 	{
 		const auto& [xsdResult, schResult] = pair;
-		const auto templateRedundantChildren = collectTemplateRedundantChildrenForXml(xmlPath);
+		const auto redundancyInfo = collectXmlRedundancyInfo(xmlPath);
 		std::unordered_map<std::string, TemplateRedundantChildInfo> templateRedundantByLocation;
-		for (const auto& info : templateRedundantChildren)
+		for (const auto& info : redundancyInfo.redundantChildren)
 			templateRedundantByLocation[info.location] = info;
 		std::unordered_set<std::string> emittedTemplateRedundantLocations;
 
@@ -289,6 +302,22 @@ namespace hdt
 				continue;
 
 			emitTemplateRedundantWarning(info);
+		}
+
+		// Whole <bone> declarations that only restate the auto-created default bone:
+		// the engine would fabricate an identical body on demand, so the declaration
+		// is removable. See CollectRedundantBoneDeclarations for the comparison.
+		for (const auto& bone : redundancyInfo.redundantBones) {
+			const std::string named = bone.boneName.empty() ? std::string() : " \"" + bone.boneName + "\"";
+			std::string msg = xmlPath + ":" + std::to_string(bone.line) + ": " + bone.location +
+			                  " - <bone>" + named +
+			                  " only restates the default bone settings; the engine creates an"
+			                  " identical bone on demand, so this declaration is unnecessary and can be removed.";
+			report.warnings.push_back(msg);
+			report.hasWarnings = true;
+			out << "    [WARNING] " << bone.location << " (line " << bone.line << "): <bone>" << named
+				<< " only restates the default bone settings; the engine creates an identical bone on"
+				   " demand, so this declaration can be removed.\n";
 		}
 	}
 
@@ -568,6 +597,45 @@ namespace hdt
 		FindClose(h);
 	}
 
+	/// Cross-references an equipped item's physics XML node references against the live
+	/// actor skeleton and appends one violation line per node the skeleton does not
+	/// provide. Each line names the affected element role and the runtime consequence so
+	/// an author can see why their physics detaches. Emits nothing when the skeleton root
+	/// is null (the caller already reported that) or the XML is missing/malformed (the
+	/// schema-validation pass over these same equipped XMLs is what reports XML validity).
+	static void appendMissingBoneRefViolations(RE::NiNode* skeletonRoot, const std::string& xmlPath,
+		const std::unordered_map<RE::BSFixedString, RE::BSFixedString>& renameMap,
+		const std::string& skeletonName, std::vector<std::string>& out)
+	{
+		if (!skeletonRoot || xmlPath.empty())
+			return;
+
+		std::unordered_map<std::string, std::string> rename;
+		rename.reserve(renameMap.size());
+		for (const auto& kv : renameMap)
+			rename.emplace(kv.first.c_str(), kv.second.c_str());
+
+		for (const auto& m : FindMissingPhysicsXmlBoneRefs(skeletonRoot, xmlPath, rename)) {
+			std::string effect;
+			if (m.usedAsBone && m.constraintRefs > 0)
+				effect = "its <bone> body is skipped and " + std::to_string(m.constraintRefs) +
+						 " constraint(s) referencing it are dropped";
+			else if (m.usedAsBone)
+				effect = "its <bone> body is skipped (no physics body created)";
+			else
+				effect = std::to_string(m.constraintRefs) + " constraint(s) referencing it are dropped";
+
+			std::string line = xmlPath + ": node '" + m.resolvedName + "' is absent from the '" +
+							   skeletonName + "' skeleton — " + effect;
+			if (m.referencedName != m.resolvedName)
+				line += " (XML name '" + m.referencedName + "' renamed to '" + m.resolvedName + "')";
+			if (m.constraintRefs > 0)
+				line += "; dynamic bones anchored only through it may detach/sag";
+			line += ".";
+			out.push_back(std::move(line));
+		}
+	}
+
 	/// Discovers physics-enabled assets from either filesystem or runtime.
 	/// When equippedOnly=false: Scans data/ (or the configured physical mods dir) for NIF files.
 	///   Phase 1 (serial + parallel): directory walk to collect .nif paths.
@@ -624,6 +692,7 @@ namespace hdt
 							if (!nifDiskPath.empty())
 								outNifScanViolations->push_back(nifDiskPath + ": equipped armor node is not a NiNode (physics XML: " + asset.xmlPath + ")");
 						}
+						appendMissingBoneRefViolations(skeleton.npc.get(), xmlPath, armor.renameMap, skeleton.name(), *outNifScanViolations);
 					}
 					result.push_back(std::move(asset));
 				}
@@ -658,6 +727,7 @@ namespace hdt
 							if (!nifDiskPath.empty())
 								outNifScanViolations->push_back(nifDiskPath + ": equipped headpart node is not a NiNode (physics XML: " + asset.xmlPath + ")");
 						}
+						appendMissingBoneRefViolations(skeleton.npc.get(), xmlPath, skeleton.head.renameMap, skeleton.name(), *outNifScanViolations);
 					}
 					result.push_back(std::move(asset));
 				}
@@ -1345,6 +1415,13 @@ namespace hdt
 			bodyStream << "  Scanned " << filesystemNifFilesDiscovered << " NIF file(s) in data/meshes.\n";
 			bodyStream << "  Found " << nifAssets.size() << " NIF file(s) referencing physics configs.\n";
 			bodyStream << "  Identified " << relatedTRINorm.size() << " related TRI file(s).\n";
+			// The skeleton missing-node cross-reference is gear-only by design: a filesystem
+			// scan has no equipped actor, so there is no skeleton to resolve <bone>/constraint
+			// node names against. Say so here so a full-scan reader doesn't assume it ran.
+			bodyStream << "  Note: the skeleton missing-node check (each <bone> name and each constraint\n"
+					   << "        bodyA/bodyB vs the actor's skeleton) runs only in 'smp report gear';\n"
+					   << "        a full filesystem scan has no equipped skeleton to check against, so it\n"
+					   << "        is skipped here. Run 'smp report gear' to perform it.\n";
 
 			if (!nifScanViolations.empty()) {
 				bodyStream << "\n  -- NIF Scan Violations --\n";
