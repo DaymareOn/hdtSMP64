@@ -15,28 +15,6 @@ namespace hdt
 		constexpr float kMaxSaneScale = 1000.f;
 		constexpr float kRootScaleDeviationThreshold = 0.5f;
 
-		/// Recursively collects non-empty NiNode names from a skeleton subtree.
-		/// The collected names are used as a simple bone inventory for diagnostics.
-		void collectNamedSkeletonNodes(RE::NiNode* node, std::vector<std::string>& boneNames)
-		{
-			if (!node)
-				return;
-
-			const char* name = node->name.c_str();
-			if (name && name[0] != '\0') {
-				boneNames.push_back(name);
-			}
-
-			for (auto& child : node->GetChildren()) {
-				if (!child)
-					continue;
-				RE::NiNode* childNode = castNiNode(child.get());
-				if (childNode) {
-					collectNamedSkeletonNodes(childNode, boneNames);
-				}
-			}
-		}
-
 		/// Validates a single node transform for numeric sanity and plausible scale range.
 		/// Appends descriptive errors for NaN/inf values or extreme scale values.
 		/// Returns true when all checks pass, false otherwise.
@@ -145,6 +123,26 @@ namespace hdt
 
 	}  // namespace
 
+	void CollectNamedSkeletonNodes(RE::NiNode* root, std::vector<std::string>& outNames)
+	{
+		if (!root)
+			return;
+
+		const char* name = root->name.c_str();
+		if (name && name[0] != '\0') {
+			outNames.push_back(name);
+		}
+
+		for (auto& child : root->GetChildren()) {
+			if (!child)
+				continue;
+			RE::NiNode* childNode = castNiNode(child.get());
+			if (childNode) {
+				CollectNamedSkeletonNodes(childNode, outNames);
+			}
+		}
+	}
+
 	/// Validates runtime NIF structure rooted at a NiNode.
 	/// Performs bone discovery, transform sanity checks, and skinning integrity checks,
 	/// then returns a consolidated structural validation result with errors/warnings.
@@ -158,7 +156,7 @@ namespace hdt
 			return result;
 		}
 
-		collectNamedSkeletonNodes(root, result.boneNames);
+		CollectNamedSkeletonNodes(root, result.boneNames);
 		result.boneCount = static_cast<uint32_t>(result.boneNames.size());
 
 		if (result.boneCount == 0) {

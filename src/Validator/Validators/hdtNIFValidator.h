@@ -42,4 +42,9 @@ namespace hdt
 	// Can be called at runtime when the NIF has been loaded by the game.
 	NIFStructuralResult ValidateNIFStructure(RE::NiNode* root, const std::string& nifPath);
 
+	// Recursively appends every non-empty NiNode name in the subtree rooted at `root`
+	// to `outNames`. Used both as a diagnostic bone inventory and as the lookup set the
+	// bone-reference validator resolves physics-XML node references against.
+	void CollectNamedSkeletonNodes(RE::NiNode* root, std::vector<std::string>& outNames);
+
 }  // namespace hdt

@@ -97,6 +97,8 @@ set(SOURCE_FILES
 	"${SOURCE_DIR}/Validator/Parser/hdtNIFBinaryParser.cpp"
 	"${SOURCE_DIR}/Validator/Parser/hdtNIFBinaryParser.h"
 	"${SOURCE_DIR}/Validator/Validators/hdtNIFValidator.h"
+	"${SOURCE_DIR}/Validator/Validators/hdtNIFBoneRefValidator.cpp"
+	"${SOURCE_DIR}/Validator/Validators/hdtNIFBoneRefValidator.h"
 	"${SOURCE_DIR}/Validator/Validators/hdtXSDValidator.cpp"
 	"${SOURCE_DIR}/Validator/Validators/hdtXSDValidator.h"
 	"${SOURCE_DIR}/Validator/Validators/hdtSCHValidator.cpp"

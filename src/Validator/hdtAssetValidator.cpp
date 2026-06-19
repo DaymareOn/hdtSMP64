@@ -18,6 +18,7 @@
 #include "Utils/hdtTemplateDefaults.h"
 #include "Utils/hdtTimeUtils.h"
 #include "Utils/hdtXMLUtils.h"
+#include "Validators/hdtNIFBoneRefValidator.h"
 #include "Validators/hdtNIFValidator.h"
 #include "Validators/hdtSCHValidator.h"
 #include "Validators/hdtXSDValidator.h"
@@ -568,6 +569,45 @@ namespace hdt
 		FindClose(h);
 	}
 
+	/// Cross-references an equipped item's physics XML node references against the live
+	/// actor skeleton and appends one violation line per node the skeleton does not
+	/// provide. Each line names the affected element role and the runtime consequence so
+	/// an author can see why their physics detaches. Emits nothing when the skeleton root
+	/// is null (the caller already reported that) or the XML is missing/malformed (the
+	/// schema-validation pass over these same equipped XMLs is what reports XML validity).
+	static void appendMissingBoneRefViolations(RE::NiNode* skeletonRoot, const std::string& xmlPath,
+		const std::unordered_map<RE::BSFixedString, RE::BSFixedString>& renameMap,
+		const std::string& skeletonName, std::vector<std::string>& out)
+	{
+		if (!skeletonRoot || xmlPath.empty())
+			return;
+
+		std::unordered_map<std::string, std::string> rename;
+		rename.reserve(renameMap.size());
+		for (const auto& kv : renameMap)
+			rename.emplace(kv.first.c_str(), kv.second.c_str());
+
+		for (const auto& m : FindMissingPhysicsXmlBoneRefs(skeletonRoot, xmlPath, rename)) {
+			std::string effect;
+			if (m.usedAsBone && m.constraintRefs > 0)
+				effect = "its <bone> body is skipped and " + std::to_string(m.constraintRefs) +
+						 " constraint(s) referencing it are dropped";
+			else if (m.usedAsBone)
+				effect = "its <bone> body is skipped (no physics body created)";
+			else
+				effect = std::to_string(m.constraintRefs) + " constraint(s) referencing it are dropped";
+
+			std::string line = xmlPath + ": node '" + m.resolvedName + "' is absent from the '" +
+							   skeletonName + "' skeleton — " + effect;
+			if (m.referencedName != m.resolvedName)
+				line += " (XML name '" + m.referencedName + "' renamed to '" + m.resolvedName + "')";
+			if (m.constraintRefs > 0)
+				line += "; dynamic bones anchored only through it may detach/sag";
+			line += ".";
+			out.push_back(std::move(line));
+		}
+	}
+
 	/// Discovers physics-enabled assets from either filesystem or runtime.
 	/// When equippedOnly=false: Scans data/ (or the configured physical mods dir) for NIF files.
 	///   Phase 1 (serial + parallel): directory walk to collect .nif paths.
@@ -624,6 +664,7 @@ namespace hdt
 							if (!nifDiskPath.empty())
 								outNifScanViolations->push_back(nifDiskPath + ": equipped armor node is not a NiNode (physics XML: " + asset.xmlPath + ")");
 						}
+						appendMissingBoneRefViolations(skeleton.npc.get(), xmlPath, armor.renameMap, skeleton.name(), *outNifScanViolations);
 					}
 					result.push_back(std::move(asset));
 				}
@@ -658,6 +699,7 @@ namespace hdt
 							if (!nifDiskPath.empty())
 								outNifScanViolations->push_back(nifDiskPath + ": equipped headpart node is not a NiNode (physics XML: " + asset.xmlPath + ")");
 						}
+						appendMissingBoneRefViolations(skeleton.npc.get(), xmlPath, skeleton.head.renameMap, skeleton.name(), *outNifScanViolations);
 					}
 					result.push_back(std::move(asset));
 				}
