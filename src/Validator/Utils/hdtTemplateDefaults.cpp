@@ -794,9 +794,7 @@ namespace hdt
 			const bool isDefaultNode,
 			const TemplateMap& familyTemplate)
 		{
-			const std::string parentName = isDefaultNode
-				? TrimAsciiWhitespace(node.attribute("extends").as_string())
-				: TrimAsciiWhitespace(node.attribute("template").as_string());
+			const std::string parentName = isDefaultNode ? TrimAsciiWhitespace(node.attribute("extends").as_string()) : TrimAsciiWhitespace(node.attribute("template").as_string());
 			FieldMap effective = getEffectiveTemplate(familyTemplate, parentName);
 
 			// Pre-scan for the last frame tag: only it is effective (constraints only;

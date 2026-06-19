@@ -619,14 +619,14 @@ namespace hdt
 			std::string effect;
 			if (m.usedAsBone && m.constraintRefs > 0)
 				effect = "its <bone> body is skipped and " + std::to_string(m.constraintRefs) +
-						 " constraint(s) referencing it are dropped";
+				         " constraint(s) referencing it are dropped";
 			else if (m.usedAsBone)
 				effect = "its <bone> body is skipped (no physics body created)";
 			else
 				effect = std::to_string(m.constraintRefs) + " constraint(s) referencing it are dropped";
 
 			std::string line = xmlPath + ": node '" + m.resolvedName + "' is absent from the '" +
-							   skeletonName + "' skeleton — " + effect;
+			                   skeletonName + "' skeleton — " + effect;
 			if (m.referencedName != m.resolvedName)
 				line += " (XML name '" + m.referencedName + "' renamed to '" + m.resolvedName + "')";
 			if (m.constraintRefs > 0)
