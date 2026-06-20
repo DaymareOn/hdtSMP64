@@ -30,8 +30,11 @@ namespace Hooks
 	void BSFaceGenNiNodeHooks::SkinAllGeometryCalls(RE::BSFaceGenNiNode* const a_this, RE::NiNode* a_skeleton, bool a_unk)
 	{
 		bool needRegularCall = true;
-		if (hdt::ActorManager::instance()->skeletonNeedsParts(a_skeleton)) {
-			RE::TESForm* form = RE::TESForm::LookupByID(a_skeleton->GetUserData()->formID);
+		// userData (engine-supplied, can be null) must exist before we look up head parts. Check it first
+		// because it's a cheap pointer read, while skeletonNeedsParts() walks the skeleton tree.
+		auto* userData = a_skeleton->GetUserData();
+		if (userData && hdt::ActorManager::instance()->skeletonNeedsParts(a_skeleton)) {
+			RE::TESForm* form = RE::TESForm::LookupByID(userData->formID);
 			RE::Actor* actor = skyrim_cast<RE::Actor*>(form);
 			if (actor) {
 				RE::TESNPC* actorBase = skyrim_cast<RE::TESNPC*>(actor->data.objectReference);
@@ -54,7 +57,7 @@ namespace Hooks
 					}
 				}
 
-				if (a_skeleton->GetUserData() && a_skeleton->GetUserData()->formID == 0x14) {
+				if (userData->formID == 0x14) {
 					needRegularCall = false;
 				}
 			}
