@@ -41,7 +41,7 @@ repos:
     rev: v2.4.1
     hooks:
       - id: codespell
-        args: [--ignore-words-list, "ue,nd,fo,hin,inout,numer,gool,fre,oord,accessort,toi,isse"]
+        args: [--ignore-words-list, "ue,nd,fo,hin,inout,numer,gool,fre,oord,accessort,toi,isse,lod"]
 
 ci:
     autofix_commit_msg: |
