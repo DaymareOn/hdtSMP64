@@ -219,7 +219,8 @@ namespace hdt
 		fixArmorNameMaps();
 
 		auto& skeleton = getSkeletonData(e->skeleton);
-		skeleton.npc = hdt::make_nismart(getNpcNode(e->skeleton));
+		// Non-lurker here (see above), so getNpcNode() would just re-find this same "NPC" node — reuse it.
+		skeleton.npc = hdt::make_nismart(npc);
 
 		skeleton.processGeometry(e->headNode, e->geometry);
 
