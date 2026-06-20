@@ -67,6 +67,10 @@ namespace Hooks
 
 	void BSFaceGenNiNodeHooks::SkinSingleGeometry__Hook(RE::BSFaceGenNiNode* const a_this, RE::NiNode* a_skeleton, RE::BSGeometry* a_triShape, [[maybe_unused]] bool a_unk)
 	{
+		// a_skeleton is supplied by the engine and can be null
+		if (!a_skeleton)
+			return;
+
 		//
 		const char* name = "";
 		uint32_t formId = 0x0;
