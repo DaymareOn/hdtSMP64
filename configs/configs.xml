@@ -178,6 +178,15 @@
     -->
     <disable1stPersonViewPhysics>false</disable1stPersonViewPhysics>
 
+    <!-- ################## SKIP DEAD ACTORS ############################## -->
+
+    <!--
+      skipDeadActors: (boolean) if set to true, physics is skipped for dead
+      non-player actors (corpses), to save performance. The player is never
+      affected. If no value is set, default is false.
+    -->
+    <skipDeadActors>false</skipDeadActors>
+
     <!-- ##################### CUDA ####################################### -->
 
     <!--

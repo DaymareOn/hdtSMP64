@@ -173,7 +173,8 @@
     -->
     <disable1stPersonViewPhysics>false</disable1stPersonViewPhysics>
 
-
+    <!-- skipDeadActors: (boolean) skip physics for dead non-player actors. Default false. -->
+    <skipDeadActors>false</skipDeadActors>
 
   </smp>
   <solver>
