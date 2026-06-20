@@ -36,7 +36,7 @@ namespace hdt
 	// A returned entry means SMP would also fail the lookup and therefore silently skip
 	// the bone / drop the constraint. The "-default" template element variants are ignored
 	// because their `name`/`bodyA`/`bodyB` carry template class names, not node references.
-	// Returns empty when the XML is missing or unparseable: reporting bad XML belongs to the
+	// Returns empty when the XML is missing or unparsable: reporting bad XML belongs to the
 	// schema validator, which runs over the same equipped XMLs. `renameMap` may be empty.
 	std::vector<MissingBoneRef> FindMissingPhysicsXmlBoneRefs(
 		RE::NiNode* skeletonRoot,
