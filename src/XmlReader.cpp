@@ -1,12 +1,14 @@
 #include "XmlReader.h"
+#include "Validator/Utils/hdtStringUtils.h"
 #include <charconv>
 
 namespace hdt
 {
 	static inline float convertFloat(const std::string& str)
 	{
-		// Replace decimal comma with point
-		std::string s = str;
+		// Trim first (from_chars rejects surrounding spaces), then turn a decimal
+		// comma into a point so locale-independent parsing still accepts it.
+		std::string s = TrimAsciiWhitespace(str);
 		size_t start_pos = s.find(",");
 		if (start_pos != std::string::npos)
 			s.replace(start_pos, 1, ".");
@@ -14,6 +16,9 @@ namespace hdt
 		float ret{};
 		const char* begin = s.data();
 		const char* end = begin + s.size();
+		// strtof accepted a leading '+'; from_chars doesn't, so skip it.
+		if (begin != end && *begin == '+')
+			++begin;
 		auto [ptr, ec] = std::from_chars(begin, end, ret);
 		if (ec != std::errc() || ptr != end)
 			throw std::string("not a float value");
@@ -22,14 +27,18 @@ namespace hdt
 
 	static inline int convertInt(const std::string& str)
 	{
-		const char* begin = str.data();
-		const char* end = begin + str.size();
+		// Trim first: from_chars rejects surrounding spaces and a leading '+'.
+		std::string s = TrimAsciiWhitespace(str);
+		const char* begin = s.data();
+		const char* end = begin + s.size();
+		if (begin != end && *begin == '+')
+			++begin;
 
 		int radix = 10;
-		if (!str.compare(0, 2, "0x")) {
+		if (!s.compare(0, 2, "0x")) {
 			radix = 16;
 			begin += 2;
-		} else if (str.length() > 1 && str[0] == '0') {
+		} else if (s.length() > 1 && s[0] == '0') {
 			begin += 1;
 			radix = 8;
 		}
@@ -43,9 +52,10 @@ namespace hdt
 
 	static inline bool convertBool(const std::string& str)
 	{
-		if (str == "true" || str == "1")
+		const std::string s = TrimAsciiWhitespace(str);
+		if (s == "true" || s == "1")
 			return true;
-		if (str == "false" || str == "0")
+		if (s == "false" || s == "0")
 			return false;
 		throw std::string("not a boolean");
 	}
