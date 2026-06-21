@@ -240,6 +240,9 @@ namespace hdt
 		// @brief Depending on this setting, we avoid to calculate the physics of the PC when it is in 1st person view.
 		bool m_disable1stPersonViewPhysics = false;
 
+		// @brief When true, physics is skipped for dead non-player actors, to save performance.
+		bool m_skipDeadActors = false;
+
 	private:
 		RE::NiPoint3 m_cameraPositionDuringFrame;
 		static RE::NiNode* getCameraNode();
