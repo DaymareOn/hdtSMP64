@@ -1,5 +1,5 @@
 #include "XmlReader.h"
-#include "Validator/Utils/hdtStringUtils.h"
+#include "hdtStringUtils.h"
 #include <charconv>
 
 namespace hdt
