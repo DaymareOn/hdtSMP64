@@ -184,12 +184,12 @@ namespace Hooks
 #pragma pack(push, 1)
 		struct Patch
 		{
-			std::uint8_t   mov_load[3];   // mov reg32, [rax+0x58]
-			std::uint8_t   cmp_8[3];      // cmp reg32, 8
-			std::uint8_t   jle_5[2];      // jle +5 (skip the clamp below)
-			std::uint8_t   mov_clamp[5];  // mov reg32, 8
-			std::uint8_t   jmp_rip[6];    // jmp qword ptr [rip+0]
-			std::uintptr_t ret_addr;      // absolute return address
+			std::uint8_t mov_load[3];   // mov reg32, [rax+0x58]
+			std::uint8_t cmp_8[3];      // cmp reg32, 8
+			std::uint8_t jle_5[2];      // jle +5 (skip the clamp below)
+			std::uint8_t mov_clamp[5];  // mov reg32, 8
+			std::uint8_t jmp_rip[6];    // jmp qword ptr [rip+0]
+			std::uintptr_t ret_addr;    // absolute return address
 		};
 #pragma pack(pop)
 		static_assert(sizeof(Patch) == 27, "Patch struct size mismatch");
@@ -200,16 +200,16 @@ namespace Hooks
 
 		Patch patch{};
 		// mov reg, [rax+0x58]: opcode 0x8B, ModRM selects the destination register.
-		patch.mov_load[0]  = 0x8B;
-		patch.mov_load[1]  = isAE ? std::uint8_t{ 0x68 } : std::uint8_t{ 0x70 };  // 0x68=ebp(AE), 0x70=esi(SE/VR)
-		patch.mov_load[2]  = 0x58;
+		patch.mov_load[0] = 0x8B;
+		patch.mov_load[1] = isAE ? std::uint8_t{ 0x68 } : std::uint8_t{ 0x70 };  // 0x68=ebp(AE), 0x70=esi(SE/VR)
+		patch.mov_load[2] = 0x58;
 		// cmp reg, 8: opcode 0x83 /7, ModRM selects the register.
-		patch.cmp_8[0]     = 0x83;
-		patch.cmp_8[1]     = isAE ? std::uint8_t{ 0xFD } : std::uint8_t{ 0xFE };  // 0xFD=ebp(AE), 0xFE=esi(SE/VR)
-		patch.cmp_8[2]     = 0x08;
+		patch.cmp_8[0] = 0x83;
+		patch.cmp_8[1] = isAE ? std::uint8_t{ 0xFD } : std::uint8_t{ 0xFE };  // 0xFD=ebp(AE), 0xFE=esi(SE/VR)
+		patch.cmp_8[2] = 0x08;
 		// jle +5: skip past the 5-byte mov clamp.
-		patch.jle_5[0]     = 0x7E;
-		patch.jle_5[1]     = 0x05;
+		patch.jle_5[0] = 0x7E;
+		patch.jle_5[1] = 0x05;
 		// mov reg, 8: opcode 0xB8+rd selects the register.
 		patch.mov_clamp[0] = isAE ? std::uint8_t{ 0xBD } : std::uint8_t{ 0xBE };  // 0xBD=ebp(AE), 0xBE=esi(SE/VR)
 		patch.mov_clamp[1] = 0x08;
@@ -217,13 +217,13 @@ namespace Hooks
 		patch.mov_clamp[3] = 0x00;
 		patch.mov_clamp[4] = 0x00;
 		// jmp qword ptr [rip+0]: FF 25 00000000, with the target address stored immediately after.
-		patch.jmp_rip[0]   = 0xFF;
-		patch.jmp_rip[1]   = 0x25;
-		patch.jmp_rip[2]   = 0x00;
-		patch.jmp_rip[3]   = 0x00;
-		patch.jmp_rip[4]   = 0x00;
-		patch.jmp_rip[5]   = 0x00;
-		patch.ret_addr     = GeometrySkinningBoneFix.address() + 7;
+		patch.jmp_rip[0] = 0xFF;
+		patch.jmp_rip[1] = 0x25;
+		patch.jmp_rip[2] = 0x00;
+		patch.jmp_rip[3] = 0x00;
+		patch.jmp_rip[4] = 0x00;
+		patch.jmp_rip[5] = 0x00;
+		patch.ret_addr = GeometrySkinningBoneFix.address() + 7;
 
 		auto& localTrampoline = SKSE::GetTrampoline();
 		SKSE::AllocTrampoline(14 + sizeof(patch));
