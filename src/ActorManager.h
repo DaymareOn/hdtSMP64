@@ -128,6 +128,8 @@ namespace hdt
 			bool isPlayerCharacter() const;
 			bool isInPlayerView();
 			bool hasPhysics = false;
+
+			bool m_isFirstPerson = false;
 			std::optional<RE::NiPoint3> position() const;
 
 			// @brief Update windfactor for skeleton
