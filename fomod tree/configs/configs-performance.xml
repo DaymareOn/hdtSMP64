@@ -176,6 +176,9 @@
     <!-- skipDeadActors: (boolean) skip physics for dead non-player actors. Default false. -->
     <skipDeadActors>true</skipDeadActors>
 
+    <!-- minScreenSizePercent: (float 0-100) skip non-player skeletons smaller than this percent of screen height. Default 0 (off). -->
+    <minScreenSizePercent>2.5</minScreenSizePercent>
+
   </smp>
   <solver>
 
