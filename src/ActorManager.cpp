@@ -16,10 +16,10 @@ namespace hdt
 	typedef RE::NiStream* (*_NiStream_constructor)(RE::NiStream*);
 	typedef RE::NiStream* (*_NiStream_deconstructor)(RE::NiStream*);
 
-	REL::Relocation<_Actor_CalculateLOS> Actor_CalculateLOS{ REL::VariantID(36754, 37770, 0x0605B10) };          // 0x5FD2C0
-	REL::Relocation<_TESNPC_GetFaceGeomPath> TESNPC_GetFaceGeomPath{ REL::VariantID(24222, 24726, 0x0372B30) };  // 0x363210
-	REL::Relocation<_NiStream_constructor> NiStream_constructor{ REL::VariantID(68971, 70324, 0x0C9EC40) };      // 0xC59690
-	REL::Relocation<_NiStream_deconstructor> NiStream_deconstructor{ REL::VariantID(68972, 70325, 0x0C9EEA0) };  // 0xC598F0
+	REL::Relocation<_Actor_CalculateLOS> Actor_CalculateLOS{ RELOCATION_ID(36754, 37770) };          // SE 0x5FD2C0, VR id-mapped
+	REL::Relocation<_TESNPC_GetFaceGeomPath> TESNPC_GetFaceGeomPath{ RELOCATION_ID(24222, 24726) };  // SE 0x363210, VR id-mapped
+	REL::Relocation<_NiStream_constructor> NiStream_constructor{ RELOCATION_ID(68971, 70324) };      // SE 0xC59690, VR id-mapped
+	REL::Relocation<_NiStream_deconstructor> NiStream_deconstructor{ RELOCATION_ID(68972, 70325) };  // SE 0xC598F0, VR id-mapped
 
 	static bool IsHair(RE::TESBoundObject* a_ref)
 	{
