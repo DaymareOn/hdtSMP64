@@ -9,6 +9,14 @@
 		<folder source="Scripts" destination="Scripts" priority="1" />
 		<folder source="SKSE" destination="SKSE" priority="1" />
 		<folder source="Source" destination="Source" priority="1" />
+		<!-- The CPU auto-selecting loader picks the right build at runtime, so all variants are
+		     always installed and the user no longer chooses one. raw-vs2022-windows additionally
+		     carries the loader stub (hdtSMP64.dll) and its default INI; the others contribute only
+		     their hdtSMP64_<variant>.dll under SKSE/Plugins/FSMP/. The folders merge into SKSE. -->
+		<folder source="raw-vs2022-windows\SKSE" destination="SKSE" priority="0" />
+		<folder source="raw-vs2022-windows-avx\SKSE" destination="SKSE" priority="0" />
+		<folder source="raw-vs2022-windows-avx2\SKSE" destination="SKSE" priority="0" />
+		<folder source="raw-vs2022-windows-avx512\SKSE" destination="SKSE" priority="0" />
 	</requiredInstallFiles>
 	<installSteps order="Explicit">
 		<installStep name="Introduction">
@@ -49,69 +57,23 @@ Current active developers at the time of this writing, ordered by date of involv
 				</group>
 			</optionalFileGroups>
 		</installStep>
-		<installStep name="AVX">
+		<installStep name="CPU optimization">
 			<optionalFileGroups order="Explicit">
-				<group name="AVX" type="SelectExactlyOne">
+				<group name="CPU optimization" type="SelectAll">
 					<plugins order="Explicit">
-						<plugin name="AVX (recommended)">
-							<description>If your CPU supports the AVX instruction set, select this.
-Performance improvements over no AVX.</description>
+						<plugin name="Automatic (AVX / AVX2 / AVX512 / No AVX)">
+							<description>This version installs a small loader plus every optimized build (No AVX, AVX, AVX2, AVX512). At game launch the loader detects your CPU and automatically loads the fastest build it supports - you no longer need to pick one.
+
+If a build is unstable on your system it will automatically fall back to a lower one on the next launch.
+
+Advanced: to force a specific build, edit SKSE\Plugins\hdtSMP64_loader.ini and set ForceVariant to noavx, avx, avx2 or avx512 (default: auto). The choice will also be exposed in the FSMP MCM.</description>
+							<image path="FSMPLogo.jpg" />
+							<files></files>
 							<conditionFlags>
-								<flag name="AVX">On</flag>
+								<flag name="uselessFlag" />
 							</conditionFlags>
 							<typeDescriptor>
-								<type name="Optional" />
-							</typeDescriptor>
-						</plugin>
-						<plugin name="AVX2">
-							<description>If your CPU supports the AVX2 instructions set, select this.
-
-Should bring performance improvements over AVX, but brings some synchronisation too, so may in some cases bring less performance than AVX.
-Test and choose for yourself :)
-
-idaan300 notes:
-"All intel CPU's that support AVX2 (and the few that support AVX512) use instruction intrinsics to downclock themselves in order to prevent overheating. As soon as an intel CPU sees one AVX2/512 instruction it will downclock itself for the remainder of program execution because AVX uses a lot more of the CPU die and thus generates more heat in general. This downclocking will reduce performance across the whole game because as we all know skyrim loves single threaded performance thus potentially negating any benefits of running this version of the dll.
-
-AMD CPU's in comparison don't downclock themselves on AVX2 workloads (they only downclock based on current temperature) and thus performance can only be increased by using AVX2. Older Ryzen chips (before 3000) won't see any benefit to AVX2 instructions because they have to emulate it using standard AVX (the difference here is in instruction width, AVX2 has 256 bit wide registers and AVX 128 bit. Meaning AVX2 usually can get double the amount of work done at the same time compared to standard AVX. Older zen chips emulate these wider registers but seeing as these are 128 bit it takes twice as long to execute them because the CPU can't fit the whole intended instruction in a given register thus negating any speed improvement AVX2 could add).
-
-It's not recommended running this on Intel chips or anything older than AMD's ryzen 3000 but of course feel free to try it out and see if it works for you."</description>
-							<conditionFlags>
-								<flag name="AVX2">On</flag>
-							</conditionFlags>
-							<typeDescriptor>
-								<type name="Optional" />
-							</typeDescriptor>
-						</plugin>
-						<plugin name="AVX512">
-							<description>NOT SUPPORTED ON INTEL CPU!!!
-Do NOT come with a bug report concerning AVX512 if this bug doesn't happen with the AVX2 build, except if you come with the solution too.
-
-"Intel does not officially support AVX-512 family of instructions on the Alder Lake microprocessors.
-Intel has disabled in silicon (fused off) AVX-512 on recent steppings of Alder Lake microprocessors to prevent customers from enabling AVX-512.
-In older Alder Lake family CPUs with some legacy combinations of BIOS and microcode revisions, it was possible to execute AVX-512 family instructions
-when disabling all the efficiency cores which do not contain the silicon for AVX-512."
-
-If your CPU supports the AVX512 instructions set, select this.
-
-Should bring performance improvements over AVX2 and AVX, but brings some synchronisation too, so may in some cases bring less performance than AVX/AVX2.
-Test and choose for yourself :)</description>
-							<conditionFlags>
-								<flag name="AVX512">On</flag>
-							</conditionFlags>
-							<typeDescriptor>
-								<type name="Optional" />
-							</typeDescriptor>
-						</plugin>
-						<plugin name="No AVX">
-							<description>If your CPU doesn't support the AVX instruction set, select this.
-
-Q: What is AVX?
-A: Advanced_Vector_Extensions are extensions to the instruction sets for microprocessors from AMD and Intel. All Intel CPUs starting with Sandy Bridge in 2011 and AMD processors on their "Bulldozer" architecture and beyond offer this set of instructions.</description>
-							<conditionFlags>
-								<flag name="NOAVX">On</flag>
-							</conditionFlags>
-							<typeDescriptor>
-								<type name="Optional" />
+								<type name="NotUsable" />
 							</typeDescriptor>
 						</plugin>
 					</plugins>
@@ -149,40 +111,4 @@ Finally, credits and thanks to hydrogensaysHDT, aers, ousnius, Karonar1, alandts
 			</optionalFileGroups>
 		</installStep>
 	</installSteps>
-	<conditionalFileInstalls>
-		<patterns>
-			<pattern>
-				<dependencies>
-					<flagDependency flag="NOAVX" value="On" />
-				</dependencies>
-				<files>
-					<folder source="raw-vs2022-windows\SKSE" destination="SKSE" priority="0" />
-				</files>
-			</pattern>
-			<pattern>
-				<dependencies>
-					<flagDependency flag="AVX" value="On" />
-				</dependencies>
-				<files>
-					<folder source="raw-vs2022-windows-avx\SKSE" destination="SKSE" priority="0" />
-				</files>
-			</pattern>
-			<pattern>
-				<dependencies>
-					<flagDependency flag="AVX2" value="On" />
-				</dependencies>
-				<files>
-					<folder source="raw-vs2022-windows-avx2\SKSE" destination="SKSE" priority="0" />
-				</files>
-			</pattern>
-			<pattern>
-				<dependencies>
-					<flagDependency flag="AVX512" value="On" />
-				</dependencies>
-				<files>
-					<folder source="raw-vs2022-windows-avx512\SKSE" destination="SKSE" priority="0" />
-				</files>
-			</pattern>
-		</patterns>
-	</conditionalFileInstalls>
 </config>
