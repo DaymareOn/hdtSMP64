@@ -167,6 +167,11 @@ endif()
 add_library("${PROJECT_NAME}" SHARED ${SOURCE_FILES} "${VERSION_HEADER}" "${CMAKE_CURRENT_BINARY_DIR}/version.rc"
 									 "${ROOT_DIR}/.clang-format" "${ROOT_DIR}/.editorconfig")
 
+# Each AVX configure produces a distinctly-named DLL (hdtSMP64_noavx/avx/avx2/avx512.dll). They are
+# loaded at runtime by the no-AVX loader stub (hdtSMP64.dll) from the FSMP subfolder, never directly
+# by SKSE, so they must NOT keep the bare "hdtSMP64" name that SKSE auto-scans.
+set_target_properties("${PROJECT_NAME}" PROPERTIES OUTPUT_NAME "hdtSMP64_${AVX_VARIANT}")
+
 target_compile_features("${PROJECT_NAME}" PRIVATE cxx_std_20)
 
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
@@ -267,9 +272,11 @@ target_link_libraries(
 
 target_precompile_headers("${PROJECT_NAME}" PRIVATE "${SOURCE_DIR}/PCH.h")
 
+# Variants live under SKSE/Plugins/FSMP/ (a subfolder SKSE does not scan), so only the loader stub
+# is ever auto-loaded.
 install(
 	FILES "$<TARGET_FILE:${PROJECT_NAME}>"
-	DESTINATION "SKSE/Plugins"
+	DESTINATION "SKSE/Plugins/FSMP"
 	COMPONENT "main")
 
 install(
@@ -281,9 +288,10 @@ if("${COPY_OUTPUT}")
 	add_custom_command(
 		TARGET "${PROJECT_NAME}"
 		POST_BUILD
+		COMMAND "${CMAKE_COMMAND}" -E make_directory "${CompiledPluginsPath}/SKSE/Plugins/FSMP"
 		COMMAND "${CMAKE_COMMAND}" -E copy_if_different "$<TARGET_FILE:${PROJECT_NAME}>"
-				"${CompiledPluginsPath}/SKSE/Plugins/"
+				"${CompiledPluginsPath}/SKSE/Plugins/FSMP/"
 		COMMAND "${CMAKE_COMMAND}" -E copy_if_different "$<TARGET_PDB_FILE:${PROJECT_NAME}>"
-				"${CompiledPluginsPath}/SKSE/Plugins/"
+				"${CompiledPluginsPath}/SKSE/Plugins/FSMP/"
 		VERBATIM)
 endif()
