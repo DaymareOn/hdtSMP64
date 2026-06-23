@@ -194,8 +194,6 @@ endif()
 target_include_directories("${PROJECT_NAME}" PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/src" "${SOURCE_DIR}"
 													 ${DETOURS_INCLUDE_DIRS} ${BULLET_INCLUDE_DIRS})
 
-set(SKSE_SUPPORT_XBYAK ON)
-
 # dependency macros
 macro(find_dependency_path DEPENDENCY FILE)
 	# searches extern for dependencies and if not checks the environment variable
@@ -233,7 +231,6 @@ endif()
 
 find_package(Bullet CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
-find_package(xbyak REQUIRED CONFIG)
 find_package(TBB CONFIG REQUIRED)
 find_package(pugixml CONFIG REQUIRED)
 
@@ -254,7 +251,6 @@ include_directories(${BULLET_INCLUDE_DIRS})
 target_link_libraries(
 	"${PROJECT_NAME}"
 	PRIVATE CommonLibSSE::CommonLibSSE
-			xbyak::xbyak
 			spdlog::spdlog
 			optimized
 			${DETOURS_LIBRARY_RELEASE}
