@@ -40,8 +40,8 @@ list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 
 add_subdirectory(src)
 
-# The CPU-auto-selecting loader stub. Added after src/ so the CommonLibSSE target it links already
-# exists. It builds only in the no-AVX configure (guarded inside loader/CMakeLists.txt).
+# The CPU-auto-selecting loader stub. Added after src/ so the CommonLibSSE target it links already exists. It builds
+# only in the no-AVX configure (guarded inside loader/CMakeLists.txt).
 add_subdirectory(loader)
 
 include(cmake/packaging.cmake)

@@ -21,7 +21,7 @@ namespace loader
 	{
 		std::optional<Variant> variant;  // a pinned tier, or nullopt for "auto"/missing/garbage
 		bool explicitChoice{ false };    // true when the key was present and meaningful (variant or
-		                                 // the literal "auto") -> the crash ceiling should be reset
+										 // the literal "auto") -> the crash ceiling should be reset
 	};
 
 	// Read the optional override INI and extract `ForceVariant`. The file crosses a trust boundary

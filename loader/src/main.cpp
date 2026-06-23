@@ -137,9 +137,9 @@ namespace
 			// that must not be torn out from under the game.
 			return fn(a_skse) ? 1 : 0;
 		} __except ((GetExceptionCode() == EXCEPTION_ILLEGAL_INSTRUCTION ||
-						GetExceptionCode() == EXCEPTION_PRIV_INSTRUCTION)
-					   ? EXCEPTION_EXECUTE_HANDLER
-					   : EXCEPTION_CONTINUE_SEARCH) {
+						GetExceptionCode() == EXCEPTION_PRIV_INSTRUCTION) ?
+						EXCEPTION_EXECUTE_HANDLER :
+						EXCEPTION_CONTINUE_SEARCH) {
 			return -1;
 		}
 	}
