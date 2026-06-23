@@ -172,7 +172,10 @@ namespace Hooks
 	// Only the count register differs by version (esi on SE/VR, ebp on AE), changing a few opcode bytes.
 	void BSFaceGenNiNodeHooks::ApplyBoneLimitFix()
 	{
-		REL::Relocation<uintptr_t> GeometrySkinningBoneFix{ REL::VariantID(24330, 24836, 0x37ADD0), REL::VariantOffset(0x58, 0x75, 0x58) };
+		// VR resolves the SE id (24330) through the VR address library rather than a hardcoded
+		// offset: a missing id then fails loudly at load instead of silently jumping to a bad
+		// address. The per-runtime VariantOffset is the byte offset of the patched instruction.
+		REL::Relocation<uintptr_t> GeometrySkinningBoneFix{ RELOCATION_ID(24330, 24836), REL::VariantOffset(0x58, 0x75, 0x58) };
 
 		// Pre-assembled replacement for the former Xbyak::CodeGenerator (27 bytes):
 		//   mov  reg, [rax+0x58]   ; read skinData->boneCount
