@@ -105,49 +105,11 @@ namespace hdt
 			if (!this->block_resetting) {
 				updateTransformUpDown(m_skeleton.get(), true);
 			}
-
-			m_lastRootRotation = convertNi(m_skeleton->world.rotate);
-		} else if (m_skeleton->parent == RE::PlayerCharacter::GetSingleton()->Get3D2()) {
-			if (SkyrimPhysicsWorld::get()->m_resetPc > 0) {
-				timeStep = RESET_PHYSICS;
-				updateTransformUpDown(m_skeleton.get(), true);
-				m_lastRootRotation = convertNi(m_skeleton->world.rotate);
-			} else if (!RE::PlayerCamera::GetSingleton()->GetRuntimeData2().isWeapSheathed || RE::PlayerCamera::GetSingleton()->currentState->id == RE::CameraState::kFirstPerson)  // isWeaponSheathed or potentially isCameraFree || cameraState is first person
-			{
-				m_lastRootRotation = convertNi(m_skeleton->world.rotate);
-			} else {
-				btQuaternion newRot = convertNi(m_skeleton->world.rotate);
-				btVector3 rotAxis;
-				float rotAngle;
-				btTransformUtil::calculateDiffAxisAngleQuaternion(m_lastRootRotation, newRot, rotAxis, rotAngle);
-
-				if (SkyrimPhysicsWorld::get()->m_clampRotations) {
-					float limit = SkyrimPhysicsWorld::get()->m_rotationSpeedLimit * timeStep;
-
-					if (rotAngle < -limit || rotAngle > limit) {
-						rotAngle = btClamped(rotAngle, -limit, limit);
-						btQuaternion clampedRot(rotAxis, rotAngle);
-						m_lastRootRotation = clampedRot * m_lastRootRotation;
-						m_skeleton->world.rotate = convertBt(m_lastRootRotation);
-
-						const auto& children = m_skeleton->GetChildren();
-						for (uint16_t i = 0; i < children.size(); ++i) {
-							auto node = castNiNode(children[i].get());
-							if (node) {
-								updateTransformUpDown(node, true);
-							}
-						}
-					}
-				} else if (SkyrimPhysicsWorld::get()->m_unclampedResets) {
-					float limit = SkyrimPhysicsWorld::get()->m_unclampedResetAngle * timeStep;
-
-					if (rotAngle < -limit || rotAngle > limit) {
-						timeStep = RESET_PHYSICS;
-						updateTransformUpDown(m_skeleton.get(), true);
-						m_lastRootRotation = convertNi(m_skeleton->world.rotate);
-					}
-				}
-			}
+		} else if (m_skeleton->parent == RE::PlayerCharacter::GetSingleton()->Get3D2() && SkyrimPhysicsWorld::get()->m_resetPc > 0) {
+			// Coming back from first-person, the body was posed without being simulated; force a
+			// brief reset so physics restarts from the now-visible third-person pose.
+			timeStep = RESET_PHYSICS;
+			updateTransformUpDown(m_skeleton.get(), true);
 		}
 
 		m_oldRoot = hdt::make_nismart(newRoot);
