@@ -3,6 +3,7 @@
 #include <pugixml.hpp>
 
 #include <cctype>
+#include <cstdlib>
 #include <map>
 #include <optional>
 #include <sstream>
@@ -58,9 +59,11 @@ namespace hdt
 			const PatternLimits& limits;
 			std::map<std::string, PatternDef> defs;
 			std::vector<PatternDiag> diags;
+			std::vector<std::pair<std::string, int>> patUses;  ///< per <pattern> use: (name, source line)
 			std::size_t elementCount = 0;
 			bool aborted = false;
-			bool changed = false;
+			bool changed = false;  ///< a <pattern> use was expanded
+			bool sawAny = false;   ///< any real pattern element (def or use) was seen
 
 			void error(int line, std::string msg, std::string pat = {})
 			{
@@ -120,6 +123,60 @@ namespace hdt
 		int lineOf(const Ctx& ctx, const pugi::xml_node& n)
 		{
 			return offsetToLine(ctx.raw, n.offset_debug());
+		}
+
+		// Offset just past the element whose opening '<' is at `start`, found by a name-agnostic tag
+		// depth count (comments / CDATA / PIs skipped). Relies on the serializer escaping '<' and '>'
+		// inside attribute values -- pugixml does -- so '<' and '>' only ever appear as real markup.
+		// Used to delimit a pattern-generated subtree in the serialized output (see source-map below).
+		std::size_t subtreeEnd(const std::string& s, std::size_t start)
+		{
+			std::size_t i = start;
+			int depth = 0;
+			while (i < s.size())
+			{
+				if (s[i] != '<')
+				{
+					++i;
+					continue;
+				}
+				if (s.compare(i, 4, "<!--") == 0)
+				{
+					const std::size_t e = s.find("-->", i + 4);
+					i = (e == std::string::npos ? s.size() : e + 3);
+					continue;
+				}
+				if (s.compare(i, 9, "<![CDATA[") == 0)
+				{
+					const std::size_t e = s.find("]]>", i + 9);
+					i = (e == std::string::npos ? s.size() : e + 3);
+					continue;
+				}
+				if (s.compare(i, 2, "<?") == 0)
+				{
+					const std::size_t e = s.find("?>", i + 2);
+					i = (e == std::string::npos ? s.size() : e + 2);
+					continue;
+				}
+				if (s.compare(i, 2, "</") == 0)
+				{
+					const std::size_t e = s.find('>', i);
+					i = (e == std::string::npos ? s.size() : e + 1);
+					if (--depth <= 0)
+						return i;
+					continue;
+				}
+				const std::size_t e = s.find('>', i);
+				if (e == std::string::npos)
+					return s.size();
+				const bool selfClose = (e > i && s[e - 1] == '/');
+				i = e + 1;
+				if (!selfClose)
+					++depth;
+				else if (depth == 0)
+					return i;
+			}
+			return i;
 		}
 
 		// ── Substitution ────────────────────────────────────────────────────────
@@ -220,6 +277,7 @@ namespace hdt
 
 		void registerDef(Ctx& ctx, const pugi::xml_node& node)
 		{
+			ctx.sawAny = true;
 			const std::string name = node.attribute("name").value();
 			const int line = lineOf(ctx, node);
 			if (name.empty())
@@ -429,8 +487,21 @@ namespace hdt
 				}
 			}
 
+			ctx.sawAny = true;
 			ctx.changed = true;
+			const pugi::xml_node before = dest.last_child();
 			expandChildren(ctx, dest, def.body, penv, depth + 1);
+			if (ctx.aborted)
+				return;
+
+			// Tag the top-level elements this use produced so the serialized output can be sliced into a
+			// source-map range. Skip any already tagged: a nested pattern tagged its own output first and
+			// innermost attribution wins.
+			const int id = static_cast<int>(ctx.patUses.size());
+			ctx.patUses.emplace_back(name, line);
+			for (pugi::xml_node n = before ? before.next_sibling() : dest.first_child(); n; n = n.next_sibling())
+				if (n.type() == pugi::node_element && !n.attribute("_fsmp_pat"))
+					n.append_attribute("_fsmp_pat").set_value(std::to_string(id).c_str());
 		}
 
 		// Copies `src`'s children into `dest`, transforming as it goes: <pattern-default> dropped,
@@ -537,10 +608,82 @@ namespace hdt
 			return result;
 		}
 
+		// "<pattern" matched only a comment or attribute, not a real pattern element: nothing was
+		// transformed, so hand back the original bytes untouched and keep the byte-identity guarantee.
+		if (!ctx.sawAny)
+		{
+			result.ok = true;
+			result.changed = false;
+			return result;  // result.xml == raw
+		}
+
 		std::ostringstream oss;
 		const unsigned flags = hasDecl ? pugi::format_default : (pugi::format_default | pugi::format_no_declaration);
 		out.save(oss, "  ", flags);
-		result.xml = oss.str();
+		const std::string marked = oss.str();
+
+		// Slice the serialized output into source-map ranges and strip the transient _fsmp_pat markers.
+		// Each marker tags a pattern-generated top-level element; its subtree span (subtreeEnd) becomes a
+		// range, and removing the marker substrings yields the clean output with offsets shifted to match.
+		const std::string token = " _fsmp_pat=\"";
+		struct Marker
+		{
+			std::size_t lo, hi;
+			int id;
+		};
+		std::vector<Marker> markers;
+		std::vector<std::pair<std::size_t, std::size_t>> dels;  // ascending, non-overlapping [start,end)
+		for (std::size_t p = marked.find(token); p != std::string::npos; p = marked.find(token, p + 1))
+		{
+			const std::size_t vstart = p + token.size();
+			const std::size_t vend = marked.find('"', vstart);
+			if (vend == std::string::npos)
+				break;
+			const int id = std::atoi(marked.substr(vstart, vend - vstart).c_str());
+			dels.emplace_back(p, vend + 1);
+			const std::size_t lt = marked.rfind('<', p);
+			const std::size_t lo = (lt == std::string::npos ? p : lt);
+			markers.push_back({ lo, subtreeEnd(marked, lo), id });
+		}
+
+		// Clean text = marked text with every marker substring removed.
+		std::string clean;
+		clean.reserve(marked.size());
+		std::size_t cur = 0;
+		for (const auto& d : dels)
+		{
+			clean.append(marked, cur, d.first - cur);
+			cur = d.second;
+		}
+		clean.append(marked, cur, marked.size() - cur);
+
+		// Map a marked-text offset to its clean-text offset by subtracting deleted bytes that precede it.
+		const auto mapOffset = [&dels](std::size_t pos) {
+			std::size_t shift = 0;
+			for (const auto& d : dels)
+			{
+				if (d.second <= pos)
+					shift += d.second - d.first;
+				else
+					break;
+			}
+			return pos - shift;
+		};
+
+		for (const auto& m : markers)
+		{
+			PatternRange r;
+			r.lo = mapOffset(m.lo);
+			r.hi = mapOffset(m.hi);
+			if (m.id >= 0 && static_cast<std::size_t>(m.id) < ctx.patUses.size())
+			{
+				r.patternName = ctx.patUses[m.id].first;
+				r.useLine = ctx.patUses[m.id].second;
+			}
+			result.sourceMap.ranges.push_back(std::move(r));
+		}
+
+		result.xml = std::move(clean);
 		result.ok = true;
 		result.changed = ctx.changed;
 		return result;

@@ -53,7 +53,6 @@ namespace hdt
 	/// A half-open byte range [lo, hi) in the EXPANDED text that was produced by expanding one
 	/// <pattern> use. Lets offset-reporting consumers (Schematron, redundancy) say "this came from
 	/// pattern X used at line N" instead of pointing at generated text, and skip generated regions.
-	/// (Populated by a later step; empty for now.)
 	struct PatternRange
 	{
 		std::size_t lo = 0;

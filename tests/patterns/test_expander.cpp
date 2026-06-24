@@ -277,3 +277,55 @@ TEST_CASE("a <pattern-default> with no <body> is an error")
 	REQUIRE_FALSE(r.diags.empty());
 	CHECK(has(r.diags[0].message, "body"));
 }
+
+TEST_CASE("no markers leak into the output and a clean file has an empty source map")
+{
+	const auto r = expandPatterns("<system><bone name=\"a\"/></system>");
+	CHECK(r.sourceMap.ranges.empty());
+	CHECK_FALSE(has(r.xml, "_fsmp_pat"));
+}
+
+TEST_CASE("the source map attributes generated text to the pattern and its use line")
+{
+	const std::string xml =
+		"<system>\n"                                  // line 1
+		"  <pattern-default name=\"cape\">\n"          // line 2
+		"    <param name=\"p\"/>\n"                    // line 3
+		"    <body><bone name=\"${p}_0\"/></body>\n"   // line 4
+		"  </pattern-default>\n"                       // line 5
+		"  <pattern name=\"cape\" p=\"K\"/>\n"         // line 6
+		"</system>\n";                                 // line 7
+	const auto r = expandPatterns(xml);
+	REQUIRE(r.ok);
+	CHECK_FALSE(has(r.xml, "_fsmp_pat"));  // transient marker fully stripped
+	REQUIRE(r.sourceMap.ranges.size() == 1);
+
+	const std::size_t off = r.xml.find("K_0");
+	REQUIRE(off != std::string::npos);
+	const hdt::PatternRange* rng = r.sourceMap.find(off);
+	REQUIRE(rng != nullptr);
+	CHECK(rng->patternName == "cape");
+	CHECK(rng->useLine == 6);
+	// the range really covers the generated element's bytes in the clean output
+	CHECK(r.xml.substr(rng->lo, rng->hi - rng->lo).find("K_0") != std::string::npos);
+	// a hand-written offset (the <system> root) is not attributed to any pattern
+	CHECK(r.sourceMap.find(0) == nullptr);
+}
+
+TEST_CASE("nested patterns attribute generated text to the innermost use")
+{
+	const std::string xml =
+		"<system>\n"                                                                                            // 1
+		"<pattern-default name=\"inner\"><param name=\"x\"/><body><bone name=\"${x}\"/></body></pattern-default>\n"  // 2
+		"<pattern-default name=\"outer\"><param name=\"y\"/><body><pattern name=\"inner\" x=\"${y}\"/></body></pattern-default>\n"  // 3
+		"<pattern name=\"outer\" y=\"Z\"/>\n"                                                                    // 4
+		"</system>\n";
+	const auto r = expandPatterns(xml);
+	REQUIRE(r.ok);
+	const std::size_t off = r.xml.find("\"Z\"");
+	REQUIRE(off != std::string::npos);
+	const hdt::PatternRange* rng = r.sourceMap.find(off);
+	REQUIRE(rng != nullptr);
+	CHECK(rng->patternName == "inner");  // innermost wins
+	CHECK(rng->useLine == 3);            // the inner use sits inside outer's body on line 3
+}
