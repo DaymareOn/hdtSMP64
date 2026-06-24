@@ -85,14 +85,10 @@ namespace hdt
 					ActorManager::instance()->m_skinNPCFaceParts = reader.readBool();
 				} else if (reader.GetLocalName() == "disableSMPHairWhenWigEquipped") {
 					ActorManager::instance()->m_disableSMPHairWhenWigEquipped = reader.readBool();
-				} else if (reader.GetLocalName() == "clampRotations") {
-					SkyrimPhysicsWorld::get()->m_clampRotations = reader.readBool();
-				} else if (reader.GetLocalName() == "rotationSpeedLimit") {
-					SkyrimPhysicsWorld::get()->m_rotationSpeedLimit = reader.readFloat();
-				} else if (reader.GetLocalName() == "unclampedResets") {
-					SkyrimPhysicsWorld::get()->m_unclampedResets = reader.readBool();
-				} else if (reader.GetLocalName() == "unclampedResetAngle") {
-					SkyrimPhysicsWorld::get()->m_unclampedResetAngle = reader.readFloat();
+				} else if (reader.GetLocalName() == "clampRotations" || reader.GetLocalName() == "rotationSpeedLimit" || reader.GetLocalName() == "unclampedResets" || reader.GetLocalName() == "unclampedResetAngle") {
+					// Deprecated (#387): the player-character root-rotation guard was removed. Silently
+					// consume these legacy keys so existing configs.xml files load without warnings.
+					reader.skipCurrentElement();
 				} else if (reader.GetLocalName() == "budgetMs") {
 					SkyrimPhysicsWorld::get()->m_budgetMs = std::clamp(reader.readFloat(), 0.1f, 20.0f);
 				} else if (reader.GetLocalName() == "useRealTime") {
@@ -208,10 +204,6 @@ namespace hdt
 
 		LOG("smp.enableNPCFaceParts", a->m_skinNPCFaceParts);
 		LOG("smp.disableSMPHairWhenWigEquipped", a->m_disableSMPHairWhenWigEquipped);
-		LOG("smp.clampRotations", w->m_clampRotations);
-		LOG("smp.rotationSpeedLimit", w->m_rotationSpeedLimit);
-		LOG("smp.unclampedResets", w->m_unclampedResets);
-		LOG("smp.unclampedResetAngle", w->m_unclampedResetAngle);
 		LOG("smp.budgetMS", w->m_budgetMs);
 		LOG("smp.useRealTime", w->m_useRealTime);
 		LOG("smp.minCullingDistance", a->m_minCullingDistance);
