@@ -12,6 +12,9 @@ namespace hdt
 	class SkinnedMeshWorld;
 	class BoneScaleConstraint;
 
+	// Sentinel timestep (compared with <=) that snaps bones to pose with zero velocity.
+	constexpr float RESET_PHYSICS = -10.0f;
+
 	class SkinnedMeshSystem :
 		public RE::BSIntrusiveRefCounted
 	{
@@ -33,6 +36,7 @@ namespace hdt
 		std::vector<std::shared_ptr<btCollisionShape>> m_shapeRefs;
 		SkinnedMeshWorld* m_world = nullptr;
 
+		float m_windFactor = 1.0f;  // per-system wind multiplier (obstruction-based)
 		bool block_resetting = false;
 		std::vector<RE::BSTSmartPointer<SkinnedMeshBone>>& getBones() { return m_bones; };
 
