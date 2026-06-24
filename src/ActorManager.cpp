@@ -296,6 +296,11 @@ namespace hdt
 		return fmt::format("hdtSSEPhysics_AutoRename_Head_{:08X} ", id);
 	}
 
+	std::string ActorManager::obstructionPrefix(ActorManager::IDType id)
+	{
+		return fmt::format("hdtSSEPhysics_AutoRename_Obstruction_{:08X} ", id);
+	}
+
 	void ActorManager::fixArmorNameMaps()
 	{
 		auto& skeletons = instance()->getSkeletons();
@@ -460,6 +465,11 @@ namespace hdt
 				continue;
 
 			activeSkeletons++;
+
+			// Experimental: let this actor's dynamic bones collide with nearby static world geometry.
+			// Done before the wind early-outs below so it runs independently of the wind feature.
+			if (m_enableWorldCollision)
+				i.manageWorldCollisions();
 
 			// Check wind obstructions for active skeletons.
 			if (!windEnabled)
@@ -767,6 +777,197 @@ namespace hdt
 				renameTree(child, prefix, map);
 			}
 		}
+	}
+
+	// Experimental world collision. We probe the world around the actor with 6 axis-aligned LOS
+	// rays; for each nearby object hit, we hand it to the World singleton, which clones it into the
+	// SMP scene as a collider. Note: Actor_CalculateLOS is a line-of-sight test (it returns the whole
+	// blocking object, not a surface), so this only approximately samples nearby geometry. Obstructions
+	// are pruned by timeout here so objects no longer near any active skeleton eventually disappear.
+	void ActorManager::Skeleton::manageWorldCollisions()
+	{
+		const auto owner = skyrim_cast<RE::Actor*>(skeletonOwner.get());
+		if (!owner)
+			return;
+
+		const auto pos = position();
+		if (!pos.has_value())
+			return;
+
+		// Probe ~1000 units out along each axis; only obstructions within ~158 units (25000 squared)
+		// of the skeleton are kept, to bound how much world geometry we drag into the simulation.
+		static const RE::NiPoint3 directions[6] = {
+			{ 1000.f, 0.f, 0.f }, { -1000.f, 0.f, 0.f },
+			{ 0.f, 1000.f, 0.f }, { 0.f, -1000.f, 0.f },
+			{ 0.f, 0.f, 1000.f }, { 0.f, 0.f, -1000.f }
+		};
+		constexpr float maxObstructionDistance2 = 25000.f;
+
+		for (const auto& direction : directions) {
+			RE::NiPoint3 target = pos.value() + direction;
+			RE::NiPoint3 hitLocation;
+			const auto object = Actor_CalculateLOS(owner, &target, &hitLocation, std::numbers::pi_v<float> * 2.f);
+			if (!object)
+				continue;
+
+			if ((pos.value() - hitLocation).SqrLength() >= maxObstructionDistance2)
+				continue;
+
+			auto ninode = object->AsNode();
+			if (!ninode)
+				continue;
+
+			World::instance()->attachObstruction(ninode, object);
+			logger::debug("adding obstruction {}", object->name.c_str());
+		}
+
+		World::instance()->pruneObstructions();
+	}
+
+	ActorManager::World* ActorManager::World::instance()
+	{
+		static World s;
+		return &s;
+	}
+
+	// Recursively gather the names of every BSTriShape under root. Used to map the single
+	// <per-triangle-shape name="WorldMesh"> in obstruction.xml to all cloned obstruction meshes.
+	static void collectTrishapeNames(RE::NiNode* root, DefaultBBP::NameSet_t& out)
+	{
+		if (!root)
+			return;
+		for (auto& childPtr : root->GetChildren()) {
+			auto* child = childPtr.get();
+			if (!child)
+				continue;
+			if (auto* tri = child->AsTriShape(); tri && tri->name.size())
+				out.insert(std::string(tri->name.c_str()));
+			if (auto* node = castNiNode(child))
+				collectTrishapeNames(node, out);
+		}
+	}
+
+	void ActorManager::World::attachObstruction(RE::NiNode* attachedNode, RE::NiAVObject* attachedObject)
+	{
+		// Lazily create the single "obstruction" root and parent it high in the scene graph (near the
+		// player's cell), guarding every step against a not-yet-ready scene to avoid the WIP's crashes.
+		if (!m_world) {
+			const auto player = RE::PlayerCharacter::GetSingleton();
+			RE::NiAVObject* player3D = player ? player->Get3D2() : nullptr;
+			RE::NiNode* anchor = player3D ? player3D->parent : nullptr;
+			for (int level = 0; level < 3 && anchor && anchor->parent; ++level)
+				anchor = anchor->parent;
+			if (!anchor)
+				return;
+
+			m_world = RE::NiNode::Create(0);
+			setNiNodeName(m_world, "obstruction");
+			anchor->AttachChild(m_world, false);
+		}
+
+		// Clone the hit object under the obstruction root (records a new Obstruction + its timeout).
+		createObstruction(attachedNode, attachedObject);
+
+		// Build one physics system over all current obstructions. obstruction.xml holds a single
+		// <per-triangle-shape name="WorldMesh">; we map "WorldMesh" to every trishape now under the
+		// root. The unskinned paths in generateMeshBody/readPerTriangleShape turn that static
+		// geometry into a kinematic per-triangle collider. Model and skeleton are both the root, so
+		// the colliders sit at their fixed world positions (the root never moves with any actor).
+		DefaultBBP::NameSet_t worldMeshNames;
+		collectTrishapeNames(m_world, worldMeshNames);
+		if (worldMeshNames.empty())
+			return;
+		m_worldPhysicsItem = { std::string("SKSE/Plugins/hdtSkinnedMeshConfigs/obstruction.xml"),
+			DefaultBBP::NameMap_t{ { "WorldMesh", worldMeshNames } } };
+
+		std::unordered_map<RE::BSFixedString, RE::BSFixedString> noRename;
+		m_system = SkyrimSystemCreator().createOrUpdateSystem(m_world, m_world, &m_worldPhysicsItem, std::move(noRename), m_system.get());
+		if (m_system && !m_obstructions.empty())
+			m_obstructions.back().setPhysics(m_system, true);
+	}
+
+	void ActorManager::World::createObstruction(RE::NiNode* attachedNode, RE::NiAVObject*)
+	{
+		const IDType id = m_obstructions.empty() ? 0 : m_obstructions.back().id + 1;
+		mergeObstruction(m_world, attachedNode, obstructionPrefix(id), m_renameMap);
+	}
+
+	void ActorManager::World::mergeObstruction(RE::NiNode* dst, RE::NiNode* src, std::string_view prefix, std::unordered_map<RE::BSFixedString, RE::BSFixedString>& map)
+	{
+		if (!src)
+			return;
+
+		if (!src->name.size()) {
+			// Unnamed grouping node: merge its children straight into dst.
+			auto& children = src->GetChildren();
+			for (uint16_t i = 0; i < children.size(); ++i)
+				mergeObstruction(dst, castNiNode(children[i].get()), prefix, map);
+			return;
+		}
+
+		if (auto dstChild = findNode(dst, src->name)) {
+			// Already present: descend into the existing node so we don't clone twice.
+			auto& children = src->GetChildren();
+			for (uint16_t i = 0; i < children.size(); ++i)
+				mergeObstruction(dstChild, castNiNode(children[i].get()), prefix, map);
+			return;
+		}
+
+		// Missing: clone the subtree (renaming only the clone, never the live world node) and attach it.
+		auto clonedObject = Skeleton::cloneNodeTree(src, prefix, map, false);
+		dst->AttachChild(clonedObject, false);
+
+		if (dst->name != "obstruction") {
+			// Deeper than the root: just refresh the owning obstruction's lifetime, if we can find it.
+			if (auto* obs = getObstruction(clonedObject))
+				obs->timeout = 10;
+			return;
+		}
+
+		// Top-level subtree directly under the root: register a new obstruction. The WIP never set
+		// clonedObject, which made getObstruction always return null; we set it so lookups work.
+		const IDType id = m_obstructions.empty() ? 0 : m_obstructions.back().id + 1;
+		m_obstructions.push_back(Obstruction{});
+		auto& obstruction = m_obstructions.back();
+		obstruction.id = id;
+		obstruction.prefix = obstructionPrefix(id);
+		obstruction.obstructingObject = RE::NiPointer<RE::NiAVObject>(src);
+		obstruction.clonedObject = RE::NiPointer<RE::NiAVObject>(clonedObject);
+		obstruction.timeout = 10;
+	}
+
+	ActorManager::Obstruction* ActorManager::World::getObstruction(RE::NiAVObject* aObject)
+	{
+		auto* clonedAncestor = getAncestorObstruction(aObject);
+		for (auto& obstruction : m_obstructions)
+			if (clonedAncestor == obstruction.clonedObject.get())
+				return &obstruction;
+		return nullptr;
+	}
+
+	RE::NiAVObject* ActorManager::World::getAncestorObstruction(RE::NiAVObject* aObject)
+	{
+		auto* a = aObject->parent;
+		if (!a)
+			return nullptr;
+		// Climb until the parent is the obstruction root; then aObject is the top-level cloned subtree.
+		if (!a->name.size() || a->name != "obstruction")
+			return getAncestorObstruction(a);
+		return aObject;
+	}
+
+	void ActorManager::World::pruneObstructions()
+	{
+		std::erase_if(m_obstructions, [this](Obstruction& obstruction) {
+			if (--obstruction.timeout > 0)
+				return false;
+			if (m_world && obstruction.clonedObject) {
+				logger::debug("Removing obstruction {}", obstruction.clonedObject->name.size() ? obstruction.clonedObject->name.c_str() : "unnamed");
+				m_world->DetachChild(obstruction.clonedObject.get());
+			}
+			obstruction.clearPhysics();
+			return true;
+		});
 	}
 
 	void ActorManager::Skeleton::doSkeletonClean(RE::NiNode* dst, std::string_view prefix)

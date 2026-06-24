@@ -693,6 +693,75 @@ namespace hdt
 			}
 
 			if (!triShape->GetGeometryRuntimeData().skinInstance) {
+				// Unskinned mesh (e.g. static world geometry): there is no skin data to read, so we
+				// fake a trivial, static skin entirely in our own structures - every vertex is bound
+				// 100% to a single bone (the mesh's parent node), with the mesh's local transform as
+				// the skin-to-bone bind. The default bone template has mass 0, so that bone is
+				// kinematic and the resulting body is a static collider. We only READ the live
+				// geometry buffer; we never fabricate NiSkinInstance/NiSkinData/NiSkinPartition.
+				auto* parentNode = triShape->parent;
+				const auto& grd = triShape->GetGeometryRuntimeData();
+				auto* renderer = grd.rendererData;
+				const auto vertexCount = triShape->GetTrishapeRuntimeData().vertexCount;
+				if (!parentNode || !renderer || !renderer->rawVertexData || vertexCount == 0) {
+					continue;
+				}
+
+				const RE::BSFixedString boneName = parentNode->name;
+				auto bone = static_cast<SkinnedMeshBone*>(findBoneFromIndex(boneName));
+				if (!bone) {
+					auto defaultBoneInfo = getBoneTemplate("");
+					auto newBone = new SkyrimBone(boneName, parentNode, this->m_skeleton, defaultBoneInfo);
+					m_mesh->m_bones.push_back(hdt::make_smart(newBone));
+					indexBone(newBone);
+					bone = newBone;
+				}
+
+				// skin-to-bone maps the mesh's rest vertices into the parent (bone) frame; that is just
+				// the mesh's local transform. Bound comes straight from the geometry's model bound.
+				const auto modelBound = triShape->GetModelData().modelBound;
+				const auto boundingSphere = BoundingSphere(convertNi(modelBound.center), modelBound.radius);
+				body->addBone(bone, convertNi(triShape->local), boundingSphere);
+
+				auto vDesc = grd.vertexDesc;
+				const auto vSize = vDesc.GetSize();
+				const bool fullPrec = vDesc.HasFlag(RE::BSGraphics::Vertex::Flags::VF_FULLPREC);
+				uint8_t* vBlock = renderer->rawVertexData;
+
+				body->m_vertices.resize(vertexStart + vertexCount);
+				for (uint32_t j = 0; j < vertexCount; ++j) {
+					RE::NiPoint3 pos;
+					if (fullPrec) {
+						// Position stored as full-precision float3 at offset 0.
+						pos = *reinterpret_cast<RE::NiPoint3*>(&vBlock[j * vSize]);
+					} else {
+						// Static meshes commonly use half-precision positions (3x float16 at offset 0).
+						const uint16_t* h = reinterpret_cast<const uint16_t*>(&vBlock[j * vSize]);
+#if defined(__AVX2__) || defined(__AVX512F__)
+						// F16C: convert the 4 packed half floats (x,y,z,w) to float, keep xyz.
+						float fp[4];
+						_mm_storeu_ps(fp, _mm_cvtph_ps(_mm_loadl_epi64(reinterpret_cast<const __m128i*>(h))));
+						pos.x = fp[0];
+						pos.y = fp[1];
+						pos.z = fp[2];
+#else
+						__float32(&pos.x, h[0]);
+						__float32(&pos.y, h[1]);
+						__float32(&pos.z, h[2]);
+#endif
+					}
+
+					auto& v = body->m_vertices[j + vertexStart];
+					v.m_skinPos = convertNi(pos);
+					v.m_weight[0] = 1.0f;
+					v.m_weight[1] = v.m_weight[2] = v.m_weight[3] = 0.0f;
+					v.m_boneIdx[0] = boneStart;
+					v.m_boneIdx[1] = v.m_boneIdx[2] = v.m_boneIdx[3] = 0;
+				}
+
+				vertexOffsetMap.insert({ meshName, vertexStart });
+				boneStart = static_cast<int>(body->m_skinnedBones.size());
+				vertexStart = static_cast<int>(body->m_vertices.size());
 				continue;
 			}
 
@@ -906,8 +975,19 @@ namespace hdt
 							partition.triList[j * 3 + 2] + offset);
 				}
 			} else {
-				logger::warn("Shape {} has no skin data, skipped", entry.first.c_str());
-				return nullptr;
+				// Unskinned mesh: triangles come from the geometry's own index buffer rather than a
+				// skin partition's triList. Mirrors the unskinned vertex path in generateMeshBody.
+				const auto& grd = g->GetGeometryRuntimeData();
+				auto* renderer = grd.rendererData;
+				const auto triangleCount = g->GetTrishapeRuntimeData().triangleCount;
+				if (!renderer || !renderer->rawIndexData) {
+					logger::warn("Unskinned shape {} has no index data, skipped", entry.first.c_str());
+					continue;
+				}
+				const int offset = entry.second;
+				const uint16_t* idx = renderer->rawIndexData;
+				for (uint32_t t = 0; t < triangleCount; ++t)
+					shape->addTriangle(idx[t * 3] + offset, idx[t * 3 + 1] + offset, idx[t * 3 + 2] + offset);
 			}
 		}
 
