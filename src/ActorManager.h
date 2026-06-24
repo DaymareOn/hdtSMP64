@@ -202,7 +202,6 @@ namespace hdt
 			std::unordered_map<RE::BSFixedString, RE::BSFixedString> m_renameMap;
 			DefaultBBP::PhysicsFile_t m_worldPhysicsItem;
 			RE::BSTSmartPointer<SkyrimSystem> m_system;
-			bool m_bbpLoaded = false;  // obstructionBBPs.xml is merged once, lazily
 
 		public:
 			static World* instance();

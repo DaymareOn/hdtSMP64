@@ -830,6 +830,23 @@ namespace hdt
 		return &s;
 	}
 
+	// Recursively gather the names of every BSTriShape under root. Used to map the single
+	// <per-triangle-shape name="WorldMesh"> in obstruction.xml to all cloned obstruction meshes.
+	static void collectTrishapeNames(RE::NiNode* root, DefaultBBP::NameSet_t& out)
+	{
+		if (!root)
+			return;
+		for (auto& childPtr : root->GetChildren()) {
+			auto* child = childPtr.get();
+			if (!child)
+				continue;
+			if (auto* tri = child->AsTriShape(); tri && tri->name.size())
+				out.insert(std::string(tri->name.c_str()));
+			if (auto* node = castNiNode(child))
+				collectTrishapeNames(node, out);
+		}
+	}
+
 	void ActorManager::World::attachObstruction(RE::NiNode* attachedNode, RE::NiAVObject* attachedObject)
 	{
 		// Lazily create the single "obstruction" root and parent it high in the scene graph (near the
@@ -848,18 +865,23 @@ namespace hdt
 			anchor->AttachChild(m_world, false);
 		}
 
-		// obstructionBBPs.xml maps world-mesh shape names to physics files. It's optional and ships
-		// outside source control, so loadBBP no-ops if absent; merge it once on top of the defaults.
-		if (!m_bbpLoaded) {
-			DefaultBBP::instance()->loadBBP("SKSE/Plugins/hdtSkinnedMeshConfigs/obstructionBBPs.xml");
-			m_bbpLoaded = true;
-		}
-		// scanBBP returns by value; store into a member (the WIP took the address of this temporary).
-		m_worldPhysicsItem = DefaultBBP::instance()->scanBBP(attachedNode);
-
+		// Clone the hit object under the obstruction root (records a new Obstruction + its timeout).
 		createObstruction(attachedNode, attachedObject);
 
-		m_system = SkyrimSystemCreator().createOrUpdateSystem(m_world, attachedObject, &m_worldPhysicsItem, std::move(m_renameMap), m_system.get());
+		// Build one physics system over all current obstructions. obstruction.xml holds a single
+		// <per-triangle-shape name="WorldMesh">; we map "WorldMesh" to every trishape now under the
+		// root. The unskinned paths in generateMeshBody/readPerTriangleShape turn that static
+		// geometry into a kinematic per-triangle collider. Model and skeleton are both the root, so
+		// the colliders sit at their fixed world positions (the root never moves with any actor).
+		DefaultBBP::NameSet_t worldMeshNames;
+		collectTrishapeNames(m_world, worldMeshNames);
+		if (worldMeshNames.empty())
+			return;
+		m_worldPhysicsItem = { std::string("SKSE/Plugins/hdtSkinnedMeshConfigs/obstruction.xml"),
+			DefaultBBP::NameMap_t{ { "WorldMesh", worldMeshNames } } };
+
+		std::unordered_map<RE::BSFixedString, RE::BSFixedString> noRename;
+		m_system = SkyrimSystemCreator().createOrUpdateSystem(m_world, m_world, &m_worldPhysicsItem, std::move(noRename), m_system.get());
 		if (m_system && !m_obstructions.empty())
 			m_obstructions.back().setPhysics(m_system, true);
 	}
