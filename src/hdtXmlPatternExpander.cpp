@@ -2,6 +2,7 @@
 
 #include <pugixml.hpp>
 
+#include <algorithm>
 #include <cctype>
 #include <cstdlib>
 #include <map>
@@ -415,11 +416,11 @@ namespace hdt
 
 		// ── Expansion ───────────────────────────────────────────────────────────
 
-		void expandChildren(Ctx& ctx, pugi::xml_node dest, const pugi::xml_node& src, Env& env, int depth, const std::string& srcText);
+		void expandChildren(Ctx& ctx, pugi::xml_node dest, const pugi::xml_node& src, Env& env, int depth, const std::string& srcText, bool generated);
 
 		// Unrolls a <repeat var count [from]> by binding the loop variable and re-emitting its child
 		// template once per index. Nested repeats just recurse, giving 2-D grids.
-		void handleRepeat(Ctx& ctx, pugi::xml_node dest, const pugi::xml_node& rep, Env& env, int depth, const std::string& srcText)
+		void handleRepeat(Ctx& ctx, pugi::xml_node dest, const pugi::xml_node& rep, Env& env, int depth, const std::string& srcText, bool generated)
 		{
 			const int line = offsetToLine(srcText, rep.offset_debug());
 			const std::string var = rep.attribute("var").value();
@@ -470,7 +471,7 @@ namespace hdt
 			{
 				const long idx = from + k;
 				env.push_back({ var, EnvVal{ std::to_string(idx), true, idx } });
-				expandChildren(ctx, dest, rep, env, depth, srcText);
+				expandChildren(ctx, dest, rep, env, depth, srcText, generated);
 				env.pop_back();
 			}
 		}
@@ -540,7 +541,7 @@ namespace hdt
 			ctx.sawAny = true;
 			ctx.changed = true;
 			const pugi::xml_node before = dest.last_child();
-			expandChildren(ctx, dest, def.body, penv, depth + 1, *def.src);
+			expandChildren(ctx, dest, def.body, penv, depth + 1, *def.src, /*generated=*/true);
 			if (ctx.aborted)
 				return;
 
@@ -557,7 +558,7 @@ namespace hdt
 		// Copies `src`'s children into `dest`, transforming as it goes: <pattern-default> dropped,
 		// <repeat> unrolled, <pattern> expanded, every other element/text copied with ${...} substituted,
 		// and comments/PIs/doctype passed through verbatim.
-		void expandChildren(Ctx& ctx, pugi::xml_node dest, const pugi::xml_node& src, Env& env, int depth, const std::string& srcText)
+		void expandChildren(Ctx& ctx, pugi::xml_node dest, const pugi::xml_node& src, Env& env, int depth, const std::string& srcText, bool generated)
 		{
 			for (pugi::xml_node child : src.children())
 			{
@@ -571,7 +572,7 @@ namespace hdt
 						continue;  // definitions are collected, never emitted
 					if (nm == "repeat")
 					{
-						handleRepeat(ctx, dest, child, env, depth, srcText);
+						handleRepeat(ctx, dest, child, env, depth, srcText, generated);
 						continue;
 					}
 					if (nm == "pattern")
@@ -588,7 +589,12 @@ namespace hdt
 					pugi::xml_node ne = dest.append_child(child.name());
 					for (pugi::xml_attribute a : child.attributes())
 						ne.append_attribute(a.name()).set_value(substitute(ctx, a.value(), env, childLine).c_str());
-					expandChildren(ctx, ne, child, env, depth, srcText);
+					// Hand-written (non-generated) elements carry their original line so diagnostics stay
+					// correct even though expansion shifts line numbers; generated elements are instead
+					// tagged by their <pattern> use in handlePatternUse.
+					if (!generated)
+						ne.append_attribute("_fsmp_ln").set_value(std::to_string(childLine).c_str());
+					expandChildren(ctx, ne, child, env, depth, srcText, generated);
 				}
 				else if (t == pugi::node_pcdata || t == pugi::node_cdata)
 				{
@@ -682,7 +688,7 @@ namespace hdt
 				if (c.type() == pugi::node_declaration)
 					hasDecl = true;
 			Env env;
-			expandChildren(ctx, out, doc, env, 0, raw);
+			expandChildren(ctx, out, doc, env, 0, raw, /*generated=*/false);
 		}
 
 		result.diags = std::move(ctx.diags);
@@ -709,26 +715,39 @@ namespace hdt
 		// Slice the serialized output into source-map ranges and strip the transient _fsmp_pat markers.
 		// Each marker tags a pattern-generated top-level element; its subtree span (subtreeEnd) becomes a
 		// range, and removing the marker substrings yields the clean output with offsets shifted to match.
-		const std::string token = " _fsmp_pat=\"";
+		// Two transient markers were planted: _fsmp_pat tags a pattern-generated element (attributed to
+		// its pattern + use line) and _fsmp_ln tags a hand-written element (attributed to its original
+		// source line, which expansion would otherwise shift). Each marker's subtree span becomes a
+		// source-map range; stripping the marker substrings yields the clean output, with range offsets
+		// shifted to match.
 		struct Marker
 		{
 			std::size_t lo, hi;
-			int id;
+			bool isPattern;
+			int value;  // patUses id (pattern) or original line (hand-written)
 		};
 		std::vector<Marker> markers;
-		std::vector<std::pair<std::size_t, std::size_t>> dels;  // ascending, non-overlapping [start,end)
-		for (std::size_t p = marked.find(token); p != std::string::npos; p = marked.find(token, p + 1))
-		{
-			const std::size_t vstart = p + token.size();
-			const std::size_t vend = marked.find('"', vstart);
-			if (vend == std::string::npos)
-				break;
-			const int id = std::atoi(marked.substr(vstart, vend - vstart).c_str());
-			dels.emplace_back(p, vend + 1);
-			const std::size_t lt = marked.rfind('<', p);
-			const std::size_t lo = (lt == std::string::npos ? p : lt);
-			markers.push_back({ lo, subtreeEnd(marked, lo), id });
-		}
+		std::vector<std::pair<std::size_t, std::size_t>> dels;  // marker substrings [start,end) to remove
+
+		const auto scanToken = [&](const std::string& token, bool isPattern) {
+			for (std::size_t p = marked.find(token); p != std::string::npos; p = marked.find(token, p + 1))
+			{
+				const std::size_t vstart = p + token.size();
+				const std::size_t vend = marked.find('"', vstart);
+				if (vend == std::string::npos)
+					break;
+				const int value = std::atoi(marked.substr(vstart, vend - vstart).c_str());
+				dels.emplace_back(p, vend + 1);
+				const std::size_t lt = marked.rfind('<', p);
+				const std::size_t lo = (lt == std::string::npos ? p : lt);
+				markers.push_back({ lo, subtreeEnd(marked, lo), isPattern, value });
+			}
+		};
+		scanToken(" _fsmp_pat=\"", true);
+		scanToken(" _fsmp_ln=\"", false);
+		std::sort(dels.begin(), dels.end());
+		// Ascending-lo order, so PatternSourceMap::find's reverse scan returns the innermost element.
+		std::sort(markers.begin(), markers.end(), [](const Marker& a, const Marker& b) { return a.lo < b.lo; });
 
 		// Clean text = marked text with every marker substring removed.
 		std::string clean;
@@ -741,28 +760,38 @@ namespace hdt
 		}
 		clean.append(marked, cur, marked.size() - cur);
 
-		// Map a marked-text offset to its clean-text offset by subtracting deleted bytes that precede it.
-		const auto mapOffset = [&dels](std::size_t pos) {
-			std::size_t shift = 0;
-			for (const auto& d : dels)
-			{
-				if (d.second <= pos)
-					shift += d.second - d.first;
-				else
-					break;
-			}
-			return pos - shift;
+		// Prefix-sum table so a marked-text offset maps to its clean-text offset in O(log n): subtract the
+		// bytes of every marker substring that ends at or before the offset.
+		std::vector<std::size_t> delEnd;
+		std::vector<std::size_t> removedBefore;  // removedBefore[k] = bytes removed by the first k dels
+		removedBefore.push_back(0);
+		for (const auto& d : dels)
+		{
+			delEnd.push_back(d.second);
+			removedBefore.push_back(removedBefore.back() + (d.second - d.first));
+		}
+		const auto mapOffset = [&](std::size_t pos) {
+			const std::size_t k = static_cast<std::size_t>(
+				std::upper_bound(delEnd.begin(), delEnd.end(), pos) - delEnd.begin());
+			return pos - removedBefore[k];
 		};
 
-		for (const auto& m : markers)
+		for (const Marker& m : markers)
 		{
 			PatternRange r;
 			r.lo = mapOffset(m.lo);
 			r.hi = mapOffset(m.hi);
-			if (m.id >= 0 && static_cast<std::size_t>(m.id) < ctx.patUses.size())
+			if (m.isPattern)
 			{
-				r.patternName = ctx.patUses[m.id].first;
-				r.useLine = ctx.patUses[m.id].second;
+				if (m.value >= 0 && static_cast<std::size_t>(m.value) < ctx.patUses.size())
+				{
+					r.patternName = ctx.patUses[m.value].first;
+					r.useLine = ctx.patUses[m.value].second;
+				}
+			}
+			else
+			{
+				r.useLine = m.value;  // hand-written: original source line (patternName stays empty)
 			}
 			result.sourceMap.ranges.push_back(std::move(r));
 		}
