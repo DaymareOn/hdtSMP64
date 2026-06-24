@@ -63,10 +63,18 @@ namespace RE
 		BSTSmartPointer(std::nullptr_t) noexcept {}
 
 		explicit BSTSmartPointer(T* a_ptr) :
-			_ptr(a_ptr) { if (_ptr) _ptr->IncRef(); }
+			_ptr(a_ptr)
+		{
+			if (_ptr)
+				_ptr->IncRef();
+		}
 
 		BSTSmartPointer(const BSTSmartPointer& a_rhs) :
-			_ptr(a_rhs._ptr) { if (_ptr) _ptr->IncRef(); }
+			_ptr(a_rhs._ptr)
+		{
+			if (_ptr)
+				_ptr->IncRef();
+		}
 
 		BSTSmartPointer(BSTSmartPointer&& a_rhs) noexcept :
 			_ptr(a_rhs._ptr) { a_rhs._ptr = nullptr; }
@@ -74,7 +82,11 @@ namespace RE
 		// Covariant construction (store derived in a base-typed pointer).
 		template <class U>
 		BSTSmartPointer(const BSTSmartPointer<U>& a_rhs) :
-			_ptr(a_rhs.get()) { if (_ptr) _ptr->IncRef(); }
+			_ptr(a_rhs.get())
+		{
+			if (_ptr)
+				_ptr->IncRef();
+		}
 
 		~BSTSmartPointer() { release_(); }
 
@@ -209,10 +221,22 @@ namespace std
 // --- logging shim: core only uses logger::info; make all levels no-ops ------
 namespace logger
 {
-	template <class... Args> void trace(Args&&...) {}
-	template <class... Args> void debug(Args&&...) {}
-	template <class... Args> void info(Args&&...) {}
-	template <class... Args> void warn(Args&&...) {}
-	template <class... Args> void error(Args&&...) {}
-	template <class... Args> void critical(Args&&...) {}
+	template <class... Args>
+	void trace(Args&&...)
+	{}
+	template <class... Args>
+	void debug(Args&&...)
+	{}
+	template <class... Args>
+	void info(Args&&...)
+	{}
+	template <class... Args>
+	void warn(Args&&...)
+	{}
+	template <class... Args>
+	void error(Args&&...)
+	{}
+	template <class... Args>
+	void critical(Args&&...)
+	{}
 }
