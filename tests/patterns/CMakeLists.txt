@@ -20,6 +20,9 @@ add_executable(
 target_compile_features(xml_pattern_tests PRIVATE cxx_std_20)
 target_include_directories(xml_pattern_tests PRIVATE "${SOURCE_DIR}")
 
+# Repo root, so the suite can read and verify the shipped docs/examples sample.
+target_compile_definitions(xml_pattern_tests PRIVATE PATTERN_REPO_DIR="${ROOT_DIR}")
+
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
 	target_compile_options(xml_pattern_tests PRIVATE "/EHsc" "/permissive-" "/bigobj" "/utf-8")
 endif()

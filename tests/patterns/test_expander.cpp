@@ -9,6 +9,8 @@
 #include <pugixml.hpp>
 
 #include <cstring>
+#include <fstream>
+#include <sstream>
 #include <string>
 
 namespace
@@ -40,6 +42,16 @@ namespace
 	bool has(const std::string& hay, const std::string& needle)
 	{
 		return hay.find(needle) != std::string::npos;
+	}
+
+	std::string readFile(const std::string& path)
+	{
+		std::ifstream f(path, std::ios::binary);
+		if (!f)
+			return "";
+		std::ostringstream ss;
+		ss << f.rdbuf();
+		return ss.str();
 	}
 }
 
@@ -329,3 +341,17 @@ TEST_CASE("nested patterns attribute generated text to the innermost use")
 	CHECK(rng->patternName == "inner");  // innermost wins
 	CHECK(rng->useLine == 3);            // the inner use sits inside outer's body on line 3
 }
+
+#ifdef PATTERN_REPO_DIR
+TEST_CASE("the shipped docs/examples sample expands to the documented element counts")
+{
+	const std::string xml = readFile(std::string(PATTERN_REPO_DIR) + "/docs/examples/patterns_cape_tissue.xml");
+	REQUIRE_FALSE(xml.empty());
+	const auto r = expandPatterns(xml);
+	REQUIRE(r.ok);
+	CHECK(countTag(r.xml, "pattern") == 0);                // every use is replaced
+	CHECK(countTag(r.xml, "pattern-default") == 0);        // every definition is removed
+	CHECK(countTag(r.xml, "bone") == 32);                  // cape 8 + tissue 6x4
+	CHECK(countTag(r.xml, "generic-constraint") == 22);    // cape 7 links + tissue 5x3 cross
+}
+#endif
