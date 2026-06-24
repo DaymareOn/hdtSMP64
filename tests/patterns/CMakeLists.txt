@@ -1,8 +1,8 @@
 # xml_pattern_tests - doctest unit suite for the SMP XML pattern expander (PLAN §10, decision D5).
 #
-# Built only when BUILD_PATTERN_TESTS is ON (a dev/CI tool, never packaged). The expander is pure
-# pugixml + STL, so this target links only pugixml + doctest - no CommonLibSSE, Bullet, or TBB - and it
-# compiles the engine source directly without the game's force-included src/PCH.h.
+# Built only when BUILD_PATTERN_TESTS is ON (a dev/CI tool, never packaged). The expander is pure pugixml + STL, so this
+# target links only pugixml + doctest - no CommonLibSSE, Bullet, or TBB - and it compiles the engine source directly
+# without the game's force-included src/PCH.h.
 
 set(ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../..")
 set(SOURCE_DIR "${ROOT_DIR}/src")
@@ -10,12 +10,8 @@ set(SOURCE_DIR "${ROOT_DIR}/src")
 find_package(pugixml CONFIG REQUIRED)
 find_package(doctest CONFIG REQUIRED)
 
-add_executable(
-	xml_pattern_tests
-	"${CMAKE_CURRENT_SOURCE_DIR}/main.cpp"
-	"${CMAKE_CURRENT_SOURCE_DIR}/test_expander.cpp"
-	"${SOURCE_DIR}/hdtXmlPatternExpander.cpp"
-	"${SOURCE_DIR}/hdtXmlPatternExpander.h")
+add_executable(xml_pattern_tests "${CMAKE_CURRENT_SOURCE_DIR}/main.cpp" "${CMAKE_CURRENT_SOURCE_DIR}/test_expander.cpp"
+								 "${SOURCE_DIR}/hdtXmlPatternExpander.cpp" "${SOURCE_DIR}/hdtXmlPatternExpander.h")
 
 target_compile_features(xml_pattern_tests PRIVATE cxx_std_20)
 target_include_directories(xml_pattern_tests PRIVATE "${SOURCE_DIR}")

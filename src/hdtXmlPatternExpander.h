@@ -75,8 +75,8 @@ namespace hdt
 	/// or buggy input; every cap converts an unbounded blow-up into a clean Error diagnostic.
 	struct PatternLimits
 	{
-		int maxRecursionDepth = 8;            ///< pattern-nested-in-pattern depth
-		long maxRepeatCount = 10000;          ///< upper bound on a single <repeat count>
+		int maxRecursionDepth = 8;                ///< pattern-nested-in-pattern depth
+		long maxRepeatCount = 10000;              ///< upper bound on a single <repeat count>
 		std::size_t maxExpandedElements = 50000;  ///< total elements emitted across the document
 	};
 

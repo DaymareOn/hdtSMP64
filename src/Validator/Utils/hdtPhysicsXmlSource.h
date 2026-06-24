@@ -1,6 +1,6 @@
 #pragma once
 
-#include "NetImmerseUtils.h"          // readAllFile2
+#include "NetImmerseUtils.h"  // readAllFile2
 #include "hdtPatternLibrary.h"
 #include "hdtXmlPatternExpander.h"
 

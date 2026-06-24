@@ -41,8 +41,7 @@ namespace hdt
 				return;
 
 			std::vector<fs::path> files;
-			for (fs::directory_iterator it(dir, ec), end; !ec && it != end; it.increment(ec))
-			{
+			for (fs::directory_iterator it(dir, ec), end; !ec && it != end; it.increment(ec)) {
 				if (!it->is_regular_file(ec))
 					continue;
 				std::string ext = it->path().extension().string();
@@ -53,8 +52,7 @@ namespace hdt
 			}
 			std::sort(files.begin(), files.end());
 
-			for (const fs::path& p : files)
-			{
+			for (const fs::path& p : files) {
 				std::string xml = readWholeFile(p);
 				if (!xml.empty())
 					g_libraries.push_back({ std::move(xml), p.filename().string() });

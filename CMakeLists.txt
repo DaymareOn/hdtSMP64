@@ -33,8 +33,8 @@ option(ENABLE_SKYRIM_VR "Enable support for Skyrim VR in the dynamic runtime fea
 #
 set(BUILD_TESTS OFF)
 
-# Standalone doctest suite for the SMP XML pattern expander (PLAN smp-xml-patterns, D5). OFF by
-# default so normal/packaged builds stay DLL-only; CI and local dev turn it ON to build + run the suite.
+# Standalone doctest suite for the SMP XML pattern expander (PLAN smp-xml-patterns, D5). OFF by default so
+# normal/packaged builds stay DLL-only; CI and local dev turn it ON to build + run the suite.
 option(BUILD_PATTERN_TESTS "Build the SMP XML pattern expander doctest suite" OFF)
 
 # default definitions

@@ -5,12 +5,12 @@ a cloth tissue, a chain) and then drop it in wherever you need it, instead of ha
 cluster of bones and constraints over and over.
 
 At load time FSMP **expands** every pattern into the ordinary `bone` / `generic-constraint` / etc.
-elements it stands for, *before* anything else looks at the file. The runtime physics loader, the XSD
+elements it stands for, _before_ anything else looks at the file. The runtime physics loader, the XSD
 validator, the Schematron rules, and the redundancy checker all see only the plain, expanded result —
 so a pattern can do nothing a hand-written file could not, it just saves you the typing.
 
 > **Two scopes:** you can define a pattern **in the same file** that uses it, or publish it in the
-> shared **global patterns folder** so other mods can use it too. See *Sharing patterns across mods*.
+> shared **global patterns folder** so other mods can use it too. See _Sharing patterns across mods_.
 
 ---
 
@@ -118,7 +118,7 @@ A complete, ready-to-read example lives next to this page at
 
 ## Patterns can use patterns
 
-A pattern's body may instantiate another pattern. Parameters passed in are evaluated in the *outer*
+A pattern's body may instantiate another pattern. Parameters passed in are evaluated in the _outer_
 scope (so you can forward a loop index), while the inner body sees only its own parameters. Nesting is
 bounded — a pattern that (directly or indirectly) uses itself forever stops with a clear error instead
 of hanging.
@@ -177,11 +177,11 @@ warning is logged — so namespace with `author=` and you never have to think ab
 Because XML comes from outside FSMP, expansion refuses to run away. Each of these turns a blow-up into a
 clean error rather than a freeze or a crash:
 
-| Limit | Default | Trips when |
-|-------|---------|-----------|
-| Recursion depth | 8 | patterns nest (or cycle) too deeply |
-| Per-`<repeat>` count | 10 000 | a single loop asks for too many copies |
-| Total elements | 50 000 | the whole file expands to too many elements |
+| Limit                | Default | Trips when                                  |
+| -------------------- | ------- | ------------------------------------------- |
+| Recursion depth      | 8       | patterns nest (or cycle) too deeply         |
+| Per-`<repeat>` count | 10 000  | a single loop asks for too many copies      |
+| Total elements       | 50 000  | the whole file expands to too many elements |
 
 ---
 
@@ -201,5 +201,5 @@ so you fix the pattern definition or the use, not the machine-generated XML you 
 ## Limitations (today)
 
 - **Diagnostics are line-precise, not character-precise.** A validator message points at the right
-  *source line* — the pattern use for generated content, the original line for hand-written content —
+  _source line_ — the pattern use for generated content, the original line for hand-written content —
   but does not yet pin the exact character inside a pattern definition.

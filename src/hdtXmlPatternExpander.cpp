@@ -108,12 +108,9 @@ namespace hdt
 			for (std::size_t j = i; j < s.size(); ++j)
 				if (!std::isdigit(static_cast<unsigned char>(s[j])))
 					return std::nullopt;
-			try
-			{
+			try {
 				return std::stol(s);
-			}
-			catch (...)
-			{
+			} catch (...) {
 				return std::nullopt;
 			}
 		}
@@ -138,33 +135,27 @@ namespace hdt
 		{
 			std::size_t i = start;
 			int depth = 0;
-			while (i < s.size())
-			{
-				if (s[i] != '<')
-				{
+			while (i < s.size()) {
+				if (s[i] != '<') {
 					++i;
 					continue;
 				}
-				if (s.compare(i, 4, "<!--") == 0)
-				{
+				if (s.compare(i, 4, "<!--") == 0) {
 					const std::size_t e = s.find("-->", i + 4);
 					i = (e == std::string::npos ? s.size() : e + 3);
 					continue;
 				}
-				if (s.compare(i, 9, "<![CDATA[") == 0)
-				{
+				if (s.compare(i, 9, "<![CDATA[") == 0) {
 					const std::size_t e = s.find("]]>", i + 9);
 					i = (e == std::string::npos ? s.size() : e + 3);
 					continue;
 				}
-				if (s.compare(i, 2, "<?") == 0)
-				{
+				if (s.compare(i, 2, "<?") == 0) {
 					const std::size_t e = s.find("?>", i + 2);
 					i = (e == std::string::npos ? s.size() : e + 2);
 					continue;
 				}
-				if (s.compare(i, 2, "</") == 0)
-				{
+				if (s.compare(i, 2, "</") == 0) {
 					const std::size_t e = s.find('>', i);
 					i = (e == std::string::npos ? s.size() : e + 1);
 					if (--depth <= 0)
@@ -191,8 +182,7 @@ namespace hdt
 		// an Error and returns false.
 		bool resolveExpr(Ctx& ctx, const std::string& expr, const Env& env, int line, std::string& out)
 		{
-			if (expr.empty() || !(std::isalpha(static_cast<unsigned char>(expr[0])) || expr[0] == '_'))
-			{
+			if (expr.empty() || !(std::isalpha(static_cast<unsigned char>(expr[0])) || expr[0] == '_')) {
 				ctx.error(line, "bad ${} expression '" + expr + "'");
 				return false;
 			}
@@ -203,41 +193,33 @@ namespace hdt
 			const std::string rest = expr.substr(k);
 
 			const EnvVal* v = lookup(env, name);
-			if (!v)
-			{
+			if (!v) {
 				ctx.error(line, "unknown variable '${" + name + "}'");
 				return false;
 			}
-			if (rest.empty())
-			{
+			if (rest.empty()) {
 				out = v->str;
 				return true;
 			}
 			// rest must be (+|-)digits. The base must be an integer: a loop variable always is; a
 			// parameter qualifies only if its value parses as one (so a bound like count="${rows-1}" works).
-			if (rest.size() < 2 || (rest[0] != '+' && rest[0] != '-'))
-			{
+			if (rest.size() < 2 || (rest[0] != '+' && rest[0] != '-')) {
 				ctx.error(line, "bad index expression '${" + expr + "}'");
 				return false;
 			}
 			long base = 0;
-			if (v->isInt)
-			{
+			if (v->isInt) {
 				base = v->i;
-			}
-			else
-			{
+			} else {
 				const std::optional<long> b = parseLong(v->str);
-				if (!b)
-				{
+				if (!b) {
 					ctx.error(line, "'${" + name + "}' is not an integer; index arithmetic needs one");
 					return false;
 				}
 				base = *b;
 			}
 			const std::optional<long> n = parseLong(rest);
-			if (!n)
-			{
+			if (!n) {
 				ctx.error(line, "bad index offset in '${" + expr + "}'");
 				return false;
 			}
@@ -254,13 +236,10 @@ namespace hdt
 			std::string out;
 			out.reserve(in.size());
 			std::size_t i = 0;
-			while (i < in.size())
-			{
-				if (in[i] == '$' && i + 1 < in.size() && in[i + 1] == '{')
-				{
+			while (i < in.size()) {
+				if (in[i] == '$' && i + 1 < in.size() && in[i + 1] == '{') {
 					const std::size_t close = in.find('}', i + 2);
-					if (close == std::string::npos)
-					{
+					if (close == std::string::npos) {
 						ctx.error(line, "unterminated ${ in '" + in + "'");
 						return out;
 					}
@@ -269,9 +248,7 @@ namespace hdt
 						return out;
 					out += val;
 					i = close + 1;
-				}
-				else
-				{
+				} else {
 					out += in[i++];
 				}
 			}
@@ -289,8 +266,7 @@ namespace hdt
 			ctx.sawAny = true;
 			const std::string name = node.attribute("name").value();
 			const int line = offsetToLine(srcText, node.offset_debug());
-			if (name.empty())
-			{
+			if (name.empty()) {
 				ctx.error(line, "<pattern-default> is missing a name");
 				return;
 			}
@@ -302,63 +278,50 @@ namespace hdt
 			def.src = &srcText;
 			def.origin = origin;
 			bool haveBody = false;
-			for (pugi::xml_node sub : node.children())
-			{
+			for (pugi::xml_node sub : node.children()) {
 				if (sub.type() != pugi::node_element)
 					continue;
 				const std::string tag = sub.name();
 				const int subLine = offsetToLine(srcText, sub.offset_debug());
-				if (tag == "param")
-				{
+				if (tag == "param") {
 					ParamDecl p;
 					p.name = sub.attribute("name").value();
-					if (p.name.empty())
-					{
+					if (p.name.empty()) {
 						ctx.error(subLine, "<param> is missing a name in pattern '" + fullName + "'", fullName);
 						return;
 					}
 					for (const ParamDecl& existing : def.params)
-						if (existing.name == p.name)
-						{
+						if (existing.name == p.name) {
 							ctx.error(subLine, "duplicate <param name='" + p.name + "'> in pattern '" + fullName + "'", fullName);
 							return;
 						}
-					if (pugi::xml_attribute d = sub.attribute("default"))
-					{
+					if (pugi::xml_attribute d = sub.attribute("default")) {
 						p.hasDefault = true;
 						p.defVal = d.value();
 					}
 					def.params.push_back(std::move(p));
-				}
-				else if (tag == "body")
-				{
-					if (haveBody)
-					{
+				} else if (tag == "body") {
+					if (haveBody) {
 						ctx.error(subLine, "pattern '" + fullName + "' has more than one <body>", fullName);
 						return;
 					}
 					def.body = sub;
 					haveBody = true;
-				}
-				else
-				{
+				} else {
 					ctx.error(subLine, "unexpected <" + tag + "> in pattern '" + fullName + "' (only <param>/<body> allowed)", fullName);
 					return;
 				}
 			}
-			if (!haveBody)
-			{
+			if (!haveBody) {
 				ctx.error(line, "pattern '" + fullName + "' has no <body>", fullName);
 				return;
 			}
 
 			auto& byVersion = ctx.defs[fullName];
 			const auto existing = byVersion.find(version);
-			if (existing != byVersion.end())
-			{
+			if (existing != byVersion.end()) {
 				const std::string vlabel = version.empty() ? "" : (" version '" + version + "'");
-				if (existing->second.origin == origin)
-				{
+				if (existing->second.origin == origin) {
 					ctx.error(line, "duplicate pattern '" + fullName + "'" + vlabel + " in " + origin, fullName);
 					return;
 				}
@@ -371,8 +334,7 @@ namespace hdt
 		// other, so we recurse only through ordinary elements.
 		void collectDefs(Ctx& ctx, const pugi::xml_node& n, const std::string& srcText, const std::string& origin)
 		{
-			for (pugi::xml_node child : n.children())
-			{
+			for (pugi::xml_node child : n.children()) {
 				if (ctx.aborted)
 					return;
 				if (child.type() != pugi::node_element)
@@ -389,17 +351,14 @@ namespace hdt
 		const PatternDef* resolveDef(Ctx& ctx, const std::string& name, const std::string& version, int line)
 		{
 			const auto it = ctx.defs.find(name);
-			if (it == ctx.defs.end())
-			{
+			if (it == ctx.defs.end()) {
 				ctx.error(line, "use of undefined pattern '" + name + "'", name);
 				return nullptr;
 			}
 			const auto& byVersion = it->second;
-			if (!version.empty())
-			{
+			if (!version.empty()) {
 				const auto v = byVersion.find(version);
-				if (v == byVersion.end())
-				{
+				if (v == byVersion.end()) {
 					ctx.error(line, "pattern '" + name + "' has no version '" + version + "'", name);
 					return nullptr;
 				}
@@ -424,51 +383,43 @@ namespace hdt
 		{
 			const int line = offsetToLine(srcText, rep.offset_debug());
 			const std::string var = rep.attribute("var").value();
-			if (var.empty())
-			{
+			if (var.empty()) {
 				ctx.error(line, "<repeat> is missing 'var'");
 				return;
 			}
 			pugi::xml_attribute countAttr = rep.attribute("count");
-			if (!countAttr)
-			{
+			if (!countAttr) {
 				ctx.error(line, "<repeat> is missing 'count'");
 				return;
 			}
 			const std::optional<long> count = parseLong(substitute(ctx, countAttr.value(), env, line));
 			if (ctx.aborted)
 				return;
-			if (!count)
-			{
+			if (!count) {
 				ctx.error(line, "<repeat count> is not an integer");
 				return;
 			}
-			if (*count < 0)
-			{
+			if (*count < 0) {
 				ctx.error(line, "<repeat count> is negative");
 				return;
 			}
-			if (*count > ctx.limits.maxRepeatCount)
-			{
+			if (*count > ctx.limits.maxRepeatCount) {
 				ctx.error(line, "<repeat count> " + std::to_string(*count) + " exceeds cap " + std::to_string(ctx.limits.maxRepeatCount));
 				return;
 			}
 			long from = 0;
-			if (pugi::xml_attribute fromAttr = rep.attribute("from"))
-			{
+			if (pugi::xml_attribute fromAttr = rep.attribute("from")) {
 				const std::optional<long> f = parseLong(substitute(ctx, fromAttr.value(), env, line));
 				if (ctx.aborted)
 					return;
-				if (!f)
-				{
+				if (!f) {
 					ctx.error(line, "<repeat from> is not an integer");
 					return;
 				}
 				from = *f;
 			}
 
-			for (long k = 0; k < *count && !ctx.aborted; ++k)
-			{
+			for (long k = 0; k < *count && !ctx.aborted; ++k) {
 				const long idx = from + k;
 				env.push_back({ var, EnvVal{ std::to_string(idx), true, idx } });
 				expandChildren(ctx, dest, rep, env, depth, srcText, generated);
@@ -483,8 +434,7 @@ namespace hdt
 		{
 			const int line = offsetToLine(srcText, use.offset_debug());
 			const std::string name = use.attribute("name").value();
-			if (name.empty())
-			{
+			if (name.empty()) {
 				ctx.error(line, "<pattern> is missing a name");
 				return;
 			}
@@ -492,8 +442,7 @@ namespace hdt
 			const PatternDef* defp = resolveDef(ctx, name, version, line);
 			if (!defp)
 				return;
-			if (depth + 1 > ctx.limits.maxRecursionDepth)
-			{
+			if (depth + 1 > ctx.limits.maxRecursionDepth) {
 				ctx.error(line, "pattern nesting deeper than " + std::to_string(ctx.limits.maxRecursionDepth) + " (cycle?)", name);
 				return;
 			}
@@ -501,16 +450,14 @@ namespace hdt
 
 			// Bind declared params from the use site or their defaults; a missing required param fails.
 			Env penv;
-			for (const ParamDecl& p : def.params)
-			{
+			for (const ParamDecl& p : def.params) {
 				pugi::xml_attribute a = use.attribute(p.name.c_str());
 				std::string val;
 				if (a)
 					val = substitute(ctx, a.value(), outer, line);
 				else if (p.hasDefault)
 					val = p.defVal;
-				else
-				{
+				else {
 					ctx.error(line, "pattern '" + name + "' is missing required param '" + p.name + "'", name);
 					return;
 				}
@@ -519,20 +466,17 @@ namespace hdt
 				penv.push_back({ p.name, EnvVal{ std::move(val), false, 0 } });
 			}
 			// Reject stray attributes on the use (catches typo'd param names); name/version are reserved.
-			for (pugi::xml_attribute a : use.attributes())
-			{
+			for (pugi::xml_attribute a : use.attributes()) {
 				const std::string an = a.name();
 				if (an == "name" || an == "version")
 					continue;
 				bool declared = false;
 				for (const ParamDecl& p : def.params)
-					if (p.name == an)
-					{
+					if (p.name == an) {
 						declared = true;
 						break;
 					}
-				if (!declared)
-				{
+				if (!declared) {
 					ctx.error(line, "pattern '" + name + "' has no param '" + an + "'", name);
 					return;
 				}
@@ -560,29 +504,24 @@ namespace hdt
 		// and comments/PIs/doctype passed through verbatim.
 		void expandChildren(Ctx& ctx, pugi::xml_node dest, const pugi::xml_node& src, Env& env, int depth, const std::string& srcText, bool generated)
 		{
-			for (pugi::xml_node child : src.children())
-			{
+			for (pugi::xml_node child : src.children()) {
 				if (ctx.aborted)
 					return;
 				const pugi::xml_node_type t = child.type();
-				if (t == pugi::node_element)
-				{
+				if (t == pugi::node_element) {
 					const std::string nm = child.name();
 					if (nm == "pattern-default")
 						continue;  // definitions are collected, never emitted
-					if (nm == "repeat")
-					{
+					if (nm == "repeat") {
 						handleRepeat(ctx, dest, child, env, depth, srcText, generated);
 						continue;
 					}
-					if (nm == "pattern")
-					{
+					if (nm == "pattern") {
 						handlePatternUse(ctx, dest, child, env, depth, srcText);
 						continue;
 					}
 					const int childLine = offsetToLine(srcText, child.offset_debug());
-					if (++ctx.elementCount > ctx.limits.maxExpandedElements)
-					{
+					if (++ctx.elementCount > ctx.limits.maxExpandedElements) {
 						ctx.error(childLine, "expanded document exceeds element cap " + std::to_string(ctx.limits.maxExpandedElements));
 						return;
 					}
@@ -595,18 +534,12 @@ namespace hdt
 					if (!generated)
 						ne.append_attribute("_fsmp_ln").set_value(std::to_string(childLine).c_str());
 					expandChildren(ctx, ne, child, env, depth, srcText, generated);
-				}
-				else if (t == pugi::node_pcdata || t == pugi::node_cdata)
-				{
+				} else if (t == pugi::node_pcdata || t == pugi::node_cdata) {
 					dest.append_child(t).set_value(substitute(ctx, child.value(), env, offsetToLine(srcText, child.offset_debug())).c_str());
-				}
-				else if (t == pugi::node_declaration)
-				{
+				} else if (t == pugi::node_declaration) {
 					// The output declaration is controlled by the serializer flags; skip the source copy
 					// so we never emit it twice.
-				}
-				else
-				{
+				} else {
 					dest.append_copy(child);  // comment / PI / doctype: passthrough
 				}
 			}
@@ -644,8 +577,7 @@ namespace hdt
 		pugi::xml_document doc;
 		const pugi::xml_parse_result pr =
 			doc.load_buffer(raw.data(), raw.size(), pugi::parse_full, pugi::encoding_utf8);
-		if (!pr)
-		{
+		if (!pr) {
 			result.ok = false;
 			result.diags.push_back(
 				{ PatternDiagSeverity::Error, std::string("XML parse error: ") + pr.description(), 0, {} });
@@ -656,10 +588,8 @@ namespace hdt
 
 		// Collect shared-library definitions first (in load order), then the file's own, so that the file
 		// -- and later libraries -- override earlier ones.
-		if (options.libraries)
-		{
-			for (const PatternLibrary& lib : *options.libraries)
-			{
+		if (options.libraries) {
+			for (const PatternLibrary& lib : *options.libraries) {
 				if (ctx.aborted)
 					break;
 				if (lib.xml.find("<pattern-default") == std::string::npos)
@@ -669,8 +599,7 @@ namespace hdt
 				pugi::xml_document& ldoc = *ctx.libDocs.back();
 				const pugi::xml_parse_result lr =
 					ldoc.load_buffer(lib.xml.data(), lib.xml.size(), pugi::parse_full, pugi::encoding_utf8);
-				if (!lr)
-				{
+				if (!lr) {
 					ctx.error(0, "pattern library '" + origin + "' parse error: " + lr.description());
 					break;
 				}
@@ -682,8 +611,7 @@ namespace hdt
 
 		pugi::xml_document out;
 		bool hasDecl = false;
-		if (!ctx.aborted)
-		{
+		if (!ctx.aborted) {
 			for (pugi::xml_node c : doc.children())
 				if (c.type() == pugi::node_declaration)
 					hasDecl = true;
@@ -692,16 +620,14 @@ namespace hdt
 		}
 
 		result.diags = std::move(ctx.diags);
-		if (ctx.aborted)
-		{
+		if (ctx.aborted) {
 			result.ok = false;  // result.xml stays == raw
 			return result;
 		}
 
 		// "<pattern" matched only a comment or attribute, not a real pattern element: nothing was
 		// transformed, so hand back the original bytes untouched and keep the byte-identity guarantee.
-		if (!ctx.sawAny)
-		{
+		if (!ctx.sawAny) {
 			result.ok = true;
 			result.changed = false;
 			return result;  // result.xml == raw
@@ -730,8 +656,7 @@ namespace hdt
 		std::vector<std::pair<std::size_t, std::size_t>> dels;  // marker substrings [start,end) to remove
 
 		const auto scanToken = [&](const std::string& token, bool isPattern) {
-			for (std::size_t p = marked.find(token); p != std::string::npos; p = marked.find(token, p + 1))
-			{
+			for (std::size_t p = marked.find(token); p != std::string::npos; p = marked.find(token, p + 1)) {
 				const std::size_t vstart = p + token.size();
 				const std::size_t vend = marked.find('"', vstart);
 				if (vend == std::string::npos)
@@ -753,8 +678,7 @@ namespace hdt
 		std::string clean;
 		clean.reserve(marked.size());
 		std::size_t cur = 0;
-		for (const auto& d : dels)
-		{
+		for (const auto& d : dels) {
 			clean.append(marked, cur, d.first - cur);
 			cur = d.second;
 		}
@@ -765,8 +689,7 @@ namespace hdt
 		std::vector<std::size_t> delEnd;
 		std::vector<std::size_t> removedBefore;  // removedBefore[k] = bytes removed by the first k dels
 		removedBefore.push_back(0);
-		for (const auto& d : dels)
-		{
+		for (const auto& d : dels) {
 			delEnd.push_back(d.second);
 			removedBefore.push_back(removedBefore.back() + (d.second - d.first));
 		}
@@ -776,21 +699,16 @@ namespace hdt
 			return pos - removedBefore[k];
 		};
 
-		for (const Marker& m : markers)
-		{
+		for (const Marker& m : markers) {
 			PatternRange r;
 			r.lo = mapOffset(m.lo);
 			r.hi = mapOffset(m.hi);
-			if (m.isPattern)
-			{
-				if (m.value >= 0 && static_cast<std::size_t>(m.value) < ctx.patUses.size())
-				{
+			if (m.isPattern) {
+				if (m.value >= 0 && static_cast<std::size_t>(m.value) < ctx.patUses.size()) {
 					r.patternName = ctx.patUses[m.value].first;
 					r.useLine = ctx.patUses[m.value].second;
 				}
-			}
-			else
-			{
+			} else {
 				r.useLine = m.value;  // hand-written: original source line (patternName stays empty)
 			}
 			result.sourceMap.ranges.push_back(std::move(r));

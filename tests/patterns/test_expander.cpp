@@ -17,10 +17,8 @@ namespace
 {
 	void countRec(const pugi::xml_node& n, const char* tag, int& c)
 	{
-		for (pugi::xml_node ch : n.children())
-		{
-			if (ch.type() == pugi::node_element)
-			{
+		for (pugi::xml_node ch : n.children()) {
+			if (ch.type() == pugi::node_element) {
 				if (std::strcmp(ch.name(), tag) == 0)
 					++c;
 				countRec(ch, tag, c);
@@ -159,8 +157,8 @@ TEST_CASE("a cape: <repeat> with count and from unrolls a 1-D chain")
 		"<pattern name=\"cape\" p=\"K\"/></system>";
 	const auto r = expandPatterns(xml);
 	REQUIRE(r.ok);
-	CHECK(countTag(r.xml, "bone") == 3);                  // K_0, K_1, K_2
-	CHECK(countTag(r.xml, "generic-constraint") == 2);   // 0-1, 1-2
+	CHECK(countTag(r.xml, "bone") == 3);                // K_0, K_1, K_2
+	CHECK(countTag(r.xml, "generic-constraint") == 2);  // 0-1, 1-2
 	CHECK(has(r.xml, "name=\"K_2\""));
 	CHECK(has(r.xml, "bodyA=\"K_0\""));
 	CHECK(has(r.xml, "bodyB=\"K_2\""));
@@ -207,11 +205,11 @@ TEST_CASE("a tissue: nested <repeat> + index arithmetic builds a 2-D grid with d
 		"<pattern name=\"tissue\" p=\"T\" rows=\"3\" cols=\"3\"/></system>";
 	const auto r = expandPatterns(xml);
 	REQUIRE(r.ok);
-	CHECK(countTag(r.xml, "bone") == 9);                 // 3x3
-	CHECK(countTag(r.xml, "generic-constraint") == 4);   // 2x2 diagonals
+	CHECK(countTag(r.xml, "bone") == 9);                // 3x3
+	CHECK(countTag(r.xml, "generic-constraint") == 4);  // 2x2 diagonals
 	CHECK(has(r.xml, "name=\"T_2_2\""));
 	CHECK(has(r.xml, "bodyA=\"T_1_1\""));
-	CHECK(has(r.xml, "bodyB=\"T_2_2\""));                // i=1,j=1 -> i+1,j+1
+	CHECK(has(r.xml, "bodyB=\"T_2_2\""));  // i=1,j=1 -> i+1,j+1
 }
 
 TEST_CASE("index arithmetic on a non-integer value is an error")
@@ -302,12 +300,12 @@ TEST_CASE("the source map attributes generated text to the pattern and its use l
 {
 	const std::string xml =
 		"<system>\n"                                  // line 1
-		"  <pattern-default name=\"cape\">\n"          // line 2
-		"    <param name=\"p\"/>\n"                    // line 3
-		"    <body><bone name=\"${p}_0\"/></body>\n"   // line 4
-		"  </pattern-default>\n"                       // line 5
-		"  <pattern name=\"cape\" p=\"K\"/>\n"         // line 6
-		"</system>\n";                                 // line 7
+		"  <pattern-default name=\"cape\">\n"         // line 2
+		"    <param name=\"p\"/>\n"                   // line 3
+		"    <body><bone name=\"${p}_0\"/></body>\n"  // line 4
+		"  </pattern-default>\n"                      // line 5
+		"  <pattern name=\"cape\" p=\"K\"/>\n"        // line 6
+		"</system>\n";                                // line 7
 	const auto r = expandPatterns(xml);
 	REQUIRE(r.ok);
 	CHECK_FALSE(has(r.xml, "_fsmp_pat"));  // both transient markers fully stripped
@@ -331,16 +329,16 @@ TEST_CASE("the source map attributes generated text to the pattern and its use l
 TEST_CASE("hand-written content keeps its original line even when a pattern expands above it")
 {
 	const std::string xml =
-		"<system>\n"                                       // 1
+		"<system>\n"                                           // 1
 		"  <pattern-default name=\"p\"><param name=\"n\"/>\n"  // 2
-		"    <body>\n"                                     // 3
-		"      <bone name=\"${n}_0\"/>\n"                  // 4
-		"      <bone name=\"${n}_1\"/>\n"                  // 5
-		"      <bone name=\"${n}_2\"/>\n"                  // 6
-		"    </body>\n"                                    // 7
-		"  </pattern-default>\n"                           // 8
-		"  <pattern name=\"p\" n=\"A\"/>\n"                // 9  (expands to 3 bones, shifting lines below)
-		"  <bone name=\"handwritten\"/>\n"                 // 10
+		"    <body>\n"                                         // 3
+		"      <bone name=\"${n}_0\"/>\n"                      // 4
+		"      <bone name=\"${n}_1\"/>\n"                      // 5
+		"      <bone name=\"${n}_2\"/>\n"                      // 6
+		"    </body>\n"                                        // 7
+		"  </pattern-default>\n"                               // 8
+		"  <pattern name=\"p\" n=\"A\"/>\n"                    // 9  (expands to 3 bones, shifting lines below)
+		"  <bone name=\"handwritten\"/>\n"                     // 10
 		"</system>\n";
 	const auto r = expandPatterns(xml);
 	REQUIRE(r.ok);
@@ -355,10 +353,10 @@ TEST_CASE("hand-written content keeps its original line even when a pattern expa
 TEST_CASE("nested patterns attribute generated text to the innermost use")
 {
 	const std::string xml =
-		"<system>\n"                                                                                            // 1
-		"<pattern-default name=\"inner\"><param name=\"x\"/><body><bone name=\"${x}\"/></body></pattern-default>\n"  // 2
+		"<system>\n"                                                                                                                // 1
+		"<pattern-default name=\"inner\"><param name=\"x\"/><body><bone name=\"${x}\"/></body></pattern-default>\n"                 // 2
 		"<pattern-default name=\"outer\"><param name=\"y\"/><body><pattern name=\"inner\" x=\"${y}\"/></body></pattern-default>\n"  // 3
-		"<pattern name=\"outer\" y=\"Z\"/>\n"                                                                    // 4
+		"<pattern name=\"outer\" y=\"Z\"/>\n"                                                                                       // 4
 		"</system>\n";
 	const auto r = expandPatterns(xml);
 	REQUIRE(r.ok);
@@ -488,9 +486,9 @@ TEST_CASE("the shipped docs/examples sample expands to the documented element co
 	REQUIRE_FALSE(xml.empty());
 	const auto r = expandPatterns(xml);
 	REQUIRE(r.ok);
-	CHECK(countTag(r.xml, "pattern") == 0);                // every use is replaced
-	CHECK(countTag(r.xml, "pattern-default") == 0);        // every definition is removed
-	CHECK(countTag(r.xml, "bone") == 32);                  // cape 8 + tissue 6x4
-	CHECK(countTag(r.xml, "generic-constraint") == 22);    // cape 7 links + tissue 5x3 cross
+	CHECK(countTag(r.xml, "pattern") == 0);              // every use is replaced
+	CHECK(countTag(r.xml, "pattern-default") == 0);      // every definition is removed
+	CHECK(countTag(r.xml, "bone") == 32);                // cape 8 + tissue 6x4
+	CHECK(countTag(r.xml, "generic-constraint") == 22);  // cape 7 links + tissue 5x3 cross
 }
 #endif
