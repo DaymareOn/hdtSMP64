@@ -5,6 +5,7 @@
 #include <cctype>
 #include <cstdlib>
 #include <map>
+#include <memory>
 #include <optional>
 #include <sstream>
 #include <string>
@@ -48,7 +49,9 @@ namespace hdt
 		struct PatternDef
 		{
 			std::vector<ParamDecl> params;
-			pugi::xml_node body;  // points into the original parsed document
+			pugi::xml_node body;               // points into the document (file or library) that declared it
+			const std::string* src = nullptr;  // that document's text, for line numbers in body diagnostics
+			std::string origin;                // "<file>" or a library origin, for conflict messages
 		};
 
 		// Shared mutable state for one expansion run. `aborted` latches on the first Error so the
@@ -57,7 +60,9 @@ namespace hdt
 		{
 			const std::string& raw;
 			const PatternLimits& limits;
-			std::map<std::string, PatternDef> defs;
+			// fullName (author.name) -> version ("" = unversioned) -> definition.
+			std::map<std::string, std::map<std::string, PatternDef>> defs;
+			std::vector<std::unique_ptr<pugi::xml_document>> libDocs;  ///< owns parsed library documents
 			std::vector<PatternDiag> diags;
 			std::vector<std::pair<std::string, int>> patUses;  ///< per <pattern> use: (name, source line)
 			std::size_t elementCount = 0;
@@ -69,6 +74,10 @@ namespace hdt
 			{
 				diags.push_back({ PatternDiagSeverity::Error, std::move(msg), line, std::move(pat) });
 				aborted = true;
+			}
+			void warn(int line, std::string msg, std::string pat = {})
+			{
+				diags.push_back({ PatternDiagSeverity::Warning, std::move(msg), line, std::move(pat) });
 			}
 		};
 
@@ -118,11 +127,6 @@ namespace hdt
 				if (s[i] == '\n')
 					++line;
 			return line;
-		}
-
-		int lineOf(const Ctx& ctx, const pugi::xml_node& n)
-		{
-			return offsetToLine(ctx.raw, n.offset_debug());
 		}
 
 		// Offset just past the element whose opening '<' is at `start`, found by a name-agnostic tag
@@ -275,42 +279,47 @@ namespace hdt
 
 		// ── Definition collection ───────────────────────────────────────────────
 
-		void registerDef(Ctx& ctx, const pugi::xml_node& node)
+		// Registers one <pattern-default> from a given source document (`srcText`/`origin`). The name is
+		// namespaced by an optional author=, qualified by an optional version=. Conflict policy: a clash
+		// within one source is an error; a clash across sources (a library overriding another, or the file
+		// overriding a library) is a last-one-wins override with a warning.
+		void registerDef(Ctx& ctx, const pugi::xml_node& node, const std::string& srcText, const std::string& origin)
 		{
 			ctx.sawAny = true;
 			const std::string name = node.attribute("name").value();
-			const int line = lineOf(ctx, node);
+			const int line = offsetToLine(srcText, node.offset_debug());
 			if (name.empty())
 			{
 				ctx.error(line, "<pattern-default> is missing a name");
 				return;
 			}
-			if (ctx.defs.count(name))
-			{
-				ctx.error(line, "duplicate <pattern-default name='" + name + "'>", name);
-				return;
-			}
+			const std::string author = node.attribute("author").value();
+			const std::string fullName = author.empty() ? name : author + "." + name;
+			const std::string version = node.attribute("version").value();
 
 			PatternDef def;
+			def.src = &srcText;
+			def.origin = origin;
 			bool haveBody = false;
 			for (pugi::xml_node sub : node.children())
 			{
 				if (sub.type() != pugi::node_element)
 					continue;
 				const std::string tag = sub.name();
+				const int subLine = offsetToLine(srcText, sub.offset_debug());
 				if (tag == "param")
 				{
 					ParamDecl p;
 					p.name = sub.attribute("name").value();
 					if (p.name.empty())
 					{
-						ctx.error(lineOf(ctx, sub), "<param> is missing a name in pattern '" + name + "'", name);
+						ctx.error(subLine, "<param> is missing a name in pattern '" + fullName + "'", fullName);
 						return;
 					}
 					for (const ParamDecl& existing : def.params)
 						if (existing.name == p.name)
 						{
-							ctx.error(lineOf(ctx, sub), "duplicate <param name='" + p.name + "'> in pattern '" + name + "'", name);
+							ctx.error(subLine, "duplicate <param name='" + p.name + "'> in pattern '" + fullName + "'", fullName);
 							return;
 						}
 					if (pugi::xml_attribute d = sub.attribute("default"))
@@ -324,7 +333,7 @@ namespace hdt
 				{
 					if (haveBody)
 					{
-						ctx.error(lineOf(ctx, sub), "pattern '" + name + "' has more than one <body>", name);
+						ctx.error(subLine, "pattern '" + fullName + "' has more than one <body>", fullName);
 						return;
 					}
 					def.body = sub;
@@ -332,21 +341,34 @@ namespace hdt
 				}
 				else
 				{
-					ctx.error(lineOf(ctx, sub), "unexpected <" + tag + "> in pattern '" + name + "> (only <param>/<body> allowed)", name);
+					ctx.error(subLine, "unexpected <" + tag + "> in pattern '" + fullName + "' (only <param>/<body> allowed)", fullName);
 					return;
 				}
 			}
 			if (!haveBody)
 			{
-				ctx.error(line, "pattern '" + name + "' has no <body>", name);
+				ctx.error(line, "pattern '" + fullName + "' has no <body>", fullName);
 				return;
 			}
-			ctx.defs.emplace(name, std::move(def));
+
+			auto& byVersion = ctx.defs[fullName];
+			const auto existing = byVersion.find(version);
+			if (existing != byVersion.end())
+			{
+				const std::string vlabel = version.empty() ? "" : (" version '" + version + "'");
+				if (existing->second.origin == origin)
+				{
+					ctx.error(line, "duplicate pattern '" + fullName + "'" + vlabel + " in " + origin, fullName);
+					return;
+				}
+				ctx.warn(line, "pattern '" + fullName + "'" + vlabel + " from " + origin + " overrides the one from " + existing->second.origin, fullName);
+			}
+			byVersion[version] = std::move(def);
 		}
 
-		// Walks the original tree collecting every <pattern-default>. Definitions are not nested inside
-		// each other, so we recurse only through ordinary elements.
-		void collectDefs(Ctx& ctx, const pugi::xml_node& n)
+		// Walks a source tree collecting every <pattern-default>. Definitions are not nested inside each
+		// other, so we recurse only through ordinary elements.
+		void collectDefs(Ctx& ctx, const pugi::xml_node& n, const std::string& srcText, const std::string& origin)
 		{
 			for (pugi::xml_node child : n.children())
 			{
@@ -355,21 +377,51 @@ namespace hdt
 				if (child.type() != pugi::node_element)
 					continue;
 				if (std::string(child.name()) == "pattern-default")
-					registerDef(ctx, child);
+					registerDef(ctx, child, srcText, origin);
 				else
-					collectDefs(ctx, child);
+					collectDefs(ctx, child, srcText, origin);
 			}
+		}
+
+		// Resolves a <pattern name=... version=...> reference against the registry. Without an explicit
+		// version it prefers the unversioned definition, else the sole version, else it is ambiguous.
+		const PatternDef* resolveDef(Ctx& ctx, const std::string& name, const std::string& version, int line)
+		{
+			const auto it = ctx.defs.find(name);
+			if (it == ctx.defs.end())
+			{
+				ctx.error(line, "use of undefined pattern '" + name + "'", name);
+				return nullptr;
+			}
+			const auto& byVersion = it->second;
+			if (!version.empty())
+			{
+				const auto v = byVersion.find(version);
+				if (v == byVersion.end())
+				{
+					ctx.error(line, "pattern '" + name + "' has no version '" + version + "'", name);
+					return nullptr;
+				}
+				return &v->second;
+			}
+			const auto unversioned = byVersion.find("");
+			if (unversioned != byVersion.end())
+				return &unversioned->second;
+			if (byVersion.size() == 1)
+				return &byVersion.begin()->second;
+			ctx.error(line, "pattern '" + name + "' has multiple versions; add version=", name);
+			return nullptr;
 		}
 
 		// ── Expansion ───────────────────────────────────────────────────────────
 
-		void expandChildren(Ctx& ctx, pugi::xml_node dest, const pugi::xml_node& src, Env& env, int depth);
+		void expandChildren(Ctx& ctx, pugi::xml_node dest, const pugi::xml_node& src, Env& env, int depth, const std::string& srcText);
 
 		// Unrolls a <repeat var count [from]> by binding the loop variable and re-emitting its child
 		// template once per index. Nested repeats just recurse, giving 2-D grids.
-		void handleRepeat(Ctx& ctx, pugi::xml_node dest, const pugi::xml_node& rep, Env& env, int depth)
+		void handleRepeat(Ctx& ctx, pugi::xml_node dest, const pugi::xml_node& rep, Env& env, int depth, const std::string& srcText)
 		{
-			const int line = lineOf(ctx, rep);
+			const int line = offsetToLine(srcText, rep.offset_debug());
 			const std::string var = rep.attribute("var").value();
 			if (var.empty())
 			{
@@ -418,7 +470,7 @@ namespace hdt
 			{
 				const long idx = from + k;
 				env.push_back({ var, EnvVal{ std::to_string(idx), true, idx } });
-				expandChildren(ctx, dest, rep, env, depth);
+				expandChildren(ctx, dest, rep, env, depth, srcText);
 				env.pop_back();
 			}
 		}
@@ -426,27 +478,25 @@ namespace hdt
 		// Replaces a <pattern name=...> use with the parameter-bound body of its definition. Parameter
 		// values come from the use's attributes (substituted against the *outer* env, so ${i} from an
 		// enclosing repeat can be passed in); the body itself sees ONLY the parameters (hygienic).
-		void handlePatternUse(Ctx& ctx, pugi::xml_node dest, const pugi::xml_node& use, const Env& outer, int depth)
+		void handlePatternUse(Ctx& ctx, pugi::xml_node dest, const pugi::xml_node& use, const Env& outer, int depth, const std::string& srcText)
 		{
-			const int line = lineOf(ctx, use);
+			const int line = offsetToLine(srcText, use.offset_debug());
 			const std::string name = use.attribute("name").value();
 			if (name.empty())
 			{
 				ctx.error(line, "<pattern> is missing a name");
 				return;
 			}
-			const auto it = ctx.defs.find(name);
-			if (it == ctx.defs.end())
-			{
-				ctx.error(line, "use of undefined pattern '" + name + "'", name);
+			const std::string version = use.attribute("version").value();
+			const PatternDef* defp = resolveDef(ctx, name, version, line);
+			if (!defp)
 				return;
-			}
 			if (depth + 1 > ctx.limits.maxRecursionDepth)
 			{
 				ctx.error(line, "pattern nesting deeper than " + std::to_string(ctx.limits.maxRecursionDepth) + " (cycle?)", name);
 				return;
 			}
-			const PatternDef& def = it->second;
+			const PatternDef& def = *defp;
 
 			// Bind declared params from the use site or their defaults; a missing required param fails.
 			Env penv;
@@ -467,11 +517,11 @@ namespace hdt
 					return;
 				penv.push_back({ p.name, EnvVal{ std::move(val), false, 0 } });
 			}
-			// Reject stray attributes on the use site (catches typo'd param names instead of ignoring them).
+			// Reject stray attributes on the use (catches typo'd param names); name/version are reserved.
 			for (pugi::xml_attribute a : use.attributes())
 			{
 				const std::string an = a.name();
-				if (an == "name")
+				if (an == "name" || an == "version")
 					continue;
 				bool declared = false;
 				for (const ParamDecl& p : def.params)
@@ -490,7 +540,7 @@ namespace hdt
 			ctx.sawAny = true;
 			ctx.changed = true;
 			const pugi::xml_node before = dest.last_child();
-			expandChildren(ctx, dest, def.body, penv, depth + 1);
+			expandChildren(ctx, dest, def.body, penv, depth + 1, *def.src);
 			if (ctx.aborted)
 				return;
 
@@ -507,7 +557,7 @@ namespace hdt
 		// Copies `src`'s children into `dest`, transforming as it goes: <pattern-default> dropped,
 		// <repeat> unrolled, <pattern> expanded, every other element/text copied with ${...} substituted,
 		// and comments/PIs/doctype passed through verbatim.
-		void expandChildren(Ctx& ctx, pugi::xml_node dest, const pugi::xml_node& src, Env& env, int depth)
+		void expandChildren(Ctx& ctx, pugi::xml_node dest, const pugi::xml_node& src, Env& env, int depth, const std::string& srcText)
 		{
 			for (pugi::xml_node child : src.children())
 			{
@@ -521,27 +571,28 @@ namespace hdt
 						continue;  // definitions are collected, never emitted
 					if (nm == "repeat")
 					{
-						handleRepeat(ctx, dest, child, env, depth);
+						handleRepeat(ctx, dest, child, env, depth, srcText);
 						continue;
 					}
 					if (nm == "pattern")
 					{
-						handlePatternUse(ctx, dest, child, env, depth);
+						handlePatternUse(ctx, dest, child, env, depth, srcText);
 						continue;
 					}
+					const int childLine = offsetToLine(srcText, child.offset_debug());
 					if (++ctx.elementCount > ctx.limits.maxExpandedElements)
 					{
-						ctx.error(lineOf(ctx, child), "expanded document exceeds element cap " + std::to_string(ctx.limits.maxExpandedElements));
+						ctx.error(childLine, "expanded document exceeds element cap " + std::to_string(ctx.limits.maxExpandedElements));
 						return;
 					}
 					pugi::xml_node ne = dest.append_child(child.name());
 					for (pugi::xml_attribute a : child.attributes())
-						ne.append_attribute(a.name()).set_value(substitute(ctx, a.value(), env, lineOf(ctx, child)).c_str());
-					expandChildren(ctx, ne, child, env, depth);
+						ne.append_attribute(a.name()).set_value(substitute(ctx, a.value(), env, childLine).c_str());
+					expandChildren(ctx, ne, child, env, depth, srcText);
 				}
 				else if (t == pugi::node_pcdata || t == pugi::node_cdata)
 				{
-					dest.append_child(t).set_value(substitute(ctx, child.value(), env, lineOf(ctx, child)).c_str());
+					dest.append_child(t).set_value(substitute(ctx, child.value(), env, offsetToLine(srcText, child.offset_debug())).c_str());
 				}
 				else if (t == pugi::node_declaration)
 				{
@@ -568,11 +619,19 @@ namespace hdt
 
 	PatternExpansion expandPatterns(const std::string& raw, const PatternLimits& limits)
 	{
+		PatternOptions opts;
+		opts.limits = limits;
+		return expandPatterns(raw, opts);
+	}
+
+	PatternExpansion expandPatterns(const std::string& raw, const PatternOptions& options)
+	{
 		PatternExpansion result;
 		result.xml = raw;  // default: hand the original bytes back untouched
 
-		// Short-circuit: no pattern syntax at all -> never parse or serialize. The overwhelming majority
-		// of existing physics files hit this and stay byte-identical at zero cost.
+		// Short-circuit: a file with no pattern syntax uses no patterns (libraries are then irrelevant), so
+		// we never parse or serialize. The overwhelming majority of existing physics files hit this and
+		// stay byte-identical at zero cost.
 		if (raw.find("<pattern") == std::string::npos)
 			return result;
 
@@ -587,8 +646,33 @@ namespace hdt
 			return result;
 		}
 
-		Ctx ctx{ raw, limits };
-		collectDefs(ctx, doc);
+		Ctx ctx{ raw, options.limits };
+
+		// Collect shared-library definitions first (in load order), then the file's own, so that the file
+		// -- and later libraries -- override earlier ones.
+		if (options.libraries)
+		{
+			for (const PatternLibrary& lib : *options.libraries)
+			{
+				if (ctx.aborted)
+					break;
+				if (lib.xml.find("<pattern-default") == std::string::npos)
+					continue;  // nothing to collect from this library; skip the parse
+				const std::string origin = lib.origin.empty() ? std::string("<library>") : lib.origin;
+				ctx.libDocs.push_back(std::make_unique<pugi::xml_document>());
+				pugi::xml_document& ldoc = *ctx.libDocs.back();
+				const pugi::xml_parse_result lr =
+					ldoc.load_buffer(lib.xml.data(), lib.xml.size(), pugi::parse_full, pugi::encoding_utf8);
+				if (!lr)
+				{
+					ctx.error(0, "pattern library '" + origin + "' parse error: " + lr.description());
+					break;
+				}
+				collectDefs(ctx, ldoc, lib.xml, origin);
+			}
+		}
+		if (!ctx.aborted)
+			collectDefs(ctx, doc, raw, "<file>");
 
 		pugi::xml_document out;
 		bool hasDecl = false;
@@ -598,7 +682,7 @@ namespace hdt
 				if (c.type() == pugi::node_declaration)
 					hasDecl = true;
 			Env env;
-			expandChildren(ctx, out, doc, env, 0);
+			expandChildren(ctx, out, doc, env, 0, raw);
 		}
 
 		result.diags = std::move(ctx.diags);

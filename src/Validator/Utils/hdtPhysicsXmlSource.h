@@ -1,6 +1,7 @@
 #pragma once
 
 #include "NetImmerseUtils.h"          // readAllFile2
+#include "hdtPatternLibrary.h"
 #include "hdtXmlPatternExpander.h"
 
 #include <string>
@@ -34,7 +35,9 @@ namespace hdt
 		const std::string raw = readAllFile2(path.c_str());
 		if (raw.empty())
 			return s;
-		PatternExpansion ex = expandPatterns(raw);
+		PatternOptions opts;
+		opts.libraries = &getGlobalPatternLibraries();
+		PatternExpansion ex = expandPatterns(raw, opts);
 		s.xml = std::move(ex.xml);
 		s.ok = ex.ok;
 		s.diags = std::move(ex.diags);

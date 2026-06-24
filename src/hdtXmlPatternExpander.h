@@ -80,6 +80,23 @@ namespace hdt
 		std::size_t maxExpandedElements = 50000;  ///< total elements emitted across the document
 	};
 
+	/// A document of <pattern-default> definitions made available to every file's expansion -- e.g. one
+	/// file from the global patterns/ folder. `origin` labels it for diagnostics and sets load order:
+	/// when two libraries (or a library and the file) define the same pattern, the one applied later wins.
+	struct PatternLibrary
+	{
+		std::string xml;
+		std::string origin;
+	};
+
+	/// Everything expansion needs besides the document itself: the safety caps plus any shared pattern
+	/// libraries whose definitions are visible in addition to the file's own <pattern-default>s.
+	struct PatternOptions
+	{
+		PatternLimits limits;
+		const std::vector<PatternLibrary>* libraries = nullptr;  ///< load order; later entries override earlier
+	};
+
 	/// Result of expansion. On success `xml` is the rewritten document; on failure (`ok == false`)
 	/// `xml` is the original input unchanged and `diags` explains why -- callers must NOT feed a
 	/// failed/half-expanded document to a parser (fail closed).
@@ -99,7 +116,9 @@ namespace hdt
 	///      untouched with no parsing. The vast majority of existing files hit this path and stay
 	///      byte-identical at zero cost.
 	///   2. Parse `raw` with pugixml (full fidelity: comments, PIs, declaration preserved).
-	///   3. Collect every <pattern-default> as a named definition (its <param> list + <body>).
+	///   3. Collect every <pattern-default> -- first from `options.libraries` (in load order), then from
+	///      the file -- into a registry keyed by namespaced name (author.name) and version; a later
+	///      definition of the same key overrides an earlier one (the file overrides a library).
 	///   4. Rebuild the tree: copy ordinary nodes through, dropping <pattern-default> definitions and
 	///      replacing each <pattern> use with its body -- with ${param} / ${loopVar} / ${loopVar±N}
 	///      substituted and <repeat> loops unrolled (nested repeats give 2-D grids).
@@ -108,5 +127,8 @@ namespace hdt
 	/// Fail closed: an undefined pattern, a missing required parameter, an unknown ${x}, a bad or
 	/// over-cap <repeat count>, exceeding the recursion/element caps, or a parse failure all yield
 	/// `ok == false` with `xml == raw`.
-	PatternExpansion expandPatterns(const std::string& raw, const PatternLimits& limits = {});
+	PatternExpansion expandPatterns(const std::string& raw, const PatternOptions& options = {});
+
+	/// Convenience overload with no shared libraries -- expands only the file's own patterns.
+	PatternExpansion expandPatterns(const std::string& raw, const PatternLimits& limits);
 }

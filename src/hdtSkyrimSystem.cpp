@@ -3,6 +3,7 @@
 
 #include "HavokUtils.h"
 #include "XmlReader.h"
+#include "hdtPatternLibrary.h"
 #include "hdtSkyrimPhysicsWorld.h"
 #include "hdtXmlPatternExpander.h"
 
@@ -213,8 +214,11 @@ namespace hdt
 		m_filePath = path;
 
 		// Expand any <pattern> macros before parsing, so the loader sees only ordinary SMP elements.
+		// Shared definitions from the global patterns/ folder are visible alongside the file's own.
 		// Fail closed on a malformed pattern: no physics for this item (the asset validator reports why).
-		PatternExpansion expanded = expandPatterns(loaded);
+		PatternOptions patternOpts;
+		patternOpts.libraries = &getGlobalPatternLibraries();
+		PatternExpansion expanded = expandPatterns(loaded, patternOpts);
 		if (!expanded.ok) {
 			logger::error("[SMP] pattern expansion failed for '{}': {}", path.c_str(),
 				expanded.diags.empty() ? "unknown error" : expanded.diags.front().message.c_str());

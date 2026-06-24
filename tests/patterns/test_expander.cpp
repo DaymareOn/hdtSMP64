@@ -342,6 +342,117 @@ TEST_CASE("nested patterns attribute generated text to the innermost use")
 	CHECK(rng->useLine == 3);            // the inner use sits inside outer's body on line 3
 }
 
+// ── Shared libraries, namespacing, versioning (cross-mod reuse) ─────────────────
+
+TEST_CASE("a shared library definition can be used by a file")
+{
+	const std::string lib =
+		"<patterns><pattern-default name=\"cape\"><param name=\"p\"/>"
+		"<body><bone name=\"${p}_0\"/></body></pattern-default></patterns>";
+	std::vector<hdt::PatternLibrary> libs{ { lib, "libA" } };
+	hdt::PatternOptions opts;
+	opts.libraries = &libs;
+	const auto r = expandPatterns("<system><pattern name=\"cape\" p=\"K\"/></system>", opts);
+	REQUIRE(r.ok);
+	CHECK(has(r.xml, "name=\"K_0\""));
+	CHECK(countTag(r.xml, "bone") == 1);
+}
+
+TEST_CASE("author= namespaces a library pattern")
+{
+	const std::string lib =
+		"<patterns><pattern-default name=\"cape\" author=\"myMod\">"
+		"<body><bone name=\"x\"/></body></pattern-default></patterns>";
+	std::vector<hdt::PatternLibrary> libs{ { lib, "libA" } };
+	hdt::PatternOptions opts;
+	opts.libraries = &libs;
+
+	const auto ok = expandPatterns("<system><pattern name=\"myMod.cape\"/></system>", opts);
+	REQUIRE(ok.ok);
+	CHECK(has(ok.xml, "name=\"x\""));
+
+	const auto bad = expandPatterns("<system><pattern name=\"cape\"/></system>", opts);  // un-namespaced
+	CHECK_FALSE(bad.ok);
+	REQUIRE_FALSE(bad.diags.empty());
+	CHECK(has(bad.diags[0].message, "undefined"));
+}
+
+TEST_CASE("version= pins which definition a use resolves to")
+{
+	const std::string lib =
+		"<patterns>"
+		"<pattern-default name=\"c\" version=\"1\"><body><bone name=\"v1\"/></body></pattern-default>"
+		"<pattern-default name=\"c\" version=\"2\"><body><bone name=\"v2\"/></body></pattern-default>"
+		"</patterns>";
+	std::vector<hdt::PatternLibrary> libs{ { lib, "libA" } };
+	hdt::PatternOptions opts;
+	opts.libraries = &libs;
+
+	const auto pinned = expandPatterns("<system><pattern name=\"c\" version=\"2\"/></system>", opts);
+	REQUIRE(pinned.ok);
+	CHECK(has(pinned.xml, "name=\"v2\""));
+	CHECK_FALSE(has(pinned.xml, "name=\"v1\""));
+
+	const auto ambiguous = expandPatterns("<system><pattern name=\"c\"/></system>", opts);  // no version
+	CHECK_FALSE(ambiguous.ok);
+	REQUIRE_FALSE(ambiguous.diags.empty());
+	CHECK(has(ambiguous.diags[0].message, "multiple versions"));
+
+	const auto missing = expandPatterns("<system><pattern name=\"c\" version=\"9\"/></system>", opts);
+	CHECK_FALSE(missing.ok);
+	REQUIRE_FALSE(missing.diags.empty());
+	CHECK(has(missing.diags[0].message, "no version"));
+}
+
+TEST_CASE("the later library wins a name clash, with a warning")
+{
+	const std::string libA = "<patterns><pattern-default name=\"c\"><body><bone name=\"A\"/></body></pattern-default></patterns>";
+	const std::string libB = "<patterns><pattern-default name=\"c\"><body><bone name=\"B\"/></body></pattern-default></patterns>";
+	std::vector<hdt::PatternLibrary> libs{ { libA, "libA" }, { libB, "libB" } };
+	hdt::PatternOptions opts;
+	opts.libraries = &libs;
+	const auto r = expandPatterns("<system><pattern name=\"c\"/></system>", opts);
+	REQUIRE(r.ok);  // override is a warning, not an error
+	CHECK(has(r.xml, "name=\"B\""));
+	CHECK_FALSE(has(r.xml, "name=\"A\""));
+	bool warned = false;
+	for (const auto& d : r.diags)
+		if (d.severity == hdt::PatternDiagSeverity::Warning)
+			warned = true;
+	CHECK(warned);
+}
+
+TEST_CASE("a file definition overrides a library one of the same name")
+{
+	const std::string lib = "<patterns><pattern-default name=\"c\"><body><bone name=\"L\"/></body></pattern-default></patterns>";
+	std::vector<hdt::PatternLibrary> libs{ { lib, "libA" } };
+	hdt::PatternOptions opts;
+	opts.libraries = &libs;
+	const auto r = expandPatterns(
+		"<system><pattern-default name=\"c\"><body><bone name=\"F\"/></body></pattern-default>"
+		"<pattern name=\"c\"/></system>",
+		opts);
+	REQUIRE(r.ok);
+	CHECK(has(r.xml, "name=\"F\""));
+	CHECK_FALSE(has(r.xml, "name=\"L\""));
+}
+
+TEST_CASE("a duplicate definition within one library is an error")
+{
+	const std::string lib =
+		"<patterns>"
+		"<pattern-default name=\"c\"><body><bone name=\"a\"/></body></pattern-default>"
+		"<pattern-default name=\"c\"><body><bone name=\"b\"/></body></pattern-default>"
+		"</patterns>";
+	std::vector<hdt::PatternLibrary> libs{ { lib, "libA" } };
+	hdt::PatternOptions opts;
+	opts.libraries = &libs;
+	const auto r = expandPatterns("<system><pattern name=\"c\"/></system>", opts);
+	CHECK_FALSE(r.ok);
+	REQUIRE_FALSE(r.diags.empty());
+	CHECK(has(r.diags[0].message, "duplicate"));
+}
+
 #ifdef PATTERN_REPO_DIR
 TEST_CASE("the shipped docs/examples sample expands to the documented element counts")
 {
