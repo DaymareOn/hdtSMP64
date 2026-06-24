@@ -111,6 +111,8 @@ namespace hdt
 					ActorManager::instance()->m_skipDeadActors = reader.readBool();
 				} else if (reader.GetLocalName() == "minScreenSizePercent") {
 					ActorManager::instance()->m_minScreenSizePercent = std::clamp(reader.readFloat(), 0.f, 100.f);
+				} else if (reader.GetLocalName() == "worldCollision") {
+					ActorManager::instance()->m_enableWorldCollision = reader.readBool();
 				} else {
 					logger::warn("Unknown config : {}", reader.GetLocalName());
 					reader.skipCurrentElement();
@@ -221,6 +223,7 @@ namespace hdt
 		LOG("smp.disable1stPersonViewPhysics", a->m_disable1stPersonViewPhysics);
 		LOG("smp.skipDeadActors", a->m_skipDeadActors);
 		LOG("smp.minScreenSizePercent", a->m_minScreenSizePercent);
+		LOG("smp.worldCollision", a->m_enableWorldCollision);
 #undef LOG
 	}
 }

@@ -30,8 +30,14 @@ namespace hdt
 
 	void DefaultBBP::loadDefaultBBPs()
 	{
-		auto path = "SKSE/Plugins/hdtSkinnedMeshConfigs/defaultBBPs.xml";
+		loadBBP("SKSE/Plugins/hdtSkinnedMeshConfigs/defaultBBPs.xml");
+	}
 
+	// Parse a single "default-bbps" XML file and merge its <map shape=.. file=..> entries
+	// into bbpFileList and its <remap> entries into remaps. Returns silently when the file is
+	// missing or empty, so callers can reference optional files without guarding first.
+	void DefaultBBP::loadBBP(const char* path)
+	{
 		auto loaded = readAllFile(path);
 		if (loaded.empty())
 			return;

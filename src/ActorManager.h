@@ -136,6 +136,12 @@ namespace hdt
 			// @brief Get windfactor for skeleton
 			float getWindFactor();
 
+			// @brief Experimental: casts a ray along each of the 6 axes from this skeleton's position,
+			// and for every nearby static world object hit, registers it as an SMP obstruction (via
+			// ActorManager::World) so this actor's dynamic bones can collide with the world. Expired
+			// obstructions are pruned each call. Gated behind ActorManager::m_enableWorldCollision.
+			void manageWorldCollisions();
+
 			// @brief Updates the states and activity of skeletons, their heads parts and armors.
 			// @param playerCell The skeletons not in the player cell are automatically inactive.
 			// @param deactivate If set to true, the concerned skeleton will be inactive, regardless of other elements.
@@ -171,6 +177,53 @@ namespace hdt
 			std::vector<Armor> armors;
 		};
 
+		// @brief Experimental world-collision obstruction. When a skeleton raycast hits a nearby
+		// piece of static world geometry, that object's node subtree is cloned into the SMP scene
+		// so dynamic bones can collide with it. Each obstruction owns its cloned subtree and shares
+		// the World physics system; it is removed once its timeout counts down to zero.
+		struct Obstruction : public PhysicsItem
+		{
+			IDType id = 0;
+			std::string prefix;
+			RE::NiPointer<RE::NiAVObject> obstructingObject;  // the source world object that was hit
+			RE::NiPointer<RE::NiAVObject> clonedObject;       // top-level cloned subtree, child of the obstruction root
+			int timeout = 0;
+		};
+
+		// @brief Holds the SMP-side representation of nearby static world geometry. All cloned
+		// obstruction subtrees are parented under a single "obstruction" NiNode placed in the scene
+		// graph, and one shared SkyrimSystem turns them into colliders. Experimental and gated behind
+		// ActorManager::m_enableWorldCollision; the clone-and-simulate approach is expensive and
+		// still a prototype.
+		class World
+		{
+			RE::NiNode* m_world = nullptr;  // parent node of all obstruction clones
+			std::vector<Obstruction> m_obstructions;
+			std::unordered_map<RE::BSFixedString, RE::BSFixedString> m_renameMap;
+			DefaultBBP::PhysicsFile_t m_worldPhysicsItem;
+			RE::BSTSmartPointer<SkyrimSystem> m_system;
+			bool m_bbpLoaded = false;  // obstructionBBPs.xml is merged once, lazily
+
+		public:
+			static World* instance();
+
+			// @brief Lazily creates the obstruction root, clones attachedNode under it (registering a
+			// fresh Obstruction or refreshing an existing one), then (re)builds the shared physics system.
+			void attachObstruction(RE::NiNode* attachedNode, RE::NiAVObject* attachedObject);
+			// @brief Derives the per-entry prefix and merges the cloned subtree under the obstruction root.
+			void createObstruction(RE::NiNode* attachedNode, RE::NiAVObject* attachedObject);
+			// @brief Recursively merges src into dst by name: existing named nodes are descended into, and
+			// missing ones are cloned+attached. A clone landing directly under the obstruction root creates a
+			// new Obstruction; a deeper clone just refreshes the owning obstruction's timeout.
+			void mergeObstruction(RE::NiNode* dst, RE::NiNode* src, std::string_view prefix, std::unordered_map<RE::BSFixedString, RE::BSFixedString>& map);
+			// @brief Finds the Obstruction owning aObject, or nullptr if it isn't part of any obstruction.
+			Obstruction* getObstruction(RE::NiAVObject* aObject);
+			// @brief Walks up from aObject to the subtree node directly under the obstruction root.
+			RE::NiAVObject* getAncestorObstruction(RE::NiAVObject* aObject);
+			// @brief Decrements every obstruction's timeout each frame, detaching+releasing expired ones.
+			void pruneObstructions();
+		};
+
 		bool m_shutdown = false;
 		std::recursive_mutex m_lock;
 		std::vector<Skeleton> m_skeletons;
@@ -187,6 +240,7 @@ namespace hdt
 
 		static std::string armorPrefix(IDType id);
 		static std::string headPrefix(IDType id);
+		static std::string obstructionPrefix(IDType id);
 
 		/*
 		fix: take into account the unexpected armors names changes done by the Skyrim executable.
@@ -242,6 +296,12 @@ namespace hdt
 
 		// @brief When true, physics is skipped for dead non-player actors, to save performance.
 		bool m_skipDeadActors = false;
+
+		// @brief Experimental: when true, dynamic bones collide with nearby static world geometry
+		// (see Skeleton::manageWorldCollisions and ActorManager::World). On by default; overridable
+		// via the <worldCollision> bool in the <smp> config section. The raycast-clone-and-simulate
+		// mechanism is expensive and still a prototype, so it can be turned off in config.
+		bool m_enableWorldCollision = true;
 
 		// @brief Min percent of screen height a non-player skeleton must occupy to stay active; 0 = disabled. [0,100]
 		float m_minScreenSizePercent = 0.f;

@@ -20,6 +20,11 @@ namespace hdt
 		static DefaultBBP* instance();
 		PhysicsFile_t scanBBP(RE::NiNode* scan);
 
+		// Loads one "default-bbps" mapping file and merges its entries into the shape->file
+		// list and bone remaps. Public so optional extra mappings (e.g. obstructionBBPs.xml,
+		// used by the experimental world-collision feature) can be merged on top of the defaults.
+		void loadBBP(const char* path);
+
 	private:
 		DefaultBBP();
 
