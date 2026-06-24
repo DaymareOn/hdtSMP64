@@ -1,4 +1,5 @@
 #include "ActorManager.h"
+#include "CollisionMeshDebug.h"
 #include "Events.h"
 #include "Hooks.h"
 #include "PluginInterfaceImpl.h"
@@ -15,8 +16,17 @@
 #include <string_view>
 #include <thread>
 
+// Todo: Refactor these user input parsers
 namespace
 {
+	bool iequals(std::string_view lhs, std::string_view rhs)
+	{
+		return lhs.size() == rhs.size() &&
+		       std::equal(lhs.begin(), lhs.end(), rhs.begin(), [](char left, char right) {
+				   return std::tolower(static_cast<unsigned char>(left)) == std::tolower(static_cast<unsigned char>(right));
+			   });
+	}
+
 	std::uint64_t ParsePositiveDecimal(std::string_view a_value, std::uint64_t a_fallback)
 	{
 		if (a_value.empty()) {
@@ -31,6 +41,23 @@ namespace
 		}
 
 		return static_cast<std::uint64_t>(parsed);
+	}
+
+	std::optional<bool> parseEnabled(std::string_view value)
+	{
+		if (value.empty()) {
+			return std::nullopt;
+		}
+
+		if (iequals(value, "on"sv) || iequals(value, "true"sv) || iequals(value, "1"sv)) {
+			return true;
+		}
+
+		if (iequals(value, "off"sv) || iequals(value, "false"sv) || iequals(value, "0"sv)) {
+			return false;
+		}
+
+		return std::nullopt;
 	}
 }
 
@@ -374,6 +401,44 @@ bool SMPDebug_Execute(
 
 	if (_strnicmp(buffer, "list", MAX_PATH) == 0) {
 		SMPDebug_PrintDetailed(false);
+		return true;
+	}
+
+	if (_strnicmp(buffer, "collisions", MAX_PATH) == 0) {
+		std::optional<bool> enabled;
+		if (buffer2[0] != '\0') {
+			auto parsed = parseEnabled(buffer2);
+			if (!parsed) {
+				RE::ConsoleLog::GetSingleton()->Print("usage: smp collisions [on|off]");
+				return true;
+			}
+
+			enabled = *parsed;
+		}
+
+		const auto result = hdt::CollisionMeshDebug::applyToSelectedActor(enabled, a_thisObj);
+		switch (result.status) {
+		case hdt::CollisionMeshDebug::ApplyStatus::NoSelectedReference:
+			RE::ConsoleLog::GetSingleton()->Print("error: select an actor in the console before running smp collisions");
+			break;
+		case hdt::CollisionMeshDebug::ApplyStatus::SelectedReferenceIsNotActor:
+			RE::ConsoleLog::GetSingleton()->Print("error: selected reference is not an actor");
+			break;
+		case hdt::CollisionMeshDebug::ApplyStatus::NoTrackedPhysics:
+			RE::ConsoleLog::GetSingleton()->Print("HDT-SMP collision mesh visualization: selected actor has no tracked SMP physics");
+			break;
+		case hdt::CollisionMeshDebug::ApplyStatus::NoCollisionMeshes:
+			RE::ConsoleLog::GetSingleton()->Print("HDT-SMP collision mesh visualization: selected actor has no tracked collision meshes");
+			break;
+		case hdt::CollisionMeshDebug::ApplyStatus::Applied:
+			RE::ConsoleLog::GetSingleton()->Print(
+				"HDT-SMP collision mesh visualization %s for selected actor %08X: %llu geometries across %llu physics systems",
+				result.enabled ? "enabled" : "disabled",
+				result.actorFormID,
+				static_cast<unsigned long long>(result.geometries),
+				static_cast<unsigned long long>(result.systems));
+			break;
+		}
 		return true;
 	}
 
