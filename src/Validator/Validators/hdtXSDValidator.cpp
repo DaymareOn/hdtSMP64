@@ -3,6 +3,7 @@
 #include "../Config/hdtValidatorPaths.h"
 #include "../Parser/hdtXSDSchemaParser.h"
 #include "../Schema/hdtXSDSchemaModel.h"
+#include "../Utils/hdtPhysicsXmlSource.h"
 #include "../Utils/hdtStringUtils.h"
 #include "NetImmerseUtils.h"
 #include "XmlReader.h"
@@ -303,12 +304,21 @@ namespace hdt
 			return result;
 		}
 
-		// Physics XML configs are always loose files on disk, never BSA-packed.
-		auto bytes = readAllFile2(xmlPath.c_str());
+		// Validate the fully-expanded document. The XSD validator is the canonical reporter of
+		// structurally-broken physics XML, so it also surfaces pattern-expansion failures here.
+		PhysicsXmlSource src = readAndExpandPhysicsXml(xmlPath);
 
-		if (bytes.empty()) {
+		if (src.xml.empty()) {
 			result.isValid = false;
 			result.violations.push_back({ xmlPath, 0, 0, "", "File not found or empty" });
+			return result;
+		}
+		if (!src.ok) {
+			for (const auto& d : src.diags)
+				result.violations.push_back({ xmlPath, d.line, 0, "", "pattern expansion: " + d.message });
+			if (src.diags.empty())
+				result.violations.push_back({ xmlPath, 0, 0, "", "pattern expansion failed" });
+			result.isValid = false;
 			return result;
 		}
 
@@ -316,7 +326,7 @@ namespace hdt
 		ValidationContext ctx{ xmlPath, result.violations, {} };
 
 		try {
-			XMLReader reader((uint8_t*)bytes.data(), bytes.size());
+			XMLReader reader((uint8_t*)src.xml.data(), src.xml.size());
 			validateDocument(reader, ctx, schema);
 		} catch (const std::exception& e) {
 			result.violations.push_back({ xmlPath, 0, 0, "", std::string("XML parse error: ") + e.what() });

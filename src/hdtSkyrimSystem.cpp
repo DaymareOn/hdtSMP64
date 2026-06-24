@@ -4,6 +4,7 @@
 #include "HavokUtils.h"
 #include "XmlReader.h"
 #include "hdtSkyrimPhysicsWorld.h"
+#include "hdtXmlPatternExpander.h"
 
 // F16C isn't supported on super old processors. AVX2+ (AVX processors can have it, but not guaranteed)
 #if defined(__AVX2__) || defined(__AVX512F__)
@@ -210,6 +211,18 @@ namespace hdt
 		m_skeleton = skeleton;
 		m_model = model;
 		m_filePath = path;
+
+		// Expand any <pattern> macros before parsing, so the loader sees only ordinary SMP elements.
+		// Fail closed on a malformed pattern: no physics for this item (the asset validator reports why).
+		PatternExpansion expanded = expandPatterns(loaded);
+		if (!expanded.ok) {
+			logger::error("[SMP] pattern expansion failed for '{}': {}", path.c_str(),
+				expanded.diags.empty() ? "unknown error" : expanded.diags.front().message.c_str());
+			if (!old_system)
+				updateTransformUpDown(m_skeleton, true);
+			return nullptr;
+		}
+		loaded = std::move(expanded.xml);
 
 		XMLReader reader((uint8_t*)loaded.data(), loaded.size());
 		m_reader = &reader;
