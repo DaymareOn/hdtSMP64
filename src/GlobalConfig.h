@@ -37,6 +37,8 @@ namespace hdt
 		bool disable1stPersonViewPhysics = false;
 		bool skipDeadActors = false;
 		float minScreenSizePercent = 0.0f;
+		// Experimental: hair/cloth collide with nearby static world geometry (ActorManager::m_enableWorldCollision).
+		bool worldCollision = true;
 		// backupNodeByName has no menu control; it is preserved purely so a round-trip never drops it.
 		std::vector<std::string> backupNodeByName;
 
