@@ -82,6 +82,8 @@ set(SOURCE_FILES
 	"${SOURCE_DIR}/XmlInspector/XmlInspector.hpp"
 	"${SOURCE_DIR}/XmlReader.h"
 	"${SOURCE_DIR}/XmlReader.cpp"
+	"${SOURCE_DIR}/hdtXmlPatternExpander.h"
+	"${SOURCE_DIR}/hdtXmlPatternExpander.cpp"
 	"${SOURCE_DIR}/hdtStringUtils.h"
 	"${SOURCE_DIR}/NetImmerseUtils.h"
 	"${SOURCE_DIR}/Validator/hdtAssetValidator.cpp"

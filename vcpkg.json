@@ -17,6 +17,7 @@
     },
     "xbyak",
     "tbb",
-    "pugixml"
+    "pugixml",
+    "doctest"
   ]
 }
