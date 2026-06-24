@@ -9,9 +9,8 @@ elements it stands for, *before* anything else looks at the file. The runtime ph
 validator, the Schematron rules, and the redundancy checker all see only the plain, expanded result —
 so a pattern can do nothing a hand-written file could not, it just saves you the typing.
 
-> **Scope (current):** patterns are **file-local** — you define and use them in the same physics XML.
-> Sharing a pattern across mods (a global library other authors import) is planned but not yet
-> available. See *Limitations* below.
+> **Two scopes:** you can define a pattern **in the same file** that uses it, or publish it in the
+> shared **global patterns folder** so other mods can use it too. See *Sharing patterns across mods*.
 
 ---
 
@@ -126,6 +125,53 @@ of hanging.
 
 ---
 
+## Sharing patterns across mods
+
+To let other mods reuse your pattern, drop a file of `<pattern-default>`s into the shared folder:
+
+```
+Data/SKSE/Plugins/hdtSkinnedMeshConfigs/patterns/<yourMod>.xml
+```
+
+FSMP loads every `*.xml` there once at startup, and those definitions become visible to **every**
+physics file — the author of a consuming file just writes `<pattern name="..."/>` and never copies
+your definition.
+
+**Namespace your patterns** with `author=` so they cannot clash with someone else's `cape`:
+
+```xml
+<!-- patterns/myMod.xml -->
+<patterns>
+  <pattern-default name="cape" author="myMod">
+    <param name="prefix"/>
+    <body> ... </body>
+  </pattern-default>
+</patterns>
+```
+
+A consuming file refers to it by its full `author.name`:
+
+```xml
+<pattern name="myMod.cape" prefix="NPC_Cape"/>
+```
+
+**Version your patterns** with `version=` when you need to change one without breaking mods that rely
+on the old behavior. A use pins the version it wants:
+
+```xml
+<pattern-default name="cape" author="myMod" version="2"> ... </pattern-default>
+<pattern name="myMod.cape" version="2" prefix="NPC_Cape"/>
+```
+
+A use with no `version=` takes the unversioned definition, or the sole version if there is exactly one;
+if several versions exist and none is unversioned, the use must pin one (otherwise it is an error).
+
+**Resolution and conflicts.** A file's own `<pattern-default>` overrides a shared one of the same full
+name. If two shared files define the same full name, the one read later (by filename order) wins and a
+warning is logged — so namespace with `author=` and you never have to think about load order.
+
+---
+
 ## Safety limits
 
 Because XML comes from outside FSMP, expansion refuses to run away. Each of these turns a blow-up into a
@@ -154,11 +200,6 @@ so you fix the pattern definition or the use, not the machine-generated XML you 
 
 ## Limitations (today)
 
-- **File-local only.** A `<pattern-default>` is visible only within the file that declares it. A shared
-  cross-mod pattern library (import a `cape` someone else published) is planned, along with the
-  namespacing and versioning that safely sharing implies.
-- **Range-level diagnostics.** A validator message attributes generated content to the pattern and the
-  use-site line; it does not yet pin the exact character inside the definition.
-- **No external-editor schema yet.** The shipped `hdtSMP64.xsd` does not list `<pattern>` /
-  `<pattern-default>`, so an XML editor validating against it will flag them. FSMP itself expands them
-  before its own validation, so in-game and the FSMP validator are unaffected.
+- **Diagnostics are line-precise, not character-precise.** A validator message points at the right
+  *source line* — the pattern use for generated content, the original line for hand-written content —
+  but does not yet pin the exact character inside a pattern definition.
