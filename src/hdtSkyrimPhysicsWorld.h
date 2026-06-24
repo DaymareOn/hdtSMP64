@@ -7,8 +7,6 @@
 
 namespace hdt
 {
-	constexpr float RESET_PHYSICS = -10.0f;
-
 	class SkyrimPhysicsWorld :
 		protected SkinnedMeshWorld,
 		public RE::BSTEventSink<Events::FrameEvent>,
@@ -27,6 +25,7 @@ namespace hdt
 		void addSkinnedMeshSystem(SkinnedMeshSystem* system) override;
 		void removeSkinnedMeshSystem(SkinnedMeshSystem* system) override;
 		void removeSystemByNode(void* root);
+		using SkinnedMeshWorld::m_enableWind;  // re-expose through protected base inheritance
 		using SkinnedMeshWorld::updateConstraintsForBone;
 
 		void resetSystems();
@@ -89,7 +88,6 @@ namespace hdt
 		int m_sampleSize = 5;  // how many samples (each sample taken every second) for determining average time per activeSkeleton.
 
 		//wind settings
-		bool m_enableWind = true;
 		float m_windStrength = 2.0f;           // compare to gravity acceleration of 9.8
 		float m_distanceForNoWind = 50.0f;     // how close to wind obstruction to fully block wind
 		float m_distanceForMaxWind = 3000.0f;  // how far to wind obstruction to not block wind
