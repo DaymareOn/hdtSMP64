@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Example SMP physics file showing the two halves of a pattern: define with <pattern-default>,
+  instantiate with <pattern>. FSMP expands these into ordinary <bone>/<generic-constraint> elements
+  at load time, so the rest of the file (and every validator) sees only plain SMP.
+
+  This file is documentation, not a drop-in mod: the bone names and the "link"/"cross" constraint
+  templates are illustrative. See docs/SMP_XML_Patterns.md for the full reference.
+-->
+<system>
+
+  <!-- A constraint template the generated cape links reuse (ordinary SMP, nothing pattern-specific). -->
+  <generic-constraint-default name="link">
+    <linearLowerLimit x="0" y="0" z="0"/>
+    <linearUpperLimit x="0" y="0" z="0"/>
+    <angularLowerLimit x="-0.3" y="-0.3" z="-0.3"/>
+    <angularUpperLimit x="0.3" y="0.3" z="0.3"/>
+  </generic-constraint-default>
+
+  <generic-constraint-default name="cross" extends="link"/>
+
+  <!-- ===== Pattern: cape (a 1-D chain of bones linked head-to-tail) ===== -->
+  <pattern-default name="cape">
+    <param name="prefix"/>          <!-- required -->
+    <param name="rows" default="6"/>
+    <body>
+      <repeat var="i" count="${rows}">
+        <bone name="${prefix}_${i}"/>
+      </repeat>
+      <!-- link bone i-1 to bone i, for i = 1 .. rows-1 -->
+      <repeat var="i" count="${rows-1}" from="1">
+        <generic-constraint bodyA="${prefix}_${i-1}" bodyB="${prefix}_${i}" template="link"/>
+      </repeat>
+    </body>
+  </pattern-default>
+
+  <!-- ===== Pattern: tissue (a 2-D grid with diagonal cross-links) ===== -->
+  <pattern-default name="tissue">
+    <param name="prefix"/>
+    <param name="rows"/>
+    <param name="cols"/>
+    <body>
+      <repeat var="i" count="${rows}">
+        <repeat var="j" count="${cols}">
+          <bone name="${prefix}_${i}_${j}"/>
+        </repeat>
+      </repeat>
+      <!-- diagonal cross-links; rows-1 / cols-1 keeps every neighbour in range -->
+      <repeat var="i" count="${rows-1}">
+        <repeat var="j" count="${cols-1}">
+          <generic-constraint bodyA="${prefix}_${i}_${j}" bodyB="${prefix}_${i+1}_${j+1}" template="cross"/>
+        </repeat>
+      </repeat>
+    </body>
+  </pattern-default>
+
+  <!-- ===== Use the patterns ===== -->
+
+  <!-- An 8-bone cape: expands to NPC_Cape_0 .. NPC_Cape_7 plus 7 link constraints. -->
+  <pattern name="cape" prefix="NPC_Cape" rows="8"/>
+
+  <!-- A 6x4 skirt tissue: 24 bones plus 5x3 = 15 diagonal cross constraints. -->
+  <pattern name="tissue" prefix="Skirt" rows="6" cols="4"/>
+
+</system>

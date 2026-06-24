@@ -33,10 +33,19 @@ option(ENABLE_SKYRIM_VR "Enable support for Skyrim VR in the dynamic runtime fea
 #
 set(BUILD_TESTS OFF)
 
+# Standalone doctest suite for the SMP XML pattern expander (PLAN smp-xml-patterns, D5). OFF by default so
+# normal/packaged builds stay DLL-only; CI and local dev turn it ON to build + run the suite.
+option(BUILD_PATTERN_TESTS "Build the SMP XML pattern expander doctest suite" OFF)
+
 # default definitions
 add_definitions(-DBT_USE_SSE_IN_API)
 
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 
 add_subdirectory(src)
+
+if(BUILD_PATTERN_TESTS)
+	add_subdirectory(tests/patterns)
+endif()
+
 include(cmake/packaging.cmake)

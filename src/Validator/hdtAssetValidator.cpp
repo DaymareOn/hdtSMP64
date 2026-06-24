@@ -14,6 +14,7 @@
 #include "NetImmerseUtils.h"
 #include "Utils/hdtConcurrencyUtils.h"
 #include "Utils/hdtNIFBinaryUtils.h"
+#include "Utils/hdtPhysicsXmlSource.h"
 #include "Utils/hdtStringUtils.h"
 #include "Utils/hdtTemplateDefaults.h"
 #include "Utils/hdtTimeUtils.h"
@@ -180,17 +181,19 @@ namespace hdt
 	{
 		XmlRedundancyInfo result;
 
-		std::string bytes = readAllFile2(xmlPath.c_str());
-		if (bytes.empty())
+		// Analyse the same fully-expanded document the runtime and other validators see. A malformed
+		// pattern is reported by the XSD validator, so just skip redundancy analysis here.
+		PhysicsXmlSource src = readAndExpandPhysicsXml(xmlPath);
+		if (src.xml.empty() || !src.ok)
 			return result;
 
 		pugi::xml_document doc;
-		auto parseResult = doc.load_buffer(bytes.data(), bytes.size());
+		auto parseResult = doc.load_buffer(src.xml.data(), src.xml.size());
 		if (!parseResult)
 			return result;
 
-		result.redundantChildren = CollectTemplateRedundantChildrenInfo(doc, &bytes);
-		result.redundantBones = CollectRedundantBoneDeclarations(doc, &bytes);
+		result.redundantChildren = CollectTemplateRedundantChildrenInfo(doc, &src.xml);
+		result.redundantBones = CollectRedundantBoneDeclarations(doc, &src.xml);
 		return result;
 	}
 

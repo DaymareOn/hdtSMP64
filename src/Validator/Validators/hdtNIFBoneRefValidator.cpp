@@ -1,5 +1,6 @@
 #include "hdtNIFBoneRefValidator.h"
 
+#include "../Utils/hdtPhysicsXmlSource.h"  // readAndExpandPhysicsXml
 #include "../Utils/hdtTemplateDefaults.h"  // isDefaultNodeName
 #include "../Utils/hdtValidatorFamily.h"   // familyForNode
 #include "NetImmerseUtils.h"               // readAllFile2
@@ -89,9 +90,11 @@ namespace hdt
 	{
 		// A missing/malformed XML yields no findings on purpose: reporting bad XML is the
 		// schema validator's job, and it runs over these same equipped XMLs in the report.
-		std::string bytes = readAllFile2(xmlPath.c_str());
+		const PhysicsXmlSource src = readAndExpandPhysicsXml(xmlPath);
+		if (!src.ok)
+			return {};  // malformed patterns are reported by the XSD validator
 		pugi::xml_document doc;
-		if (!doc.load_buffer(bytes.data(), bytes.size()))
+		if (!doc.load_buffer(src.xml.data(), src.xml.size()))
 			return {};
 
 		std::vector<std::string> nodeNames;
