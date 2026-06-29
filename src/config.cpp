@@ -107,6 +107,10 @@ namespace hdt
 					SkyrimPhysicsWorld::get()->m_sampleSize = std::max(reader.readInt(), 1);
 				} else if (reader.GetLocalName() == "disable1stPersonViewPhysics") {
 					ActorManager::instance()->m_disable1stPersonViewPhysics = reader.readBool();
+				} else if (reader.GetLocalName() == "skipDeadActors") {
+					ActorManager::instance()->m_skipDeadActors = reader.readBool();
+				} else if (reader.GetLocalName() == "minScreenSizePercent") {
+					ActorManager::instance()->m_minScreenSizePercent = std::clamp(reader.readFloat(), 0.f, 100.f);
 				} else {
 					logger::warn("Unknown config : {}", reader.GetLocalName());
 					reader.skipCurrentElement();
@@ -167,13 +171,6 @@ namespace hdt
 			return;
 		}
 
-		// Store original locale
-		char saved_locale[32];
-		strcpy_s(saved_locale, std::setlocale(LC_NUMERIC, nullptr));
-
-		// Set locale to en_US
-		std::setlocale(LC_NUMERIC, "en_US");
-
 		XMLReader reader((uint8_t*)bytes.data(), bytes.size());
 
 		while (reader.Inspect()) {
@@ -186,9 +183,6 @@ namespace hdt
 				}
 			}
 		}
-
-		// Restore original locale
-		std::setlocale(LC_NUMERIC, saved_locale);
 	}
 
 	void logConfig()
@@ -225,6 +219,8 @@ namespace hdt
 		LOG("smp.autoAdjustMaxSkeletons", a->m_autoAdjustMaxSkeletons);
 		LOG("smp.sampleSize", w->m_sampleSize);
 		LOG("smp.disable1stPersonViewPhysics", a->m_disable1stPersonViewPhysics);
+		LOG("smp.skipDeadActors", a->m_skipDeadActors);
+		LOG("smp.minScreenSizePercent", a->m_minScreenSizePercent);
 #undef LOG
 	}
 }

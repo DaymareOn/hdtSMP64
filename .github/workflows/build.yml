@@ -26,7 +26,6 @@ on:
       - master
       - dev
       - hardenrelease
-      - copilot/update-dev-build-versioning
     paths:
       - "**.cpp"
       - "**.h"

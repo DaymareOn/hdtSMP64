@@ -240,8 +240,15 @@ namespace hdt
 		// @brief Depending on this setting, we avoid to calculate the physics of the PC when it is in 1st person view.
 		bool m_disable1stPersonViewPhysics = false;
 
+		// @brief When true, physics is skipped for dead non-player actors, to save performance.
+		bool m_skipDeadActors = false;
+
+		// @brief Min percent of screen height a non-player skeleton must occupy to stay active; 0 = disabled. [0,100]
+		float m_minScreenSizePercent = 0.f;
+
 	private:
 		RE::NiPoint3 m_cameraPositionDuringFrame;
+		float m_screenSizeThresholdScale = 0.f;  // precomputed per frame: (minScreenSizePercent/100)^2 * tan(fov/2)^2
 		static RE::NiNode* getCameraNode();
 
 		void setSkeletonsActive(const bool updateMetrics = false);

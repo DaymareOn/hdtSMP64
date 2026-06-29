@@ -130,7 +130,7 @@ A: Advanced_Vector_Extensions are extensions to the instruction sets for micropr
 - The Validator for your xml: https://raw.githubusercontent.com/DaymareOn/FSMP-Validator/refs/heads/main/skse/plugins/hdtSkinnedMeshConfigs/hdtSMP64.xsd
 - The code: https://github.com/DaymareOn/hdtSMP64/tree/master
 
-Finally, credits and thanks to hydrogensaysHDT, aers, ousnius, Karonar1, alandtse, DaydreamingDay, igloomod, SesamePaste, jg1, antpillager, Acro, webspam, full_inu, Backporter, asdt123123, usernameak and KaninHop :)
+Finally, credits and thanks to hydrogensaysHDT, aers, ousnius, Karonar1, alandtse, DaydreamingDay, igloomod, SesamePaste, jg1, antpillager, Acro, webspam, full_inu, Backporter, asdt123123, usernameak, KaninHop and SimplisticMind :)
 </description>
 							<files>
 								<folder source="FSMPM\Scripts" destination="Scripts" priority="1" />

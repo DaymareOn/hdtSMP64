@@ -178,6 +178,26 @@
     -->
     <disable1stPersonViewPhysics>false</disable1stPersonViewPhysics>
 
+    <!-- ################## SKIP DEAD ACTORS ############################## -->
+
+    <!--
+      skipDeadActors: (boolean) if set to true, physics is skipped for dead
+      non-player actors (corpses), to save performance. The player is never
+      affected. If no value is set, default is false.
+    -->
+    <skipDeadActors>false</skipDeadActors>
+
+    <!-- ################## SCREEN SIZE CULLING ########################### -->
+
+    <!--
+      minScreenSizePercent: (float 0-100) physics is skipped for non-player skeletons
+      whose bounding sphere, projected onto the screen, is smaller than this percentage
+      of the screen height. For example, 2 skips skeletons that appear smaller than
+      2% of screen height. The player is never affected. 0 disables the check.
+      If no value is set, default is 0 (disabled).
+    -->
+    <minScreenSizePercent>0</minScreenSizePercent>
+
     <!-- ##################### CUDA ####################################### -->
 
     <!--

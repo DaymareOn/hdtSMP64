@@ -112,6 +112,22 @@
                   <xs:documentation>disable1stPersonViewPhysics: (boolean) if set to true, the physics of the PC won't be calculated when in 1st person view, to save performance. If no value is set, default is false.</xs:documentation>
                 </xs:annotation>
               </xs:element>
+              <xs:element name="skipDeadActors" type="booleanTextType" minOccurs="0">
+                <xs:annotation>
+                  <xs:documentation>skipDeadActors: (boolean) if set to true, physics is skipped for dead non-player actors (corpses), to save performance. The player is never affected. If no value is set, default is false.</xs:documentation>
+                </xs:annotation>
+              </xs:element>
+              <xs:element name="minScreenSizePercent" minOccurs="0">
+                <xs:annotation>
+                  <xs:documentation>minScreenSizePercent: (float 0-100) physics is skipped for non-player skeletons whose bounding sphere, projected onto the screen, is smaller than this percentage of the screen height. The player is never affected. 0 disables the check. If no value is set, default is 0 (disabled).</xs:documentation>
+                </xs:annotation>
+                <xs:simpleType>
+                  <xs:restriction base="xs:float">
+                    <xs:minInclusive value="0"/>
+                    <xs:maxInclusive value="100"/>
+                  </xs:restriction>
+                </xs:simpleType>
+              </xs:element>
               <xs:element name="enableCuda" type="booleanTextType" minOccurs="0">
                 <xs:annotation>
                   <xs:documentation>enableCuda: (boolean) experimental GPU collision algorithm. Try this if you have a slow CPU and fast GPU. This setting will be ignored if you haven't installed the CUDA-enabled version. If no value is set, default is false.</xs:documentation>

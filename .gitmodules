@@ -4,4 +4,4 @@
 	branch = ng
 [submodule "extern/nifly"]
 	path = extern/nifly
-	url = https://github.com/DaymareOn/nifly.git
+	url = https://github.com/ousnius/nifly.git

@@ -219,7 +219,8 @@ namespace hdt
 		fixArmorNameMaps();
 
 		auto& skeleton = getSkeletonData(e->skeleton);
-		skeleton.npc = hdt::make_nismart(getNpcNode(e->skeleton));
+		// Non-lurker here (see above), so getNpcNode() would just re-find this same "NPC" node — reuse it.
+		skeleton.npc = hdt::make_nismart(npc);
 
 		skeleton.processGeometry(e->headNode, e->geometry);
 
@@ -395,6 +396,19 @@ namespace hdt
 		const auto cameraOrientation = cameraTransform.rotate * RE::NiPoint3(0., 1., 0.);  // The camera matrix is relative to the world.
 		m_cameraPositionDuringFrame = cameraPosition;
 
+		// Precompute the screen-size threshold for this frame from the scene FOV (0 = feature disabled).
+		m_screenSizeThresholdScale = 0.f;
+		if (m_minScreenSizePercent > 0.f) {
+			if (auto* worldSceneGraph = RE::DrawWorld::GetSingleton().worldSceneGraph) {
+				const float cameraFOVDegrees = static_cast<RE::BSSceneGraph*>(worldSceneGraph)->GetRuntimeData().cameraFOV;
+				if (cameraFOVDegrees > 0.f && cameraFOVDegrees < 180.f) {
+					const float tanHalfFOV = std::tan(cameraFOVDegrees * std::numbers::pi_v<float> / 360.f);
+					const float fraction = m_minScreenSizePercent * 0.01f;  // percent -> fraction of screen height
+					m_screenSizeThresholdScale = fraction * fraction * tanHalfFOV * tanHalfFOV;
+				}
+			}
+		}
+
 		for (auto& skel : m_skeletons)
 			skel.calculateDistanceAndOrientationDifferenceFromSource(cameraPosition, cameraOrientation);
 
@@ -430,11 +444,19 @@ namespace hdt
 		activeSkeletons = 0;
 		const float minCullingDistance2 = m_minCullingDistance * m_minCullingDistance;
 		for (auto& i : m_skeletons) {
+			// When enabled, skip physics for dead non-player actors to save performance.
+			bool skipDeadActor = false;
+			if (m_skipDeadActors && !i.isPlayerCharacter()) {
+				const auto actor = skyrim_cast<RE::Actor*>(i.skeletonOwner.get());
+				if (actor && actor->IsDead())
+					skipDeadActor = true;
+			}
+
 			// Skeletons inside the minimum culling distance are kept active even when the budget cap
 			// is exceeded, so a shrinking auto-adjust cap can't strip physics from NPCs next to the camera.
 			const bool forceKeepNear = i.m_distanceFromCamera2 < minCullingDistance2;
 			const bool overBudget = activeSkeletons >= maxActiveSkeletons;
-			if (!i.hasPhysics || !i.updateAttachedState(playerCell, overBudget && !forceKeepNear))
+			if (!i.hasPhysics || !i.updateAttachedState(playerCell, (overBudget && !forceKeepNear) || skipDeadActor))
 				continue;
 
 			activeSkeletons++;
@@ -1047,6 +1069,21 @@ namespace hdt
 
 		if (!skeleton3D || (camera && !camera->NodeInFrustum(skeleton3D)))
 			return false;
+
+		// Skip non-player skeletons whose projected bounding sphere is below the screen-size threshold.
+		// screenFraction < minFraction <=> r / (distance * tan(fov/2)) < fr <=> r^2 < fr^2 * distance^2 * tan(fov/2)^2
+		if (manager->m_screenSizeThresholdScale > 0.f) {
+			const auto& bound = skeleton3D->worldBound;
+			const auto cameraToBound = bound.center - manager->m_cameraPositionDuringFrame;
+			const float distanceToBound2 = cameraToBound.x * cameraToBound.x + cameraToBound.y * cameraToBound.y + cameraToBound.z * cameraToBound.z;
+
+			if (distanceToBound2 > bound.radius * bound.radius) {
+				// Use the nearest point on the sphere for a conservative size estimate.
+				const float visibleDistance = std::sqrt(distanceToBound2) - bound.radius;
+				if (bound.radius * bound.radius < manager->m_screenSizeThresholdScale * visibleDistance * visibleDistance)
+					return false;
+			}
+		}
 
 		RE::NiPoint3 hitLocation;
 		auto* obstacle = Actor_CalculateLOS(owner, &manager->m_cameraPositionDuringFrame, &hitLocation, 6.28f);
