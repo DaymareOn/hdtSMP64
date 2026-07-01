@@ -1,0 +1,46 @@
+name: Validate config and localization JSON
+
+# Cheap, build-free check that the shipped config, presets and localization files are well-formed. Runs only
+# when those files change, so a JSON typo is caught without paying for the full AVX build.
+on:
+  push:
+    paths:
+      - "configs/**"
+  pull_request:
+    paths:
+      - "configs/**"
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate JSON files
+        run: |
+          fail=0
+
+          # 1. Every shipped JSON file must parse.
+          for f in configs/configs.json configs/configsPresets/*.json configs/localization/*.json; do
+            if ! jq empty "$f" >/dev/null 2>&1; then
+              echo "::error file=$f::not valid JSON"
+              fail=1
+            fi
+          done
+
+          # 2. Every key in a localization file must exist in en.json (the English template). A key that is
+          #    not in en.json is a typo or a stale string: it can never match a source string at runtime, so
+          #    its translation would be dead weight.
+          en=configs/localization/en.json
+          for f in configs/localization/*.json; do
+            [ "$f" = "$en" ] && continue
+            stray=$(jq -n --slurpfile t "$f" --slurpfile e "$en" '($t[0] | keys) - ($e[0] | keys) | .[]' -r)
+            if [ -n "$stray" ]; then
+              echo "::error file=$f::these keys are not in en.json (they will never match a menu string):"
+              echo "$stray"
+              fail=1
+            fi
+          done
+
+          exit $fail
