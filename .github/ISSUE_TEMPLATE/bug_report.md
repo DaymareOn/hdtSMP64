@@ -45,7 +45,7 @@ If applicable, add screenshots or videos to help explain your problem.
 
 **Required files**
 
-- Join your configs.xml
+- Join your configs.json
 - Join your hdtSMP64.log
 
 **Additional context**
