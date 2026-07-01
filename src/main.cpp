@@ -2,6 +2,8 @@
 #include "Events.h"
 #include "Hooks.h"
 #include "PluginInterfaceImpl.h"
+#include "SMPDebug.h"
+#include "UI/FSMPMenu.h"
 #include "Validator/hdtAssetValidator.h"
 #include "WeatherManager.h"
 #include "config.h"
@@ -317,6 +319,16 @@ bool SMPDebug_Execute(
 
 	logger::debug("SMPCommand: {} {} {}"sv, buffer, buffer2, buffer3);
 
+	return hdt::RunSMPDebugCommand(buffer, buffer2, buffer3, a_thisObj);
+}
+
+// The actual smp subcommand dispatch, split out from the console entry point (SMPDebug_Execute) so the
+// in-game menu's Commands page can run the same commands without going through the console parser. Defined
+// with a qualified name so the moved body keeps its original indentation. a_thisObj is the console's
+// targeted reference (used by "dumptree"); the menu passes the player or null.
+bool hdt::RunSMPDebugCommand(const char* buffer, const char* buffer2, const char* buffer3,
+	RE::TESObjectREFR* a_thisObj)
+{
 	if (_strnicmp(buffer, "help", MAX_PATH) == 0) {
 		auto* console = RE::ConsoleLog::GetSingleton();
 		console->Print("[HDT-SMP] Available smp commands:");
@@ -348,12 +360,7 @@ bool SMPDebug_Execute(
 	if (_strnicmp(buffer, "reset", MAX_PATH) == 0) {
 		logger::debug("smp reset: reloading config and resetting physics world"sv);
 		RE::ConsoleLog::GetSingleton()->Print("running full smp reset");
-		hdt::loadConfig();
-		hdt::logConfig();
-
-		const RE::MenuOpenCloseEvent e{ "", false };
-		hdt::ActorManager::instance()->ProcessEvent(&e, nullptr);
-		hdt::SkyrimPhysicsWorld::get()->resetSystems();
+		hdt::applyConfigReset();
 		return true;
 	}
 	if (_strnicmp(buffer, "dumptree", MAX_PATH) == 0) {
@@ -611,6 +618,8 @@ void MessageHandler(SKSE::MessagingInterface::Message* a_msg)
 			Hooks::InstallHighPriority();
 			hdt::g_pluginInterface.onPostPostLoad();
 			checkOldPlugins();
+			// Register our config pages with the SKSE Menu Framework, if it is installed. No-ops otherwise.
+			hdt::FSMPMenu::Register();
 		}
 		break;
 	}

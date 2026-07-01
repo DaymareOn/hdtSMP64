@@ -33,10 +33,21 @@ option(ENABLE_SKYRIM_VR "Enable support for Skyrim VR in the dynamic runtime fea
 #
 set(BUILD_TESTS OFF)
 
+# Standalone doctest suite for the GlobalConfig JSON (de)serialization. OFF by default and never packaged;
+# it compiles src/GlobalConfig.cpp directly without the game's PCH and links only rapidjson + doctest (no
+# CommonLibSSE/Bullet/TBB), mirroring tests/patterns.
+option(BUILD_CONFIG_TESTS "Build the GlobalConfig JSON doctest suite" OFF)
+
 # default definitions
 add_definitions(-DBT_USE_SSE_IN_API)
 
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 
 add_subdirectory(src)
+
+if(BUILD_CONFIG_TESTS)
+	enable_testing()
+	add_subdirectory(tests/config)
+endif()
+
 include(cmake/packaging.cmake)

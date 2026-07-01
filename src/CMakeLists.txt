@@ -52,6 +52,13 @@ set(SOURCE_FILES
 	"${SOURCE_DIR}/hdtForceUpdateList.h"
 	"${SOURCE_DIR}/config.cpp"
 	"${SOURCE_DIR}/config.h"
+	"${SOURCE_DIR}/GlobalConfig.cpp"
+	"${SOURCE_DIR}/GlobalConfig.h"
+	"${SOURCE_DIR}/SMPDebug.h"
+	"${SOURCE_DIR}/UI/FSMPMenu.cpp"
+	"${SOURCE_DIR}/UI/FSMPMenu.h"
+	"${SOURCE_DIR}/UI/Localization.cpp"
+	"${SOURCE_DIR}/UI/Localization.h"
 	"${SOURCE_DIR}/hdtSerialization.cpp"
 	"${SOURCE_DIR}/hdtSerialization.h"
 	"${SOURCE_DIR}/PluginAPI.h"
@@ -191,8 +198,28 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
 						"$<$<OR:$<CONFIG:RELEASE>,$<CONFIG:PROFILE>>:/INCREMENTAL:NO;/OPT:REF;/OPT:ICF;/DEBUG:FULL>")
 endif()
 
+# The SKSE Menu Framework SDK header (extern/SKSEMenuFramework/include) is vendored pristine. hdtSMP64 builds
+# without UNICODE, so its GetModuleHandle(L"...") resolves to GetModuleHandleA and rejects the wide literal.
+# Patch it to the W variant at configure time --- like the bullet3 port's string(REPLACE) mods --- writing the
+# patched copy into the build tree so the vendored file itself is never modified. FSMPMenu.cpp includes it.
+set(SMF_PATCHED_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated/SKSEMenuFramework")
+file(READ "${ROOT_DIR}/extern/SKSEMenuFramework/include/SKSEMenuFramework.h" SMF_HEADER)
+string(REPLACE
+	   "GetModuleHandle(L\"SKSEMenuFramework\")"
+	   "GetModuleHandleW(L\"SKSEMenuFramework\")"
+	   SMF_HEADER "${SMF_HEADER}")
+file(WRITE "${SMF_PATCHED_DIR}/SKSEMenuFramework.h" "${SMF_HEADER}")
+
 target_include_directories("${PROJECT_NAME}" PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/src" "${SOURCE_DIR}"
-													 ${DETOURS_INCLUDE_DIRS} ${BULLET_INCLUDE_DIRS})
+													 ${DETOURS_INCLUDE_DIRS} ${BULLET_INCLUDE_DIRS} ${RAPIDJSON_INCLUDE_DIRS}
+													 "${SMF_PATCHED_DIR}")
+
+# The vendored SDK header trips two /W4 warnings of its own (C4099 struct/class tag mismatch on
+# ImGuiTextFilter; C5054 deprecated operator| between distinct ImGui enums). It is included only by
+# FSMPMenu.cpp, so silence just those two there; the rest of our /W4 /WX build stays strict.
+# /utf-8 makes MSVC read this file's narrow string literals (the native language names in the Language
+# picker, e.g. "Français", "日本語") as UTF-8 both at compile and run time, matching what ImGui expects.
+set_source_files_properties("${SOURCE_DIR}/UI/FSMPMenu.cpp" PROPERTIES COMPILE_OPTIONS "/wd4099;/wd5054;/utf-8")
 
 set(SKSE_SUPPORT_XBYAK ON)
 
@@ -236,6 +263,7 @@ find_package(spdlog CONFIG REQUIRED)
 find_package(xbyak REQUIRED CONFIG)
 find_package(TBB CONFIG REQUIRED)
 find_package(pugixml CONFIG REQUIRED)
+find_package(RapidJSON CONFIG REQUIRED)  # configs.json (de)serialization in GlobalConfig.cpp
 
 # nifly (submodule: extern/nifly) — GPL-3.0 NIF library, Phase 0 of the nifly migration. It is built as its own separate
 # static library, so our strict warning settings (/W4 /WX) do NOT apply to it — those are attached only to our own
@@ -276,6 +304,28 @@ install(
 	FILES "$<TARGET_PDB_FILE:${PROJECT_NAME}>"
 	DESTINATION "/"
 	COMPONENT "pdbs")
+
+# Ship the default global config + in-game presets. These are deployed by `cmake --install` / CPack and by
+# the CI package step (.github/workflows/build.yml). They are deliberately NOT added to the dev POST_BUILD
+# copy below: a normal dev build only refreshes the DLL/PDB, so it never overwrites a configs.json the user
+# has tuned in-game.
+install(
+	FILES "${ROOT_DIR}/configs/configs.json"
+	DESTINATION "SKSE/Plugins/hdtSkinnedMeshConfigs"
+	COMPONENT "main")
+# The FSMP logo shown in the in-game menu's status header (loaded at runtime via SKSEMenuFramework::LoadTexture).
+install(
+	FILES "${ROOT_DIR}/configs/FSMP.dds"
+	DESTINATION "SKSE/Plugins/hdtSkinnedMeshConfigs"
+	COMPONENT "main")
+install(
+	DIRECTORY "${ROOT_DIR}/configs/configsPresets"
+	DESTINATION "SKSE/Plugins/hdtSkinnedMeshConfigs"
+	COMPONENT "main")
+install(
+	DIRECTORY "${ROOT_DIR}/configs/localization"
+	DESTINATION "SKSE/Plugins/hdtSkinnedMeshConfigs"
+	COMPONENT "main")
 
 if("${COPY_OUTPUT}")
 	add_custom_command(

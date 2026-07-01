@@ -1,0 +1,37 @@
+{
+    "smp": {
+        "logLevel": 3,
+        "backupNodeByName": [],
+        "enableNPCFaceParts": true,
+        "disableSMPHairWhenWigEquipped": false,
+        "clampRotations": true,
+        "rotationSpeedLimit": 10.0,
+        "unclampedResets": true,
+        "unclampedResetAngle": 130.0,
+        "useRealTime": false,
+        "minCullingDistance": 500.0,
+        "autoAdjustMaxSkeletons": false,
+        "maximumActiveSkeletons": 20,
+        "budgetMs": 3.5,
+        "sampleSize": 5,
+        "disable1stPersonViewPhysics": false,
+        "skipDeadActors": false,
+        "minScreenSizePercent": 0.0,
+        "enableCuda": true
+    },
+    "solver": {
+        "numIterations": 16,
+        "erp": 0.2,
+        "min-fps": 60,
+        "maxSubSteps": 4
+    },
+    "wind": {
+        "enabled": true,
+        "windStrength": 2.0,
+        "distanceForNoWind": 50.0,
+        "distanceForMaxWind": 3000.0
+    },
+    "validation": {
+        "mods-dir": ""
+    }
+}
