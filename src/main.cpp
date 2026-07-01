@@ -2,6 +2,8 @@
 #include "Events.h"
 #include "Hooks.h"
 #include "PluginInterfaceImpl.h"
+#include "SMPDebug.h"
+#include "UI/FSMPMenu.h"
 #include "Validator/hdtAssetValidator.h"
 #include "WeatherManager.h"
 #include "config.h"
@@ -11,7 +13,10 @@
 
 #include <atomic>
 #include <charconv>
+#include <cstdarg>
 #include <cstdint>
+#include <deque>
+#include <mutex>
 #include <string_view>
 #include <thread>
 
@@ -224,6 +229,52 @@ void DumpNodeChildren(RE::NiAVObject* node)
 	}
 }
 
+namespace hdt
+{
+	namespace
+	{
+		// The menu-visible console capture: a bounded ring buffer of recent smp-command output lines. Guarded
+		// by a mutex because `smp report` finishes on a worker thread and echoes its result from there while
+		// the render thread reads the buffer.
+		constexpr size_t kMenuConsoleMax = 400;
+		std::mutex g_menuConsoleMutex;
+		std::deque<std::string> g_menuConsoleLines;
+	}
+
+	void smpEcho(const char* fmt, ...)
+	{
+		char buf[2048];
+		va_list ap;
+		va_start(ap, fmt);
+		const int n = std::vsnprintf(buf, sizeof(buf), fmt, ap);
+		va_end(ap);
+		if (n < 0)
+			buf[0] = '\0';
+
+		// Print to the game console exactly as before ("%s" guards a stray '%' in the formatted text).
+		if (auto* console = RE::ConsoleLog::GetSingleton())
+			console->Print("%s", buf);
+
+		// Mirror the same line into the menu ring buffer.
+		std::lock_guard<std::mutex> lk(g_menuConsoleMutex);
+		g_menuConsoleLines.emplace_back(buf);
+		while (g_menuConsoleLines.size() > kMenuConsoleMax)
+			g_menuConsoleLines.pop_front();
+	}
+
+	std::vector<std::string> menuConsoleSnapshot()
+	{
+		std::lock_guard<std::mutex> lk(g_menuConsoleMutex);
+		return { g_menuConsoleLines.begin(), g_menuConsoleLines.end() };
+	}
+
+	void clearMenuConsole()
+	{
+		std::lock_guard<std::mutex> lk(g_menuConsoleMutex);
+		g_menuConsoleLines.clear();
+	}
+}
+
 void SMPDebug_PrintDetailed(bool includeItems)
 {
 	static std::map<hdt::ActorManager::SkeletonState, const char*> stateStrings = {
@@ -252,7 +303,7 @@ void SMPDebug_PrintDetailed(bool includeItems)
 			}
 		}
 
-		RE::ConsoleLog::GetSingleton()->Print(
+		hdt::smpEcho(
 			"[HDT-SMP] %s skeleton - owner %s (refr formid %08x, base formid %08x) - %s",
 			skeleton.state > hdt::ActorManager::SkeletonState::e_SkeletonActive ? "active" : "inactive",
 			ownerName ? ownerName->GetFullName() : "unk_name",
@@ -262,14 +313,14 @@ void SMPDebug_PrintDetailed(bool includeItems)
 
 		if (includeItems) {
 			for (auto armor : skeleton.getArmors()) {
-				RE::ConsoleLog::GetSingleton()->Print(
+				hdt::smpEcho(
 					"[HDT-SMP] -- tracked armor addon %s, %s",
 					armor.armorWorn->name.c_str(),
 					armor.state() != hdt::ActorManager::ItemState::e_NoPhysics ? armor.state() == hdt::ActorManager::ItemState::e_Active ? "has active physics system" : "has inactive physics system" : "has no physics system");
 
 				if (armor.state() != hdt::ActorManager::ItemState::e_NoPhysics) {
 					for (auto mesh : armor.meshes()) {
-						RE::ConsoleLog::GetSingleton()->Print(
+						hdt::smpEcho(
 							"[HDT-SMP] ---- has collision mesh %s",
 							mesh->m_name.c_str());
 					}
@@ -278,14 +329,14 @@ void SMPDebug_PrintDetailed(bool includeItems)
 
 			if (skeleton.head.headNode) {
 				for (auto headPart : skeleton.head.headParts) {
-					RE::ConsoleLog::GetSingleton()->Print(
+					hdt::smpEcho(
 						"[HDT-SMP] -- tracked headpart %s, %s",
 						headPart.headPart->name.c_str(),
 						headPart.state() != hdt::ActorManager::ItemState::e_NoPhysics ? headPart.state() == hdt::ActorManager::ItemState::e_Active ? "has active physics system" : "has inactive physics system" : "has no physics system");
 
 					if (headPart.state() != hdt::ActorManager::ItemState::e_NoPhysics) {
 						for (auto mesh : headPart.meshes()) {
-							RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] ---- has collision mesh %s", mesh->m_name.c_str());
+							hdt::smpEcho("[HDT-SMP] ---- has collision mesh %s", mesh->m_name.c_str());
 						}
 					}
 				}
@@ -317,51 +368,55 @@ bool SMPDebug_Execute(
 
 	logger::debug("SMPCommand: {} {} {}"sv, buffer, buffer2, buffer3);
 
+	return hdt::RunSMPDebugCommand(buffer, buffer2, buffer3, a_thisObj);
+}
+
+// The actual smp subcommand dispatch, split out from the console entry point (SMPDebug_Execute) so the
+// in-game menu's Commands page can run the same commands without going through the console parser. Defined
+// with a qualified name so the moved body keeps its original indentation. a_thisObj is the console's
+// targeted reference (used by "dumptree"); the menu passes the player or null.
+bool hdt::RunSMPDebugCommand(const char* buffer, const char* buffer2, const char* buffer3,
+	RE::TESObjectREFR* a_thisObj)
+{
 	if (_strnicmp(buffer, "help", MAX_PATH) == 0) {
-		auto* console = RE::ConsoleLog::GetSingleton();
-		console->Print("[HDT-SMP] Available smp commands:");
-		console->Print("  smp help");
-		console->Print("    Show this command reference.");
-		console->Print("  smp reset");
-		console->Print("    Reload SMP config and reset all active physics systems.");
-		console->Print("  smp dumptree");
-		console->Print("    Dump the targeted reference's 3D node tree to console.");
-		console->Print("  smp detail");
-		console->Print("    Print detailed tracked skeleton/item diagnostics.");
-		console->Print("  smp list");
-		console->Print("    Print a compact tracked skeleton summary.");
-		console->Print("  smp profile [sample_frames] [print_every_frames]");
-		console->Print("    Toggle physics profiler capture; defaults are 240/240.");
-		console->Print("  smp on");
-		console->Print("    Enable SMP simulation.");
-		console->Print("  smp off");
-		console->Print("    Disable SMP simulation.");
-		console->Print("  smp QueryOverride");
-		console->Print("    Print current dynamic override data.");
-		console->Print("  smp report [gear] [error]");
-		console->Print("    Run the physics-asset validator in the background and write a report file.");
-		console->Print("    gear  = validate equipped gear only.");
-		console->Print("    error = write an errors-only report (no warnings/info).");
+		hdt::smpEcho("[HDT-SMP] Available smp commands:");
+		hdt::smpEcho("  smp help");
+		hdt::smpEcho("    Show this command reference.");
+		hdt::smpEcho("  smp reset");
+		hdt::smpEcho("    Reload SMP config and reset all active physics systems.");
+		hdt::smpEcho("  smp dumptree");
+		hdt::smpEcho("    Dump the targeted reference's 3D node tree to console.");
+		hdt::smpEcho("  smp detail");
+		hdt::smpEcho("    Print detailed tracked skeleton/item diagnostics.");
+		hdt::smpEcho("  smp list");
+		hdt::smpEcho("    Print a compact tracked skeleton summary.");
+		hdt::smpEcho("  smp profile [sample_frames] [print_every_frames]");
+		hdt::smpEcho("    Toggle physics profiler capture; defaults are 240/240.");
+		hdt::smpEcho("  smp on");
+		hdt::smpEcho("    Enable SMP simulation.");
+		hdt::smpEcho("  smp off");
+		hdt::smpEcho("    Disable SMP simulation.");
+		hdt::smpEcho("  smp QueryOverride");
+		hdt::smpEcho("    Print current dynamic override data.");
+		hdt::smpEcho("  smp report [gear] [error]");
+		hdt::smpEcho("    Run the physics-asset validator in the background and write a report file.");
+		hdt::smpEcho("    gear  = validate equipped gear only.");
+		hdt::smpEcho("    error = write an errors-only report (no warnings/info).");
 		return true;
 	}
 
 	if (_strnicmp(buffer, "reset", MAX_PATH) == 0) {
 		logger::debug("smp reset: reloading config and resetting physics world"sv);
-		RE::ConsoleLog::GetSingleton()->Print("running full smp reset");
-		hdt::loadConfig();
-		hdt::logConfig();
-
-		const RE::MenuOpenCloseEvent e{ "", false };
-		hdt::ActorManager::instance()->ProcessEvent(&e, nullptr);
-		hdt::SkyrimPhysicsWorld::get()->resetSystems();
+		hdt::smpEcho("running full smp reset");
+		hdt::applyConfigReset();
 		return true;
 	}
 	if (_strnicmp(buffer, "dumptree", MAX_PATH) == 0) {
 		if (a_thisObj) {
-			RE::ConsoleLog::GetSingleton()->Print("dumping targeted reference's node tree");
+			hdt::smpEcho("dumping targeted reference's node tree");
 			DumpNodeChildren(a_thisObj->Get3D1(0));
 		} else {
-			RE::ConsoleLog::GetSingleton()->Print("error: you must target a reference to dump their node tree");
+			hdt::smpEcho("error: you must target a reference to dump their node tree");
 		}
 
 		return true;
@@ -388,14 +443,14 @@ bool SMPDebug_Execute(
 		hdt::SkyrimPhysicsWorld::get()->setProfilerCapture(profilerCaptureRequested, sampleFrames, printFrames);
 
 		if (profilerCaptureRequested) {
-			RE::ConsoleLog::GetSingleton()->Print(
+			hdt::smpEcho(
 				"HDT-SMP physics profiler enabled: sample %llu frames, print every %llu frames",
 				static_cast<unsigned long long>(sampleFrames),
 				static_cast<unsigned long long>(printFrames));
-			RE::ConsoleLog::GetSingleton()->Print("Check your hdtsmp64.log file for results.");
+			hdt::smpEcho("Check your hdtsmp64.log file for results.");
 
 		} else {
-			RE::ConsoleLog::GetSingleton()->Print("HDT-SMP physics profiler disabled");
+			hdt::smpEcho("HDT-SMP physics profiler disabled");
 		}
 
 		return true;
@@ -404,7 +459,7 @@ bool SMPDebug_Execute(
 	if (_strnicmp(buffer, "on", MAX_PATH) == 0) {
 		hdt::SkyrimPhysicsWorld::get()->disabled = false;
 		{
-			RE::ConsoleLog::GetSingleton()->Print("HDT-SMP enabled");
+			hdt::smpEcho("HDT-SMP enabled");
 		}
 		return true;
 	}
@@ -412,13 +467,13 @@ bool SMPDebug_Execute(
 	if (_strnicmp(buffer, "off", MAX_PATH) == 0) {
 		hdt::SkyrimPhysicsWorld::get()->disabled = true;
 		{
-			RE::ConsoleLog::GetSingleton()->Print("HDT-SMP disabled");
+			hdt::smpEcho("HDT-SMP disabled");
 		}
 		return true;
 	}
 
 	if (_strnicmp(buffer, "QueryOverride", MAX_PATH) == 0) {
-		RE::ConsoleLog::GetSingleton()->Print(hdt::Override::OverrideManager::GetSingleton()->queryOverrideData().c_str());
+		hdt::smpEcho(hdt::Override::OverrideManager::GetSingleton()->queryOverrideData().c_str());
 		return true;
 	}
 
@@ -438,8 +493,8 @@ bool SMPDebug_Execute(
 				errorReport = true;
 				return true;
 			}
-			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Unknown report mode: %s", arg);
-			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Usage: smp report [gear] [error]");
+			hdt::smpEcho("[HDT-SMP] Unknown report mode: %s", arg);
+			hdt::smpEcho("[HDT-SMP] Usage: smp report [gear] [error]");
 			return false;
 		};
 
@@ -447,17 +502,17 @@ bool SMPDebug_Execute(
 			return true;
 
 		if (s_validationRunning.exchange(true)) {
-			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Validation is already running.");
+			hdt::smpEcho("[HDT-SMP] Validation is already running.");
 			return true;
 		}
 		if (gearOnly && errorReport) {
-			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Equipped gear report (error report) started in background. Results will appear when complete.");
+			hdt::smpEcho("[HDT-SMP] Equipped gear report (error report) started in background. Results will appear when complete.");
 		} else if (gearOnly) {
-			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Equipped gear report started in background. Results will appear when complete.");
+			hdt::smpEcho("[HDT-SMP] Equipped gear report started in background. Results will appear when complete.");
 		} else if (errorReport) {
-			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Report (error report) started in background. Results will appear when complete.");
+			hdt::smpEcho("[HDT-SMP] Report (error report) started in background. Results will appear when complete.");
 		} else {
-			RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Report started in background. Results will appear when complete.");
+			hdt::smpEcho("[HDT-SMP] Report started in background. Results will appear when complete.");
 		}
 		std::thread([gearOnly, errorReport]() {
 			try {
@@ -467,16 +522,15 @@ bool SMPDebug_Execute(
 					reportPath,
 					gearOnly,
 					errorReport ? hdt::ValidationReportMode::ErrorsOnly : hdt::ValidationReportMode::Full);
-				auto* console = RE::ConsoleLog::GetSingleton();
 				if (errorReport) {
-					console->Print(
+					hdt::smpEcho(
 						"[HDT-SMP] %s complete in %.2fs: %d XML(s) found, %d failed (error report: errors only)",
 						validationLabel,
 						result.elapsedSeconds,
 						result.totalXMLsFound,
 						result.xmlErrorCount);
 				} else {
-					console->Print(
+					hdt::smpEcho(
 						"[HDT-SMP] %s complete in %.2fs: %d XML(s) found, %d passed, %d failed, %d warning(s)",
 						validationLabel,
 						result.elapsedSeconds,
@@ -485,18 +539,18 @@ bool SMPDebug_Execute(
 				}
 				if (!reportPath.empty()) {
 					if (errorReport) {
-						console->Print("[HDT-SMP] Errors-only report written to: %s", reportPath.c_str());
+						hdt::smpEcho("[HDT-SMP] Errors-only report written to: %s", reportPath.c_str());
 					} else {
-						console->Print("[HDT-SMP] Report written to: %s", reportPath.c_str());
+						hdt::smpEcho("[HDT-SMP] Report written to: %s", reportPath.c_str());
 					}
 				} else {
-					console->Print("[HDT-SMP] Warning: report file could not be written");
+					hdt::smpEcho("[HDT-SMP] Warning: report file could not be written");
 				}
 			} catch (const std::exception& e) {
-				RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Report failed with error: %s", e.what());
+				hdt::smpEcho("[HDT-SMP] Report failed with error: %s", e.what());
 				logger::error("[Validator] smp report threw: {}", e.what());
 			} catch (...) {
-				RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] Report failed with an unknown error");
+				hdt::smpEcho("[HDT-SMP] Report failed with an unknown error");
 				logger::error("[Validator] smp report threw an unknown exception");
 			}
 			s_validationRunning.store(false);
@@ -540,13 +594,13 @@ bool SMPDebug_Execute(
 		}
 	}
 
-	RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] tracked skeletons: %d", skeletons.size());
-	RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] active skeletons: %d", activeSkeletons);
-	RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] tracked armor addons: %d", armors);
-	RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] tracked head parts: %d", headParts);
-	RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] active armor addons: %d", activeArmors);
-	RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] active head parts: %d", activeHeadParts);
-	RE::ConsoleLog::GetSingleton()->Print("[HDT-SMP] active collision meshes: %d", activeCollisionMeshes);
+	hdt::smpEcho("[HDT-SMP] tracked skeletons: %d", skeletons.size());
+	hdt::smpEcho("[HDT-SMP] active skeletons: %d", activeSkeletons);
+	hdt::smpEcho("[HDT-SMP] tracked armor addons: %d", armors);
+	hdt::smpEcho("[HDT-SMP] tracked head parts: %d", headParts);
+	hdt::smpEcho("[HDT-SMP] active armor addons: %d", activeArmors);
+	hdt::smpEcho("[HDT-SMP] active head parts: %d", activeHeadParts);
+	hdt::smpEcho("[HDT-SMP] active collision meshes: %d", activeCollisionMeshes);
 	return true;
 }
 
@@ -611,6 +665,8 @@ void MessageHandler(SKSE::MessagingInterface::Message* a_msg)
 			Hooks::InstallHighPriority();
 			hdt::g_pluginInterface.onPostPostLoad();
 			checkOldPlugins();
+			// Register our config pages with the SKSE Menu Framework, if it is installed. No-ops otherwise.
+			hdt::FSMPMenu::Register();
 		}
 		break;
 	}

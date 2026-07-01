@@ -761,7 +761,7 @@ namespace hdt
 
 			// Physical mods directory bypass: enumerate each mod's directory
 			// directly on NTFS, avoiding MO2 VFS hook overhead entirely.
-			// Driven by <mods-dir> in configs.xml; falls back to the VFS scan of
+			// Driven by mods-dir in configs.json; falls back to the VFS scan of
 			// data/ when modsDir is empty (Vortex users, or unconfigured installs).
 			const fs::path kPhysModsDir = !g_validationConfig.modsDir.empty() ? fs::path(g_validationConfig.modsDir) : fs::path{};
 			const bool physScan = !kPhysModsDir.empty() && fs::exists(kPhysModsDir, ec) && fs::is_directory(kPhysModsDir, ec);

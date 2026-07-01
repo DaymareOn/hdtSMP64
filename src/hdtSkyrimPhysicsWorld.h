@@ -83,6 +83,11 @@ namespace hdt
 		float m_unclampedResetAngle = 120.0f;
 		float m_2ndStepAverageProcessingTime = 0;
 		float m_averageSMPProcessingTimeInMainLoop = 0;
+		// Smoothed per-frame breakdown of the main-loop cost (ms), kept as members so the in-game menu's Perf
+		// tab / overlay can read the same numbers the "[SMP Metrics]" log line prints. Impact = Setup+Wait+Apply.
+		float m_avgSetupMs = 0.0f;
+		float m_avgWaitMs = 0.0f;
+		float m_avgWriteMs = 0.0f;
 		bool disabled = false;
 		uint8_t m_resetPc;
 		bool m_doMetrics = false;
