@@ -1,188 +1,187 @@
 #include "config.h"
+
+#include "GlobalConfig.h"
 #include "Hooks.h"
 #include "Validator/hdtAssetValidator.h"
-#include "XmlReader.h"
 #include "hdtSkyrimPhysicsWorld.h"
+
+#include <algorithm>
+#include <filesystem>
+#include <fstream>
+#include <string>
 
 namespace hdt
 {
 	int g_logLevel;
+	std::string g_locale;
+	float g_outputFontScale = 1.0f;
+	float g_overlayFontScale = 1.0f;
 
-	static void solver(XMLReader& reader)
+	namespace
 	{
-		while (reader.Inspect()) {
-			switch (reader.GetInspected()) {
-			case XMLReader::Inspected::StartTag:
-				if (reader.GetLocalName() == "numIterations") {
-					SkyrimPhysicsWorld::get()->getSolverInfo().m_numIterations = btClamped(reader.readInt(), 4, 128);
-				} else if (reader.GetLocalName() == "erp") {
-					SkyrimPhysicsWorld::get()->getSolverInfo().m_erp = btClamped(reader.readFloat(), 0.01f, 1.0f);
-				} else if (reader.GetLocalName() == "min-fps") {
-					SkyrimPhysicsWorld::get()->min_fps = (btClamped(reader.readInt(), 1, 300));
-					SkyrimPhysicsWorld::get()->m_timeTick = 1.0f / SkyrimPhysicsWorld::get()->min_fps;
-				} else if (reader.GetLocalName() == "maxSubSteps") {
-					SkyrimPhysicsWorld::get()->m_maxSubSteps = btClamped(reader.readInt(), 1, 60);
-				} else {
-					logger::warn("Unknown config : {}", reader.GetLocalName());
-					reader.skipCurrentElement();
-				}
-				break;
-			case XMLReader::Inspected::EndTag:
-				return;
-			}
+		// configs.json ships with FSMP and holds the defaults; an FSMP update may replace it. userConfigs.json
+		// is written by the menu and never shipped, so the user's settings survive updates. It is layered on
+		// top of configs.json at load, so a setting the user never touched keeps the shipped default.
+		constexpr auto CONFIG_PATH = "data/skse/plugins/hdtSkinnedMeshConfigs/configs.json";
+		constexpr auto USER_CONFIG_PATH = "data/skse/plugins/hdtSkinnedMeshConfigs/userConfigs.json";
+
+		std::string readFileBytes(const std::string& path)
+		{
+			std::ifstream in(path, std::ios::binary);
+			if (!in)
+				return {};
+			std::string bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+			// Tolerate a UTF-8 BOM a text editor may have prepended; rapidjson::Parse does not skip it.
+			if (bytes.size() >= 3 && static_cast<unsigned char>(bytes[0]) == 0xEF &&
+				static_cast<unsigned char>(bytes[1]) == 0xBB && static_cast<unsigned char>(bytes[2]) == 0xBF)
+				bytes.erase(0, 3);
+			return bytes;
 		}
 	}
 
-	static void wind(XMLReader& reader)
+	// Copy a parsed/clamped GlobalConfig into the live physics singletons + globals. This is the single
+	// place that knows how each field maps onto the engine (e.g. the inverted log level, and min-fps also
+	// driving the fixed timestep). backupNodeByName is overwritten wholesale so a reload never duplicates.
+	void applyConfig(const GlobalConfig& c)
 	{
-		while (reader.Inspect()) {
-			switch (reader.GetInspected()) {
-			case XMLReader::Inspected::StartTag:
-				if (reader.GetLocalName() == "windStrength") {
-					SkyrimPhysicsWorld::get()->m_windStrength = btClamped(reader.readFloat(), 0.f, 1000.f);
-				} else if (reader.GetLocalName() == "enabled") {
-					SkyrimPhysicsWorld::get()->m_enableWind = reader.readBool();
-				} else if (reader.GetLocalName() == "distanceForNoWind") {
-					SkyrimPhysicsWorld::get()->m_distanceForNoWind = btClamped(reader.readFloat(), 0.f, 10000.f);
-				} else if (reader.GetLocalName() == "distanceForMaxWind") {
-					SkyrimPhysicsWorld::get()->m_distanceForMaxWind = btClamped(reader.readFloat(), 0.f, 10000.f);
-				} else {
-					logger::warn("Unknown config : {}", reader.GetLocalName());
-					reader.skipCurrentElement();
-				}
-				break;
-			case XMLReader::Inspected::EndTag:
-				return;
-			}
-		}
-	}
+		g_logLevel = 5 - std::clamp(c.logLevel, 0, 5);
+		spdlog::set_level(static_cast<spdlog::level::level_enum>(g_logLevel));
+		spdlog::flush_on(static_cast<spdlog::level::level_enum>(g_logLevel));
 
-	static void smp(XMLReader& reader)
-	{
-		while (reader.Inspect()) {
-			switch (reader.GetInspected()) {
-			case XMLReader::Inspected::StartTag:
-				if (reader.GetLocalName() == "logLevel") {
-					// Inverted so: 0 = critical, 1 = err, 2 = warn, 3 = info, 4 = debug, 5 = trace.
-					g_logLevel = 5 - std::clamp(reader.readInt(), 0, 5);
-					spdlog::set_level(static_cast<spdlog::level::level_enum>(g_logLevel));
-					spdlog::flush_on(static_cast<spdlog::level::level_enum>(g_logLevel));
-				} else if (reader.GetLocalName() == "backupNodeByName") {
-					// Parse the string return value from reader.readText(); so we can have single strings instead of the group, example text -> "Virtual Hands, Virtual Body, Virtual Belly"... said text in a array like so -> { "Virtual Hands", "Virtual Body", "Virtual Belly"
+		Hooks::BipedAnimHooks::BackupNodes = c.backupNodeByName;
 
-					std::stringstream ss(reader.readText());
-					std::string item;
+		auto* a = ActorManager::instance();
+		a->m_skinNPCFaceParts = c.enableNPCFaceParts;
+		a->m_disableSMPHairWhenWigEquipped = c.disableSMPHairWhenWigEquipped;
+		a->m_minCullingDistance = c.minCullingDistance;
+		a->m_maxActiveSkeletons = c.maximumActiveSkeletons;
+		a->m_autoAdjustMaxSkeletons = c.autoAdjustMaxSkeletons;
+		a->m_disable1stPersonViewPhysics = c.disable1stPersonViewPhysics;
+		a->m_skipDeadActors = c.skipDeadActors;
+		a->m_minScreenSizePercent = c.minScreenSizePercent;
 
-					while (std::getline(ss, item, ',')) {
-						// Remove leading space
-						if (!item.empty() && item[0] == ' ') {
-							item.erase(0, 1);
-						}
+		auto* w = SkyrimPhysicsWorld::get();
+		w->m_clampRotations = c.clampRotations;
+		w->m_rotationSpeedLimit = c.rotationSpeedLimit;
+		w->m_unclampedResets = c.unclampedResets;
+		w->m_unclampedResetAngle = c.unclampedResetAngle;
+		w->m_budgetMs = c.budgetMs;
+		w->m_useRealTime = c.useRealTime;
+		w->m_sampleSize = c.sampleSize;
+		w->min_fps = c.minFps;
+		w->m_timeTick = 1.0f / static_cast<float>(c.minFps);
+		w->m_maxSubSteps = c.maxSubSteps;
+		w->getSolverInfo().m_numIterations = c.numIterations;
+		w->getSolverInfo().m_erp = c.erp;
+		w->m_enableWind = c.windEnabled;
+		w->m_windStrength = c.windStrength;
+		w->m_distanceForNoWind = c.distanceForNoWind;
+		w->m_distanceForMaxWind = c.distanceForMaxWind;
 
-						Hooks::BipedAnimHooks::BackupNodes.push_back(item);
-					}
-				} else if (reader.GetLocalName() == "enableNPCFaceParts") {
-					ActorManager::instance()->m_skinNPCFaceParts = reader.readBool();
-				} else if (reader.GetLocalName() == "disableSMPHairWhenWigEquipped") {
-					ActorManager::instance()->m_disableSMPHairWhenWigEquipped = reader.readBool();
-				} else if (reader.GetLocalName() == "clampRotations") {
-					SkyrimPhysicsWorld::get()->m_clampRotations = reader.readBool();
-				} else if (reader.GetLocalName() == "rotationSpeedLimit") {
-					SkyrimPhysicsWorld::get()->m_rotationSpeedLimit = reader.readFloat();
-				} else if (reader.GetLocalName() == "unclampedResets") {
-					SkyrimPhysicsWorld::get()->m_unclampedResets = reader.readBool();
-				} else if (reader.GetLocalName() == "unclampedResetAngle") {
-					SkyrimPhysicsWorld::get()->m_unclampedResetAngle = reader.readFloat();
-				} else if (reader.GetLocalName() == "budgetMs") {
-					SkyrimPhysicsWorld::get()->m_budgetMs = std::clamp(reader.readFloat(), 0.1f, 20.0f);
-				} else if (reader.GetLocalName() == "useRealTime") {
-					SkyrimPhysicsWorld::get()->m_useRealTime = reader.readBool();
-				} else if (reader.GetLocalName() == "minCullingDistance") {
-					ActorManager::instance()->m_minCullingDistance = reader.readFloat();
-				} else if (reader.GetLocalName() == "maximumActiveSkeletons") {
-					ActorManager::instance()->m_maxActiveSkeletons = reader.readInt();
-				} else if (reader.GetLocalName() == "autoAdjustMaxSkeletons") {
-					ActorManager::instance()->m_autoAdjustMaxSkeletons = reader.readBool();
-				} else if (reader.GetLocalName() == "sampleSize") {
-					SkyrimPhysicsWorld::get()->m_sampleSize = std::max(reader.readInt(), 1);
-				} else if (reader.GetLocalName() == "disable1stPersonViewPhysics") {
-					ActorManager::instance()->m_disable1stPersonViewPhysics = reader.readBool();
-				} else if (reader.GetLocalName() == "skipDeadActors") {
-					ActorManager::instance()->m_skipDeadActors = reader.readBool();
-				} else if (reader.GetLocalName() == "minScreenSizePercent") {
-					ActorManager::instance()->m_minScreenSizePercent = std::clamp(reader.readFloat(), 0.f, 100.f);
-				} else {
-					logger::warn("Unknown config : {}", reader.GetLocalName());
-					reader.skipCurrentElement();
-				}
-				break;
-			case XMLReader::Inspected::EndTag:
-				return;
-			}
-		}
-	}
+		g_validationConfig.modsDir = c.modsDir;
 
-	static void validation(XMLReader& reader)
-	{
-		while (reader.Inspect()) {
-			switch (reader.GetInspected()) {
-			case XMLReader::Inspected::StartTag:
-				if (reader.GetLocalName() == "mods-dir") {
-					g_validationConfig.modsDir = reader.readText();
-				} else {
-					logger::warn("Unknown config : {}", reader.GetLocalName());
-					reader.skipCurrentElement();
-				}
-				break;
-			case XMLReader::Inspected::EndTag:
-				return;
-			}
-		}
-	}
-
-	static void config(XMLReader& reader)
-	{
-		while (reader.Inspect()) {
-			switch (reader.GetInspected()) {
-			case XMLReader::Inspected::StartTag:
-				if (reader.GetLocalName() == "solver") {
-					solver(reader);
-				} else if (reader.GetLocalName() == "wind") {
-					wind(reader);
-				} else if (reader.GetLocalName() == "smp") {
-					smp(reader);
-				} else if (reader.GetLocalName() == "validation") {
-					validation(reader);
-				} else {
-					logger::warn("Unknown config : {}", reader.GetLocalName());
-					reader.skipCurrentElement();
-				}
-				break;
-			case XMLReader::Inspected::EndTag:
-				return;
-			}
-		}
+		g_locale = c.locale;  // the Localization loader and the menu's Language dropdown both read this
+		g_outputFontScale = c.outputFontScale;
+		g_overlayFontScale = c.overlayFontScale;
 	}
 
 	void loadConfig()
 	{
-		auto bytes = readAllFile2("data/skse/plugins/hdtSkinnedMeshConfigs/configs.xml");
-		if (bytes.empty()) {
-			return;
-		}
+		// Defaults from the shipped configs.json, then the user's userConfigs.json layered on top.
+		GlobalConfig cfg = parseConfigJson(readFileBytes(CONFIG_PATH));
+		cfg = parseConfigJson(readFileBytes(USER_CONFIG_PATH), cfg);
+		applyConfig(cfg);
+	}
 
-		XMLReader reader((uint8_t*)bytes.data(), bytes.size());
+	GlobalConfig readConfig()
+	{
+		GlobalConfig c;
 
-		while (reader.Inspect()) {
-			if (reader.GetInspected() == XMLReader::Inspected::StartTag) {
-				if (reader.GetLocalName() == "configs") {
-					config(reader);
-				} else {
-					logger::warn("Unknown config : {}", reader.GetLocalName());
-					reader.skipCurrentElement();
-				}
+		c.logLevel = std::clamp(5 - g_logLevel, 0, 5);
+		c.backupNodeByName = Hooks::BipedAnimHooks::BackupNodes;
+
+		auto* a = ActorManager::instance();
+		c.enableNPCFaceParts = a->m_skinNPCFaceParts;
+		c.disableSMPHairWhenWigEquipped = a->m_disableSMPHairWhenWigEquipped;
+		c.minCullingDistance = a->m_minCullingDistance;
+		c.maximumActiveSkeletons = a->m_maxActiveSkeletons;
+		c.autoAdjustMaxSkeletons = a->m_autoAdjustMaxSkeletons;
+		c.disable1stPersonViewPhysics = a->m_disable1stPersonViewPhysics;
+		c.skipDeadActors = a->m_skipDeadActors;
+		c.minScreenSizePercent = a->m_minScreenSizePercent;
+
+		auto* w = SkyrimPhysicsWorld::get();
+		c.clampRotations = w->m_clampRotations;
+		c.rotationSpeedLimit = w->m_rotationSpeedLimit;
+		c.unclampedResets = w->m_unclampedResets;
+		c.unclampedResetAngle = w->m_unclampedResetAngle;
+		c.budgetMs = w->m_budgetMs;
+		c.useRealTime = w->m_useRealTime;
+		c.sampleSize = w->m_sampleSize;
+		c.minFps = w->min_fps;
+		c.maxSubSteps = w->m_maxSubSteps;
+		c.numIterations = w->getSolverInfo().m_numIterations;
+		c.erp = w->getSolverInfo().m_erp;
+		c.windEnabled = w->m_enableWind;
+		c.windStrength = w->m_windStrength;
+		c.distanceForNoWind = w->m_distanceForNoWind;
+		c.distanceForMaxWind = w->m_distanceForMaxWind;
+
+		c.modsDir = g_validationConfig.modsDir;
+		c.locale = g_locale;
+		c.outputFontScale = g_outputFontScale;
+		c.overlayFontScale = g_overlayFontScale;
+
+		return c;
+	}
+
+	const GlobalConfig& shippedDefaults()
+	{
+		// Parse configs.json alone (no userConfigs.json overlay): these are the "reset to default" targets.
+		// Cached in a function-local static so the file is read once, lazily, on first use by the menu.
+		static const GlobalConfig defs = parseConfigJson(readFileBytes(CONFIG_PATH));
+		return defs;
+	}
+
+	void saveUserSettings()
+	{
+		// Write to userConfigs.json (never configs.json), so an FSMP update replacing configs.json can't wipe
+		// the user's settings. We write a clean serialization of only the fields we model, so a setting that
+		// a later FSMP version removes leaves no stale key behind. (Variant-only keys like enableCuda live in
+		// the shipped configs.json, which we never rewrite, so they are unaffected.)
+		const std::string merged = serializeConfigJson(readConfig());
+
+		// Atomic write: emit to a sibling temp file, then rename over the target so a crash mid-write can
+		// never leave a truncated userConfigs.json that would fail to parse on next launch.
+		std::error_code ec;
+		const std::filesystem::path target(USER_CONFIG_PATH);
+		const std::filesystem::path tmp = std::filesystem::path(target).concat(".tmp");
+		{
+			std::ofstream out(tmp, std::ios::binary | std::ios::trunc);
+			if (!out) {
+				logger::warn("saveUserSettings: could not open {} for writing", tmp.string());
+				return;
 			}
+			out.write(merged.data(), static_cast<std::streamsize>(merged.size()));
 		}
+		std::filesystem::rename(tmp, target, ec);
+		if (ec) {
+			// Rename can fail if the destination is locked; fall back to a direct overwrite.
+			std::ofstream out(target, std::ios::binary | std::ios::trunc);
+			if (out)
+				out.write(merged.data(), static_cast<std::streamsize>(merged.size()));
+			std::filesystem::remove(tmp, ec);
+		}
+	}
+
+	void applyConfigReset()
+	{
+		loadConfig();
+		logConfig();
+
+		const RE::MenuOpenCloseEvent e{ "", false };
+		ActorManager::instance()->ProcessEvent(&e, nullptr);
+		SkyrimPhysicsWorld::get()->resetSystems();
 	}
 
 	void logConfig()

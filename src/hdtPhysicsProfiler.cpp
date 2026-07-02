@@ -1,5 +1,7 @@
 #include "hdtPhysicsProfiler.h"
 
+#include "SMPDebug.h"  // menuConsoleAppendLines --- profile tables mirror into the menu's Output panel
+
 #include <LinearMath/btQuickprof.h>
 
 #include <algorithm>
@@ -20,6 +22,16 @@ namespace hdt::physicsprofiler
 
 	namespace
 	{
+		// One profiler-output line: to the log (as before) AND to the menu's Output panel, so the profile
+		// tables themselves are readable in the configuration menu without opening the log file.
+		template <typename... Args>
+		void plog(fmt::format_string<Args...> a_fmt, Args&&... a_args)
+		{
+			std::string line = fmt::format(a_fmt, std::forward<Args>(a_args)...);
+			logger::info("{}", line);
+			hdt::menuConsoleAppendLines(line);
+		}
+
 		struct DumpOptions
 		{
 			double m_minScopeMs = 0.001;
@@ -234,9 +246,9 @@ namespace hdt::physicsprofiler
 			const auto pct = a_parentNs > 0 ? static_cast<double>(a_ns) * 100.0 / static_cast<double>(a_parentNs) : 0.0;
 
 			if (a_calls > 0) {
-				logger::info("{:<80} {:>12.3f} ms {:>10.3f} ms/frame {:>10.3f} ms/call {:>8.2f}% {:>8}", a_scope, totalMs, msPerFrame, msPerCall, pct, a_calls);
+				plog("{:<80} {:>12.3f} ms {:>10.3f} ms/frame {:>10.3f} ms/call {:>8.2f}% {:>8}", a_scope, totalMs, msPerFrame, msPerCall, pct, a_calls);
 			} else {
-				logger::info("{:<80} {:>12.3f} ms {:>10.3f} ms/frame {:>17} {:>8.2f}% {:>8}", a_scope, totalMs, msPerFrame, "-", pct, "-");
+				plog("{:<80} {:>12.3f} ms {:>10.3f} ms/frame {:>17} {:>8.2f}% {:>8}", a_scope, totalMs, msPerFrame, "-", pct, "-");
 			}
 		}
 
@@ -290,9 +302,9 @@ namespace hdt::physicsprofiler
 			const auto cpuMs = nsToMs(a_root.m_totalNs);
 			const auto parallelism = wallNs > 0 ? static_cast<double>(a_root.m_totalNs) / static_cast<double>(wallNs) : 0.0;
 
-			logger::info("Physics profile: {} frames, {:.3f} ms wall, {:.3f} ms recorded CPU, {:.2f}x recorded parallelism", a_frames, wallMs, cpuMs, parallelism);
-			logger::info("{:<80} {:>16} {:>18} {:>18} {:>9} {:>8}", "Scope", "Total CPU", "Avg/frame", "Avg/call", "Parent%", "Calls");
-			logger::info("{:-<154}", "");
+			plog("Physics profile: {} frames, {:.3f} ms wall, {:.3f} ms recorded CPU, {:.2f}x recorded parallelism", a_frames, wallMs, cpuMs, parallelism);
+			plog("{:<80} {:>16} {:>18} {:>18} {:>9} {:>8}", "Scope", "Total CPU", "Avg/frame", "Avg/call", "Parent%", "Calls");
+			plog("{:-<154}", "");
 
 			logRow("Recorded CPU", a_root.m_totalNs, a_root.m_totalNs, 0, a_frames);
 		}
@@ -315,9 +327,9 @@ namespace hdt::physicsprofiler
 				return a_lhs.m_totalNs > a_rhs.m_totalNs;
 			});
 
-			logger::info("Physics profile flat hotspots");
-			logger::info("{:<60} {:>12} {:>18} {:>18} {:>8}", "Scope", "Total CPU", "Avg/frame", "Avg/call", "Calls");
-			logger::info("{:-<122}", "");
+			plog("Physics profile flat hotspots");
+			plog("{:<60} {:>12} {:>18} {:>18} {:>8}", "Scope", "Total CPU", "Avg/frame", "Avg/call", "Calls");
+			plog("{:-<122}", "");
 
 			for (std::size_t i = 0; i < std::min<std::size_t>(rows.size(), a_options.m_flatLimit); ++i) {
 				const auto& row = rows[i];
@@ -325,7 +337,7 @@ namespace hdt::physicsprofiler
 				const auto msPerFrame = a_frames > 0 ? totalMs / static_cast<double>(a_frames) : 0.0;
 				const auto msPerCall = row.m_calls > 0 ? totalMs / static_cast<double>(row.m_calls) : 0.0;
 
-				logger::info("{:<60} {:>10.3f} ms {:>10.3f} ms/frame {:>10.3f} ms/call {:>8}", row.m_name, totalMs, msPerFrame, msPerCall, row.m_calls);
+				plog("{:<60} {:>10.3f} ms {:>10.3f} ms/frame {:>10.3f} ms/call {:>8}", row.m_name, totalMs, msPerFrame, msPerCall, row.m_calls);
 			}
 		}
 
@@ -335,15 +347,15 @@ namespace hdt::physicsprofiler
 				return a_lhs.m_totalNs > a_rhs.m_totalNs;
 			});
 
-			logger::info("Physics profile threads");
-			logger::info("{:<12} {:>12} {:>18} {:>8}", "Thread", "Total CPU", "Avg/frame", "Calls");
-			logger::info("{:-<62}", "");
+			plog("Physics profile threads");
+			plog("{:<12} {:>12} {:>18} {:>8}", "Thread", "Total CPU", "Avg/frame", "Calls");
+			plog("{:-<62}", "");
 
 			for (const auto& row : a_rows) {
 				const auto totalMs = nsToMs(row.m_totalNs);
 				const auto msPerFrame = a_frames > 0 ? totalMs / static_cast<double>(a_frames) : 0.0;
 
-				logger::info("T{:<10} {:>10.3f} ms {:>10.3f} ms/frame {:>8}", row.m_index, totalMs, msPerFrame, row.m_calls);
+				plog("T{:<10} {:>10.3f} ms {:>10.3f} ms/frame {:>8}", row.m_index, totalMs, msPerFrame, row.m_calls);
 			}
 		}
 
@@ -426,6 +438,8 @@ namespace hdt::physicsprofiler
 
 			if (activeScopes != 0) {  // Just debug in case we fucked up somewhere
 				logger::warn("Physics profile dump skipped because {} profile scopes are still active", activeScopes);
+				hdt::menuConsoleAppendLines(
+					fmt::format("Physics profile dump skipped because {} profile scopes are still active", activeScopes));
 				return false;
 			}
 
@@ -457,7 +471,7 @@ namespace hdt::physicsprofiler
 			}
 
 			if (root.m_totalNs == 0) {
-				logger::info("Physics profile had no recorded scopes");
+				plog("Physics profile had no recorded scopes");
 				return true;
 			}
 

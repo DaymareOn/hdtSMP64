@@ -396,10 +396,11 @@ namespace hdt
 
 			m_averageSMPProcessingTimeInMainLoop = (m_averageSMPProcessingTimeInMainLoop * (m_sampleSize - 1) + instFpsImpact) / m_sampleSize;
 
-			// Smooth the individual components for logging so the math adds up perfectly visually
-			static float avgSetupTime = 0.0f;
-			static float avgWaitTime = 0.0f;
-			static float avgWriteTime = 0.0f;
+			// Smooth the individual components for logging so the math adds up perfectly visually. Kept in
+			// members (not function-local static variables) so the in-game Perf tab / overlay can read the live breakdown.
+			float& avgSetupTime = m_avgSetupMs;
+			float& avgWaitTime = m_avgWaitMs;
+			float& avgWriteTime = m_avgWriteMs;
 
 			avgSetupTime = (avgSetupTime * (m_sampleSize - 1) + instSetupTime) / m_sampleSize;
 			avgWaitTime = (avgWaitTime * (m_sampleSize - 1) + instWaitTime) / m_sampleSize;

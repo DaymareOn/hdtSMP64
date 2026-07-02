@@ -1,0 +1,30 @@
+{
+  "smp": {
+    "logLevel": 4,
+    "enableNPCFaceParts": true,
+    "disableSMPHairWhenWigEquipped": false,
+    "clampRotations": true,
+    "rotationSpeedLimit": 10.0,
+    "unclampedResets": true,
+    "unclampedResetAngle": 130.0,
+    "useRealTime": true,
+    "minCullingDistance": 300.0,
+    "autoAdjustMaxSkeletons": true,
+    "maximumActiveSkeletons": 20,
+    "budgetMs": 5.0,
+    "sampleSize": 1,
+    "disable1stPersonViewPhysics": false
+  },
+  "solver": {
+    "numIterations": 20,
+    "erp": 0.2,
+    "min-fps": 60,
+    "maxSubSteps": 3
+  },
+  "wind": {
+    "enabled": true,
+    "windStrength": 4.0,
+    "distanceForNoWind": 50.0,
+    "distanceForMaxWind": 2000.0
+  }
+}
