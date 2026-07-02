@@ -34,40 +34,6 @@
     -->
     <disableSMPHairWhenWigEquipped>false</disableSMPHairWhenWigEquipped>
 
-    <!-- ##################### CLAMP ROTATIONS ############################ -->
-
-    <!--
-      clampRotations: (boolean) limits the PC rotation speed when turning a
-      large angle, so that your character rotates slowly instead of instantly.
-      If no value is set, default is true.
-    -->
-    <clampRotations>true</clampRotations>
-
-    <!--
-      rotationSpeedLimit: (float) rotation speed limit of the PC in radians per
-      second. Must be positive.
-      If no value is set, default is 10.0.
-    -->
-    <rotationSpeedLimit>10.0</rotationSpeedLimit>
-
-    <!--
-      unclampedResets: (boolean) when unclamped, if you do a large turn (full
-      180° for example), we will attempt to apply physics for that enormous
-      turn. Setting this to true will instead trigger a physics reset on the
-      actor if the turn is large enough. You can try setting this false and
-      decide if you're OK with the results.
-      If no value is set, default is true.
-    -->
-    <unclampedResets>true</unclampedResets>
-
-    <!--
-      unclampedResetAngle: (int) the angle value in degrees to reset at. You'll
-      probably want to tweak this until you're happy. There is no limitation on
-      value, use your common sense.
-      If no value is set, default is 120°.
-    -->
-    <unclampedResetAngle>130.0</unclampedResetAngle>
-
     <!-- ######################### CLOCK ################################## -->
 
     <!--

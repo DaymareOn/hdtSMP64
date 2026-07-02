@@ -30,6 +30,12 @@ namespace hdt
 		SkinnedMeshBody* findBody(const RE::BSFixedString& name);
 		int findBoneIdx(const RE::BSFixedString& name);
 
+		/// Decides whether this frame's physics should run normally or be reset, then returns the
+		/// (possibly overridden) timeStep. A reset is forced when the skeleton's root node changed
+		/// (teleport / fast-travel / cell load), on first use, or when the player just returned from
+		/// first-person (m_resetPc). On a reset we re-propagate the current pose down the tree so the
+		/// simulation restarts from where the body actually is. Otherwise the root rotation is left
+		/// untouched and flows into physics as-is.
 		float prepareForRead(float timeStep) override;
 
 		const std::vector<RE::BSTSmartPointer<SkinnedMeshBody>>& meshes() const { return m_meshes; }
@@ -38,9 +44,6 @@ namespace hdt
 		RE::NiPointer<RE::NiNode> m_oldRoot;
 		bool m_initialized = false;
 		float m_windFactor = 1.f;  // wind factor for the system (i.e., full actor/skeleton) (calculated based off obstructions)
-
-		// angular velocity damper
-		btQuaternion m_lastRootRotation;
 	};
 
 	class XMLReader;
