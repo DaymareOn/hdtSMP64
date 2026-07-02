@@ -5,6 +5,10 @@ on:
       - master
       - dev
       - hardenrelease
+      # Publish any branch under ci/ (e.g. ci/skse-menu-framework) to build all AVX variants and a
+      # prerelease, without editing this file. The "/" lives only in the branch name; the versioning
+      # step below sanitizes it to "-" in the version string.
+      - "ci/**"
     paths:
       - "**.cpp"
       - "**.h"
@@ -26,6 +30,7 @@ on:
       - master
       - dev
       - hardenrelease
+      - "ci/**"
     paths:
       - "**.cpp"
       - "**.h"
@@ -103,19 +108,29 @@ jobs:
         shell: bash
         env:
           COMMITS: ${{ toJson(github.event.commits) }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
           SHOULD_RELEASE=false
-          # We loop through each message
-          while read -r msg; do
-            # Skip empty messages
-            [[ -z "$msg" ]] && continue
+          # ci/** branches exist specifically to publish a tester prerelease on every push, so always
+          # release for them. The commit-message filter below is only meant for dev/master, and it relies on
+          # github.event.commits, which GitHub leaves EMPTY when the pushed commits already exist in the repo
+          # (e.g. a force-push of the same commits that were just pushed to another branch) -- which would
+          # otherwise silently skip the ci/ prerelease.
+          if [[ "$REF_NAME" == ci/* ]]; then
+            SHOULD_RELEASE=true
+          else
+            # We loop through each message
+            while read -r msg; do
+              # Skip empty messages
+              [[ -z "$msg" ]] && continue
 
-            # Check if it DOES NOT start with style, docs, or test
-            if [[ ! "$msg" =~ ^(style|docs|test): ]]; then
-              SHOULD_RELEASE=true
-              break
-            fi
-          done < <(echo "$COMMITS" | jq -r '.[].message')
+              # Check if it DOES NOT start with style, docs, or test
+              if [[ ! "$msg" =~ ^(style|docs|test): ]]; then
+                SHOULD_RELEASE=true
+                break
+              fi
+            done < <(echo "$COMMITS" | jq -r '.[].message')
+          fi
           # We set the output variable so it can be used in the release job
           echo "We should release: $SHOULD_RELEASE"
           echo "should_release=$SHOULD_RELEASE" >> $GITHUB_OUTPUT
@@ -251,27 +266,10 @@ jobs:
           cp temp-validator/LICENSE validator_files/
           cp temp-validator/skse/plugins/hdtSkinnedMeshConfigs/hdtSMP64.xsd validator_files/
 
-      - name: Fetch the FSMP MCM
-        run: |
-          echo "Cloning FSMP-MCM..."
-          git clone --depth 1 https://github.com/DaymareOn/FSMP-MCM.git temp-mcm
-          mkdir -p mcm_files
-          cp temp-mcm/FSMP* mcm_files/
-          cp temp-mcm/LICENSE mcm_files/
-          cp -r temp-mcm/SKSE mcm_files/
-          cp -r temp-mcm/Scripts mcm_files/
-          cp -r temp-mcm/Source mcm_files/
-          if [ -d temp-mcm/interface ]; then
-            cp -r temp-mcm/interface mcm_files/
-          else
-            echo "No interface folder in FSMP-MCM, skipping."
-          fi
-
       - name: Organize and 7zip
         run: |
           # 1. Create a clean structure for the final ZIP
           mkdir -p final_package/FSMPV
-          mkdir -p final_package/FSMPM
 
           # 2. Copy everything FROM inside "fomod tree" to the ROOT of final_package
           # Using '.' at the end of the source path copies the content, not the folder itself
@@ -284,8 +282,12 @@ jobs:
           # 4. Copy the Validator to the root level of the package
           cp -r validator_files/* final_package/FSMPV/
 
-          # 5. Copy the MCM to the root level of the package
-          cp -r mcm_files/* final_package/FSMPM/
+          # 5. Ship the default global config + in-game presets. They install unconditionally via the FOMOD
+          #    requiredInstallFiles SKSE folder.
+          mkdir -p "final_package/SKSE/Plugins/hdtSkinnedMeshConfigs"
+          cp configs/configs.json "final_package/SKSE/Plugins/hdtSkinnedMeshConfigs/"
+          cp -r configs/configsPresets "final_package/SKSE/Plugins/hdtSkinnedMeshConfigs/"
+          cp -r configs/localization "final_package/SKSE/Plugins/hdtSkinnedMeshConfigs/"
 
           # 6. Create the unique ZIP
           cd final_package
