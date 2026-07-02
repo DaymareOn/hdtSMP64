@@ -49,81 +49,6 @@ void checkOldPlugins()
 	}
 }
 
-RE::NiSourceTexturePtr* GetTextureFromIndex(RE::BSLightingShaderMaterial* material, std::uint32_t index)
-{
-	switch (index) {
-	case RE::BSTextureSet::Texture::kDiffuse:
-		return std::addressof(material->diffuseTexture);
-	case RE::BSTextureSet::Texture::kNormal:
-		return std::addressof(material->normalTexture);
-	case RE::BSTextureSet::Texture::kEnvironmentMask:
-		{
-			if (material->GetFeature() == RE::BSShaderMaterial::Feature::kFaceGen) {
-				return std::addressof(static_cast<RE::BSLightingShaderMaterialFacegen*>(static_cast<RE::BSLightingShaderMaterialBase*>(material))->subsurfaceTexture);
-			}
-			if (material->GetFeature() == RE::BSShaderMaterial::Feature::kGlowMap) {
-				return std::addressof(static_cast<RE::BSLightingShaderMaterialFacegen*>(static_cast<RE::BSLightingShaderMaterialBase*>(material))->subsurfaceTexture);
-			}
-			return std::addressof(material->rimSoftLightingTexture);
-		}
-		break;
-	case RE::BSTextureSet::Texture::kGlowMap:
-		{
-			if (material->GetFeature() == RE::BSShaderMaterial::Feature::kFaceGen) {
-				return std::addressof(static_cast<RE::BSLightingShaderMaterialFacegen*>(static_cast<RE::BSLightingShaderMaterialBase*>(material))->detailTexture);
-			}
-			if (material->GetFeature() == RE::BSShaderMaterial::Feature::kParallax) {
-				return std::addressof(static_cast<RE::BSLightingShaderMaterialParallax*>(static_cast<RE::BSLightingShaderMaterialBase*>(material))->heightTexture);
-			}
-			if (material->GetFeature() == RE::BSShaderMaterial::Feature::kParallax || material->GetFeature() == RE::BSShaderMaterial::Feature::kParallaxOcc) {
-				return std::addressof(static_cast<RE::BSLightingShaderMaterialParallaxOcc*>(static_cast<RE::BSLightingShaderMaterialBase*>(material))->heightTexture);
-			}
-		}
-		break;
-	case RE::BSTextureSet::Texture::kHeight:
-		{
-			if (material->GetFeature() == RE::BSShaderMaterial::Feature::kEye) {
-				return std::addressof(static_cast<RE::BSLightingShaderMaterialEye*>(static_cast<RE::BSLightingShaderMaterialBase*>(material))->envTexture);
-			}
-			if (material->GetFeature() == RE::BSShaderMaterial::Feature::kEnvironmentMap) {
-				return std::addressof(static_cast<RE::BSLightingShaderMaterialEnvmap*>(static_cast<RE::BSLightingShaderMaterialBase*>(material))->envTexture);
-			}
-			if (material->GetFeature() == RE::BSShaderMaterial::Feature::kMultilayerParallax) {
-				return std::addressof(static_cast<RE::BSLightingShaderMaterialMultiLayerParallax*>(static_cast<RE::BSLightingShaderMaterialBase*>(material))->envTexture);
-			}
-		}
-		break;
-	case RE::BSTextureSet::Texture::kEnvironment:
-		{
-			if (material->GetFeature() == RE::BSShaderMaterial::Feature::kEye) {
-				return std::addressof(static_cast<RE::BSLightingShaderMaterialEye*>(static_cast<RE::BSLightingShaderMaterialBase*>(material))->envMaskTexture);
-			}
-			if (material->GetFeature() == RE::BSShaderMaterial::Feature::kEnvironmentMap) {
-				return std::addressof(static_cast<RE::BSLightingShaderMaterialEnvmap*>(static_cast<RE::BSLightingShaderMaterialBase*>(material))->envTexture);
-			}
-			if (material->GetFeature() == RE::BSShaderMaterial::Feature::kMultilayerParallax) {
-				return std::addressof(static_cast<RE::BSLightingShaderMaterialMultiLayerParallax*>(static_cast<RE::BSLightingShaderMaterialBase*>(material))->envMaskTexture);
-			}
-		}
-		break;
-	case RE::BSTextureSet::Texture::kMultilayer:
-		{
-			if (material->GetFeature() == RE::BSShaderMaterial::Feature::kFaceGen) {
-				return std::addressof(static_cast<RE::BSLightingShaderMaterialFacegen*>(static_cast<RE::BSLightingShaderMaterialBase*>(material))->tintTexture);
-			}
-			if (material->GetFeature() == RE::BSShaderMaterial::Feature::kMultilayerParallax) {
-				return std::addressof(static_cast<RE::BSLightingShaderMaterialMultiLayerParallax*>(static_cast<RE::BSLightingShaderMaterialBase*>(material))->layerTexture);
-			}
-		}
-		break;
-	case RE::BSTextureSet::Texture::kBacklightMask:
-		return std::addressof(material->specularBackLightingTexture);
-		break;
-	}
-
-	return nullptr;
-}
-
 void DumpNodeChildren(RE::NiAVObject* node)
 {
 	logger::info(
@@ -181,25 +106,25 @@ void DumpNodeChildren(RE::NiAVObject* node)
 							if (lightingShader) {
 								RE::BSLightingShaderMaterial* material = static_cast<RE::BSLightingShaderMaterial*>(lightingShader->material);
 
-								for (int texIdx = 0; texIdx < RE::BSTextureSet::Textures::kTotal; ++texIdx) {
-									RE::BSTextureSet::Textures::Texture textureID = static_cast<RE::BSTextureSet::Textures::Texture>(texIdx);
-
-									const char* texturePath = material->textureSet->GetTexturePath(textureID);
-									if (!texturePath) {
-										continue;
+								if (material) {
+									// GetTextures is the game's own polymorphic accessor: each material subtype fills
+									// in its loaded texture objects itself, so we never cast to a subtype (the old
+									// helper did, and mis-cast a glowmap material to a Facegen one -> garbage deref ->
+									// CTD). Zero-initialised and generously oversized so no material can overflow it
+									// and any slot the material doesn't set stays null (skipped below). We log both the
+									// texture-set PATH (authoritative) and the loaded object's runtime name per slot.
+									RE::NiSourceTexture* loaded[64] = {};
+									material->GetTextures(loaded);
+									for (std::uint32_t slot = 0; slot < RE::BSTextureSet::Textures::kTotal; ++slot) {
+										const char* path = material->textureSet
+											? material->textureSet->GetTexturePath(
+												  static_cast<RE::BSTextureSet::Textures::Texture>(slot))
+											: nullptr;
+										const RE::NiSourceTexture* tex = loaded[slot];
+										const char* name = tex ? tex->name.c_str() : "";
+										if ((path && path[0]) || (name && name[0]))
+											logger::info("Texture {} - {} ({})", slot, path ? path : "", name);
 									}
-
-									const char* textureName = "";
-									RE::NiSourceTexturePtr* texture = GetTextureFromIndex(material, textureID);
-									if (texture && texture->get()) {
-										textureName = texture->get()->name.c_str();
-									}
-
-									logger::info(
-										"Texture {} - {} ({})",
-										texIdx,
-										texturePath,
-										textureName);
 								}
 
 								logger::info(
