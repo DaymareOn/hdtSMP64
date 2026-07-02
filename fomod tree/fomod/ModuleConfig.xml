@@ -133,11 +133,6 @@ A: Advanced_Vector_Extensions are extensions to the instruction sets for micropr
 Finally, credits and thanks to hydrogensaysHDT, aers, ousnius, Karonar1, alandtse, DaydreamingDay, igloomod, SesamePaste, jg1, antpillager, Acro, webspam, full_inu, Backporter, asdt123123, usernameak, KaninHop and SimplisticMind :)
 </description>
 							<files>
-								<folder source="FSMPM\Scripts" destination="Scripts" priority="1" />
-								<folder source="FSMPM\SKSE" destination="SKSE" priority="1" />
-								<folder source="FSMPM\Source" destination="Source" priority="1" />
-								<folder source="FSMPM\interface" destination="interface" priority="1" />
-								<file source="FSMPM\FSMPM - The FSMP MCM.esp" destination=".\FSMPM - The FSMP MCM.esp" priority="1" />
 								<file source="FSMPV\hdtSMP64.xsd" destination="SKSE\Plugins\hdtSkinnedMeshConfigs\hdtSMP64.xsd" priority="1" />
 							</files>
 							<typeDescriptor>
