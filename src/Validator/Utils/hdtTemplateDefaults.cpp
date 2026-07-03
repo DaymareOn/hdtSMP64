@@ -517,14 +517,46 @@ namespace hdt
 			return signature;
 		}
 
-		// Single reverse pass over top-level nodes: a default node is removed
-		// if no instantiation or extending default that appears after it references
-		// its name.  Reverse scan means we see users before their templates.
+		// Recursively records every template instantiation under `node` so a
+		// referenced default is never mistaken for unused: constraints nested inside
+		// a <constraint-group> count exactly like top-level shapes. A family element
+		// (non-default) with a template= names that template; one without marks the
+		// family's unnamed default as needed.
+		static void collectTemplateUsages(
+			pugi::xml_node node,
+			std::unordered_map<Family, std::unordered_set<std::string>>& namedNeeded,
+			std::unordered_map<Family, bool>& unnamedNeeded)
+		{
+			for (auto child = node.first_child(); child; child = child.next_sibling()) {
+				if (child.type() != pugi::node_element)
+					continue;
+				const std::string localName = std::string(XmlLocalName(child.name()));
+				const Family family = familyForNode(localName);
+				if (family != Family::None && !isDefaultNodeName(localName)) {
+					const std::string templateName = TrimAsciiWhitespace(child.attribute("template").as_string());
+					if (templateName.empty())
+						unnamedNeeded[family] = true;
+					else
+						namedNeeded[family].insert(templateName);
+				}
+				collectTemplateUsages(child, namedNeeded, unnamedNeeded);
+			}
+		}
+
+		// Remove top-level default nodes that nothing references. Template usages are
+		// gathered from the whole document first (so constraints nested in a
+		// <constraint-group> are counted), then a reverse pass over the top-level
+		// defaults keeps any that are used and propagates each kept default's extends
+		// target so inheritance chains survive.
 		static bool removeUnusedDefaultNodes(pugi::xml_document& doc)
 		{
 			auto sysNode = findSystemNode(doc);
 			if (!sysNode)
 				return false;
+
+			std::unordered_map<Family, bool> unnamedTemplateNeeded;
+			std::unordered_map<Family, std::unordered_set<std::string>> namedTemplatesNeeded;
+			collectTemplateUsages(sysNode, namedTemplatesNeeded, unnamedTemplateNeeded);
 
 			std::vector<pugi::xml_node> topLevelNodes;
 			for (auto node = sysNode.first_child(); node; node = node.next_sibling()) {
@@ -532,52 +564,40 @@ namespace hdt
 					topLevelNodes.push_back(node);
 			}
 
-			std::unordered_map<Family, bool> unnamedTemplateNeeded;
-			std::unordered_map<Family, std::unordered_set<std::string>> namedTemplatesNeeded;
 			std::vector<pugi::xml_node> toRemove;
-
 			for (auto it = topLevelNodes.rbegin(); it != topLevelNodes.rend(); ++it) {
 				const auto& node = *it;
 				const std::string localName = std::string(XmlLocalName(node.name()));
 				const Family family = familyForNode(localName);
-				if (family == Family::None)
+				if (family == Family::None || !isDefaultNodeName(localName))
 					continue;
 
-				if (isDefaultNodeName(localName)) {
-					const std::string templateName = TrimAsciiWhitespace(node.attribute("name").as_string());
-					const std::string extendsName = TrimAsciiWhitespace(node.attribute("extends").as_string());
+				const std::string templateName = TrimAsciiWhitespace(node.attribute("name").as_string());
+				const std::string extendsName = TrimAsciiWhitespace(node.attribute("extends").as_string());
 
-					bool needed = false;
-					if (templateName.empty()) {
-						needed = unnamedTemplateNeeded[family];
-						if (needed)
-							unnamedTemplateNeeded[family] = false;
-					} else {
-						auto& liveNames = namedTemplatesNeeded[family];
-						auto liveIt = liveNames.find(templateName);
-						if (liveIt != liveNames.end()) {
-							needed = true;
-							liveNames.erase(liveIt);
-						}
+				bool needed = false;
+				if (templateName.empty()) {
+					needed = unnamedTemplateNeeded[family];
+					if (needed)
+						unnamedTemplateNeeded[family] = false;
+				} else {
+					auto& liveNames = namedTemplatesNeeded[family];
+					auto liveIt = liveNames.find(templateName);
+					if (liveIt != liveNames.end()) {
+						needed = true;
+						liveNames.erase(liveIt);
 					}
+				}
 
-					if (!needed) {
-						toRemove.push_back(node);
-						continue;
-					}
-
-					if (extendsName.empty())
-						unnamedTemplateNeeded[family] = true;
-					else
-						namedTemplatesNeeded[family].insert(extendsName);
+				if (!needed) {
+					toRemove.push_back(node);
 					continue;
 				}
 
-				const std::string templateName = TrimAsciiWhitespace(node.attribute("template").as_string());
-				if (templateName.empty())
+				if (extendsName.empty())
 					unnamedTemplateNeeded[family] = true;
 				else
-					namedTemplatesNeeded[family].insert(templateName);
+					namedTemplatesNeeded[family].insert(extendsName);
 			}
 
 			for (const auto& node : toRemove)
