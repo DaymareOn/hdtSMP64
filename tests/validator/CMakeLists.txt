@@ -1,5 +1,5 @@
-# validator_tests - doctest unit suite for the XML reader stream contract (#404) and the validator's inert-<bone>
-# (#402) and skin-redundant-<bone> (#406) warnings.
+# validator_tests - doctest unit suite for the XML reader stream contract (#404) and the validator's inert-<bone> (#402)
+# and skin-redundant-<bone> (#406) warnings.
 #
 # Built only when BUILD_VALIDATOR_TESTS is ON (a dev/CI tool, never packaged). The targets under test are
 # game-independent: XmlReader.cpp needs only the XmlInspector headers and Bullet's header-inline math types; the
@@ -16,10 +16,12 @@ find_package(doctest CONFIG REQUIRED)
 
 add_executable(
 	validator_tests
-	"${CMAKE_CURRENT_SOURCE_DIR}/main.cpp" "${CMAKE_CURRENT_SOURCE_DIR}/test_xmlreader.cpp"
+	"${CMAKE_CURRENT_SOURCE_DIR}/main.cpp"
+	"${CMAKE_CURRENT_SOURCE_DIR}/test_xmlreader.cpp"
 	"${CMAKE_CURRENT_SOURCE_DIR}/test_inert_bones.cpp"
 	"${CMAKE_CURRENT_SOURCE_DIR}/test_skin_redundant_bones.cpp"
-	"${CMAKE_CURRENT_SOURCE_DIR}/test_skin_bone_extraction.cpp" "${SOURCE_DIR}/XmlReader.cpp"
+	"${CMAKE_CURRENT_SOURCE_DIR}/test_skin_bone_extraction.cpp"
+	"${SOURCE_DIR}/XmlReader.cpp"
 	"${SOURCE_DIR}/Validator/Utils/hdtTemplateDefaults.cpp"
 	"${SOURCE_DIR}/Validator/Parser/hdtNIFBinaryParser.cpp"
 	"${SOURCE_DIR}/Validator/Schema/hdtNifSchema.cpp")
