@@ -79,6 +79,14 @@ namespace hdt
 		w->m_distanceForMaxWind = c.distanceForMaxWind;
 
 		g_validationConfig.modsDir = c.modsDir;
+		// 'smp fix xml' writes cleaned copies to modsDir/FSMP-out; derive it here so the
+		// output dir tracks whatever mods dir the JSON config / menu currently holds.
+		if (!c.modsDir.empty()) {
+			namespace fs = std::filesystem;
+			g_validationConfig.outputDir = (fs::path(c.modsDir) / "FSMP-out").string();
+		} else {
+			g_validationConfig.outputDir.clear();
+		}
 
 		g_locale = c.locale;  // the Localization loader and the menu's Language dropdown both read this
 		g_outputFontScale = c.outputFontScale;

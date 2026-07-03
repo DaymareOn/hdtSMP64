@@ -9,7 +9,8 @@ namespace hdt
 
 	struct ValidationConfig
 	{
-		std::string modsDir;  // mods folder (MO2 mods/ or Vortex staging) scanned natively, bypassing the VFS
+		std::string modsDir;    // mods folder (MO2 mods/ or Vortex staging) scanned natively, bypassing the VFS
+		std::string outputDir;  // derived modsDir/FSMP-out — used by 'smp fix xml'
 	};
 
 	extern ValidationConfig g_validationConfig;
@@ -64,5 +65,26 @@ namespace hdt
 		std::string& outReportPath,
 		bool equippedOnly = false,
 		ValidationReportMode reportMode = ValidationReportMode::Full);
+
+	// ── XML improvement ───────────────────────────────────────────────────────
+
+	struct XMLImproveResult
+	{
+		int totalXMLsFound = 0;
+		int xmlImprovedCount = 0;
+		std::vector<std::string> errors;
+	};
+
+	// Scan physics XML sources and write improved copies for files where unknown
+	// or misplaced elements can be removed.
+	// When equippedOnly is true, scans only XML files referenced by currently
+	// equipped physics assets.
+	// When errorsOnly is true, only files whose source has schema errors (not
+	// merely warnings) are rewritten.
+	XMLImproveResult ImprovePhysicsXMLs(
+		const std::string& outputDir,
+		bool equippedOnly = false,
+		bool copyOriginal = false,
+		bool errorsOnly = false);
 
 }  // namespace hdt

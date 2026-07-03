@@ -119,6 +119,8 @@ set(SOURCE_FILES
 	"${SOURCE_DIR}/Validator/Improvers/hdtNIFOrphanedSkinImprover.h"
 	"${SOURCE_DIR}/Validator/Improvers/hdtNIFSkinMeshValidator.cpp"
 	"${SOURCE_DIR}/Validator/Improvers/hdtNIFSkinMeshValidator.h"
+	"${SOURCE_DIR}/Validator/Improvers/hdtXMLImprover.cpp"
+	"${SOURCE_DIR}/Validator/Improvers/hdtXMLImprover.h"
 	"${SOURCE_DIR}/Validator/Utils/hdtConcurrencyUtils.h"
 	"${SOURCE_DIR}/Validator/Utils/hdtStringUtils.h"
 	"${SOURCE_DIR}/Validator/Utils/hdtTemplateDefaults.cpp"

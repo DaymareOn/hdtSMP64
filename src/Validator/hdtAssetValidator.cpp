@@ -11,6 +11,7 @@
 #include "Improvers/hdtNIFBinaryIO.h"
 #include "Improvers/hdtNIFOrphanedSkinImprover.h"
 #include "Improvers/hdtNIFSkinMeshValidator.h"
+#include "Improvers/hdtXMLImprover.h"
 #include "NetImmerseUtils.h"
 #include "Utils/hdtConcurrencyUtils.h"
 #include "Utils/hdtNIFBinaryUtils.h"
@@ -1174,6 +1175,69 @@ namespace hdt
 	}
 
 	// ═══════════════════════════════════════════════════════════════════════════════
+	// §6  Improvement
+	//     XML cleanup: collect physics XML sources, then write improved copies.
+	// ═══════════════════════════════════════════════════════════════════════════════
+
+	static std::vector<std::string> collectPhysicsXMLPaths(bool equippedOnly = false)
+	{
+		std::unordered_set<std::string> seen;
+		std::vector<std::string> queue;
+
+		// Inline dedup: enqueue unique paths only
+		auto enqueueUnique = [&](const std::string& path) {
+			if (path.empty())
+				return;
+			auto norm = NormalizePathForComparison(path);
+			if (seen.insert(norm).second)
+				queue.push_back(path);
+		};
+
+		// Enqueue DefaultBBP XMLs
+		auto bbpEntries = discoverDefaultBBPXMLs();
+		for (const auto& entry : bbpEntries)
+			if (entry.xmlExists)
+				enqueueUnique(entry.xmlPath);
+
+		// Enqueue physics asset XMLs (NIFs or equipped items)
+		auto physicsAssets = discoverPhysicsAssets(equippedOnly);
+		for (const auto& asset : physicsAssets)
+			if (asset.xmlExists)
+				enqueueUnique(asset.xmlPath);
+
+		return queue;
+	}
+
+	static XMLImproveResult improveXMLPaths(const std::vector<std::string>& xmlPaths,
+		const std::string& outputDir,
+		bool copyOriginal,
+		bool errorsOnly)
+	{
+		XMLImproveResult result;
+		if (outputDir.empty()) {
+			result.errors.push_back("Output directory is empty");
+			return result;
+		}
+
+		result.totalXMLsFound = static_cast<int>(xmlPaths.size());
+		if (xmlPaths.empty())
+			return result;
+
+		for (const auto& xmlPath : xmlPaths) {
+			try {
+				if (GenerateImprovedXML(xmlPath, outputDir, copyOriginal, errorsOnly))
+					++result.xmlImprovedCount;
+			} catch (const std::exception& e) {
+				result.errors.push_back("Failed to improve XML " + xmlPath + ": " + e.what());
+			} catch (...) {
+				result.errors.push_back("Failed to improve XML " + xmlPath + ": unknown error");
+			}
+		}
+
+		return result;
+	}
+
+	// ═══════════════════════════════════════════════════════════════════════════════
 	// §7  Orchestration
 	//     runValidationCore drives the full pipeline in phase order.
 	// ═══════════════════════════════════════════════════════════════════════════════
@@ -1553,6 +1617,21 @@ namespace hdt
 		}
 
 		return report;
+	}
+
+	XMLImproveResult ImprovePhysicsXMLs(const std::string& outputDir, bool equippedOnly, bool copyOriginal, bool errorsOnly)
+	{
+		logger::info("[Validator] Starting {} XML cleanup...",
+			equippedOnly ? "equipped gear" : "on-demand FSMP");
+		auto result = improveXMLPaths(
+			collectPhysicsXMLPaths(equippedOnly),
+			outputDir,
+			copyOriginal,
+			errorsOnly);
+		logger::info("[Validator] {} XML cleanup complete: {} XML(s) found, {} improved, {} error(s).",
+			equippedOnly ? "Equipped gear" : "On-demand",
+			result.totalXMLsFound, result.xmlImprovedCount, result.errors.size());
+		return result;
 	}
 
 }  // namespace hdt

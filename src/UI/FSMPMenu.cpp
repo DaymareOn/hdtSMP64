@@ -318,7 +318,7 @@ namespace
 		ImGuiMCP::PushStyleColor(ImGuiMCP::ImGuiCol_ButtonHovered, on ? kGreenH : kRedH);
 		ImGuiMCP::PushStyleColor(ImGuiMCP::ImGuiCol_ButtonActive, on ? kGreenH : kRedH);
 		if (ImGuiMCP::Button(on ? tr("Physics is ON") : tr("Physics is OFF")))
-			hdt::RunSMPDebugCommand(on ? "off" : "on", "", "", nullptr);
+			hdt::RunSMPDebugCommand(on ? "off" : "on", "", "", "", "", "", nullptr);
 		ImGuiMCP::PopStyleColor(3);
 		tip("Turn the whole physics simulation on or off (same as 'smp on' / 'smp off').");
 	}
@@ -885,7 +885,7 @@ namespace
 			// RunSMPDebugCommand parses buffer2 then buffer3, each "gear" or "warnings"; pass the selected flags.
 			const char* a2 = gearOnly ? "gear" : (includeWarnings ? "warnings" : "");
 			const char* a3 = (gearOnly && includeWarnings) ? "warnings" : "";
-			hdt::RunSMPDebugCommand("report", a2, a3, nullptr);
+			hdt::RunSMPDebugCommand("report", a2, a3, "", "", "", nullptr);
 		}
 		tip("Run the physics-asset validator in the background; writes a report file.");
 
@@ -955,23 +955,23 @@ namespace
 
 		section(fa::Terminal, "Console commands (shown below, and in the console / log)");
 		if (ImGuiMCP::Button(tr("smp (basic info)")))
-			hdt::RunSMPDebugCommand("", "", "", nullptr);
+			hdt::RunSMPDebugCommand("", "", "", "", "", "", nullptr);
 		ImGuiMCP::SameLine();
 		if (ImGuiMCP::Button(tr("smp reset")))
 			hdt::applyConfigReset();
 		tip("Reload config and reset all physics systems.");
 		ImGuiMCP::SameLine();
 		if (ImGuiMCP::Button(tr("smp list")))
-			hdt::RunSMPDebugCommand("list", "", "", nullptr);
+			hdt::RunSMPDebugCommand("list", "", "", "", "", "", nullptr);
 		ImGuiMCP::SameLine();
 		if (ImGuiMCP::Button(tr("smp detail")))
-			hdt::RunSMPDebugCommand("detail", "", "", nullptr);
+			hdt::RunSMPDebugCommand("detail", "", "", "", "", "", nullptr);
 		if (ImGuiMCP::Button(tr("smp dumptree (player)")))
-			hdt::RunSMPDebugCommand("dumptree", "", "", player);
+			hdt::RunSMPDebugCommand("dumptree", "", "", "", "", "", player);
 		tip("Dump the player's 3D node tree to the log (needs log level 3+).");
 		ImGuiMCP::SameLine();
 		if (ImGuiMCP::Button(tr("smp QueryOverride")))
-			hdt::RunSMPDebugCommand("QueryOverride", "", "", nullptr);
+			hdt::RunSMPDebugCommand("QueryOverride", "", "", "", "", "", nullptr);
 
 		outputPanel();
 	}
@@ -1072,7 +1072,7 @@ namespace
 			if (printFrames < 1)
 				printFrames = 1;
 			hdt::RunSMPDebugCommand("profile", std::to_string(sampleFrames).c_str(),
-				std::to_string(printFrames).c_str(), nullptr);
+				std::to_string(printFrames).c_str(), "", "", "", nullptr);
 		}
 		tip("Toggle physics profiler capture on/off; results are written to hdtSMP64.log.");
 

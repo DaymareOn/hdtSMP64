@@ -17,7 +17,11 @@
 #include <cstdint>
 #include <cstring>
 #include <deque>
+#include <filesystem>
+#include <functional>
+#include <map>
 #include <mutex>
+#include <string>
 #include <string_view>
 #include <thread>
 
@@ -37,6 +41,90 @@ namespace
 		}
 
 		return static_cast<std::uint64_t>(parsed);
+	}
+
+	struct FixCommandArgs {
+		bool gearOnly = false;
+		bool copyOriginal = false;
+		bool errorsOnly = false;
+	};
+
+	// Parse the trailing flag tokens of `smp fix xml` into outArgs: gear, error and
+	// copy-originals (each at most once). Returns false on an unrecognised or
+	// duplicated token. The output directory comes from the FSMP config, not the command.
+	bool ParseFixXmlCommandArgs(const char* arg1, const char* arg2, const char* arg3, FixCommandArgs& outArgs) {
+		auto parseArg = [&](const char* arg) {
+			if (arg[0] == '\0')
+				return true;
+			if (_stricmp(arg, "gear") == 0 && !outArgs.gearOnly) {
+				outArgs.gearOnly = true;
+				return true;
+			}
+			if (_stricmp(arg, "error") == 0 && !outArgs.errorsOnly) {
+				outArgs.errorsOnly = true;
+				return true;
+			}
+			if (_stricmp(arg, "copy-originals") == 0 && !outArgs.copyOriginal) {
+				outArgs.copyOriginal = true;
+				return true;
+			}
+			return false;
+		};
+
+		return parseArg(arg1) && parseArg(arg2) && parseArg(arg3);
+	}
+
+	// Set the fix output directory to modsDir/FSMP-out (derived in applyConfig from the
+	// FSMP config). Returns false and prints guidance when no mods dir is configured.
+	bool ResolveConfigOutputDir(std::string& outputDir) {
+		if (!hdt::g_validationConfig.outputDir.empty()) {
+			outputDir = hdt::g_validationConfig.outputDir;
+			return true;
+		}
+		hdt::smpEcho("[Validator] Output directory not set. Set the mods dir in the FSMP config.");
+		return false;
+	}
+
+	std::atomic<bool> s_validationRunning{ false };
+	std::map<std::string, std::atomic<bool>> s_fixRunning;
+
+	// Launch a fix command on a detached thread, enforcing mutual exclusion: only one
+	// fix of a given typeStr at a time, and never while a report is running. Prints a
+	// start banner, runs executeWork(gearOnly, copyOriginal, outputDir), and always
+	// clears the running flag — even if executeWork throws.
+	void ExecuteFixThread(
+		const std::string& typeStr,
+		bool gearOnly,
+		bool copyOriginal,
+		std::string outputDir,
+		std::function<void(bool, bool, const std::string&)> executeWork) {
+		if (s_fixRunning[typeStr].exchange(true)) {
+			hdt::smpEcho("[Validator] %s cleanup is already running.", typeStr.c_str());
+			return;
+		}
+		if (s_validationRunning.load()) {
+			s_fixRunning[typeStr].store(false);
+			hdt::smpEcho("[Validator] Cannot start %s cleanup while a report is running.", typeStr.c_str());
+			return;
+		}
+
+		const char* startMessage = gearOnly ?
+		                               "[Validator] Equipped gear %s cleanup started in background. Results will appear when complete. Output directory: %s (copy originals: %s)" :
+		                               "[Validator] %s cleanup started in background. Results will appear when complete. Output directory: %s (copy originals: %s)";
+		hdt::smpEcho(startMessage, typeStr.c_str(), outputDir.c_str(), copyOriginal ? "on" : "off");
+
+		std::thread([typeStr, gearOnly, copyOriginal, outputDir = std::move(outputDir), executeWork]() {
+			try {
+				executeWork(gearOnly, copyOriginal, outputDir);
+			} catch (const std::exception& e) {
+				hdt::smpEcho("[Validator] %s cleanup failed with error: %s", typeStr.c_str(), e.what());
+				logger::error("[Validator] smp fix {} threw: {}", typeStr, e.what());
+			} catch (...) {
+				hdt::smpEcho("[Validator] %s cleanup failed with an unknown error", typeStr.c_str());
+				logger::error("[Validator] smp fix {} threw an unknown exception", typeStr);
+			}
+			s_fixRunning[typeStr].store(false);
+		}).detach();
 	}
 }
 
@@ -337,14 +425,20 @@ bool SMPDebug_Execute(
 	memset(buffer2, 0, MAX_PATH);
 	char buffer3[MAX_PATH];
 	memset(buffer3, 0, MAX_PATH);
+	char buffer4[MAX_PATH];
+	memset(buffer4, 0, MAX_PATH);
+	char buffer5[MAX_PATH];
+	memset(buffer5, 0, MAX_PATH);
+	char buffer6[MAX_PATH];
+	memset(buffer6, 0, MAX_PATH);
 
-	if (!RE::Script::ParseParameters(a_paramInfo, a_scriptData, a_opcodeOffsetPtr, a_thisObj, a_containingObj, a_scriptObj, a_locals, buffer, buffer2, buffer3)) {
+	if (!RE::Script::ParseParameters(a_paramInfo, a_scriptData, a_opcodeOffsetPtr, a_thisObj, a_containingObj, a_scriptObj, a_locals, buffer, buffer2, buffer3, buffer4, buffer5, buffer6)) {
 		return false;
 	}
 
-	logger::debug("SMPCommand: {} {} {}"sv, buffer, buffer2, buffer3);
+	logger::debug("SMPCommand: {} {} {} {} {} {}"sv, buffer, buffer2, buffer3, buffer4, buffer5, buffer6);
 
-	return hdt::RunSMPDebugCommand(buffer, buffer2, buffer3, a_thisObj);
+	return hdt::RunSMPDebugCommand(buffer, buffer2, buffer3, buffer4, buffer5, buffer6, a_thisObj);
 }
 
 // The actual smp subcommand dispatch, split out from the console entry point (SMPDebug_Execute) so the
@@ -352,6 +446,7 @@ bool SMPDebug_Execute(
 // with a qualified name so the moved body keeps its original indentation. a_thisObj is the console's
 // targeted reference (used by "dumptree"); the menu passes the player or null.
 bool hdt::RunSMPDebugCommand(const char* buffer, const char* buffer2, const char* buffer3,
+	const char* buffer4, const char* buffer5, const char* buffer6,
 	RE::TESObjectREFR* a_thisObj)
 {
 	if (_strnicmp(buffer, "help", MAX_PATH) == 0) {
@@ -379,6 +474,11 @@ bool hdt::RunSMPDebugCommand(const char* buffer, const char* buffer2, const char
 		hdt::smpEcho("    Default: errors only (no warnings/info).");
 		hdt::smpEcho("    gear     = validate equipped gear only.");
 		hdt::smpEcho("    warnings = also include warnings and info in the report.");
+		hdt::smpEcho("  smp fix xml [gear] [error] [copy-originals]");
+		hdt::smpEcho("    Clean invalid XML tags and write improved XML copies.");
+		hdt::smpEcho("    Output directory comes from the mods dir in the FSMP config.");
+		hdt::smpEcho("    error = only rewrite files that have schema errors (not warnings).");
+		hdt::smpEcho("    copy-originals = also copy original source as *-original.xml for improved files.");
 		return true;
 	}
 
@@ -456,8 +556,6 @@ bool hdt::RunSMPDebugCommand(const char* buffer, const char* buffer2, const char
 	}
 
 	if (_strnicmp(buffer, "report", MAX_PATH) == 0) {
-		static std::atomic<bool> s_validationRunning{ false };
-
 		bool gearOnly = false;
 		bool includeWarnings = false;  // default: errors only (an explicit 'warnings' opts in)
 		auto parseValidateModeArg = [&](const char* arg) {
@@ -555,6 +653,43 @@ bool hdt::RunSMPDebugCommand(const char* buffer, const char* buffer2, const char
 			}
 			s_validationRunning.store(false);
 		}).detach();
+		return true;
+	}
+
+	const bool isFixXMLSplitAlias = _strnicmp(buffer, "fix", MAX_PATH) == 0 && _stricmp(buffer2, "xml") == 0;
+	if (isFixXMLSplitAlias) {
+		const bool hasTooManyArgs = buffer6[0] != '\0';
+		if (hasTooManyArgs) {
+			hdt::smpEcho("[Validator] Usage: smp fix xml [gear] [error] [copy-originals]");
+			return true;
+		}
+
+		FixCommandArgs args;
+		if (!ParseFixXmlCommandArgs(buffer3, buffer4, buffer5, args)) {
+			hdt::smpEcho("[Validator] Usage: smp fix xml [gear] [error] [copy-originals]");
+			return true;
+		}
+
+		std::string outputDir;
+		if (!ResolveConfigOutputDir(outputDir))
+			return true;
+
+		const std::string modeLabel = args.errorsOnly ? "XML (errors only)" : "XML";
+		ExecuteFixThread(modeLabel, args.gearOnly, args.copyOriginal, outputDir,
+			[errorsOnly = args.errorsOnly](bool gearOnly, bool copyOriginal, const std::string& outputDir) {
+				auto result = hdt::ImprovePhysicsXMLs(outputDir, gearOnly, copyOriginal, errorsOnly);
+				hdt::smpEcho("[Validator] %s XML cleanup%s: %d XML(s) scanned, %d cleaned file(s) written to %s",
+					gearOnly ? "Equipped gear" : "Full",
+					errorsOnly ? " (errors only)" : "",
+					result.totalXMLsFound,
+					result.xmlImprovedCount,
+					outputDir.c_str());
+				for (const auto& err : result.errors) {
+					hdt::smpEcho("[Validator] XML cleanup error: %s", err.c_str());
+				}
+				logger::info("[Validator] XML cleanup done: gearOnly={}, errorsOnly={}, {} XML(s) scanned, {} improved, output={}",
+					gearOnly, errorsOnly, result.totalXMLsFound, result.xmlImprovedCount, outputDir);
+			});
 		return true;
 	}
 
@@ -770,22 +905,18 @@ extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* a_s
 	//
 	auto unusedCommand = RE::SCRIPT_FUNCTION::LocateConsoleCommand("ShowRenderPasses");
 	if (unusedCommand) {
-		static RE::SCRIPT_PARAMETER params[3];
-		params[0].paramType = RE::SCRIPT_PARAM_TYPE::kChar;
-		params[0].paramName = "String (optional)";
-		params[0].optional = 1;
-		params[1].paramType = RE::SCRIPT_PARAM_TYPE::kChar;
-		params[1].paramName = "String (optional)";
-		params[1].optional = 1;
-		params[2].paramType = RE::SCRIPT_PARAM_TYPE::kChar;
-		params[2].paramName = "String (optional)";
-		params[2].optional = 1;
+		static RE::SCRIPT_PARAMETER params[6];
+		for (auto& param : params) {
+			param.paramType = RE::SCRIPT_PARAM_TYPE::kChar;
+			param.paramName = "String (optional)";
+			param.optional = 1;
+		}
 
 		unusedCommand->functionName = "SMPDebug";
 		unusedCommand->shortName = "smp";
-		unusedCommand->helpString = "smp <help|reset|report [gear] [warnings]>";
+		unusedCommand->helpString = "smp <help|reset|report [gear] [warnings]|fix xml [gear] [error] [copy-originals]>";
 		unusedCommand->referenceFunction = 0;
-		unusedCommand->numParams = 3;
+		unusedCommand->numParams = 6;
 		unusedCommand->params = params;
 		unusedCommand->executeFunction = SMPDebug_Execute;
 		unusedCommand->editorFilter = 0;
