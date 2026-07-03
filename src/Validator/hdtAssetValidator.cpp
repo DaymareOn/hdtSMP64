@@ -946,6 +946,7 @@ namespace hdt
 						asset.hasOrphanedPhysicsMarker = scanRes.hasOrphanedPhysicsMarker;
 						asset.relatedTRIPaths = discoverRelatedTRIFiles(pathStr);
 						asset.allPhysicsXmlPaths = scanRes.allPhysicsXmlPaths;
+						asset.skinBoundBoneNames = std::move(scanRes.skinBoundBoneNames);
 
 						if (!scanRes.physicsXmlPath.empty()) {
 							auto [xmlPath, xmlExists] = ResolveXMLPath(scanRes.physicsXmlPath);
@@ -1302,6 +1303,89 @@ namespace hdt
 		}
 	}
 
+	/// Ecosystem-level "skin-redundant <bone>" analysis (issue #406) — full-scan only.
+	///
+	/// A top-level <bone X> on a skinned node only restates what the engine already builds from
+	/// the mesh skin: when a mesh skins to node X, the runtime creates bone X from the unnamed
+	/// default template. So <bone X> is provably removable when
+	///   (1)&(2) the XML proves it equals the unnamed default in force at its own position, with no
+	///           later unnamed <bone-default> to change that default (CollectSkinRedundantBoneCandidates), and
+	///   (3) EVERY NIF that references this physics XML is skinned to X — so the engine auto-creates
+	///       an identical bone for every consumer, making the declaration redundant across the whole
+	///       ecosystem, not merely for one item (FilterSkinRedundantBonesByConsumers).
+	/// This needs the full NIF→XML population, so it runs only in the filesystem full scan; gear mode
+	/// sees a single equipped consumer and cannot prove "every consumer". Consumers whose skin bones
+	/// could not be read contribute an empty set, which drops every candidate — so the pass
+	/// under-reports rather than ever flagging a live declaration.
+	///
+	/// `excludedXmlNorms` holds normalised paths of XMLs we must NOT analyse because their consumer
+	/// set is not enumerable from NIF references alone — chiefly defaultBBPs.xml defaults, which the
+	/// runtime applies to any body of a matching shape that lacks its own physics. Such an XML could
+	/// be worn by a mesh not skinned to X yet invisible to this scan, so flagging it could be a false
+	/// positive; skipping it keeps the guarantee intact.
+	static void analyzeSkinRedundantBones(const std::vector<PhysicsAsset>& nifAssets,
+		const std::unordered_set<std::string>& excludedXmlNorms,
+		AssetValidationResult& report, std::ostream& out)
+	{
+		// Group consumers by the XML they reference (normalised), preserving first-seen order so
+		// the emitted report is deterministic across runs.
+		struct XmlConsumers
+		{
+			std::string displayPath;
+			std::vector<std::vector<std::string>> consumerSkinBones;
+		};
+		std::unordered_map<std::string, XmlConsumers> byXml;
+		std::vector<std::string> xmlOrder;
+
+		for (const auto& asset : nifAssets) {
+			if (asset.xmlPath.empty() || !asset.xmlExists)
+				continue;
+			auto norm = NormalizePathForComparison(asset.xmlPath);
+			auto it = byXml.find(norm);
+			if (it == byXml.end()) {
+				it = byXml.emplace(norm, XmlConsumers{ asset.xmlPath, {} }).first;
+				xmlOrder.push_back(norm);
+			}
+			it->second.consumerSkinBones.push_back(asset.skinBoundBoneNames);
+		}
+
+		for (const auto& norm : xmlOrder) {
+			if (excludedXmlNorms.count(norm))
+				continue;  // consumer set not enumerable (e.g. defaultBBP default) — cannot prove removability
+			const auto& entry = byXml[norm];
+
+			std::string bytes = readAllFile2(entry.displayPath.c_str());
+			if (bytes.empty())
+				continue;
+			pugi::xml_document doc;
+			if (!doc.load_buffer(bytes.data(), bytes.size()))
+				continue;
+
+			auto candidates = CollectSkinRedundantBoneCandidates(doc, &bytes);
+			if (candidates.empty())
+				continue;
+
+			auto flagged = FilterSkinRedundantBonesByConsumers(candidates, entry.consumerSkinBones);
+			if (flagged.empty())
+				continue;
+
+			out << "  [XML]  " << entry.displayPath << "\n";
+			for (const auto& bone : flagged) {
+				const std::string named = bone.boneName.empty() ? std::string() : " \"" + bone.boneName + "\"";
+				std::string msg = entry.displayPath + ":" + std::to_string(bone.line) + ": " + bone.location +
+				                  " - <bone>" + named +
+				                  " restates the skin-created default: every mesh that references this physics"
+				                  " file skins to this node, so the engine already creates an identical default"
+				                  " bone from the skin. This declaration is redundant and can be removed.";
+				report.warnings.push_back(msg);
+				report.hasWarnings = true;
+				out << "    [WARNING] " << bone.location << " (line " << bone.line << "): <bone>" << named
+					<< " restates the skin-created default (every mesh referencing this physics file skins to"
+					   " this node, so the engine already creates an identical bone); it can be removed.\n";
+			}
+		}
+	}
+
 	static std::string runValidationCore(AssetValidationResult& report, const std::string& timestamp, bool equippedOnly = false)
 	{
 		auto wallStart = std::chrono::steady_clock::now();
@@ -1345,6 +1429,12 @@ namespace hdt
 
 			// Phase 0: DefaultBBP XML validation
 			auto bbpEntries = discoverDefaultBBPXMLs();
+			// defaultBBP defaults are applied by shape, not by NIF reference, so their consumer set
+			// is not enumerable from the NIF scan; exclude them from the #406 skin-redundant analysis.
+			std::unordered_set<std::string> defaultBbpXmlNorms;
+			for (const auto& entry : bbpEntries)
+				if (!entry.xmlPath.empty())
+					defaultBbpXmlNorms.insert(NormalizePathForComparison(entry.xmlPath));
 			if (!bbpEntries.empty()) {
 				bodyStream << "== Phase 0: DefaultBBP XML Validation ==\n";
 				bodyStream << "  Found " << bbpEntries.size() << " map entries in defaultBBPs.xml.\n";
@@ -1449,6 +1539,11 @@ namespace hdt
 
 				bodyStream << "\n== Phase 3.5: NIF Structural Validation ==\n";
 				validateNIFStructure(nifAssets, report, bodyStream);
+
+				// Cross-consumer redundant-<bone> check: needs the full NIF→XML population, so
+				// it runs only here in the full scan (see analyzeSkinRedundantBones).
+				bodyStream << "\n== Phase 3.6: Skin-Redundant <bone> Analysis ==\n";
+				analyzeSkinRedundantBones(nifAssets, defaultBbpXmlNorms, report, bodyStream);
 			}
 		}
 

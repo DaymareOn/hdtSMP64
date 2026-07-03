@@ -70,4 +70,36 @@ namespace hdt
 		const pugi::xml_document& doc,
 		const std::string* sourceBytes = nullptr);
 
+	// The XML-side half of the "skin-redundant <bone>" check (issue #406): top-level <bone>
+	// declarations that are removable AS FAR AS THE XML ALONE CAN PROVE — a mesh skinned to the
+	// node would make the engine auto-create an identical bone, so the declaration only restates
+	// it. Two conditions, both position-aware:
+	//   (1) the bone's effective FieldMap equals the unnamed bone-default in force at its own
+	//       document position (so what it declares is exactly what would be auto-created), and
+	//   (2) no unnamed <bone-default> appears AFTER it — otherwise the default the engine would
+	//       recreate the bone with (at the skinning shape's later position) could differ, so
+	//       removal would not be neutral.
+	// This returns candidates ONLY; it deliberately says nothing about whether any mesh actually
+	// skins to the node. That is a per-consumer fact — the caller must confirm EVERY NIF that
+	// references this XML is skinned to `boneName` (after renaming) before reporting removability,
+	// which is what keeps the warning a mod-level truth rather than a per-item accident.
+	// When sourceBytes is provided, line numbers are computed from offsets.
+	std::vector<InertBoneInfo> CollectSkinRedundantBoneCandidates(
+		const pugi::xml_document& doc,
+		const std::string* sourceBytes = nullptr);
+
+	// The ecosystem half of the #406 check: given the XML-intrinsic candidates for one physics
+	// file and, for each NIF that references that file, the set of node names that NIF is skinned
+	// to (case-folded, e.g. from ExtractSkinBoundBoneNames), keep only the candidates that are
+	// removable community-wide — those whose bone name (case-folded) is skinned by EVERY consumer.
+	// The reasoning: a mesh skinned to node X makes the engine auto-create an identical default
+	// bone X, so <bone X> is pure redundancy there; but if even one consumer does NOT skin to X,
+	// its <bone X> may be that bone's only creator, so removal would change behaviour. Requiring
+	// ALL consumers is what makes the warning a mod-level truth. With zero consumers nothing is
+	// proven and the result is empty. A consumer whose skin bones could not be read contributes an
+	// empty set, which drops every candidate — the check under-reports rather than over-reports.
+	std::vector<InertBoneInfo> FilterSkinRedundantBonesByConsumers(
+		const std::vector<InertBoneInfo>& candidates,
+		const std::vector<std::vector<std::string>>& consumerSkinBones);
+
 }  // namespace hdt

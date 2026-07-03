@@ -966,6 +966,67 @@ namespace hdt
 			}
 		}
 
+		// XML-side collector for the skin-redundant-<bone> check (issue #406). See the header
+		// for the contract. Walks top-level bone-family elements in document order, keeping the
+		// unnamed bone-default (boneTemplates[""]) current. A plain <bone> becomes a candidate
+		// when its effective FieldMap equals boneTemplates[""] at that point. An unnamed
+		// <bone-default> encountered later clears the pending candidates: it changes the default
+		// the engine would recreate skinned bones with, so any earlier candidate can no longer be
+		// proven neutral to remove. Whatever candidates survive to the end therefore satisfy both
+		// "equals the default at its position" and "no unnamed bone-default after it".
+		std::vector<InertBoneInfo> collectSkinRedundantBoneCandidates(
+			const pugi::xml_document& doc,
+			const std::string* sourceBytes)
+		{
+			std::vector<InertBoneInfo> candidates;
+			auto sysNode = findSystemNode(doc);
+			if (!sysNode)
+				return candidates;
+
+			const auto baseDefaults = makeBaseDefaults();
+			TemplateMap boneTemplates;
+			{
+				auto it = baseDefaults.find(Family::Bone);
+				boneTemplates[""] = (it != baseDefaults.end()) ? it->second : FieldMap{};
+			}
+
+			for (auto node = sysNode.first_child(); node; node = node.next_sibling()) {
+				if (node.type() != pugi::node_element)
+					continue;
+				const std::string localName = std::string(XmlLocalName(node.name()));
+				if (familyForNode(localName) != Family::Bone)
+					continue;
+
+				const bool isDefault = isDefaultNodeName(localName);  // "bone-default"
+				FieldMap effective = computeNodeEffectiveFields(node, Family::Bone, isDefault, boneTemplates);
+
+				if (isDefault) {
+					const std::string templateName = TrimAsciiWhitespace(node.attribute("name").as_string());
+					boneTemplates[templateName] = std::move(effective);
+					// An unnamed bone-default retroactively invalidates earlier candidates
+					// (condition 2): the default that would recreate them has now changed.
+					if (templateName.empty())
+						candidates.clear();
+					continue;
+				}
+
+				const char* rawName = node.attribute("name").value();
+				if (rawName[0] == '\0')
+					continue;
+				auto defaultIt = boneTemplates.find("");
+				if (defaultIt != boneTemplates.end() && effective == defaultIt->second) {
+					InertBoneInfo info;
+					info.location = BuildNodeLocationPath(node);
+					info.boneName = TrimAsciiWhitespace(rawName);
+					if (sourceBytes)
+						info.line = OffsetToLineNumber(*sourceBytes, node.offset_debug());
+					candidates.push_back(std::move(info));
+				}
+			}
+
+			return candidates;
+		}
+
 	}  // anonymous namespace
 
 	// ── Public API ────────────────────────────────────────────────────────────
@@ -1030,6 +1091,44 @@ namespace hdt
 		std::unordered_set<std::string> touched;
 		collectInertBonesInOrder(sysNode, touched, sourceBytes, out);
 		return out;
+	}
+
+	std::vector<InertBoneInfo> CollectSkinRedundantBoneCandidates(
+		const pugi::xml_document& doc,
+		const std::string* sourceBytes)
+	{
+		return collectSkinRedundantBoneCandidates(doc, sourceBytes);
+	}
+
+	std::vector<InertBoneInfo> FilterSkinRedundantBonesByConsumers(
+		const std::vector<InertBoneInfo>& candidates,
+		const std::vector<std::vector<std::string>>& consumerSkinBones)
+	{
+		// Nothing is proven with no consumer, so flag nothing.
+		if (candidates.empty() || consumerSkinBones.empty())
+			return {};
+
+		// Intersection of skin-bound bone names across ALL consumers (all case-folded).
+		// Seed from the first consumer, then drop any name missing from a later consumer.
+		std::unordered_set<std::string> common(consumerSkinBones[0].begin(), consumerSkinBones[0].end());
+		for (size_t k = 1; k < consumerSkinBones.size() && !common.empty(); ++k) {
+			std::unordered_set<std::string> next(consumerSkinBones[k].begin(), consumerSkinBones[k].end());
+			for (auto it = common.begin(); it != common.end();) {
+				if (next.find(*it) == next.end())
+					it = common.erase(it);
+				else
+					++it;
+			}
+		}
+		if (common.empty())
+			return {};
+
+		std::vector<InertBoneInfo> result;
+		for (const auto& c : candidates) {
+			if (common.find(ToLowerAscii(c.boneName)) != common.end())
+				result.push_back(c);
+		}
+		return result;
 	}
 
 }  // namespace hdt

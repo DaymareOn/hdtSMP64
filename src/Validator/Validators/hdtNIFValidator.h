@@ -20,6 +20,9 @@ namespace hdt
 		bool hasGeometry = false;
 		bool hasSkinning = false;
 		bool hasOrphanedPhysicsMarker = false;  // marker string present but no NiStringExtraData block references it
+		// Case-folded, de-duplicated node names this NIF's meshes are skinned to (union of every
+		// skin instance's Bones array). Drives the #406 cross-consumer "skin-redundant <bone>" check.
+		std::vector<std::string> skinBoundBoneNames;
 		std::vector<std::string> errors;
 	};
 

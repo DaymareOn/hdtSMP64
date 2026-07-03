@@ -12,3 +12,29 @@
 #include <mutex>      // std::lock_guard — hdtBulletHelper.h
 #include <vector>     // std::vector     — hdt::vectorA16 alias (hdtBulletHelper.h)
 #include <windows.h>  // BYTE            — XMLReader's buffer constructor
+
+// hdtNifSchema.cpp emits verbose spdlog trace lines (`logger::info("...{}", ...)`, guarded by a
+// debug flag but compiled unconditionally). In the plugin, `logger` comes from CommonLibSSE via
+// PCH.h; the headless test target has none, so stand in a no-op variadic `logger` that swallows any
+// arguments. Test-target only — the plugin build still uses the real logger through PCH.h.
+namespace logger
+{
+	template <class... Args>
+	inline void trace(Args&&...)
+	{}
+	template <class... Args>
+	inline void debug(Args&&...)
+	{}
+	template <class... Args>
+	inline void info(Args&&...)
+	{}
+	template <class... Args>
+	inline void warn(Args&&...)
+	{}
+	template <class... Args>
+	inline void error(Args&&...)
+	{}
+	template <class... Args>
+	inline void critical(Args&&...)
+	{}
+}

@@ -224,6 +224,9 @@ namespace hdt
 				if (hasMarker) {
 					result.hasPhysicsData = true;
 					result.allPhysicsXmlPaths = nif::FindXmlPathsInNif(parsed);
+					// Record which skeleton nodes this NIF skins to, for the #406 cross-consumer
+					// check. Reuses the already-parsed blocks — no extra file read or parse.
+					result.skinBoundBoneNames = nif::ExtractSkinBoundBoneNames(parsed);
 					if (!result.allPhysicsXmlPaths.empty()) {
 						result.physicsXmlPath = result.allPhysicsXmlPaths[0];
 					} else {
