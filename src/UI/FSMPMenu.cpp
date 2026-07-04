@@ -692,8 +692,7 @@ namespace
 					"Apply SMP to loaded creatures and animals, not just humanoids. Covers physics baked "
 					"into a creature's body/skeleton mesh and per-race defaults declared in defaultBBPs.xml; "
 					"equipped SMP armor on creatures works regardless. Needs physics content authored for the "
-					"creature, costs performance when many creatures are near, and takes effect as creatures "
-					"load. Off by default.",
+					"creature and takes effect as creatures load. Off by default.",
 					&a->m_enableCreaturePhysics, d.enableCreaturePhysics))
 				commitReset();
 			endRows();
