@@ -20,10 +20,26 @@ namespace hdt
 		static DefaultBBP* instance();
 		PhysicsFile_t scanBBP(RE::NiNode* scan);
 
+		// Physics file embedded directly on this node via the "HDT Skinned Mesh Physics Object"
+		// NiStringExtraData, with no defaultBBP name-matching fallback. The baked-geometry scan uses
+		// this so it only picks up meshes that explicitly opt in, and never auto-tags an ordinary
+		// creature body mesh the way scanBBP's defaultBBP fallback could. Returns an empty path when
+		// the node carries no such tag.
+		PhysicsFile_t scanEmbeddedBBP(RE::NiNode* scan);
+
+		// Default physics file for a creature race, matched by its skeleton NIF path (as authored in the
+		// race record, e.g. "Actors\Canine\Character Assets\skeleton.nif"). This lets a mod add physics
+		// to a whole creature race with just an XML plus a defaultBBPs.xml <creature> entry — no edits to
+		// the creature's meshes. Matching is case-insensitive. Returns "" when no entry matches. The
+		// baked-geometry scan uses this as a fallback when a creature carries no embedded-tag outfit.
+		std::string getCreatureDefaultFile(const char* skeletonPath) const;
+
 	private:
 		DefaultBBP();
 
 		std::unordered_map<std::string, std::string> bbpFileList;
+		// Creature skeleton NIF path (lowercased) -> default physics XML. See getCreatureDefaultFile().
+		std::unordered_map<std::string, std::string> creatureFileList;
 		std::vector<Remap> remaps;
 
 		void loadDefaultBBPs();

@@ -73,19 +73,36 @@ namespace hdt
 		return findNode(npc, "Camera1st [Cam1]") ? true : false;
 	}
 
-	RE::NiNode* getNpcNode(RE::NiNode* skeleton)
+	// Resolve the node under which an actor's animated bone tree lives — the mount point where
+	// armor-addon bones get merged and where the physics system reads the skeleton from. This is
+	// the single place that used to assume every actor is a humanoid; generalizing it is what lets
+	// creatures and animals carry SMP outfits.
+	//
+	// Skyrim actor skeletons come in two shapes:
+	//   * Correctly built (all humanoids, most creatures): the animated tree is nested
+	//     "NPC" -> "NPC Root [Root]" -> bones, so the "NPC" node is the mount.
+	//   * Incorrectly built (e.g. the Benthic Lurker, and various custom creatures): they omit
+	//     "NPC" or leave a stray "NPC" outside the bone tree, so the bones actually hang off the
+	//     outer "NPC Root [Root]" container instead.
+	// We tell the two apart structurally rather than by hardcoding skeleton file paths: a genuine
+	// mount "NPC" must contain "NPC Root [Root]" beneath it. This reproduces the old per-skeleton
+	// Lurker workaround for every misbuilt skeleton, present and future, with zero hardcoded
+	// exceptions. Returns nullptr only when neither node exists — i.e. this isn't an actor skeleton.
+	RE::NiNode* getActorRootNode(RE::NiNode* skeleton)
 	{
-		// TODO: replace this with a generic skeleton fixing configuration option
-		// hardcode an exception for lurker skeletons because they are made incorrectly
-		auto shouldFix = false;
-		if (skeleton->GetUserData() && skeleton->GetUserData()->GetObjectReference()) {
-			auto npcForm = skyrim_cast<RE::TESNPC*>(skeleton->GetUserData()->GetObjectReference());
-			if (npcForm && npcForm->race && !strcmp(npcForm->race->skeletonModels[0].GetModel(), "Actors\\DLC02\\BenthicLurker\\Character Assets\\skeleton.nif")) {
-				shouldFix = true;
-			}
-		}
+		if (!skeleton)
+			return nullptr;
 
-		return findNode(skeleton, shouldFix ? "NPC Root [Root]" : "NPC");
+		auto* npc = findNode(skeleton, "NPC");
+		if (npc && findNode(npc, "NPC Root [Root]"))
+			return npc;
+
+		if (auto* root = findNode(skeleton, "NPC Root [Root]"))
+			return root;
+
+		// Last resort: a rootless stray "NPC" keeps legacy behavior for oddball skeletons rather
+		// than dropping the actor; true non-actor nodes have neither and fall through to nullptr.
+		return npc;
 	}
 
 	ActorManager::ActorManager()
@@ -104,8 +121,10 @@ namespace hdt
 
 	RE::BSEventNotifyControl ActorManager::ProcessEvent(const Events::ArmorAttachEvent* e, RE::BSTEventSource<Events::ArmorAttachEvent>*)
 	{
-		// No armor is ever attached to a lurker skeleton, thus we don't need to test.
-		if (e->skeleton == nullptr || !findNode(e->skeleton, "NPC")) {
+		// Only process real actor skeletons. getActorRootNode() accepts both the humanoid ("NPC")
+		// and creature ("NPC Root [Root]") layouts, so this no longer rejects creatures the way the
+		// old literal "NPC" test did — that is what unblocks equippable SMP outfits on creatures.
+		if (!getActorRootNode(e->skeleton)) {
 			return RE::BSEventNotifyControl::kContinue;
 		}
 
@@ -188,7 +207,41 @@ namespace hdt
 
 		fixArmorNameMaps();
 
+		// Scan any actors that loaded since the last frame for baked creature outfits, before deciding
+		// which skeletons are active, so a freshly discovered outfit can activate this same frame.
+		drainPendingBakedScans();
+
 		setSkeletonsActive(true);
+
+		return RE::BSEventNotifyControl::kContinue;
+	}
+
+	RE::BSEventNotifyControl ActorManager::ProcessEvent(const RE::TESObjectLoadedEvent* e, RE::BSTEventSource<RE::TESObjectLoadedEvent>*)
+	{
+		if (!e || !m_enableCreaturePhysics) {
+			return RE::BSEventNotifyControl::kContinue;
+		}
+
+		std::lock_guard<decltype(m_lock)> l(m_lock);
+		if (m_shutdown) {
+			return RE::BSEventNotifyControl::kContinue;
+		}
+
+		if (e->loaded) {
+			// This event fires for every reference (clutter, items, ...), so filter to non-humanoid
+			// actors here to keep the pending map small — humanoids are handled by the armor/facegen
+			// paths. The form always exists now; it's the 3D that lags, so we don't scan here. We queue
+			// the actor and let the FrameEvent handler retry until its 3D is built. ~300 frames (~5s at
+			// 60fps) is far more than the engine needs; if the model never appears we quietly give up.
+			auto* actor = RE::TESForm::LookupByID<RE::Actor>(e->formID);
+			if (actor && !actor->IsHumanoid()) {
+				m_pendingBakedScan.insert_or_assign(e->formID, 300);
+			}
+		} else {
+			// Unloaded before we ever scanned it: stop tracking. Its skeleton (if any was registered) is
+			// purged separately by setSkeletonsActive() once the engine drops the last 3D reference.
+			m_pendingBakedScan.erase(e->formID);
+		}
 
 		return RE::BSEventNotifyControl::kContinue;
 	}
@@ -219,7 +272,8 @@ namespace hdt
 		fixArmorNameMaps();
 
 		auto& skeleton = getSkeletonData(e->skeleton);
-		// Non-lurker here (see above), so getNpcNode() would just re-find this same "NPC" node — reuse it.
+		// Head geometry only skins onto humanoid ("NPC") skeletons, so getActorRootNode() would just
+		// re-find this same "NPC" node — reuse it.
 		skeleton.npc = hdt::make_nismart(npc);
 
 		skeleton.processGeometry(e->headNode, e->geometry);
@@ -689,6 +743,101 @@ namespace hdt
 		return 0;
 	}
 
+	void ActorManager::drainPendingBakedScans()
+	{
+		if (m_pendingBakedScan.empty()) {
+			return;
+		}
+
+		for (auto it = m_pendingBakedScan.begin(); it != m_pendingBakedScan.end();) {
+			auto* actor = RE::TESForm::LookupByID<RE::Actor>(it->first);
+
+			// Drop actors we can't or shouldn't scan: gone, humanoid (handled by the armor/facegen
+			// paths), or out of retries waiting for a 3D that never arrived.
+			if (!actor || actor->IsHumanoid() || it->second <= 0) {
+				it = m_pendingBakedScan.erase(it);
+				continue;
+			}
+
+			if (actor->Get3D()) {
+				scanActorForBakedPhysics(actor);
+				it = m_pendingBakedScan.erase(it);
+			} else {
+				--it->second;  // 3D not built yet, try again next frame
+				++it;
+			}
+		}
+	}
+
+	void ActorManager::scanActorForBakedPhysics(RE::Actor* actor)
+	{
+		auto* obj3D = actor->Get3D();
+		auto* skeletonRoot = obj3D ? obj3D->AsNode() : nullptr;
+		auto* root = getActorRootNode(skeletonRoot);
+		if (!root) {
+			return;
+		}
+
+		auto& skeleton = getSkeletonData(skeletonRoot);
+		if (!skeleton.skeletonOwner) {
+			skeleton.skeletonOwner.reset(actor);
+		}
+		skeleton.npc = hdt::make_nismart(root);
+
+		// Depth-first walk of the actor's node tree. A node tagged with an embedded SMP file is an outfit
+		// root: we register it and skip its subtree. Equipped-armor subtrees (owned by the ArmorAttach
+		// path) and already-registered outfits are skipped whole, so this is safe to re-run on reload.
+		std::vector<RE::NiNode*> stack{ root };
+		while (!stack.empty()) {
+			auto* node = stack.back();
+			stack.pop_back();
+
+			if (skeleton.hasArmorForNode(node)) {
+				continue;
+			}
+
+			if (auto file = DefaultBBP::instance()->scanEmbeddedBBP(node); !file.first.empty()) {
+				logger::info("Baked SMP outfit found on {} node {} -> {}", skeleton.name(), node->name.c_str(), file.first.c_str());
+				skeleton.addBakedArmor(node, file);
+				continue;
+			}
+
+			for (auto& child : node->GetChildren()) {
+				if (auto* childNode = castNiNode(child.get())) {
+					stack.push_back(childNode);
+				}
+			}
+		}
+
+		// Fallback: a creature with no SMP physics yet can still receive it from a per-race default keyed
+		// on its skeleton NIF path (a defaultBBPs.xml <creature> entry), applied at the actor root so its
+		// shape names resolve against the creature's meshes. We gate on "already has actual physics", NOT
+		// on "has any Armor entry": a creature's body registers as a physics-less Armor through the
+		// armor-attach path (its NIF carries no SMP XML), and that must not suppress the per-race default.
+		// A genuinely equipped SMP outfit (an Armor that DID get a physics system) does suppress it.
+		const auto& arms = skeleton.getArmors();
+		const bool hasAnyPhysics = std::any_of(arms.begin(), arms.end(), [](const Armor& a) { return a.hasPhysics(); });
+		if (!hasAnyPhysics) {
+			if (auto* race = actor->GetRace()) {
+				std::string file;
+				for (const auto& model : race->skeletonModels) {
+					const char* path = model.GetModel();
+					// Debug-level: this is the exact string a <creature> entry's "skeleton" must match, and the
+					// only reliable way for an author to discover it (dumptree shows nodes, not the race record).
+					logger::debug("creature physics: race {:08X} skeleton model '{}'", race->GetFormID(), path ? path : "(null)");
+					file = DefaultBBP::instance()->getCreatureDefaultFile(path);
+					if (!file.empty()) {
+						break;
+					}
+				}
+				if (!file.empty()) {
+					logger::info("Applying per-race default SMP physics to {} -> {}", skeleton.name(), file.c_str());
+					skeleton.addBakedArmor(root, { file, {} });
+				}
+			}
+		}
+	}
+
 	void ActorManager::Skeleton::doSkeletonMerge(RE::NiNode* dst, RE::NiNode* src, std::string_view prefix, std::unordered_map<RE::BSFixedString, RE::BSFixedString>& map, bool renameSource)
 	{
 		doSkeletonMerge(dst, src, prefix, map, dst, renameSource);
@@ -855,8 +1004,7 @@ namespace hdt
 
 		IDType id = armors.size() ? armors.back().id + 1 : 0;
 		auto prefix = armorPrefix(id);
-		// FIXME we probably could simplify this by using findNode as surely we don't merge Armors with lurkers skeleton?
-		npc = hdt::make_nismart(getNpcNode(skeleton.get()));
+		npc = hdt::make_nismart(getActorRootNode(skeleton.get()));
 		auto physicsFile = DefaultBBP::instance()->scanBBP(armorModel);
 
 		armors.push_back(Armor());
@@ -884,9 +1032,8 @@ namespace hdt
 		mustFixOneArmorMap = true;
 
 		if (!isFirstPersonSkeleton(skeleton.get())) {
-			// FIXME we probably could simplify this by using findNode as surely we don't attach Armors to lurkers skeleton?
 			auto renameMap = armor.renameMap;
-			auto system = SkyrimSystemCreator().createOrUpdateSystem(getNpcNode(skeleton.get()), attachedNode, &armor.physicsFile, std::move(renameMap), nullptr);
+			auto system = SkyrimSystemCreator().createOrUpdateSystem(getActorRootNode(skeleton.get()), attachedNode, &armor.physicsFile, std::move(renameMap), nullptr);
 			if (system) {
 				armor.setPhysics(system, isActive);
 				hasPhysics = true;
@@ -897,6 +1044,41 @@ namespace hdt
 			RE::Actor* actor = RE::TESForm::LookupByID<RE::Actor>(skeleton->GetUserData()->formID);
 			if (actor) {
 				setHeadActiveIfNoHairArmor(actor, this);
+			}
+		}
+	}
+
+	bool ActorManager::Skeleton::hasArmorForNode(const RE::NiAVObject* node) const
+	{
+		return std::any_of(armors.begin(), armors.end(), [node](const Armor& armor) {
+			return armor.armorWorn.get() == node;
+		});
+	}
+
+	void ActorManager::Skeleton::addBakedArmor(RE::NiNode* outfitNode, const DefaultBBP::PhysicsFile_t& physicsFile)
+	{
+		if (physicsFile.first.empty()) {
+			return;
+		}
+
+		IDType id = armors.size() ? armors.back().id + 1 : 0;
+		armors.push_back(Armor());
+		Armor& armor = armors.back();
+		armor.id = id;
+		// A real (unique) prefix keeps this entry out of cleanArmor()'s empty-prefix purge. doSkeletonClean
+		// with it is a harmless no-op since no bones were merged under it — baked bones are already skeleton-owned.
+		armor.prefix = armorPrefix(id);
+		armor.physicsFile = physicsFile;
+		armor.armorWorn = hdt::make_nismart<RE::NiAVObject>(outfitNode);
+		// Bones already live in the skeleton, so no merge, an empty rename map, and no exe-driven name
+		// change to chase — mustFixNameMap stays false so fixArmorNameMaps() ignores this entry.
+
+		if (!isFirstPersonSkeleton(skeleton.get())) {
+			std::unordered_map<RE::BSFixedString, RE::BSFixedString> renameMap;  // empty: bones are already present
+			auto system = SkyrimSystemCreator().createOrUpdateSystem(getActorRootNode(skeleton.get()), outfitNode, &armor.physicsFile, std::move(renameMap), nullptr);
+			if (system) {
+				armor.setPhysics(system, isActive);
+				hasPhysics = true;
 			}
 		}
 	}

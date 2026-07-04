@@ -86,6 +86,13 @@ namespace Events
 	void Register()
 	{
 		Sinks::FreezeEventHandler::Register();
+
+		// Subscribe to the engine's object-load event so we can discover SMP outfits baked into
+		// creature bodies/skeletons — actors that never equip an armor addon and so never reach the
+		// ArmorAttachEvent path. Registered here (kInputLoaded) where the game singleton is ready.
+		if (auto* holder = RE::ScriptEventSourceHolder::GetSingleton()) {
+			holder->AddEventSink<RE::TESObjectLoadedEvent>(hdt::ActorManager::instance());
+		}
 	}
 
 	void Unregister()
