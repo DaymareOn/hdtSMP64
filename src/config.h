@@ -38,8 +38,9 @@ namespace hdt
 	// the struct's built-in fallback). Parsed once and cached --- configs.json never changes while running.
 	const GlobalConfig& shippedDefaults();
 
-	// Persist the live settings to configs.json. Raw-merges over the existing file so keys this build does
-	// not model (e.g. enableCuda) survive; writes atomically (temp file + rename).
+	// Persist the live settings to userConfigs.json (never configs.json, so an FSMP update replacing
+	// configs.json can't wipe them). Writes a clean serialization of only the fields we model, so a key a
+	// later FSMP version drops leaves no stale entry behind; writes atomically (temp file + rename).
 	void saveUserSettings();
 
 	// The canonical "apply settings" sequence shared by `smp reset` and the in-game menu: reload config,

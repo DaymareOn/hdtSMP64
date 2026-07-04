@@ -99,7 +99,7 @@ TEST_CASE("string arrays drop non-string elements")
 TEST_CASE("unknown keys are ignored without affecting known ones")
 {
 	const GlobalConfig c = parseConfigJson(R"({
-		"smp": { "logLevel": 4, "enableCuda": true, "someFutureField": 123 },
+		"smp": { "logLevel": 4, "someRemovedField": true, "someFutureField": 123 },
 		"totallyUnknownSection": { "x": 1 }
 	})");
 	CHECK(c.logLevel == 4);

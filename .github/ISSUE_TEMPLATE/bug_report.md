@@ -30,7 +30,6 @@ If applicable, add screenshots or videos to help explain your problem.
 ** FSMP**
 
 - Installed version
-- CUDA: No_CUDA or CUDA?
 - AVX: No_AVX, AVX, AVX2, AVX512?
 
 **SKSE**

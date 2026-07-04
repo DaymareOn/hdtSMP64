@@ -145,8 +145,7 @@ namespace hdt
 	{
 		// Write to userConfigs.json (never configs.json), so an FSMP update replacing configs.json can't wipe
 		// the user's settings. We write a clean serialization of only the fields we model, so a setting that
-		// a later FSMP version removes leaves no stale key behind. (Variant-only keys like enableCuda live in
-		// the shipped configs.json, which we never rewrite, so they are unaffected.)
+		// a later FSMP version removes leaves no stale key behind.
 		const std::string merged = serializeConfigJson(readConfig());
 
 		// Atomic write: emit to a sibling temp file, then rename over the target so a crash mid-write can
