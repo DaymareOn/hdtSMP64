@@ -601,7 +601,10 @@ namespace hdt
 			if (pairs.capacity() < 256)
 				pairs.reserve(256);
 
-			this->c0->checkCollisionL(this->c1, pairs);
+			{
+				BT_PROFILE("BVH");
+				this->c0->checkCollisionL(this->c1, pairs);
+			}
 
 			if (pairs.empty())
 				return 0;
@@ -664,12 +667,15 @@ namespace hdt
 				this->dispatch(a, b, listA, listB, aabbB);
 			};
 
-			if (pairs.size() >= 32)
-				// isolate: thread parked here waiting for inner work must not steal an outer
-				// Note: If this is ever changed from isolate, you'll need to review tons of thread_local usage!
-				tbb::this_task_arena::isolate([&] { tbb::parallel_for_each(pairs.begin(), pairs.end(), func); });
-			else
-				for (auto& i : pairs) func(i);
+			{
+				BT_PROFILE("dispatch");
+				if (pairs.size() >= 32)
+					// isolate: thread parked here waiting for inner work must not steal an outer
+					// Note: If this is ever changed from isolate, you'll need to review tons of thread_local usage!
+					tbb::this_task_arena::isolate([&] { tbb::parallel_for_each(pairs.begin(), pairs.end(), func); });
+				else
+					for (auto& i : pairs) func(i);
+			}
 
 			return this->numResults;
 		}
