@@ -550,6 +550,13 @@ namespace hdt
 			m_avgWorldCollisionMs = (m_avgWorldCollisionMs * (wcSampleSize - 1) + instWorldCollisionMs) / wcSampleSize;
 		}
 
+		// Once per frame: age out expired obstructions while enabled, or drop them all the moment the
+		// feature is switched off, so its physics cost is released immediately instead of lingering.
+		if (m_enableWorldCollision)
+			World::instance()->prune();
+		else
+			World::instance()->clear();
+
 		for (auto& i : m_skeletons) {
 			i.cleanArmor();
 			i.cleanHead();
@@ -826,8 +833,6 @@ namespace hdt
 
 			World::instance()->addObstruction(object);
 		}
-
-		World::instance()->prune();
 	}
 
 	ActorManager::World* ActorManager::World::instance()
@@ -906,6 +911,13 @@ namespace hdt
 			obstruction.clearPhysics();  // unregister the system from the physics world
 			return true;
 		});
+	}
+
+	void ActorManager::World::clear()
+	{
+		for (auto& obstruction : m_obstructions)
+			obstruction.clearPhysics();  // unregister every system from the physics world
+		m_obstructions.clear();
 	}
 
 	void ActorManager::Skeleton::doSkeletonClean(RE::NiNode* dst, std::string_view prefix)
