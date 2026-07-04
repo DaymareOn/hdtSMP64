@@ -1,5 +1,6 @@
 #include "dhdtPapyrusFunctions.h"
 #include "dhdtOverrideManager.h"
+#include "hdtBoneTranslationLock.h"
 #include "hdtSkyrimPhysicsWorld.h"
 
 bool RegisterFuncs(RE::BSScript::IVirtualMachine* registry)
@@ -161,12 +162,6 @@ std::vector<bool> hdt::papyrus::impl::LockTranslationImpl(RE::Actor* actor, std:
 	auto guard = AM->lockGuard();
 	auto& skeletons = AM->getSkeletons();
 
-	// A locked axis maps to a 0 in Bullet's linear factor: setLinearFactor multiplies the body's inverse
-	// mass per-axis, so 0 kills all linear response on that axis while leaving the angular factor
-	// (rotation/jiggle) alone. An unlocked axis is 1, Bullet's default. This is why LockTranslation is
-	// distinct from TogglePhysics: the bone stays a dynamic, rotating body rather than becoming kinematic.
-	const btVector3 newFactor(lockX ? 0.0f : 1.0f, lockY ? 0.0f : 1.0f, lockZ ? 0.0f : 1.0f);
-
 	for (auto& skeleton : skeletons) {
 		if (!skeleton.skeleton) {
 			continue;
@@ -188,17 +183,9 @@ std::vector<bool> hdt::papyrus::impl::LockTranslationImpl(RE::Actor* actor, std:
 
 					result[i] = true;
 
-					bone->m_rig.setLinearFactor(newFactor);
-
-					// A linear factor of 0 stops forces/impulses from adding velocity, but Bullet still
-					// integrates whatever velocity the bone already carried — so it would coast one more
-					// step along a "locked" axis. Zero the velocity on locked axes so the bone pins now.
-					auto linVel = bone->m_rig.getLinearVelocity();
-					if (lockX) linVel.setX(0.0f);
-					if (lockY) linVel.setY(0.0f);
-					if (lockZ) linVel.setZ(0.0f);
-					bone->m_rig.setLinearVelocity(linVel);
-					bone->m_rig.setInterpolationLinearVelocity(linVel);
+					// Per-axis translation lock (Bullet linear factor + velocity zeroing); see
+					// hdtBoneTranslationLock.h for the exact semantics and why it's reversible.
+					applyTranslationLock(bone->m_rig, lockX, lockY, lockZ);
 				};
 
 				// Lock every instance of the named bone across the actor's worn armors and head parts,
