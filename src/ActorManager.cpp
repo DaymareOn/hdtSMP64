@@ -542,20 +542,29 @@ namespace hdt
 			}
 		}
 
-		// Smooth the world-collision cost with the same EMA the physics metrics use, so the overlay
-		// reads a stable ms figure; when the feature is off, worldCollisionTime is 0 and this decays to 0.
+		// Once per frame: age out expired obstructions while enabled, or drop them all the moment the
+		// feature is switched off, so its physics cost is released immediately instead of lingering. Timed
+		// into worldCollisionTime with the detect+add work above: removing is part of the add/remove cost.
 		{
-			const int wcSampleSize = world->m_sampleSize > 0 ? world->m_sampleSize : 1;
-			const float instWorldCollisionMs = std::chrono::duration<float, std::milli>(worldCollisionTime).count();
-			m_avgWorldCollisionMs = (m_avgWorldCollisionMs * (wcSampleSize - 1) + instWorldCollisionMs) / wcSampleSize;
+			const auto wcStart = std::chrono::steady_clock::now();
+			if (m_enableWorldCollision)
+				World::instance()->prune();
+			else
+				World::instance()->clear();
+			worldCollisionTime += std::chrono::steady_clock::now() - wcStart;
 		}
 
-		// Once per frame: age out expired obstructions while enabled, or drop them all the moment the
-		// feature is switched off, so its physics cost is released immediately instead of lingering.
-		if (m_enableWorldCollision)
-			World::instance()->prune();
-		else
-			World::instance()->clear();
+		// Report the add/remove cost: EMA for a stable read, plus a slowly-decaying peak so a one-frame
+		// build spike (a new heavy obstruction) stays visible for ~1s. Snapshot object/vertex counts too.
+		{
+			const int wcSampleSize = world->m_sampleSize > 0 ? world->m_sampleSize : 1;
+			const float instMs = std::chrono::duration<float, std::milli>(worldCollisionTime).count();
+			m_avgWorldCollisionMs = (m_avgWorldCollisionMs * (wcSampleSize - 1) + instMs) / wcSampleSize;
+			const float decayedPeak = m_peakWorldCollisionMs * 0.92f;
+			m_peakWorldCollisionMs = instMs > decayedPeak ? instMs : decayedPeak;
+			m_obstructionCount = static_cast<int>(World::instance()->count());
+			m_obstructionVertices = static_cast<int>(World::instance()->totalVertices());
+		}
 
 		for (auto& i : m_skeletons) {
 			i.cleanArmor();
@@ -918,6 +927,19 @@ namespace hdt
 		for (auto& obstruction : m_obstructions)
 			obstruction.clearPhysics();  // unregister every system from the physics world
 		m_obstructions.clear();
+	}
+
+	size_t ActorManager::World::totalVertices() const
+	{
+		size_t n = 0;
+		for (const auto& obstruction : m_obstructions) {
+			if (!obstruction.hasPhysics())
+				continue;
+			for (const auto& mesh : obstruction.meshes())
+				if (mesh)
+					n += mesh->m_vertices.size();
+		}
+		return n;
 	}
 
 	void ActorManager::Skeleton::doSkeletonClean(RE::NiNode* dst, std::string_view prefix)
