@@ -99,34 +99,40 @@ namespace hdt
 		// Time passed since last computation
 		m_accumulatedInterval += interval;
 
-		// Exponential average - becomes the tick; the tick equals the average interval when the interval is stable.
+		// Exponential average of the frame interval. Kept for diagnostics only; with D1 the step size
+		// is fixed (m_timeTick), no longer the average frame interval.
 		m_averageInterval += (interval - m_averageInterval) * .125f;
 
 		// No need to calculate physics if there is no active skeleton.
 		if (!disabled && hdt::ActorManager::instance()->activeSkeletons) {
-			// The tick is the given time for each computation substep. We set it to the average fps
-			// to have one average computation each frame when everything is usual.
-			// In case of poor fps, we set it to the configured minimum engine value (60 Hz),
-			// to still allow a physics with max increments of 1/60s.
-			const auto tick = std::min(m_averageInterval, m_timeTick);
+			// D1 — rate-decoupled fixed timestep ("fix your timestep").
+			// The simulation advances in fixed steps of m_timeTick (= 1/min_fps, default 1/60 s),
+			// decoupled from the render rate, instead of one render-rate-sized step every frame.
+			// Above the base rate we step only every few frames and carry the leftover time, so a
+			// 144 fps user no longer pays for ~144 steps/s when 60 give a visually identical result.
+			// It also makes cloth behaviour fps-independent: every frame rate now integrates at the
+			// same dt, where before high fps used a smaller (stiffer-feeling) dt than 60 fps.
+			const auto fixedStep = m_timeTick;
 
-			// No need to calculate physics when too little time has passed (time exceptionally short since last computation).
-			// This magic value directly impacts the number of computations and the time cost of the mod...
-			if (m_accumulatedInterval * 2.0f > tick) {
-				// The interval is limited to a configurable number of substeps, by default 4.
-				// Additional substeps happens when there is a very sudden slowdown, or when fps is lower than min-fps,
-				// we have to compute for the passed time we haven't computed.
-				// n substeps means that when instant fps is n times lower than usual current fps, we stop computing.
-				// So, we guarantee no jitter for fps greater than min-fps / maxSubsteps.
-				// For example, if min-fps = 60 and maxSubsteps = 4, we guarantee no jitter for 15+ fps,
-				// at the cost of additional simulations.
-				const auto remainingTimeStep = std::min(m_accumulatedInterval, tick * m_maxSubSteps);
+			// Step only once at least one fixed step of real time has accumulated.
+			if (m_accumulatedInterval >= fixedStep) {
+				// Consume whole fixed steps, capped at maxSubSteps to bound catch-up work after a
+				// hitch or when fps < base rate (default cap 4 ⇒ no jitter for 15+ fps at min-fps 60).
+				const int steps = std::min(static_cast<int>(m_accumulatedInterval / fixedStep), m_maxSubSteps);
+				const auto remainingTimeStep = steps * fixedStep;
 
 				readTransform(remainingTimeStep);
 
 				m_resetPc -= m_resetPc > 0;
 
-				m_tasks.run([this, interval, tick, remainingTimeStep] { doUpdate2ndStep(interval, tick, remainingTimeStep); });
+				m_tasks.run([this, interval, fixedStep, remainingTimeStep] { doUpdate2ndStep(interval, fixedStep, remainingTimeStep); });
+
+				// Carry the unspent remainder into the next frame. If we hit the maxSubSteps cap we
+				// are behind real time and drop the surplus to avoid a spiral of death.
+				if (steps >= m_maxSubSteps)
+					m_accumulatedInterval = 0.0f;
+				else
+					m_accumulatedInterval -= remainingTimeStep;
 			}
 		}
 	}
@@ -152,10 +158,14 @@ namespace hdt
 		{
 			BT_PROFILE("HDTSMP_doUpdate2ndStep");
 			updateActiveState();
+			// D1: snapshot the previous solved transforms (in world space, before the translation
+			// offset is applied) so render frames between steps can interpolate up to the new result.
+			snapshotInterpolation();
 			auto offset = applyTranslationOffset();
 			stepSimulation(remainingTimeStep, 0, tick);
 			restoreTranslationOffset(offset);
-			m_accumulatedInterval = 0;
+			// m_accumulatedInterval is now carried/reset on the main thread in doUpdate (D1) — the
+			// background step no longer touches it, keeping it single-writer from the frame thread.
 			m_pendingTransformUpdate = true;
 		}
 
@@ -171,6 +181,21 @@ namespace hdt
 		}
 
 		physicsprofiler::advanceFrame();
+	}
+
+	void SkyrimPhysicsWorld::applyInterpolatedTransform()
+	{
+		// D1 "Apply" phase, run every render frame: write the simulated cloth back to the skeleton,
+		// blended between the last two solved steps so motion stays smooth above the fixed physics
+		// rate. When physics is idle/suspended we leave the skeleton untouched, as before.
+		if (disabled || m_suspended || !hdt::ActorManager::instance()->activeSkeletons)
+			return;
+
+		std::lock_guard<decltype(m_lock)> l(m_lock);
+		// alpha = fraction of a fixed step elapsed since the last solved state (carried remainder).
+		const float alpha = std::clamp(m_accumulatedInterval / m_timeTick, 0.0f, 1.0f);
+		writeTransform(alpha);
+		m_pendingTransformUpdate = false;
 	}
 
 	std::unique_lock<std::mutex> SkyrimPhysicsWorld::lockSimulation()
@@ -379,11 +404,7 @@ namespace hdt
 			QueryPerformanceCounter(&ticks);
 			int64_t t1 = ticks.QuadPart;
 
-			if (m_pendingTransformUpdate) {
-				std::lock_guard<decltype(m_lock)> l(m_lock);
-				writeTransform();
-				m_pendingTransformUpdate = false;
-			}
+			applyInterpolatedTransform();
 
 			QueryPerformanceCounter(&ticks);
 			int64_t t2 = ticks.QuadPart;
@@ -425,11 +446,7 @@ namespace hdt
 				avgTotalCpuWork);
 		} else {
 			m_tasks.wait();
-			if (m_pendingTransformUpdate) {
-				std::lock_guard<decltype(m_lock)> l(m_lock);
-				writeTransform();
-				m_pendingTransformUpdate = false;
-			}
+			applyInterpolatedTransform();
 		}
 
 		return RE::BSEventNotifyControl::kContinue;
