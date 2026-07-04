@@ -184,26 +184,34 @@ namespace hdt
 	{
 		BT_PROFILE("performDiscreteCollisionDetection");
 
-		for (auto& system : m_systems) {
-			system->internalUpdate();
+		{
+			// Per-system bone transforms + bounding-sphere AABBs (one pass over systems).
+			BT_PROFILE("systemInternalUpdate");
+			for (auto& system : m_systems) {
+				system->internalUpdate();
+			}
 		}
 
 		btDispatcherInfo& dispatchInfo = getDispatchInfo();
 
-		for (int i = 0; i < m_collisionObjects.size(); i++) {
-			btCollisionObject* colObj = m_collisionObjects[i];
-			btBroadphaseProxy* proxy = colObj->getBroadphaseHandle();
+		{
+			// Bullet rigid-body (bone) broadphase: refresh proxy AABBs and find overlapping pairs.
+			BT_PROFILE("broadphase");
+			for (int i = 0; i < m_collisionObjects.size(); i++) {
+				btCollisionObject* colObj = m_collisionObjects[i];
+				btBroadphaseProxy* proxy = colObj->getBroadphaseHandle();
 
-			if (proxy->m_collisionFilterGroup == 0 && proxy->m_collisionFilterMask == 0)
-				continue;
+				if (proxy->m_collisionFilterGroup == 0 && proxy->m_collisionFilterMask == 0)
+					continue;
 
-			btVector3 minAabb, maxAabb;
-			colObj->getCollisionShape()->getAabb(colObj->getWorldTransform(), minAabb, maxAabb);
+				btVector3 minAabb, maxAabb;
+				colObj->getCollisionShape()->getAabb(colObj->getWorldTransform(), minAabb, maxAabb);
 
-			m_broadphasePairCache->setAabb(proxy, minAabb, maxAabb, m_dispatcher1);
+				m_broadphasePairCache->setAabb(proxy, minAabb, maxAabb, m_dispatcher1);
+			}
+
+			m_broadphasePairCache->calculateOverlappingPairs(m_dispatcher1);
 		}
-
-		m_broadphasePairCache->calculateOverlappingPairs(m_dispatcher1);
 
 		if (m_dispatcher1) {
 			m_dispatcher1->dispatchAllCollisionPairs(m_broadphasePairCache->getOverlappingPairCache(), dispatchInfo, m_dispatcher1);
