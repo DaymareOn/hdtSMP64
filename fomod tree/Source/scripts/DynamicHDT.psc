@@ -28,6 +28,17 @@ String Function QueryCurrentPhysicsFile(Actor on_actor, ArmorAddon on_ARMA_item,
 Bool[] Function TogglePhysics(Actor actor, String[] boneNames, Bool on) native global
 
 ;PARAM:
+;   actor       the actor whose physics bones to lock.
+;   boneNames   array of bone name strings (e.g. "NPC L Breast", "HDT Belly").
+;   lockX/lockY/lockZ   which world axes to freeze. true = the bone can't translate along that axis;
+;                       false restores normal translation on it. Rotation (jiggle) is never affected,
+;                       so unlike TogglePhysics the bone keeps simulating in place. Session-only.
+;
+;Return:    Bool array of same length as boneNames. Each entry is whether that bone was found on the
+;           actor and had the lock applied (false = bone not found).
+Bool[] Function LockTranslation(Actor actor, String[] boneNames, Bool lockX, Bool lockY, Bool lockZ) native global
+
+;PARAM:
 ;   actor   the actor to reset.
 ;   full    true = full reset: bones snap to reference pose, all velocity lost.
 ;           false = soft reset: physics systems rebuilt but current poses and velocities are kept.

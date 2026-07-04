@@ -9,6 +9,7 @@ bool RegisterFuncs(RE::BSScript::IVirtualMachine* registry)
 	registry->RegisterFunction("SwapPhysicsFile", "DynamicHDT", hdt::papyrus::SwapPhysicsFile);
 	registry->RegisterFunction("QueryCurrentPhysicsFile", "DynamicHDT", hdt::papyrus::QueryCurrentPhysicsFile);
 	registry->RegisterFunction("TogglePhysics", "DynamicHDT", hdt::papyrus::TogglePhysics);
+	registry->RegisterFunction("LockTranslation", "DynamicHDT", hdt::papyrus::LockTranslation);
 	registry->RegisterFunction("ResetPhysics", "DynamicHDT", hdt::papyrus::ResetPhysics);
 	//
 	return true;
@@ -124,6 +125,84 @@ std::vector<bool> hdt::papyrus::impl::TogglePhysicsImpl(RE::Actor* actor, std::v
 					world->updateConstraintsForBone(bone);
 				};
 
+				for (auto& armor : skeleton.getArmors()) {
+					if (armor.m_physics) {
+						processBone(armor.m_physics->findBone(boneNames[i]));
+					}
+				}
+
+				for (auto& headPart : skeleton.head.headParts) {
+					if (headPart.m_physics) {
+						processBone(headPart.m_physics->findBone(boneNames[i]));
+					}
+				}
+			}
+		}
+		break;
+	}
+
+	return result;
+}
+
+std::vector<bool> hdt::papyrus::LockTranslation(RE::StaticFunctionTag*, RE::Actor* actor, std::vector<RE::BSFixedString> boneNames, bool lockX, bool lockY, bool lockZ)
+{
+	if (!actor || boneNames.empty()) {
+		return std::vector<bool>();
+	}
+	return impl::LockTranslationImpl(actor, boneNames, lockX, lockY, lockZ);
+}
+
+std::vector<bool> hdt::papyrus::impl::LockTranslationImpl(RE::Actor* actor, std::vector<RE::BSFixedString>& boneNames, bool lockX, bool lockY, bool lockZ)
+{
+	// One result slot per requested bone; flipped to true once we find (and lock) that bone on the actor.
+	std::vector<bool> result(boneNames.size(), false);
+
+	const auto AM = hdt::ActorManager::instance();
+	auto guard = AM->lockGuard();
+	auto& skeletons = AM->getSkeletons();
+
+	// A locked axis maps to a 0 in Bullet's linear factor: setLinearFactor multiplies the body's inverse
+	// mass per-axis, so 0 kills all linear response on that axis while leaving the angular factor
+	// (rotation/jiggle) alone. An unlocked axis is 1, Bullet's default. This is why LockTranslation is
+	// distinct from TogglePhysics: the bone stays a dynamic, rotating body rather than becoming kinematic.
+	const btVector3 newFactor(lockX ? 0.0f : 1.0f, lockY ? 0.0f : 1.0f, lockZ ? 0.0f : 1.0f);
+
+	for (auto& skeleton : skeletons) {
+		if (!skeleton.skeleton) {
+			continue;
+		}
+
+		auto owner = skeleton.skeleton->GetUserData();
+		if (!owner || owner->formID != actor->formID) {
+			continue;
+		}
+
+		{
+			auto world = hdt::SkyrimPhysicsWorld::get();
+			auto simLock = world->lockSimulation();
+
+			for (size_t i = 0; i < boneNames.size(); ++i) {
+				auto processBone = [&](SkinnedMeshBone* bone) {
+					if (!bone)
+						return;
+
+					result[i] = true;
+
+					bone->m_rig.setLinearFactor(newFactor);
+
+					// A linear factor of 0 stops forces/impulses from adding velocity, but Bullet still
+					// integrates whatever velocity the bone already carried — so it would coast one more
+					// step along a "locked" axis. Zero the velocity on locked axes so the bone pins now.
+					auto linVel = bone->m_rig.getLinearVelocity();
+					if (lockX) linVel.setX(0.0f);
+					if (lockY) linVel.setY(0.0f);
+					if (lockZ) linVel.setZ(0.0f);
+					bone->m_rig.setLinearVelocity(linVel);
+					bone->m_rig.setInterpolationLinearVelocity(linVel);
+				};
+
+				// Lock every instance of the named bone across the actor's worn armors and head parts,
+				// mirroring how TogglePhysics fans out over the same systems.
 				for (auto& armor : skeleton.getArmors()) {
 					if (armor.m_physics) {
 						processBone(armor.m_physics->findBone(boneNames[i]));
