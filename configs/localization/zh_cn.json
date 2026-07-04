@@ -11,8 +11,6 @@
   "Skip hair physics when an armor occupies the hair/longhair slot (a wig on top of the hair).": "\u5f53\u62a4\u7532\u5360\u7528\u5934\u53d1/\u957f\u53d1\u69fd\u4f4d\u65f6\uff08\u5934\u53d1\u4e0a\u7684\u5047\u53d1\uff09\uff0c\u8df3\u8fc7\u5934\u53d1\u7269\u7406\u3002",
   "No physics for your character in 1st person view": "\u7b2c\u4e00\u4eba\u79f0\u89c6\u89d2\u4e0b\u4e0d\u5bf9\u4f60\u7684\u89d2\u8272\u4f7f\u7528\u7269\u7406",
   "Skip the player's physics while in first-person view to save performance.": "\u5728\u7b2c\u4e00\u4eba\u79f0\u89c6\u89d2\u4e0b\u8df3\u8fc7\u73a9\u5bb6\u7684\u7269\u7406\u8fd0\u7b97\u4ee5\u8282\u7701\u6027\u80fd\u3002",
-  "Enable NPC face parts physics": "\u542f\u7528 NPC \u9762\u90e8\u90e8\u4ef6\u7269\u7406",
-  "Calculate physics for NPC face parts.": "\u8ba1\u7b97 NPC \u9762\u90e8\u90e8\u4ef6\u7684\u7269\u7406\u3002",
   "Distance / screen-size culling": "\u6309\u8ddd\u79bb/\u5c4f\u5e55\u5c3a\u5bf8\u5254\u9664",
   "Always-on distance": "\u59cb\u7ec8\u542f\u7528\u7684\u8ddd\u79bb",
   "Physics is always calculated for NPCs closer than this (units), even off-screen.": "\u5bf9\u4e8e\u6bd4\u6b64\u8ddd\u79bb\uff08\u5355\u4f4d\uff09\u66f4\u8fd1\u7684 NPC\uff0c\u5373\u4f7f\u5728\u5c4f\u5e55\u5916\u4e5f\u59cb\u7ec8\u8ba1\u7b97\u7269\u7406\u3002",

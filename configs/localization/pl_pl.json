@@ -11,8 +11,6 @@
   "Skip hair physics when an armor occupies the hair/longhair slot (a wig on top of the hair).": "Pomija fizyk\u0119 w\u0142os\u00f3w, gdy pancerz zajmuje slot w\u0142os\u00f3w/d\u0142ugich w\u0142os\u00f3w (peruka na w\u0142osach).",
   "No physics for your character in 1st person view": "Brak fizyki dla twojej postaci w widoku pierwszoosobowym",
   "Skip the player's physics while in first-person view to save performance.": "Pomija fizyk\u0119 gracza w widoku pierwszoosobowym, aby oszcz\u0119dzi\u0107 wydajno\u015b\u0107.",
-  "Enable NPC face parts physics": "W\u0142\u0105cz fizyk\u0119 cz\u0119\u015bci twarzy NPC",
-  "Calculate physics for NPC face parts.": "Oblicza fizyk\u0119 cz\u0119\u015bci twarzy NPC.",
   "Distance / screen-size culling": "Odrzucanie wed\u0142ug odleg\u0142o\u015bci / rozmiaru na ekranie",
   "Always-on distance": "Odleg\u0142o\u015b\u0107 zawsze aktywna",
   "Physics is always calculated for NPCs closer than this (units), even off-screen.": "Fizyka jest zawsze obliczana dla NPC bli\u017cszych ni\u017c ta warto\u015b\u0107 (jednostki), nawet poza ekranem.",

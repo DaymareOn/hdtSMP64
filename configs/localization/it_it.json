@@ -11,8 +11,6 @@
   "Skip hair physics when an armor occupies the hair/longhair slot (a wig on top of the hair).": "Salta la fisica dei capelli quando un'armatura occupa lo slot capelli/capelli lunghi (una parrucca sopra i capelli).",
   "No physics for your character in 1st person view": "Nessuna fisica per il tuo personaggio in prima persona",
   "Skip the player's physics while in first-person view to save performance.": "Salta la fisica del giocatore in prima persona per risparmiare prestazioni.",
-  "Enable NPC face parts physics": "Abilita la fisica delle parti del viso degli NPC",
-  "Calculate physics for NPC face parts.": "Calcola la fisica per le parti del viso degli NPC.",
   "Distance / screen-size culling": "Esclusione per distanza / dimensione sullo schermo",
   "Always-on distance": "Distanza sempre attiva",
   "Physics is always calculated for NPCs closer than this (units), even off-screen.": "La fisica \u00e8 sempre calcolata per gli NPC pi\u00f9 vicini di questo valore (unit\u00e0), anche fuori schermo.",

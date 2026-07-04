@@ -23,7 +23,6 @@ namespace hdt
 		// logLevel is the FILE value 0..5 (0 = Fatal ... 5 = Debug). config.cpp inverts it to spdlog's
 		// internal scale on apply; we keep the user-facing value here so the menu slider maps directly.
 		int logLevel = 0;
-		bool enableNPCFaceParts = true;
 		bool disableSMPHairWhenWigEquipped = false;
 		bool clampRotations = true;
 		float rotationSpeedLimit = 10.0f;

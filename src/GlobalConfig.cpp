@@ -92,7 +92,6 @@ namespace hdt
 
 		// --- smp --- (clampv keeps hand-edited numbers inside the engine's accepted range)
 		c.logLevel = clampv(read(smp, "logLevel", c.logLevel), 0, 5);
-		c.enableNPCFaceParts = read(smp, "enableNPCFaceParts", c.enableNPCFaceParts);
 		c.disableSMPHairWhenWigEquipped = read(smp, "disableSMPHairWhenWigEquipped", c.disableSMPHairWhenWigEquipped);
 		c.clampRotations = read(smp, "clampRotations", c.clampRotations);
 		c.rotationSpeedLimit = clampv(read(smp, "rotationSpeedLimit", c.rotationSpeedLimit), 0.0f, 100.0f);
@@ -156,8 +155,6 @@ namespace hdt
 		w.StartObject();
 		w.Key("logLevel");
 		w.Int(c.logLevel);
-		w.Key("enableNPCFaceParts");
-		w.Bool(c.enableNPCFaceParts);
 		w.Key("disableSMPHairWhenWigEquipped");
 		w.Bool(c.disableSMPHairWhenWigEquipped);
 		w.Key("clampRotations");

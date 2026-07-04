@@ -48,7 +48,6 @@ TEST_CASE("missing keys keep their defaults")
 	const GlobalConfig def;
 
 	CHECK(c.logLevel == 2);
-	CHECK(c.enableNPCFaceParts == def.enableNPCFaceParts);
 	CHECK(c.numIterations == def.numIterations);
 	CHECK(c.windStrength == doctest::Approx(def.windStrength));
 }

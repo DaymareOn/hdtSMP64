@@ -11,8 +11,6 @@
   "Skip hair physics when an armor occupies the hair/longhair slot (a wig on top of the hair).": "Skip hair physics when an armor occupies the hair/longhair slot (a wig on top of the hair).",
   "No physics for your character in 1st person view": "No physics for your character in 1st person view",
   "Skip the player's physics while in first-person view to save performance.": "Skip the player's physics while in first-person view to save performance.",
-  "Enable NPC face parts physics": "Enable NPC face parts physics",
-  "Calculate physics for NPC face parts.": "Calculate physics for NPC face parts.",
   "Distance / screen-size culling": "Distance / screen-size culling",
   "Always-on distance": "Always-on distance",
   "Physics is always calculated for NPCs closer than this (units), even off-screen.": "Physics is always calculated for NPCs closer than this (units), even off-screen.",

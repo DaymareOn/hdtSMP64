@@ -2,7 +2,6 @@
   "smp": {
     "logLevel": 0,
     "backupNodeByName": [],
-    "enableNPCFaceParts": true,
     "disableSMPHairWhenWigEquipped": true,
     "clampRotations": true,
     "rotationSpeedLimit": 10.0,

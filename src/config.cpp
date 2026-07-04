@@ -51,7 +51,6 @@ namespace hdt
 		Hooks::BipedAnimHooks::BackupNodes = c.backupNodeByName;
 
 		auto* a = ActorManager::instance();
-		a->m_skinNPCFaceParts = c.enableNPCFaceParts;
 		a->m_disableSMPHairWhenWigEquipped = c.disableSMPHairWhenWigEquipped;
 		a->m_minCullingDistance = c.minCullingDistance;
 		a->m_maxActiveSkeletons = c.maximumActiveSkeletons;
@@ -101,7 +100,6 @@ namespace hdt
 		c.backupNodeByName = Hooks::BipedAnimHooks::BackupNodes;
 
 		auto* a = ActorManager::instance();
-		c.enableNPCFaceParts = a->m_skinNPCFaceParts;
 		c.disableSMPHairWhenWigEquipped = a->m_disableSMPHairWhenWigEquipped;
 		c.minCullingDistance = a->m_minCullingDistance;
 		c.maximumActiveSkeletons = a->m_maxActiveSkeletons;
@@ -205,7 +203,6 @@ namespace hdt
 		for (auto& item : Hooks::BipedAnimHooks::BackupNodes)
 			logger::debug("config: smp.backupNodeByName += {}", item);
 
-		LOG("smp.enableNPCFaceParts", a->m_skinNPCFaceParts);
 		LOG("smp.disableSMPHairWhenWigEquipped", a->m_disableSMPHairWhenWigEquipped);
 		LOG("smp.clampRotations", w->m_clampRotations);
 		LOG("smp.rotationSpeedLimit", w->m_rotationSpeedLimit);

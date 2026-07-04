@@ -643,10 +643,6 @@ namespace
 					"Skip the player's physics while in first-person view to save performance.",
 					&a->m_disable1stPersonViewPhysics, d.disable1stPersonViewPhysics))
 				commitReset();
-			if (rowCheck("Enable NPC face parts physics",
-					"Calculate physics for NPC face parts.",
-					&a->m_skinNPCFaceParts, d.enableNPCFaceParts))
-				commitReset();
 			endRows();
 		}
 

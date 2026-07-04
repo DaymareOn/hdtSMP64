@@ -1,7 +1,6 @@
 {
   "smp": {
     "logLevel": 4,
-    "enableNPCFaceParts": true,
     "disableSMPHairWhenWigEquipped": false,
     "clampRotations": true,
     "rotationSpeedLimit": 10.0,
