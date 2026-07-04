@@ -203,6 +203,9 @@ namespace hdt
 			void addObstruction(RE::NiAVObject* object);
 			// @brief Ages every obstruction each frame; unregisters and drops those that expire.
 			void prune();
+			// @brief Immediately unregisters and drops ALL obstructions (used when the feature is turned
+			// off, so its physics cost is released at once rather than lingering until each times out).
+			void clear();
 		};
 
 		bool m_shutdown = false;
