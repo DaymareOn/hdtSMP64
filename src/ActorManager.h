@@ -185,6 +185,8 @@ namespace hdt
 		{
 			RE::NiPointer<RE::NiAVObject> object;  // the live world object we collide with (kept alive by this ref)
 			int timeout = 0;
+			RE::NiPoint3 builtAt;                  // actor position the current cropped collider was built around
+			ObstructionCache cache;                // raw geometry per trishape, so re-cropping needs no GPU re-read
 		};
 
 		// @brief Tracks the nearby static world objects we currently turn into SMP colliders. Experimental
@@ -198,9 +200,10 @@ namespace hdt
 		public:
 			static World* instance();
 
-			// @brief Builds a kinematic collider from object's live geometry and registers it so nearby
-			// hair collides with it -- or, if object is already tracked, just refreshes its timeout.
-			void addObstruction(RE::NiAVObject* object);
+			// @brief Builds (or refreshes) a kinematic collider from object's live geometry, cropped to a
+			// sphere around clipCenter (the actor). If already tracked, refreshes the timeout and re-crops
+			// only if the actor moved far enough since the last build (see buildObstruction).
+			void addObstruction(RE::NiAVObject* object, RE::NiPoint3 clipCenter);
 			// @brief Ages every obstruction each frame; unregisters and drops those that expire.
 			void prune();
 			// @brief Immediately unregisters and drops ALL obstructions (used when the feature is turned
@@ -210,6 +213,11 @@ namespace hdt
 			size_t count() const { return m_obstructions.size(); }
 			// @brief Total collider vertices across all obstructions -- a complexity proxy for the overlay.
 			size_t totalVertices() const;
+
+		private:
+			// @brief (Re)builds an obstruction's cropped collider around clipCenter and registers it, reusing
+			// the obstruction's cached raw geometry so no GPU re-read is needed.
+			void buildObstruction(Obstruction& obstruction, RE::NiPoint3 clipCenter, float radius);
 		};
 
 		bool m_shutdown = false;

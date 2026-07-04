@@ -840,7 +840,7 @@ namespace hdt
 			if ((pos.value() - hitLocation).SqrLength() >= maxObstructionDistance2)
 				continue;
 
-			World::instance()->addObstruction(object);
+			World::instance()->addObstruction(object, pos.value());
 		}
 	}
 
@@ -867,20 +867,38 @@ namespace hdt
 		}
 	}
 
-	void ActorManager::World::addObstruction(RE::NiAVObject* object)
+	void ActorManager::World::addObstruction(RE::NiAVObject* object, RE::NiPoint3 clipCenter)
 	{
 		if (!object)
 			return;
 
-		// Already colliding with this object? Just keep it alive a few more frames.
+		const float radius = ActorManager::instance()->m_worldCollisionDistance;
+		// Re-crop an existing obstruction only once the actor has moved a quarter of the collision radius,
+		// so a walking actor doesn't rebuild every frame; the cached geometry means no GPU re-read anyway.
+		const float rebuildDist = radius * 0.25f;
+
 		for (auto& o : m_obstructions) {
 			if (o.object.get() == object) {
 				o.timeout = 10;
+				if ((clipCenter - o.builtAt).SqrLength() > rebuildDist * rebuildDist)
+					buildObstruction(o, clipCenter, radius);
 				return;
 			}
 		}
 
-		auto* node = object->AsNode();
+		// New object: create the tracking entry, then build its (cropped) collider.
+		m_obstructions.push_back(Obstruction{});
+		auto& obstruction = m_obstructions.back();
+		obstruction.object = RE::NiPointer<RE::NiAVObject>(object);
+		obstruction.timeout = 10;
+		buildObstruction(obstruction, clipCenter, radius);
+		if (!obstruction.hasPhysics())
+			m_obstructions.pop_back();  // nothing near the actor yet; re-added when the actor gets closer
+	}
+
+	void ActorManager::World::buildObstruction(Obstruction& obstruction, RE::NiPoint3 clipCenter, float radius)
+	{
+		auto* node = obstruction.object.get() ? obstruction.object->AsNode() : nullptr;
 		if (!node)
 			return;
 
@@ -894,22 +912,19 @@ namespace hdt
 		DefaultBBP::PhysicsFile_t file{ std::string("SKSE/Plugins/hdtSkinnedMeshConfigs/obstruction.xml"),
 			DefaultBBP::NameMap_t{ { "WorldMesh", names } } };
 
-		// Crucially we do NOT clone the node tree: CreateClone/ProcessClone on arbitrary world objects can
-		// recurse into dangling references and crash (issue #394). Instead we point the system straight at
-		// the live object -- generateMeshBody/readPerTriangleShape read its trishape buffers directly, and
-		// SkyrimBone holds each node via NiPointer so the live nodes stay alive as long as we collide with
-		// them. Model and skeleton are both the live object, so the collider sits exactly on the geometry.
+		// We do NOT clone the node tree (CreateClone/ProcessClone on arbitrary world objects can recurse into
+		// dangling references and crash, #394): the system reads the live trishape buffers directly, and
+		// SkyrimBone holds each node via NiPointer so the live nodes stay alive while we collide with them.
+		// Geometry is cropped to a sphere of `radius` around the actor (clipCenter), and the raw mesh is
+		// cached on the obstruction, so this rebuild re-crops from memory rather than re-reading the GPU.
 		std::unordered_map<RE::BSFixedString, RE::BSFixedString> noRename;
-		auto system = SkyrimSystemCreator().createOrUpdateSystem(node, object, &file, std::move(noRename), nullptr);
+		auto system = SkyrimSystemCreator().createOrUpdateSystem(node, obstruction.object.get(), &file,
+			std::move(noRename), nullptr, clipCenter, radius, &obstruction.cache);
 		if (!system)
 			return;
 
-		m_obstructions.push_back(Obstruction{});
-		auto& obstruction = m_obstructions.back();
-		obstruction.object = RE::NiPointer<RE::NiAVObject>(object);
-		obstruction.timeout = 10;
-		obstruction.setPhysics(system, true);  // register with the physics world so it actually collides
-		logger::debug("world collision: added obstruction {}", object->name.c_str());
+		obstruction.setPhysics(system, true);  // swaps in the new (re-cropped) collider, unregistering the old
+		obstruction.builtAt = clipCenter;
 	}
 
 	void ActorManager::World::prune()

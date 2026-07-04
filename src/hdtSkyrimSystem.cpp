@@ -198,7 +198,7 @@ namespace hdt
 		return name;
 	}
 
-	RE::BSTSmartPointer<SkyrimSystem> SkyrimSystemCreator::createOrUpdateSystem(RE::NiNode* skeleton, RE::NiAVObject* model, DefaultBBP::PhysicsFile_t* file, std::unordered_map<RE::BSFixedString, RE::BSFixedString>&& renameMap, SkyrimSystem* old_system)
+	RE::BSTSmartPointer<SkyrimSystem> SkyrimSystemCreator::createOrUpdateSystem(RE::NiNode* skeleton, RE::NiAVObject* model, DefaultBBP::PhysicsFile_t* file, std::unordered_map<RE::BSFixedString, RE::BSFixedString>&& renameMap, SkyrimSystem* old_system, RE::NiPoint3 clipCenter, float clipRadius, ObstructionCache* cache)
 	{
 		auto path = file->first;
 		if (path.empty()) {
@@ -214,6 +214,10 @@ namespace hdt
 		m_skeleton = skeleton;
 		m_model = model;
 		m_filePath = path;
+		m_clipCenter = clipCenter;
+		m_clipRadius = clipRadius;
+		m_obstructionCache = cache;
+		m_clippedTris.clear();
 
 		XMLReader reader((uint8_t*)loaded.data(), loaded.size());
 		m_reader = &reader;
@@ -733,17 +737,14 @@ namespace hdt
 				const bool fullPrec = vDesc.HasFlag(RE::BSGraphics::Vertex::Flags::VF_FULLPREC);
 				uint8_t* vBlock = renderer->rawVertexData;
 
-				body->m_vertices.resize(vertexStart + vertexCount);
-				for (uint32_t j = 0; j < vertexCount; ++j) {
+				// Decode one packed vertex position (full- or half-precision) from the GPU buffer.
+				auto readPos = [&](uint32_t j) -> RE::NiPoint3 {
 					RE::NiPoint3 pos;
 					if (fullPrec) {
-						// Position stored as full-precision float3 at offset 0.
 						pos = *reinterpret_cast<RE::NiPoint3*>(&vBlock[j * vSize]);
 					} else {
-						// Static meshes commonly use half-precision positions (3x float16 at offset 0).
 						const uint16_t* h = reinterpret_cast<const uint16_t*>(&vBlock[j * vSize]);
 #if defined(__AVX2__) || defined(__AVX512F__)
-						// F16C: convert the 4 packed half floats (x,y,z,w) to float, keep xyz.
 						float fp[4];
 						_mm_storeu_ps(fp, _mm_cvtph_ps(_mm_loadl_epi64(reinterpret_cast<const __m128i*>(h))));
 						pos.x = fp[0];
@@ -755,16 +756,64 @@ namespace hdt
 						__float32(&pos.z, h[2]);
 #endif
 					}
-
-					auto& v = body->m_vertices[j + vertexStart];
-					v.m_skinPos = convertNi(pos);
+					return pos;
+				};
+				// Fill one body vertex bound 100% to the single (kinematic) bone.
+				auto fillVertex = [&](Vertex& v, const RE::NiPoint3& local) {
+					v.m_skinPos = convertNi(local);
 					v.m_weight[0] = 1.0f;
 					v.m_weight[1] = v.m_weight[2] = v.m_weight[3] = 0.0f;
 					v.m_boneIdx[0] = boneStart;
 					v.m_boneIdx[1] = v.m_boneIdx[2] = v.m_boneIdx[3] = 0;
+				};
+
+				if (m_clipRadius <= 0.f) {
+					// No cropping (also the fallback for any non-obstruction caller): take all vertices.
+					body->m_vertices.resize(vertexStart + vertexCount);
+					for (uint32_t j = 0; j < vertexCount; ++j)
+						fillVertex(body->m_vertices[j + vertexStart], readPos(j));
+					vertexOffsetMap.insert({ meshName, vertexStart });
+				} else if (m_obstructionCache && renderer->rawIndexData) {
+					// Obstruction crop. Read the raw geometry into the per-obstruction cache once (keyed by
+					// trishape); rebuilds as the actor moves reuse it with no GPU read. Then keep only the
+					// triangles with a vertex inside the clip sphere, compacting the vertices they reference.
+					auto& geom = (*m_obstructionCache)[triShape];
+					if (geom.localPos.empty()) {
+						geom.world = triShape->world;
+						geom.localPos.resize(vertexCount);
+						for (uint32_t j = 0; j < vertexCount; ++j)
+							geom.localPos[j] = readPos(j);
+						const uint16_t* idxBuf = renderer->rawIndexData;
+						const auto triangleCount = triShape->GetTrishapeRuntimeData().triangleCount;
+						geom.indices.assign(idxBuf, idxBuf + static_cast<size_t>(triangleCount) * 3);
+					}
+
+					const float r2 = m_clipRadius * m_clipRadius;
+					std::vector<uint8_t> nearFlag(geom.localPos.size(), 0);
+					for (size_t j = 0; j < geom.localPos.size(); ++j) {
+						const RE::NiPoint3 wp = geom.world * geom.localPos[j];
+						if ((m_clipCenter - wp).SqrLength() <= r2)
+							nearFlag[j] = 1;
+					}
+
+					std::vector<int> remap(geom.localPos.size(), -1);
+					auto& kept = m_clippedTris[std::string(meshName)];
+					for (size_t t = 0; t + 2 < geom.indices.size(); t += 3) {
+						const uint16_t vi[3] = { geom.indices[t], geom.indices[t + 1], geom.indices[t + 2] };
+						if (!(nearFlag[vi[0]] || nearFlag[vi[1]] || nearFlag[vi[2]]))
+							continue;
+						for (int k = 0; k < 3; ++k) {
+							if (remap[vi[k]] < 0) {
+								remap[vi[k]] = static_cast<int>(body->m_vertices.size());
+								body->m_vertices.emplace_back();
+								fillVertex(body->m_vertices.back(), geom.localPos[vi[k]]);
+							}
+							kept.push_back(remap[vi[k]]);
+						}
+					}
+					vertexOffsetMap.insert({ meshName, vertexStart });
 				}
 
-				vertexOffsetMap.insert({ meshName, vertexStart });
 				boneStart = static_cast<int>(body->m_skinnedBones.size());
 				vertexStart = static_cast<int>(body->m_vertices.size());
 				continue;
@@ -979,9 +1028,16 @@ namespace hdt
 						shape->addTriangle(partition.triList[j * 3] + offset, partition.triList[j * 3 + 1] + offset,
 							partition.triList[j * 3 + 2] + offset);
 				}
+			} else if (m_clipRadius > 0.f) {
+				// Cropped obstruction: generateMeshBody already selected the near triangles (as flat,
+				// body-local vertex indices) into m_clippedTris. Just emit them; no offset needed.
+				auto clipIt = m_clippedTris.find(entry.first);
+				if (clipIt != m_clippedTris.end())
+					for (size_t t = 0; t + 2 < clipIt->second.size(); t += 3)
+						shape->addTriangle(clipIt->second[t], clipIt->second[t + 1], clipIt->second[t + 2]);
 			} else {
-				// Unskinned mesh: triangles come from the geometry's own index buffer rather than a
-				// skin partition's triList. Mirrors the unskinned vertex path in generateMeshBody.
+				// Unskinned, uncropped mesh: triangles come from the geometry's own index buffer rather than
+				// a skin partition's triList. Mirrors the unskinned vertex path in generateMeshBody.
 				const auto& grd = g->GetGeometryRuntimeData();
 				auto* renderer = grd.rendererData;
 				const auto triangleCount = g->GetTrishapeRuntimeData().triangleCount;
