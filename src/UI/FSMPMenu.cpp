@@ -685,6 +685,16 @@ namespace
 			ImGuiMCP::EndDisabled();
 			endRows();
 		}
+
+		section(fa::Bolt, "Experimental");
+		if (beginRows("simpl.experimental")) {
+			if (rowCheck("World collision",
+					"Let hair and cloth collide with nearby static world geometry (floors, walls). "
+					"Experimental and costly; watch the 'World collision' ms in the overlay.",
+					&a->m_enableWorldCollision, d.worldCollision))
+				commitReset();
+			endRows();
+		}
 	}
 
 	void PerformanceBody()
@@ -1091,6 +1101,8 @@ namespace
 			ImGuiMCP::TextColored(msColor(w->m_averageSMPProcessingTimeInMainLoop), "%.2f ms",
 				w->m_averageSMPProcessingTimeInMainLoop);
 			ImGuiMCP::Text("%s: %d / %d", tr("Active physics NPCs"), a->activeSkeletons, a->m_maxActiveSkeletons);
+			if (a->m_enableWorldCollision)
+				ImGuiMCP::Text("%s: %.2f ms", tr("World collision"), a->m_avgWorldCollisionMs);
 		}
 		ImGuiMCP::End();
 		if (!open && g_overlay)

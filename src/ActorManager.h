@@ -296,10 +296,14 @@ namespace hdt
 		bool m_skipDeadActors = false;
 
 		// @brief Experimental: when true, dynamic bones collide with nearby static world geometry
-		// (see Skeleton::manageWorldCollisions and ActorManager::World). On by default; overridable
-		// via the <worldCollision> bool in the <smp> config section. The raycast-clone-and-simulate
-		// mechanism is expensive and still a prototype, so it can be turned off in config.
-		bool m_enableWorldCollision = true;
+		// (see Skeleton::manageWorldCollisions and ActorManager::World). Off by default; toggled via the
+		// "World collision" menu option / the <worldCollision> bool in the <smp> config section. The
+		// raycast-clone-and-simulate mechanism is expensive and still a prototype.
+		bool m_enableWorldCollision = false;
+
+		// @brief Smoothed per-frame CPU cost (ms) of the world-collision work (see manageWorldCollisions),
+		// shown in the perf overlay / Measures page. EMA over SkyrimPhysicsWorld::m_sampleSize frames.
+		float m_avgWorldCollisionMs = 0.f;
 
 		// @brief Min percent of screen height a non-player skeleton must occupy to stay active; 0 = disabled. [0,100]
 		float m_minScreenSizePercent = 0.f;

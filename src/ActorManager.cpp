@@ -5,6 +5,8 @@
 #include "hdtDefaultBBP.h"
 #include "hdtSkyrimPhysicsWorld.h"
 
+#include <chrono>
+
 namespace hdt
 {
 	// NiAVObject* Actor::CalculateLOS_1405FD2C0(Actor *aActor, NiPoint3 *aTargetPosition, NiPoint3 *aRayHitPosition, float aViewCone)
@@ -448,6 +450,7 @@ namespace hdt
 
 		activeSkeletons = 0;
 		const float minCullingDistance2 = m_minCullingDistance * m_minCullingDistance;
+		std::chrono::steady_clock::duration worldCollisionTime{};  // accumulated across this frame's active actors
 		for (auto& i : m_skeletons) {
 			// When enabled, skip physics for dead non-player actors to save performance.
 			bool skipDeadActor = false;
@@ -468,8 +471,12 @@ namespace hdt
 
 			// Experimental: let this actor's dynamic bones collide with nearby static world geometry.
 			// Done before the wind early-outs below so it runs independently of the wind feature.
-			if (m_enableWorldCollision)
+			// Timed so the perf overlay can show how much this (costly) feature adds per frame.
+			if (m_enableWorldCollision) {
+				const auto wcStart = std::chrono::steady_clock::now();
 				i.manageWorldCollisions();
+				worldCollisionTime += std::chrono::steady_clock::now() - wcStart;
+			}
 
 			// Check wind obstructions for active skeletons.
 			if (!windEnabled)
@@ -538,6 +545,14 @@ namespace hdt
 
 				i.updateWindFactor(newWindFactor);
 			}
+		}
+
+		// Smooth the world-collision cost with the same EMA the physics metrics use, so the overlay
+		// reads a stable ms figure; when the feature is off, worldCollisionTime is 0 and this decays to 0.
+		{
+			const int wcSampleSize = world->m_sampleSize > 0 ? world->m_sampleSize : 1;
+			const float instWorldCollisionMs = std::chrono::duration<float, std::milli>(worldCollisionTime).count();
+			m_avgWorldCollisionMs = (m_avgWorldCollisionMs * (wcSampleSize - 1) + instWorldCollisionMs) / wcSampleSize;
 		}
 
 		for (auto& i : m_skeletons) {
