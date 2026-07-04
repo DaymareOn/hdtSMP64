@@ -1108,8 +1108,12 @@ namespace
 			ImGuiMCP::TextColored(msColor(w->m_averageSMPProcessingTimeInMainLoop), "%.2f ms",
 				w->m_averageSMPProcessingTimeInMainLoop);
 			ImGuiMCP::Text("%s: %d / %d", tr("Active physics NPCs"), a->activeSkeletons, a->m_maxActiveSkeletons);
-			if (a->m_enableWorldCollision)
-				ImGuiMCP::Text("%s: %.2f ms", tr("World collision"), a->m_avgWorldCollisionMs);
+			if (a->m_enableWorldCollision) {
+				ImGuiMCP::Text("%s: %.2f ms (peak %.2f)", tr("World collision add/remove"),
+					a->m_avgWorldCollisionMs, a->m_peakWorldCollisionMs);
+				ImGuiMCP::Text("%s: %d objs, %d verts", tr("Obstructions"),
+					a->m_obstructionCount, a->m_obstructionVertices);
+			}
 		}
 		ImGuiMCP::End();
 		if (!open && g_overlay)

@@ -206,6 +206,10 @@ namespace hdt
 			// @brief Immediately unregisters and drops ALL obstructions (used when the feature is turned
 			// off, so its physics cost is released at once rather than lingering until each times out).
 			void clear();
+			// @brief Number of world objects currently colliding (overlay stat).
+			size_t count() const { return m_obstructions.size(); }
+			// @brief Total collider vertices across all obstructions -- a complexity proxy for the overlay.
+			size_t totalVertices() const;
 		};
 
 		bool m_shutdown = false;
@@ -290,9 +294,17 @@ namespace hdt
 		// but more geometry dragged into the sim (more cost). Config <worldCollisionDistance>.
 		float m_worldCollisionDistance = 158.f;
 
-		// @brief Smoothed per-frame CPU cost (ms) of the world-collision work (see manageWorldCollisions),
-		// shown in the perf overlay / Measures page. EMA over SkyrimPhysicsWorld::m_sampleSize frames.
+		// @brief Per-frame CPU cost (ms) of ADDING/REMOVING world colliders (raycast + build + register +
+		// prune/clear) -- the on-thread work that causes micro-freezes. m_avg is EMA-smoothed over
+		// SkyrimPhysicsWorld::m_sampleSize frames; m_peak is a slowly-decaying max so a one-frame build
+		// spike stays visible in the overlay. This is NOT the physics-simulation collision cost.
 		float m_avgWorldCollisionMs = 0.f;
+		float m_peakWorldCollisionMs = 0.f;
+		// @brief Snapshot of how many world objects we currently collide with and the total collider
+		// vertices across them -- to see if the physics cost is driven by too many objects or too-complex
+		// ones. Shown in the overlay.
+		int m_obstructionCount = 0;
+		int m_obstructionVertices = 0;
 
 		// @brief Min percent of screen height a non-player skeleton must occupy to stay active; 0 = disabled. [0,100]
 		float m_minScreenSizePercent = 0.f;
