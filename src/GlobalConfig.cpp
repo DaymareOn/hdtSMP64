@@ -107,6 +107,7 @@ namespace hdt
 		c.skipDeadActors = read(smp, "skipDeadActors", c.skipDeadActors);
 		c.minScreenSizePercent = clampv(read(smp, "minScreenSizePercent", c.minScreenSizePercent), 0.0f, 100.0f);
 		c.worldCollision = read(smp, "worldCollision", c.worldCollision);
+		c.worldCollisionDistance = clampv(read(smp, "worldCollisionDistance", c.worldCollisionDistance), 0.0f, 1000.0f);
 		c.backupNodeByName = read(smp, "backupNodeByName", c.backupNodeByName);
 
 		// --- solver ---
@@ -186,6 +187,8 @@ namespace hdt
 		w.Double(c.minScreenSizePercent);
 		w.Key("worldCollision");
 		w.Bool(c.worldCollision);
+		w.Key("worldCollisionDistance");
+		w.Double(c.worldCollisionDistance);
 		w.Key("backupNodeByName");
 		w.StartArray();
 		for (const auto& n : c.backupNodeByName)

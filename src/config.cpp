@@ -59,6 +59,7 @@ namespace hdt
 		a->m_skipDeadActors = c.skipDeadActors;
 		a->m_minScreenSizePercent = c.minScreenSizePercent;
 		a->m_enableWorldCollision = c.worldCollision;
+		a->m_worldCollisionDistance = c.worldCollisionDistance;
 
 		auto* w = SkyrimPhysicsWorld::get();
 		w->m_clampRotations = c.clampRotations;
@@ -109,6 +110,7 @@ namespace hdt
 		c.skipDeadActors = a->m_skipDeadActors;
 		c.minScreenSizePercent = a->m_minScreenSizePercent;
 		c.worldCollision = a->m_enableWorldCollision;
+		c.worldCollisionDistance = a->m_worldCollisionDistance;
 
 		auto* w = SkyrimPhysicsWorld::get();
 		c.clampRotations = w->m_clampRotations;
@@ -220,6 +222,7 @@ namespace hdt
 		LOG("smp.skipDeadActors", a->m_skipDeadActors);
 		LOG("smp.minScreenSizePercent", a->m_minScreenSizePercent);
 		LOG("smp.worldCollision", a->m_enableWorldCollision);
+		LOG("smp.worldCollisionDistance", a->m_worldCollisionDistance);
 #undef LOG
 	}
 }

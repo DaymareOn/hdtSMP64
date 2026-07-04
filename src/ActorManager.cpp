@@ -809,17 +809,18 @@ namespace hdt
 		if (!pos.has_value())
 			return;
 
-		// Probe ~1000 units out along each axis; only obstructions within ~158 units (25000 squared)
-		// of the skeleton are kept, to bound how much world geometry we drag into the simulation.
-		static const RE::NiPoint3 directions[6] = {
-			{ 1000.f, 0.f, 0.f }, { -1000.f, 0.f, 0.f },
-			{ 0.f, 1000.f, 0.f }, { 0.f, -1000.f, 0.f },
-			{ 0.f, 0.f, 1000.f }, { 0.f, 0.f, -1000.f }
+		// Probe out to the configured distance along each of the 6 axes; only obstructions within that
+		// distance of the skeleton are kept, to bound how much world geometry we drag into the simulation.
+		const float distance = ActorManager::instance()->m_worldCollisionDistance;
+		const float maxObstructionDistance2 = distance * distance;
+		static const RE::NiPoint3 axes[6] = {
+			{ 1.f, 0.f, 0.f }, { -1.f, 0.f, 0.f },
+			{ 0.f, 1.f, 0.f }, { 0.f, -1.f, 0.f },
+			{ 0.f, 0.f, 1.f }, { 0.f, 0.f, -1.f }
 		};
-		constexpr float maxObstructionDistance2 = 25000.f;
 
-		for (const auto& direction : directions) {
-			RE::NiPoint3 target = pos.value() + direction;
+		for (const auto& axis : axes) {
+			RE::NiPoint3 target = pos.value() + axis * distance;
 			RE::NiPoint3 hitLocation;
 			const auto object = Actor_CalculateLOS(owner, &target, &hitLocation, std::numbers::pi_v<float> * 2.f);
 			if (!object)

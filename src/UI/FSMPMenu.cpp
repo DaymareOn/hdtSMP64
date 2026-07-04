@@ -693,6 +693,13 @@ namespace
 					"Experimental and costly; watch the 'World collision' ms in the overlay.",
 					&a->m_enableWorldCollision, d.worldCollision))
 				commitReset();
+			ImGuiMCP::BeginDisabled(!a->m_enableWorldCollision);
+			if (rowFloat("World collision distance",
+					"How near (units) world geometry must be to an actor to become a collider. "
+					"Larger = more coverage but more cost.",
+					&a->m_worldCollisionDistance, d.worldCollisionDistance, 0.0f, 1000.0f, "%.0f"))
+				commitReset();
+			ImGuiMCP::EndDisabled();
 			endRows();
 		}
 	}

@@ -39,6 +39,8 @@ namespace hdt
 		float minScreenSizePercent = 0.0f;
 		// Experimental: hair/cloth collide with nearby static world geometry (ActorManager::m_enableWorldCollision).
 		bool worldCollision = false;
+		// How near (units) world geometry must be to become a collider (ActorManager::m_worldCollisionDistance).
+		float worldCollisionDistance = 158.0f;
 		// backupNodeByName has no menu control; it is preserved purely so a round-trip never drops it.
 		std::vector<std::string> backupNodeByName;
 

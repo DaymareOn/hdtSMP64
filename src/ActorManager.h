@@ -301,6 +301,11 @@ namespace hdt
 		// raycast-clone-and-simulate mechanism is expensive and still a prototype.
 		bool m_enableWorldCollision = false;
 
+		// @brief How near (Skyrim units) static world geometry must be to an actor to be turned into a
+		// collider by manageWorldCollisions. Also the reach of the probe rays. Larger = more coverage
+		// but more geometry dragged into the sim (more cost). Config <worldCollisionDistance>.
+		float m_worldCollisionDistance = 158.f;
+
 		// @brief Smoothed per-frame CPU cost (ms) of the world-collision work (see manageWorldCollisions),
 		// shown in the perf overlay / Measures page. EMA over SkyrimPhysicsWorld::m_sampleSize frames.
 		float m_avgWorldCollisionMs = 0.f;
