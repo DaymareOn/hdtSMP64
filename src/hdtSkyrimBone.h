@@ -11,7 +11,7 @@ namespace hdt
 		SkyrimBone(const RE::BSFixedString& name, RE::NiNode* node, RE::NiNode* skeleton, btRigidBody::btRigidBodyConstructionInfo& ci);
 
 		void readTransform(float timeStep) override;
-		void writeTransform() override;
+		void writeTransform(float alpha) override;
 
 		int m_depth;
 		RE::NiPointer<RE::NiNode> m_node;

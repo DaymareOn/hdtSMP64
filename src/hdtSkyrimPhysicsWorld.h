@@ -21,6 +21,7 @@ namespace hdt
 
 		void doUpdate(float delta);
 		void doUpdate2ndStep(float delta, const float tick, const float remainingTimeStep);
+		void applyInterpolatedTransform();
 		void updateActiveState();
 		void setProfilerCapture(bool a_enabled, std::uint64_t a_sampleFrames = 240, std::uint64_t a_printFrames = 240);
 
