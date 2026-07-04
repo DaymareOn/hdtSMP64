@@ -9,6 +9,8 @@
   "Disabling some physics": "Desactivar parte de la f\u00edsica",
   "Disable hair physics when there's a wig": "Desactivar la f\u00edsica del cabello bajo una peluca",
   "Skip hair physics when an armor occupies the hair/longhair slot (a wig on top of the hair).": "Omite la f\u00edsica del cabello cuando una armadura ocupa la ranura de cabello/cabello largo (una peluca sobre el cabello).",
+  "Hide SMP hair when invisible": "Ocultar el pelo SMP al ser invisible",
+  "Hide physics hair while an invisibility effect is active, so it doesn't stay visible on an invisible actor.": "Oculta el pelo con f\u00edsica mientras un efecto de invisibilidad est\u00e9 activo, para que no siga visible en un actor invisible.",
   "No physics for your character in 1st person view": "Sin f\u00edsica para tu personaje en primera persona",
   "Skip the player's physics while in first-person view to save performance.": "Omite la f\u00edsica del jugador en primera persona para ahorrar rendimiento.",
   "Distance / screen-size culling": "Descarte por distancia / tama\u00f1o en pantalla",

@@ -73,6 +73,9 @@ namespace hdt
 				RE::NiPointer<RE::BSGeometry> headPart;
 				RE::NiPointer<RE::NiNode> origPartRootNode;
 				std::unordered_set<RE::BSFixedString> renamedBonesInUse;
+				// true once we app-culled this part for the invisibility feature, so we only ever un-cull
+				// what we hid ourselves and never fight the game's own culling (e.g. wig-hidden hair).
+				bool hiddenForInvisibility = false;
 			};
 
 			IDType id;
@@ -147,6 +150,13 @@ namespace hdt
 
 			void scanHead();
 			void processGeometry(RE::BSFaceGenNiNode* head, RE::BSGeometry* geometry);
+
+			// @brief Syncs this skeleton's physics-hair render visibility to its actor's invisibility state.
+			// When featureEnabled and the owning actor has an active Invisibility magic effect, every
+			// dynamic-physics head part is app-culled so it disappears with the rest of the actor; when the
+			// actor becomes visible again (or the feature is off) the parts WE hid are un-culled. Only parts
+			// this method previously hid are ever un-culled, so it never overrides the game's own culling.
+			void updateHairInvisibility(bool featureEnabled);
 
 			static void doSkeletonMerge(RE::NiNode* dst, RE::NiNode* src, std::string_view prefix, std::unordered_map<RE::BSFixedString, RE::BSFixedString>& map, bool renameSource = true);
 			static void doSkeletonClean(RE::NiNode* dst, std::string_view prefix);
@@ -232,6 +242,14 @@ namespace hdt
 		std::unique_lock<std::recursive_mutex> lockGuard() { return std::unique_lock(m_lock); }
 
 		bool m_disableSMPHairWhenWigEquipped = false;
+		// When true, physics hair is app-culled while its actor is under an Invisibility effect. FSMP
+		// re-skins hair to its own physics bones, so the game's invisibility shader no longer reaches it
+		// and the hair would otherwise float visibly on an invisible actor.
+		bool m_hideSMPHairWhenInvisible = true;
+		// Internal falling-edge tracker (not a config value): true while the hair-invisibility pass ran last
+		// frame. Lets setSkeletonsActive run one last restoring pass the frame the toggle is switched off,
+		// then skip the pass entirely while it stays off.
+		bool m_hairInvisibilityEngaged = false;
 		bool m_autoAdjustMaxSkeletons = true;  // Whether to dynamically change the maxActive skeletons to maintain min_fps
 		int m_maxActiveSkeletons = 20;         // The maximum active skeletons; hard limit
 		float m_minCullingDistance = 500;      // The distance from the camera under which we never cull the skeletons.

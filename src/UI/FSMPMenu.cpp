@@ -639,6 +639,10 @@ namespace
 					"Skip hair physics when an armor occupies the hair/longhair slot (a wig on top of the hair).",
 					&a->m_disableSMPHairWhenWigEquipped, d.disableSMPHairWhenWigEquipped))
 				commitReset();
+			if (rowCheck("Hide SMP hair when invisible",
+					"Hide physics hair while an invisibility effect is active, so it doesn't stay visible on an invisible actor.",
+					&a->m_hideSMPHairWhenInvisible, d.hideSMPHairWhenInvisible))
+				commitReset();
 			if (rowCheck("No physics for your character in 1st person view",
 					"Skip the player's physics while in first-person view to save performance.",
 					&a->m_disable1stPersonViewPhysics, d.disable1stPersonViewPhysics))

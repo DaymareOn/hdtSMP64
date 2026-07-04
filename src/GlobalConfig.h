@@ -24,6 +24,7 @@ namespace hdt
 		// internal scale on apply; we keep the user-facing value here so the menu slider maps directly.
 		int logLevel = 0;
 		bool disableSMPHairWhenWigEquipped = false;
+		bool hideSMPHairWhenInvisible = true;
 		bool clampRotations = true;
 		float rotationSpeedLimit = 10.0f;
 		bool unclampedResets = true;

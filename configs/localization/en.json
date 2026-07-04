@@ -9,6 +9,8 @@
   "Disabling some physics": "Disabling some physics",
   "Disable hair physics when there's a wig": "Disable hair physics when there's a wig",
   "Skip hair physics when an armor occupies the hair/longhair slot (a wig on top of the hair).": "Skip hair physics when an armor occupies the hair/longhair slot (a wig on top of the hair).",
+  "Hide SMP hair when invisible": "Hide SMP hair when invisible",
+  "Hide physics hair while an invisibility effect is active, so it doesn't stay visible on an invisible actor.": "Hide physics hair while an invisibility effect is active, so it doesn't stay visible on an invisible actor.",
   "No physics for your character in 1st person view": "No physics for your character in 1st person view",
   "Skip the player's physics while in first-person view to save performance.": "Skip the player's physics while in first-person view to save performance.",
   "Distance / screen-size culling": "Distance / screen-size culling",

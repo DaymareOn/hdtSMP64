@@ -26,6 +26,7 @@ TEST_CASE("round-trip: serialize then parse is identity for a clamped config")
 	GlobalConfig c;  // all defaults are already in-range
 	c.logLevel = 5;
 	c.disableSMPHairWhenWigEquipped = true;
+	c.hideSMPHairWhenInvisible = false;  // defaults to true, so flip it to exercise the round-trip
 	c.useRealTime = true;
 	c.maximumActiveSkeletons = 42;
 	c.budgetMs = 7.5f;
@@ -48,6 +49,7 @@ TEST_CASE("missing keys keep their defaults")
 	const GlobalConfig def;
 
 	CHECK(c.logLevel == 2);
+	CHECK(c.hideSMPHairWhenInvisible == def.hideSMPHairWhenInvisible);
 	CHECK(c.numIterations == def.numIterations);
 	CHECK(c.windStrength == doctest::Approx(def.windStrength));
 }

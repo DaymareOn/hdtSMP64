@@ -33,6 +33,31 @@ namespace hdt
 		return false;
 	};
 
+	// Returns true when the actor currently has an active Invisibility magic effect --- i.e. the game is
+	// rendering it invisible. We test the effect archetype rather than the actor's alpha because alpha also
+	// dips during ordinary spawn/cell fade-in, which must NOT hide the hair. Inactive and dispelled effects
+	// are skipped so the result flips off the instant invisibility breaks (attacking, activating, etc.).
+	static bool actorHasActiveInvisibility(RE::Actor* actor)
+	{
+		if (!actor)
+			return false;
+
+		auto* effects = actor->GetActiveEffectList();
+		if (!effects)
+			return false;
+
+		for (auto* ae : *effects) {
+			if (!ae || ae->flags.any(RE::ActiveEffect::Flag::kInactive, RE::ActiveEffect::Flag::kDispelled))
+				continue;
+
+			const auto* base = ae->GetBaseObject();
+			if (base && base->GetArchetype() == RE::EffectArchetype::kInvisibility)
+				return true;
+		}
+
+		return false;
+	}
+
 	class HairVisitor  // public RE::InventoryChanges::IItemChangeVisitor
 	{
 	public:
@@ -367,6 +392,32 @@ namespace hdt
 		return RE::PlayerCamera::GetSingleton()->cameraRoot.get();
 	}
 
+	void ActorManager::Skeleton::updateHairInvisibility(bool featureEnabled)
+	{
+		// Target state: hide only when the feature is on AND the owning actor is invisible. The caller also
+		// invokes us once with featureEnabled=false the frame the toggle is switched off, where hide stays
+		// false and we un-cull any parts a previous invisibility had hidden.
+		bool hide = false;
+		if (featureEnabled) {
+			const auto actor = skyrim_cast<RE::Actor*>(skeletonOwner.get());
+			hide = actorHasActiveInvisibility(actor);
+		}
+
+		for (auto& headPart : head.headParts) {
+			// Only FSMP-driven physics hair gets re-skinned in a way that escapes the invisibility shader;
+			// static face parts are left to the game. Skip parts with no live geometry.
+			if (!headPart.m_hasDynamicPhysics || !headPart.headPart)
+				continue;
+
+			// Already in the desired state: don't rewrite the flag (and never touch a part we didn't hide).
+			if (hide == headPart.hiddenForInvisibility)
+				continue;
+
+			headPart.headPart->SetAppCulled(hide);
+			headPart.hiddenForInvisibility = hide;
+		}
+	}
+
 	// @brief This function is called by different events, with different locking needs, and is therefore extracted from the events.
 	void ActorManager::setSkeletonsActive(const bool updateMetrics)
 	{
@@ -443,7 +494,20 @@ namespace hdt
 
 		activeSkeletons = 0;
 		const float minCullingDistance2 = m_minCullingDistance * m_minCullingDistance;
+
+		// Decide ONCE per frame whether to run the hair-invisibility pass, so a disabled feature costs
+		// nothing per skeleton beyond a predicted branch. We still run it for the single frame right after
+		// the toggle is switched off (m_hairInvisibilityEngaged was set last frame) to un-cull any hair we
+		// had hidden; from then on it stays off until re-enabled.
+		const bool doHairInvisibility = m_hideSMPHairWhenInvisible || m_hairInvisibilityEngaged;
+		m_hairInvisibilityEngaged = m_hideSMPHairWhenInvisible;
+
 		for (auto& i : m_skeletons) {
+			// Keep physics-hair visibility in sync with the actor's invisibility state. Runs for every
+			// skeleton (even budget-culled ones); the whole pass is skipped while the feature is off.
+			if (doHairInvisibility)
+				i.updateHairInvisibility(m_hideSMPHairWhenInvisible);
+
 			// When enabled, skip physics for dead non-player actors to save performance.
 			bool skipDeadActor = false;
 			if (m_skipDeadActors && !i.isPlayerCharacter()) {

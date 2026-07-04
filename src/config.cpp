@@ -52,6 +52,7 @@ namespace hdt
 
 		auto* a = ActorManager::instance();
 		a->m_disableSMPHairWhenWigEquipped = c.disableSMPHairWhenWigEquipped;
+		a->m_hideSMPHairWhenInvisible = c.hideSMPHairWhenInvisible;
 		a->m_minCullingDistance = c.minCullingDistance;
 		a->m_maxActiveSkeletons = c.maximumActiveSkeletons;
 		a->m_autoAdjustMaxSkeletons = c.autoAdjustMaxSkeletons;
@@ -101,6 +102,7 @@ namespace hdt
 
 		auto* a = ActorManager::instance();
 		c.disableSMPHairWhenWigEquipped = a->m_disableSMPHairWhenWigEquipped;
+		c.hideSMPHairWhenInvisible = a->m_hideSMPHairWhenInvisible;
 		c.minCullingDistance = a->m_minCullingDistance;
 		c.maximumActiveSkeletons = a->m_maxActiveSkeletons;
 		c.autoAdjustMaxSkeletons = a->m_autoAdjustMaxSkeletons;
@@ -204,6 +206,7 @@ namespace hdt
 			logger::debug("config: smp.backupNodeByName += {}", item);
 
 		LOG("smp.disableSMPHairWhenWigEquipped", a->m_disableSMPHairWhenWigEquipped);
+		LOG("smp.hideSMPHairWhenInvisible", a->m_hideSMPHairWhenInvisible);
 		LOG("smp.clampRotations", w->m_clampRotations);
 		LOG("smp.rotationSpeedLimit", w->m_rotationSpeedLimit);
 		LOG("smp.unclampedResets", w->m_unclampedResets);

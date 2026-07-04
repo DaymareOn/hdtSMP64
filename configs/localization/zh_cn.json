@@ -9,6 +9,8 @@
   "Disabling some physics": "\u7981\u7528\u90e8\u5206\u7269\u7406",
   "Disable hair physics when there's a wig": "\u6234\u5047\u53d1\u65f6\u7981\u7528\u5934\u53d1\u7269\u7406",
   "Skip hair physics when an armor occupies the hair/longhair slot (a wig on top of the hair).": "\u5f53\u62a4\u7532\u5360\u7528\u5934\u53d1/\u957f\u53d1\u69fd\u4f4d\u65f6\uff08\u5934\u53d1\u4e0a\u7684\u5047\u53d1\uff09\uff0c\u8df3\u8fc7\u5934\u53d1\u7269\u7406\u3002",
+  "Hide SMP hair when invisible": "\u9690\u8eab\u65f6\u9690\u85cf SMP \u5934\u53d1",
+  "Hide physics hair while an invisibility effect is active, so it doesn't stay visible on an invisible actor.": "\u5f53\u9690\u8eab\u6548\u679c\u751f\u6548\u65f6\u9690\u85cf\u7269\u7406\u5934\u53d1\uff0c\u4f7f\u5176\u4e0d\u4f1a\u5728\u9690\u8eab\u89d2\u8272\u8eab\u4e0a\u4ecd\u7136\u53ef\u89c1\u3002",
   "No physics for your character in 1st person view": "\u7b2c\u4e00\u4eba\u79f0\u89c6\u89d2\u4e0b\u4e0d\u5bf9\u4f60\u7684\u89d2\u8272\u4f7f\u7528\u7269\u7406",
   "Skip the player's physics while in first-person view to save performance.": "\u5728\u7b2c\u4e00\u4eba\u79f0\u89c6\u89d2\u4e0b\u8df3\u8fc7\u73a9\u5bb6\u7684\u7269\u7406\u8fd0\u7b97\u4ee5\u8282\u7701\u6027\u80fd\u3002",
   "Distance / screen-size culling": "\u6309\u8ddd\u79bb/\u5c4f\u5e55\u5c3a\u5bf8\u5254\u9664",
