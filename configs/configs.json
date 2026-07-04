@@ -16,6 +16,7 @@
     "disable1stPersonViewPhysics": true,
     "skipDeadActors": false,
     "minScreenSizePercent": 0.0,
+    "enableCreaturePhysics": false,
     "enableCuda": true
   },
   "solver": {
