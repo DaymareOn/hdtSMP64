@@ -177,50 +177,32 @@ namespace hdt
 			std::vector<Armor> armors;
 		};
 
-		// @brief Experimental world-collision obstruction. When a skeleton raycast hits a nearby
-		// piece of static world geometry, that object's node subtree is cloned into the SMP scene
-		// so dynamic bones can collide with it. Each obstruction owns its cloned subtree and shares
-		// the World physics system; it is removed once its timeout counts down to zero.
+		// @brief Experimental world-collision obstruction: one nearby static world object we currently
+		// collide with. We build a kinematic physics system straight from the object's LIVE geometry
+		// (no cloning) and hold the object via NiPointer so it stays alive while we reference it. It is
+		// removed once its timeout counts down to zero.
 		struct Obstruction : public PhysicsItem
 		{
-			IDType id = 0;
-			std::string prefix;
-			RE::NiPointer<RE::NiAVObject> obstructingObject;  // the source world object that was hit
-			RE::NiPointer<RE::NiAVObject> clonedObject;       // top-level cloned subtree, child of the obstruction root
+			RE::NiPointer<RE::NiAVObject> object;  // the live world object we collide with (kept alive by this ref)
 			int timeout = 0;
 		};
 
-		// @brief Holds the SMP-side representation of nearby static world geometry. All cloned
-		// obstruction subtrees are parented under a single "obstruction" NiNode placed in the scene
-		// graph, and one shared SkyrimSystem turns them into colliders. Experimental and gated behind
-		// ActorManager::m_enableWorldCollision; the clone-and-simulate approach is expensive and
-		// still a prototype.
+		// @brief Tracks the nearby static world objects we currently turn into SMP colliders. Experimental
+		// and gated behind ActorManager::m_enableWorldCollision. It deliberately does NOT clone geometry:
+		// building a collider from a live object's trishapes avoids the CreateClone/ProcessClone crash on
+		// complex world objects (issue #394).
 		class World
 		{
-			RE::NiNode* m_world = nullptr;  // parent node of all obstruction clones
 			std::vector<Obstruction> m_obstructions;
-			std::unordered_map<RE::BSFixedString, RE::BSFixedString> m_renameMap;
-			DefaultBBP::PhysicsFile_t m_worldPhysicsItem;
-			RE::BSTSmartPointer<SkyrimSystem> m_system;
 
 		public:
 			static World* instance();
 
-			// @brief Lazily creates the obstruction root, clones attachedNode under it (registering a
-			// fresh Obstruction or refreshing an existing one), then (re)builds the shared physics system.
-			void attachObstruction(RE::NiNode* attachedNode, RE::NiAVObject* attachedObject);
-			// @brief Derives the per-entry prefix and merges the cloned subtree under the obstruction root.
-			void createObstruction(RE::NiNode* attachedNode, RE::NiAVObject* attachedObject);
-			// @brief Recursively merges src into dst by name: existing named nodes are descended into, and
-			// missing ones are cloned+attached. A clone landing directly under the obstruction root creates a
-			// new Obstruction; a deeper clone just refreshes the owning obstruction's timeout.
-			void mergeObstruction(RE::NiNode* dst, RE::NiNode* src, std::string_view prefix, std::unordered_map<RE::BSFixedString, RE::BSFixedString>& map);
-			// @brief Finds the Obstruction owning aObject, or nullptr if it isn't part of any obstruction.
-			Obstruction* getObstruction(RE::NiAVObject* aObject);
-			// @brief Walks up from aObject to the subtree node directly under the obstruction root.
-			RE::NiAVObject* getAncestorObstruction(RE::NiAVObject* aObject);
-			// @brief Decrements every obstruction's timeout each frame, detaching+releasing expired ones.
-			void pruneObstructions();
+			// @brief Builds a kinematic collider from object's live geometry and registers it so nearby
+			// hair collides with it -- or, if object is already tracked, just refreshes its timeout.
+			void addObstruction(RE::NiAVObject* object);
+			// @brief Ages every obstruction each frame; unregisters and drops those that expire.
+			void prune();
 		};
 
 		bool m_shutdown = false;
@@ -239,7 +221,6 @@ namespace hdt
 
 		static std::string armorPrefix(IDType id);
 		static std::string headPrefix(IDType id);
-		static std::string obstructionPrefix(IDType id);
 
 		/*
 		fix: take into account the unexpected armors names changes done by the Skyrim executable.
