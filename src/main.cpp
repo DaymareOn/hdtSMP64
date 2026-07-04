@@ -66,24 +66,41 @@ namespace
 		logger::info("{}", line);
 		hdt::menuConsoleAppendLines(line);
 	}
+
+	// An object's RTTI class name, or a placeholder when the object or its RTTI pointer is null. A
+	// partially-built or corrupt node can have a null RTTI, and reading ->name off that null crashes the
+	// dump; funnel every RTTI read through here so the debug dump can never fault.
+	const char* rttiName(const RE::NiObject* obj)
+	{
+		if (!obj)
+			return "<null>";
+		auto* rtti = obj->GetRTTI();
+		return rtti ? rtti->name : "<no RTTI>";
+	}
 }
 
 void DumpNodeChildren(RE::NiAVObject* node)
 {
+	// A debug console dump must never crash the game. The target can be partially built or already
+	// deleted (a despawning creature's Get3D1() returns null), extra-data slots can be null, and creature
+	// skin data commonly carries null bone entries, so every dereference below is null-guarded.
+	if (!node)
+		return;
+
 	dumpLine(
 		"{} {} [{:.2f}, {:.2f}, {:.2f}]",
-		node->GetRTTI()->name,
+		rttiName(node),
 		node->name,
 		node->world.translate.x,
 		node->world.translate.y,
 		node->world.translate.z);
 
-	if (node->extraDataSize > 0) {
+	if (node->extraDataSize > 0 && node->extra) {
 		for (uint16_t i = 0; i < node->extraDataSize; i++) {
-			dumpLine(
-				"{} {}",
-				node->extra[i]->GetRTTI()->name,
-				node->extra[i]->name);
+			auto* extra = node->extra[i];
+			if (!extra)
+				continue;
+			dumpLine("{} {}", rttiName(extra), extra->name);
 		}
 	}
 
@@ -99,7 +116,7 @@ void DumpNodeChildren(RE::NiAVObject* node)
 					if (geometry) {
 						logger::info(
 							"{} {} [{:.2f}, {:.2f}, {:.2f}] - Geometry",
-							object->GetRTTI()->name,
+							rttiName(object.get()),
 							object->name,
 							geometry->world.translate.x,
 							geometry->world.translate.y,
@@ -108,10 +125,14 @@ void DumpNodeChildren(RE::NiAVObject* node)
 						if (geometry->GetGeometryRuntimeData().skinInstance && geometry->GetGeometryRuntimeData().skinInstance->skinData) {
 							for (uint32_t boneIdx = 0; boneIdx < geometry->GetGeometryRuntimeData().skinInstance->skinData->GetBoneCount(); boneIdx++) {
 								auto bone = geometry->GetGeometryRuntimeData().skinInstance->bones[boneIdx];
+								if (!bone) {
+									logger::info("Bone {} - <null>", boneIdx);
+									continue;
+								}
 								logger::info(
 									"Bone {} - {} {} [{:.2f}, {:.2f}, {:.2f}]",
 									boneIdx,
-									bone->GetRTTI()->name,
+									rttiName(bone),
 									bone->name,
 									bone->world.translate.x,
 									bone->world.translate.y,
@@ -155,7 +176,7 @@ void DumpNodeChildren(RE::NiAVObject* node)
 					} else {
 						logger::info(
 							"{} {} [{:.2f}, {:.2f}, {:.2f}]",
-							object->GetRTTI()->name,
+							rttiName(object.get()),
 							object->name,
 							object->world.translate.x,
 							object->world.translate.y,
@@ -389,11 +410,15 @@ bool hdt::RunSMPDebugCommand(const char* buffer, const char* buffer2, const char
 		return true;
 	}
 	if (_strnicmp(buffer, "dumptree", MAX_PATH) == 0) {
-		if (a_thisObj) {
-			hdt::smpEcho("dumping targeted reference's node tree");
-			DumpNodeChildren(a_thisObj->Get3D1(0));
-		} else {
+		if (!a_thisObj) {
 			hdt::smpEcho("error: you must target a reference to dump their node tree");
+		} else if (auto* root = a_thisObj->Get3D1(0)) {
+			hdt::smpEcho("dumping targeted reference's node tree");
+			DumpNodeChildren(root);
+		} else {
+			// e.g. a despawning/deleted actor whose 3D has already been torn down. Dumping it used to
+			// dereference the null root and crash the game.
+			hdt::smpEcho("error: targeted reference has no 3D loaded (unloaded or deleted)");
 		}
 
 		return true;
