@@ -153,7 +153,7 @@ namespace hdt
 		if (hdt::SkyrimPhysicsWorld::get()->m_enableWind)
 			applyWind(remainingTimeStep);
 
-		while (remainingTimeStep > fixedTimeStep) {
+		while (remainingTimeStep >= fixedTimeStep) {
 			internalSingleStepSimulation(fixedTimeStep);
 			remainingTimeStep -= fixedTimeStep;
 		}
