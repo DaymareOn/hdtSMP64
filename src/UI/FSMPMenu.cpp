@@ -1111,8 +1111,8 @@ namespace
 			if (a->m_enableWorldCollision) {
 				ImGuiMCP::Text("%s: %.2f ms (peak %.2f)", tr("World collision add/remove"),
 					a->m_avgWorldCollisionMs, a->m_peakWorldCollisionMs);
-				ImGuiMCP::Text("%s: %d objs, %d verts", tr("Obstructions"),
-					a->m_obstructionCount, a->m_obstructionVertices);
+				ImGuiMCP::Text("%s: %d objs, %d verts, %d rebuilds/frame", tr("Obstructions"),
+					a->m_obstructionCount, a->m_obstructionVertices, a->m_obstructionRebuilds);
 			}
 		}
 		ImGuiMCP::End();

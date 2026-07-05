@@ -446,6 +446,7 @@ namespace hdt
 		activeSkeletons = 0;
 		const float minCullingDistance2 = m_minCullingDistance * m_minCullingDistance;
 		std::chrono::steady_clock::duration worldCollisionTime{};  // accumulated across this frame's active actors
+		World::instance()->m_buildsThisFrame = 0;                  // count obstruction rebuilds over this frame
 		for (auto& i : m_skeletons) {
 			// When enabled, skip physics for dead non-player actors to save performance.
 			bool skipDeadActor = false;
@@ -564,6 +565,7 @@ namespace hdt
 			m_peakWorldCollisionMs = instMs > decayedPeak ? instMs : decayedPeak;
 			m_obstructionCount = static_cast<int>(World::instance()->count());
 			m_obstructionVertices = static_cast<int>(World::instance()->totalVertices());
+			m_obstructionRebuilds = World::instance()->m_buildsThisFrame;
 		}
 
 		for (auto& i : m_skeletons) {
@@ -867,6 +869,13 @@ namespace hdt
 		}
 	}
 
+	// Frames an obstruction stays tracked after it was last probed. Long enough (~1.5s at 60fps) that brief
+	// probe misses don't drop its cached geometry and force a fresh multi-second GPU re-read.
+	static constexpr int kObstructionTimeout = 90;
+	// Minimum frames between re-crops of the same obstruction (~0.5s). Caps how often the expensive rebuild
+	// runs no matter how many actors ping it or how fast the actor moves.
+	static constexpr int kRebuildCooldownFrames = 30;
+
 	void ActorManager::World::addObstruction(RE::NiAVObject* object, RE::NiPoint3 clipCenter)
 	{
 		if (!object)
@@ -879,9 +888,18 @@ namespace hdt
 
 		for (auto& o : m_obstructions) {
 			if (o.object.get() == object) {
-				o.timeout = 10;
-				if ((clipCenter - o.builtAt).SqrLength() > rebuildDist * rebuildDist)
+				// Keep it alive long enough that the cached geometry survives a few missed probe frames
+				// (a re-add would otherwise drop the cache and force a multi-second GPU re-read).
+				o.timeout = kObstructionTimeout;
+				// Rate-limit rebuilds. Without this, every active actor (each passing ITS OWN position as
+				// clipCenter) and every step of movement re-crops this shared collider, so with several
+				// actors near the same big mesh we rebuild it many times per frame -- the O(2M) sphere test
+				// plus Bullet tree build then dominates the frame. The cooldown caps it to at most one
+				// re-crop per kRebuildCooldownFrames, at the cost of the crop lagging fast movement slightly.
+				if (o.rebuildCooldown <= 0 && (clipCenter - o.builtAt).SqrLength() > rebuildDist * rebuildDist) {
 					buildObstruction(o, clipCenter, radius);
+					o.rebuildCooldown = kRebuildCooldownFrames;
+				}
 				return;
 			}
 		}
@@ -890,10 +908,12 @@ namespace hdt
 		m_obstructions.push_back(Obstruction{});
 		auto& obstruction = m_obstructions.back();
 		obstruction.object = RE::NiPointer<RE::NiAVObject>(object);
-		obstruction.timeout = 10;
+		obstruction.timeout = kObstructionTimeout;
 		buildObstruction(obstruction, clipCenter, radius);
 		if (!obstruction.hasPhysics())
 			m_obstructions.pop_back();  // nothing near the actor yet; re-added when the actor gets closer
+		else
+			obstruction.rebuildCooldown = kRebuildCooldownFrames;
 	}
 
 	void ActorManager::World::buildObstruction(Obstruction& obstruction, RE::NiPoint3 clipCenter, float radius)
@@ -925,11 +945,14 @@ namespace hdt
 
 		obstruction.setPhysics(system, true);  // swaps in the new (re-cropped) collider, unregistering the old
 		obstruction.builtAt = clipCenter;
+		++m_buildsThisFrame;  // overlay diagnostic: how many rebuilds happened this frame
 	}
 
 	void ActorManager::World::prune()
 	{
 		std::erase_if(m_obstructions, [](Obstruction& obstruction) {
+			if (obstruction.rebuildCooldown > 0)
+				--obstruction.rebuildCooldown;  // tick the re-crop rate limiter once per frame
 			if (--obstruction.timeout > 0)
 				return false;
 			obstruction.clearPhysics();  // unregister the system from the physics world

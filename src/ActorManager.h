@@ -187,6 +187,7 @@ namespace hdt
 			int timeout = 0;
 			RE::NiPoint3 builtAt;                  // actor position the current cropped collider was built around
 			ObstructionCache cache;                // raw geometry per trishape, so re-cropping needs no GPU re-read
+			int rebuildCooldown = 0;               // frames until this obstruction may re-crop again (rate-limits rebuilds)
 		};
 
 		// @brief Tracks the nearby static world objects we currently turn into SMP colliders. Experimental
@@ -198,6 +199,12 @@ namespace hdt
 			std::vector<Obstruction> m_obstructions;
 
 		public:
+			// @brief Number of obstruction (re)builds performed since ActorManager last reset it. ActorManager
+			// zeroes this before each frame's world-collision work and reads it after, to show a per-frame
+			// rebuild count in the overlay -- the key signal for whether the add/remove cost is many cheap
+			// rebuilds (rate-limit fixes it) or one catastrophic build (attack the build itself).
+			int m_buildsThisFrame = 0;
+
 			static World* instance();
 
 			// @brief Builds (or refreshes) a kinematic collider from object's live geometry, cropped to a
@@ -313,6 +320,10 @@ namespace hdt
 		// ones. Shown in the overlay.
 		int m_obstructionCount = 0;
 		int m_obstructionVertices = 0;
+		// @brief How many obstruction (re)builds happened last frame. A high steady value means the cost is
+		// many rebuilds/frame (rate-limited by Obstruction::rebuildCooldown); ~0-1 with a high peak means a
+		// single build is expensive. Shown in the overlay to distinguish the two.
+		int m_obstructionRebuilds = 0;
 
 		// @brief Min percent of screen height a non-player skeleton must occupy to stay active; 0 = disabled. [0,100]
 		float m_minScreenSizePercent = 0.f;
