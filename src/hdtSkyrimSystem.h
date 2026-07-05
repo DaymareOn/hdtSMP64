@@ -64,7 +64,7 @@ namespace hdt
 		// keeping only triangles with a vertex inside it -- used for world-collision obstructions so a whole
 		// 2M-vertex static isn't turned into a collider. cache holds each mesh's raw geometry so a rebuild (as
 		// the actor moves) re-crops from memory instead of re-reading the GPU. Both are inert for armors.
-		RE::BSTSmartPointer<SkyrimSystem> createOrUpdateSystem(RE::NiNode* skeleton, RE::NiAVObject* model, DefaultBBP::PhysicsFile_t* file, std::unordered_map<RE::BSFixedString, RE::BSFixedString>&& renameMap, SkyrimSystem* old_system, RE::NiPoint3 clipCenter = {}, float clipRadius = -1.f, ObstructionCache* cache = nullptr);
+		RE::BSTSmartPointer<SkyrimSystem> createOrUpdateSystem(RE::NiNode* skeleton, RE::NiAVObject* model, DefaultBBP::PhysicsFile_t* file, std::unordered_map<RE::BSFixedString, RE::BSFixedString>&& renameMap, SkyrimSystem* old_system, RE::NiPoint3 clipCenter = {}, float clipRadius = -1.f, ObstructionCache* cache = nullptr, std::vector<RE::NiPoint3>* outClippedWorldTris = nullptr);
 
 	protected:
 		// O(1) bone lookup index. These are just to speed up the hashmap more since BSStrings are pooled
@@ -199,6 +199,9 @@ namespace hdt
 		float m_clipRadius = -1.f;
 		ObstructionCache* m_obstructionCache = nullptr;
 		std::unordered_map<std::string, std::vector<int>> m_clippedTris;  // per mesh: kept triangles as flat body-vertex indices
+		// When set, the crop appends each kept triangle's 3 world-space vertices here (3 points per triangle),
+		// so the debug overlay can wireframe exactly the geometry we collide with. Null = don't capture.
+		std::vector<RE::NiPoint3>* m_outClippedWorldTris = nullptr;
 
 		RE::NiNode* findObjectByName(const RE::BSFixedString& name);
 		SkyrimBone* getOrCreateBone(const RE::BSFixedString& name);

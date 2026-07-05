@@ -198,7 +198,7 @@ namespace hdt
 		return name;
 	}
 
-	RE::BSTSmartPointer<SkyrimSystem> SkyrimSystemCreator::createOrUpdateSystem(RE::NiNode* skeleton, RE::NiAVObject* model, DefaultBBP::PhysicsFile_t* file, std::unordered_map<RE::BSFixedString, RE::BSFixedString>&& renameMap, SkyrimSystem* old_system, RE::NiPoint3 clipCenter, float clipRadius, ObstructionCache* cache)
+	RE::BSTSmartPointer<SkyrimSystem> SkyrimSystemCreator::createOrUpdateSystem(RE::NiNode* skeleton, RE::NiAVObject* model, DefaultBBP::PhysicsFile_t* file, std::unordered_map<RE::BSFixedString, RE::BSFixedString>&& renameMap, SkyrimSystem* old_system, RE::NiPoint3 clipCenter, float clipRadius, ObstructionCache* cache, std::vector<RE::NiPoint3>* outClippedWorldTris)
 	{
 		auto path = file->first;
 		if (path.empty()) {
@@ -218,6 +218,9 @@ namespace hdt
 		m_clipRadius = clipRadius;
 		m_obstructionCache = cache;
 		m_clippedTris.clear();
+		m_outClippedWorldTris = outClippedWorldTris;
+		if (m_outClippedWorldTris)
+			m_outClippedWorldTris->clear();
 
 		XMLReader reader((uint8_t*)loaded.data(), loaded.size());
 		m_reader = &reader;
@@ -802,6 +805,10 @@ namespace hdt
 						const uint16_t vi[3] = { geom.indices[t], geom.indices[t + 1], geom.indices[t + 2] };
 						if (!(nearFlag[vi[0]] || nearFlag[vi[1]] || nearFlag[vi[2]]))
 							continue;
+						// Capture the kept triangle's world-space vertices for the debug wireframe overlay.
+						if (m_outClippedWorldTris)
+							for (int k = 0; k < 3; ++k)
+								m_outClippedWorldTris->push_back(geom.world * geom.localPos[vi[k]]);
 						for (int k = 0; k < 3; ++k) {
 							if (remap[vi[k]] < 0) {
 								remap[vi[k]] = static_cast<int>(body->m_vertices.size());

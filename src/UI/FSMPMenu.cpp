@@ -1117,17 +1117,18 @@ namespace
 		outputPanel();
 	}
 
-	// Draw this frame's world-collision probe rays over the game, via the foreground draw list (so they span
-	// the whole screen, not just the overlay window). Each ray's 3D endpoints are projected to the screen with
-	// the game camera that the main thread captured and handed us (held via NiPointer, so it can't die under
-	// us). Green = the ray became a collider, red = it missed or was too far; a dot marks each hit point.
-	// Runs on the render thread, so it reads the published ray set + camera under ActorManager's lock. Points
-	// behind the camera (WorldPtToScreenPt3 returns false) are skipped.
+	// Draw the world-collision debug over the game via the foreground draw list (so it spans the whole screen,
+	// not just the overlay window): the probe rays (green = became a collider, red = missed/too far, plus a
+	// travelling white "just fired" pulse) and the cropped collider geometry as a cyan wireframe, so the exact
+	// triangles being collided with are visible. 3D points are projected with the game camera the main thread
+	// captured and handed us (held via NiPointer, so it can't die under us). Runs on the render thread, so it
+	// reads the published rays + collider tris + camera under ActorManager's lock. Points behind the camera
+	// (WorldPtToScreenPt3 returns false) are skipped.
 	void drawWorldRaycasts(ActorManager* a)
 	{
 		std::scoped_lock lock(a->m_rayVizLock);
 		auto* cam = a->m_debugCamera.get();
-		if (!cam || a->m_rayViz.empty())
+		if (!cam)
 			return;
 
 		auto* io = ImGuiMCP::GetIO();
@@ -1163,6 +1164,20 @@ namespace
 			// The travelling white "just fired" pulse, interpolated along the (screen-space) ray.
 			const ImGuiMCP::ImVec2 pulse(o.x + (e.x - o.x) * pulseT, o.y + (e.y - o.y) * pulseT);
 			ImGuiMCP::ImDrawListManager::AddCircleFilled(draw, pulse, 3.5f, IM_COL32(255, 255, 255, 235), 10);
+		}
+
+		// Wireframe the actual cropped collider triangles (3 world-space points each) in cyan, so the geometry
+		// we collide with is visible and distinct from the probe rays. This is a 2D overlay, so lines are not
+		// occluded by scenery in front of them; that is fine for a debug view.
+		const auto wire = IM_COL32(80, 210, 255, 130);
+		for (size_t t = 0; t + 2 < a->m_colliderTris.size(); t += 3) {
+			ImGuiMCP::ImVec2 p0{}, p1{}, p2{};
+			if (!project(a->m_colliderTris[t], p0) || !project(a->m_colliderTris[t + 1], p1) ||
+				!project(a->m_colliderTris[t + 2], p2))
+				continue;
+			ImGuiMCP::ImDrawListManager::AddLine(draw, p0, p1, wire, 1.0f);
+			ImGuiMCP::ImDrawListManager::AddLine(draw, p1, p2, wire, 1.0f);
+			ImGuiMCP::ImDrawListManager::AddLine(draw, p2, p0, wire, 1.0f);
 		}
 	}
 

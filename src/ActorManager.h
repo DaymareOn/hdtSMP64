@@ -112,6 +112,9 @@ namespace hdt
 			Head head;
 			SkeletonState state;
 			bool mustFixOneArmorMap = false;
+			// Which of the 6 axis probe rays manageWorldCollisions casts this frame; advances by one each
+			// frame so each actor casts only one world-collision ray per frame (the 6 axes cycle over 6 frames).
+			uint8_t m_worldRayCursor = 0;
 
 			std::string name();
 			void addArmor(RE::NiNode* armorModel);
@@ -195,6 +198,7 @@ namespace hdt
 			// several actors near the same big mesh can't fight to re-crop it around themselves every frame.
 			RE::NiPointer<RE::TESObjectREFR> owner;  // actor the crop is centered on (kept alive while it owns this)
 			int ownerTimeout = 0;                    // frames until ownership may pass to another actor (owner refreshes it)
+			std::vector<RE::NiPoint3> colliderTris;  // kept triangles in world space (3 points each) for the debug wireframe
 		};
 
 		// @brief Tracks the nearby static world objects we currently turn into SMP colliders. Experimental
@@ -228,6 +232,9 @@ namespace hdt
 			size_t count() const { return m_obstructions.size(); }
 			// @brief Total collider vertices across all obstructions -- a complexity proxy for the overlay.
 			size_t totalVertices() const;
+			// @brief Append every obstruction's captured collider triangles (world space, 3 points each) to
+			// out, up to maxTris triangles total, for the debug wireframe. Returns how many were appended.
+			size_t collectColliderTris(std::vector<RE::NiPoint3>& out, size_t maxTris) const;
 
 		private:
 			// @brief (Re)builds an obstruction's cropped collider around clipCenter and registers it, reusing
@@ -346,6 +353,9 @@ namespace hdt
 		std::vector<WorldRayViz> m_rayVizPending;
 		std::mutex m_rayVizLock;
 		RE::NiPointer<RE::NiCamera> m_debugCamera;  // held so the render thread can project rays safely
+		// Published collider triangles (world space, 3 points each) for the wireframe overlay; guarded by
+		// m_rayVizLock alongside the rays and camera. Filled only while the raycast visualization is on.
+		std::vector<RE::NiPoint3> m_colliderTris;
 
 		// @brief Per-frame CPU cost (ms) of ADDING/REMOVING world colliders (raycast + build + register +
 		// prune/clear) -- the on-thread work that causes micro-freezes. m_avg is EMA-smoothed over

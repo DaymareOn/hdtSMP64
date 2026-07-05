@@ -593,6 +593,9 @@ namespace hdt
 			m_rayViz = m_rayVizPending;
 			m_debugCamera = m_visualizeWorldRaycasts ? RE::NiPointer<RE::NiCamera>(getPlayerNiCamera())
 			                                         : RE::NiPointer<RE::NiCamera>();
+			m_colliderTris.clear();
+			if (m_visualizeWorldRaycasts)
+				World::instance()->collectColliderTris(m_colliderTris, 4000);  // cap keeps render-thread work bounded
 		}
 
 		for (auto& i : m_skeletons) {
@@ -876,22 +879,26 @@ namespace hdt
 
 		auto* const am = ActorManager::instance();
 		const bool viz = am->m_visualizeWorldRaycasts;
-		for (const auto& axis : axes) {
-			++am->m_raycastAccum;  // one probe ray cast (counted whether or not it is visualized)
-			RE::NiPoint3 target = pos.value() + axis * distance;
-			RE::NiPoint3 hitLocation;
-			const auto object = Actor_CalculateLOS(owner, &target, &hitLocation, std::numbers::pi_v<float> * 2.f);
-			const bool becomesCollider = object && (pos.value() - hitLocation).SqrLength() < maxObstructionDistance2;
 
-			// Record the ray for the debug overlay: draw to the hit point if it hit anything, else to the
-			// full reach; colour is decided later by whether it became a collider.
-			if (viz)
-				am->m_rayVizPending.push_back(
-					ActorManager::WorldRayViz{ pos.value(), object ? hitLocation : target, becomesCollider });
+		// Cast only ONE ray this frame, cycling through the 6 axes over 6 frames, to keep the probe cost low.
+		// Each direction is re-probed every 6 frames (~0.1s), which the obstruction timeout easily outlives.
+		const RE::NiPoint3& axis = axes[m_worldRayCursor % 6];
+		m_worldRayCursor = static_cast<uint8_t>((m_worldRayCursor + 1) % 6);
 
-			if (becomesCollider)
-				World::instance()->addObstruction(object, skeletonOwner.get(), pos.value());
-		}
+		++am->m_raycastAccum;  // one probe ray cast (counted whether or not it is visualized)
+		RE::NiPoint3 target = pos.value() + axis * distance;
+		RE::NiPoint3 hitLocation;
+		const auto object = Actor_CalculateLOS(owner, &target, &hitLocation, std::numbers::pi_v<float> * 2.f);
+		const bool becomesCollider = object && (pos.value() - hitLocation).SqrLength() < maxObstructionDistance2;
+
+		// Record the ray for the debug overlay: draw to the hit point if it hit anything, else to the
+		// full reach; colour is decided later by whether it became a collider.
+		if (viz)
+			am->m_rayVizPending.push_back(
+				ActorManager::WorldRayViz{ pos.value(), object ? hitLocation : target, becomesCollider });
+
+		if (becomesCollider)
+			World::instance()->addObstruction(object, skeletonOwner.get(), pos.value());
 	}
 
 	ActorManager::World* ActorManager::World::instance()
@@ -995,7 +1002,7 @@ namespace hdt
 		// cached on the obstruction, so this rebuild re-crops from memory rather than re-reading the GPU.
 		std::unordered_map<RE::BSFixedString, RE::BSFixedString> noRename;
 		auto system = SkyrimSystemCreator().createOrUpdateSystem(node, obstruction.object.get(), &file,
-			std::move(noRename), nullptr, clipCenter, radius, &obstruction.cache);
+			std::move(noRename), nullptr, clipCenter, radius, &obstruction.cache, &obstruction.colliderTris);
 		if (!system)
 			return;
 
@@ -1034,6 +1041,24 @@ namespace hdt
 					n += mesh->m_vertices.size();
 		}
 		return n;
+	}
+
+	size_t ActorManager::World::collectColliderTris(std::vector<RE::NiPoint3>& out, size_t maxTris) const
+	{
+		size_t tris = 0;
+		for (const auto& obstruction : m_obstructions) {
+			if (!obstruction.hasPhysics())
+				continue;
+			const auto& t = obstruction.colliderTris;
+			for (size_t i = 0; i + 2 < t.size() && tris < maxTris; i += 3, ++tris) {
+				out.push_back(t[i]);
+				out.push_back(t[i + 1]);
+				out.push_back(t[i + 2]);
+			}
+			if (tris >= maxTris)
+				break;  // bounded so the render thread never has to project an unbounded triangle count
+		}
+		return tris;
 	}
 
 	void ActorManager::Skeleton::doSkeletonClean(RE::NiNode* dst, std::string_view prefix)
