@@ -6,6 +6,10 @@
 #include "Events.h"
 #include "hdtSkyrimSystem.h"
 
+#include <chrono>
+#include <mutex>
+#include <vector>
+
 namespace hdt
 {
 	class ActorManager :
@@ -185,9 +189,12 @@ namespace hdt
 		{
 			RE::NiPointer<RE::NiAVObject> object;  // the live world object we collide with (kept alive by this ref)
 			int timeout = 0;
-			RE::NiPoint3 builtAt;                  // actor position the current cropped collider was built around
+			RE::NiPoint3 builtAt;                  // owner position the current cropped collider was built around
 			ObstructionCache cache;                // raw geometry per trishape, so re-cropping needs no GPU re-read
-			int rebuildCooldown = 0;               // frames until this obstruction may re-crop again (rate-limits rebuilds)
+			// The obstruction is cropped around ONE actor (the owner); only the owner's movement re-crops it, so
+			// several actors near the same big mesh can't fight to re-crop it around themselves every frame.
+			RE::NiPointer<RE::TESObjectREFR> owner;  // actor the crop is centered on (kept alive while it owns this)
+			int ownerTimeout = 0;                    // frames until ownership may pass to another actor (owner refreshes it)
 		};
 
 		// @brief Tracks the nearby static world objects we currently turn into SMP colliders. Experimental
@@ -208,9 +215,10 @@ namespace hdt
 			static World* instance();
 
 			// @brief Builds (or refreshes) a kinematic collider from object's live geometry, cropped to a
-			// sphere around clipCenter (the actor). If already tracked, refreshes the timeout and re-crops
-			// only if the actor moved far enough since the last build (see buildObstruction).
-			void addObstruction(RE::NiAVObject* object, RE::NiPoint3 clipCenter);
+			// sphere around clipCenter (actor's position). `actor` is who probed it: an obstruction is owned
+			// by one actor and only re-crops when that owner moves (see addObstruction/buildObstruction), so
+			// several nearby actors can't thrash the shared collider.
+			void addObstruction(RE::NiAVObject* object, RE::TESObjectREFR* actor, RE::NiPoint3 clipCenter);
 			// @brief Ages every obstruction each frame; unregisters and drops those that expire.
 			void prune();
 			// @brief Immediately unregisters and drops ALL obstructions (used when the feature is turned
@@ -309,6 +317,31 @@ namespace hdt
 		// but more geometry dragged into the sim (more cost). Config <worldCollisionDistance>.
 		float m_worldCollisionDistance = 158.f;
 
+		// @brief How many times per second the collider re-crops to follow an actor walking at a normal
+		// speed. The re-crop is really gated on distance moved, so a standing actor never re-crops and a
+		// runner re-crops proportionally more; this value just sets the walk-speed reference (converted to a
+		// move distance via a nominal walk speed). 0 = build once and never follow. Config
+		// <worldCollisionRecropsPerSec>.
+		float m_worldCollisionRecropsPerSec = 2.f;
+
+		// @brief Debug: draw the world-collision probe rays on screen (green = hit became a collider, red =
+		// miss/too far). Needs the overlay shown. Config <worldCollisionVisualizeRaycasts>.
+		bool m_visualizeWorldRaycasts = false;
+
+		// @brief One probe ray captured for on-screen debugging.
+		struct WorldRayViz
+		{
+			RE::NiPoint3 origin;   // where the ray started (the actor)
+			RE::NiPoint3 end;      // where it ended: the hit point, or the full reach if it hit nothing
+			bool hit = false;      // true when it hit geometry near enough to become a collider
+		};
+		// Published set of rays the overlay draws, the pending set filled during the frame, and the camera to
+		// project them with. m_rayVizLock guards the published set + camera across the main and render threads.
+		std::vector<WorldRayViz> m_rayViz;
+		std::vector<WorldRayViz> m_rayVizPending;
+		std::mutex m_rayVizLock;
+		RE::NiPointer<RE::NiCamera> m_debugCamera;  // held so the render thread can project rays safely
+
 		// @brief Per-frame CPU cost (ms) of ADDING/REMOVING world colliders (raycast + build + register +
 		// prune/clear) -- the on-thread work that causes micro-freezes. m_avg is EMA-smoothed over
 		// SkyrimPhysicsWorld::m_sampleSize frames; m_peak is a slowly-decaying max so a one-frame build
@@ -320,10 +353,10 @@ namespace hdt
 		// ones. Shown in the overlay.
 		int m_obstructionCount = 0;
 		int m_obstructionVertices = 0;
-		// @brief How many obstruction (re)builds happened last frame. A high steady value means the cost is
-		// many rebuilds/frame (rate-limited by Obstruction::rebuildCooldown); ~0-1 with a high peak means a
-		// single build is expensive. Shown in the overlay to distinguish the two.
-		int m_obstructionRebuilds = 0;
+		// @brief Total obstruction (re)crops per second, averaged over a 1-second window (overlay stat). A
+		// high value with a high peak means the cost is re-crop frequency; near-zero with a high peak means a
+		// single build is expensive (then the next lever is the build itself, not the rate limit).
+		float m_recropsPerSec = 0.f;
 
 		// @brief Min percent of screen height a non-player skeleton must occupy to stay active; 0 = disabled. [0,100]
 		float m_minScreenSizePercent = 0.f;
@@ -332,6 +365,13 @@ namespace hdt
 		RE::NiPoint3 m_cameraPositionDuringFrame;
 		float m_screenSizeThresholdScale = 0.f;  // precomputed per frame: (minScreenSizePercent/100)^2 * tan(fov/2)^2
 		static RE::NiNode* getCameraNode();
+
+		// Running accumulators that turn the per-frame re-crop count into m_recropsPerSec: sum re-crops and
+		// wall-clock over a ~1-second window, then divide and reset. m_lastFrameStamp measures each frame's dt.
+		int m_recropAccum = 0;
+		float m_recropWindow = 0.f;
+		std::chrono::steady_clock::time_point m_lastFrameStamp{};
+		bool m_haveFrameStamp = false;
 
 		void setSkeletonsActive(const bool updateMetrics = false);
 	};

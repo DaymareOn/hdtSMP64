@@ -219,6 +219,13 @@ namespace
 		hdt::applyConfigReset();
 	}
 
+	// Persist current settings WITHOUT a physics reset, for tweaks that the menu binds straight onto live
+	// ActorManager state (they take effect the moment the widget changes; we only need to save them to disk).
+	void commit()
+	{
+		hdt::saveUserSettings();
+	}
+
 	// Localized tooltip on the previous widget; AllowWhenDisabled so greyed-out controls still explain
 	// themselves. "%s" guards against a translation that contains a stray '%' being read as a format string.
 	void tip(const char* english)
@@ -699,6 +706,17 @@ namespace
 					"Larger = more coverage but more cost.",
 					&a->m_worldCollisionDistance, d.worldCollisionDistance, 0.0f, 1000.0f, "%.0f"))
 				commitReset();
+			if (rowFloat("World collision re-crops/sec",
+					"How tightly the collider follows an actor walking at a normal speed. The collider re-crops "
+					"around the actor as they move; higher tracks movement more closely but rebuilds more often "
+					"(watch 're-crops/s' in the overlay). A standing actor never re-crops. 0 = build once, never follow.",
+					&a->m_worldCollisionRecropsPerSec, d.worldCollisionRecropsPerSec, 0.0f, 60.0f, "%.1f"))
+				commit();
+			if (rowCheck("Visualize world raycasts",
+					"Draw the probe rays that look for nearby world geometry (green = became a collider, "
+					"red = missed or too far). For debugging; needs the overlay shown.",
+					&a->m_visualizeWorldRaycasts, d.worldCollisionVisualizeRaycasts))
+				commit();
 			ImGuiMCP::EndDisabled();
 			endRows();
 		}
@@ -1092,6 +1110,45 @@ namespace
 		outputPanel();
 	}
 
+	// Draw this frame's world-collision probe rays over the game, via the foreground draw list (so they span
+	// the whole screen, not just the overlay window). Each ray's 3D endpoints are projected to the screen with
+	// the game camera that the main thread captured and handed us (held via NiPointer, so it can't die under
+	// us). Green = the ray became a collider, red = it missed or was too far; a dot marks each hit point.
+	// Runs on the render thread, so it reads the published ray set + camera under ActorManager's lock. Points
+	// behind the camera (WorldPtToScreenPt3 returns false) are skipped.
+	void drawWorldRaycasts(ActorManager* a)
+	{
+		std::scoped_lock lock(a->m_rayVizLock);
+		auto* cam = a->m_debugCamera.get();
+		if (!cam || a->m_rayViz.empty())
+			return;
+
+		auto* io = ImGuiMCP::GetIO();
+		const float sw = io->DisplaySize.x;
+		const float sh = io->DisplaySize.y;
+		auto* draw = ImGuiMCP::GetForegroundDrawList();
+
+		// WorldPtToScreenPt3 gives normalized port coordinates (x,y in [0,1] with y measured upward) and
+		// returns false when the point is behind the camera; map that to ImGui's top-left pixel space.
+		const auto project = [&](const RE::NiPoint3& p, ImGuiMCP::ImVec2& out) -> bool {
+			float x = 0.f, y = 0.f, z = 0.f;
+			if (!cam->WorldPtToScreenPt3(p, x, y, z, 1e-5f))
+				return false;
+			out = ImGuiMCP::ImVec2(x * sw, (1.0f - y) * sh);
+			return true;
+		};
+
+		for (const auto& r : a->m_rayViz) {
+			ImGuiMCP::ImVec2 o{}, e{};
+			if (!project(r.origin, o) || !project(r.end, e))
+				continue;
+			const auto col = r.hit ? IM_COL32(64, 255, 64, 200) : IM_COL32(255, 72, 72, 150);
+			ImGuiMCP::ImDrawListManager::AddLine(draw, o, e, col, 2.0f);
+			if (r.hit)
+				ImGuiMCP::ImDrawListManager::AddCircleFilled(draw, e, 4.0f, col, 12);
+		}
+	}
+
 	// The compact gameplay overlay. The framework invokes this callback without a surrounding Begin() ---
 	// content would land in ImGui's fallback "Debug" window --- so open our own window: titled "FSMP",
 	// auto-resizing to hug its content exactly (which also follows the font scale), never stealing focus from
@@ -1111,11 +1168,13 @@ namespace
 			if (a->m_enableWorldCollision) {
 				ImGuiMCP::Text("%s: %.2f ms (peak %.2f)", tr("World collision add/remove"),
 					a->m_avgWorldCollisionMs, a->m_peakWorldCollisionMs);
-				ImGuiMCP::Text("%s: %d objs, %d verts, %d rebuilds/frame", tr("Obstructions"),
-					a->m_obstructionCount, a->m_obstructionVertices, a->m_obstructionRebuilds);
+				ImGuiMCP::Text("%s: %d objs, %d verts, %.1f re-crops/s", tr("Obstructions"),
+					a->m_obstructionCount, a->m_obstructionVertices, a->m_recropsPerSec);
 			}
 		}
 		ImGuiMCP::End();
+		if (a->m_enableWorldCollision && a->m_visualizeWorldRaycasts)
+			drawWorldRaycasts(a);
 		if (!open && g_overlay)
 			g_overlay->IsOpen = false;
 	}

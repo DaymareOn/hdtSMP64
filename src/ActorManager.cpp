@@ -23,6 +23,8 @@ namespace hdt
 	REL::Relocation<_NiStream_constructor> NiStream_constructor{ REL::VariantID(68971, 70324, 0x0C9EC40) };      // 0xC59690
 	REL::Relocation<_NiStream_deconstructor> NiStream_deconstructor{ REL::VariantID(68972, 70325, 0x0C9EEA0) };  // 0xC598F0
 
+	static RE::NiCamera* getPlayerNiCamera();  // defined below; used by setSkeletonsActive to project debug rays
+
 	static bool IsHair(RE::TESBoundObject* a_ref)
 	{
 		if (a_ref) {
@@ -447,6 +449,7 @@ namespace hdt
 		const float minCullingDistance2 = m_minCullingDistance * m_minCullingDistance;
 		std::chrono::steady_clock::duration worldCollisionTime{};  // accumulated across this frame's active actors
 		World::instance()->m_buildsThisFrame = 0;                  // count obstruction rebuilds over this frame
+		m_rayVizPending.clear();                                   // collect this frame's probe rays afresh
 		for (auto& i : m_skeletons) {
 			// When enabled, skip physics for dead non-player actors to save performance.
 			bool skipDeadActor = false;
@@ -565,7 +568,28 @@ namespace hdt
 			m_peakWorldCollisionMs = instMs > decayedPeak ? instMs : decayedPeak;
 			m_obstructionCount = static_cast<int>(World::instance()->count());
 			m_obstructionVertices = static_cast<int>(World::instance()->totalVertices());
-			m_obstructionRebuilds = World::instance()->m_buildsThisFrame;
+		}
+
+		// Convert this frame's re-crop count into a per-second rate over a ~1s window, and publish the probe
+		// rays plus the camera to project them for the debug overlay (read on the render thread under lock).
+		{
+			const auto now = std::chrono::steady_clock::now();
+			if (m_haveFrameStamp) {
+				m_recropAccum += World::instance()->m_buildsThisFrame;
+				m_recropWindow += std::chrono::duration<float>(now - m_lastFrameStamp).count();
+				if (m_recropWindow >= 1.0f) {
+					m_recropsPerSec = static_cast<float>(m_recropAccum) / m_recropWindow;
+					m_recropAccum = 0;
+					m_recropWindow = 0.f;
+				}
+			}
+			m_lastFrameStamp = now;
+			m_haveFrameStamp = true;
+
+			std::scoped_lock lock(m_rayVizLock);
+			m_rayViz = m_rayVizPending;
+			m_debugCamera = m_visualizeWorldRaycasts ? RE::NiPointer<RE::NiCamera>(getPlayerNiCamera())
+			                                         : RE::NiPointer<RE::NiCamera>();
 		}
 
 		for (auto& i : m_skeletons) {
@@ -807,6 +831,21 @@ namespace hdt
 		}
 	}
 
+	// Find the game's active render camera (a NiCamera under the player-camera root). Returns null while it
+	// isn't in the scene yet (e.g. during a load). Called on the main thread; the caller holds the result via
+	// NiPointer so the render thread can project world points with it without risking a use-after-free.
+	static RE::NiCamera* getPlayerNiCamera()
+	{
+		auto* pc = RE::PlayerCamera::GetSingleton();
+		if (!pc || !pc->cameraRoot)
+			return nullptr;
+		for (auto& child : pc->cameraRoot->GetChildren()) {
+			if (auto* cam = netimmerse_cast<RE::NiCamera*>(child.get()))
+				return cam;
+		}
+		return nullptr;
+	}
+
 	// Experimental world collision. We probe the world around the actor with 6 axis-aligned LOS
 	// rays; for each nearby object hit, we hand it to the World singleton, which clones it into the
 	// SMP scene as a collider. Note: Actor_CalculateLOS is a line-of-sight test (it returns the whole
@@ -832,17 +871,21 @@ namespace hdt
 			{ 0.f, 0.f, 1.f }, { 0.f, 0.f, -1.f }
 		};
 
+		const bool viz = ActorManager::instance()->m_visualizeWorldRaycasts;
 		for (const auto& axis : axes) {
 			RE::NiPoint3 target = pos.value() + axis * distance;
 			RE::NiPoint3 hitLocation;
 			const auto object = Actor_CalculateLOS(owner, &target, &hitLocation, std::numbers::pi_v<float> * 2.f);
-			if (!object)
-				continue;
+			const bool becomesCollider = object && (pos.value() - hitLocation).SqrLength() < maxObstructionDistance2;
 
-			if ((pos.value() - hitLocation).SqrLength() >= maxObstructionDistance2)
-				continue;
+			// Record the ray for the debug overlay: draw to the hit point if it hit anything, else to the
+			// full reach; colour is decided later by whether it became a collider.
+			if (viz)
+				ActorManager::instance()->m_rayVizPending.push_back(
+					ActorManager::WorldRayViz{ pos.value(), object ? hitLocation : target, becomesCollider });
 
-			World::instance()->addObstruction(object, pos.value());
+			if (becomesCollider)
+				World::instance()->addObstruction(object, skeletonOwner.get(), pos.value());
 		}
 	}
 
@@ -872,48 +915,56 @@ namespace hdt
 	// Frames an obstruction stays tracked after it was last probed. Long enough (~1.5s at 60fps) that brief
 	// probe misses don't drop its cached geometry and force a fresh multi-second GPU re-read.
 	static constexpr int kObstructionTimeout = 90;
-	// Minimum frames between re-crops of the same obstruction (~0.5s). Caps how often the expensive rebuild
-	// runs no matter how many actors ping it or how fast the actor moves.
-	static constexpr int kRebuildCooldownFrames = 30;
+	// Frames the owner may stop probing an obstruction before another actor can take it over (~0.5s). Stops
+	// ownership from flip-flopping between two nearby actors every frame.
+	static constexpr int kOwnerTimeout = 30;
+	// Nominal actor walk speed (Skyrim units/second), used only to turn the configured "re-crops per second
+	// at walk" into a move-distance threshold. Approximate; the user tunes the config value by feel anyway.
+	static constexpr float kNormalWalkSpeed = 175.f;
 
-	void ActorManager::World::addObstruction(RE::NiAVObject* object, RE::NiPoint3 clipCenter)
+	void ActorManager::World::addObstruction(RE::NiAVObject* object, RE::TESObjectREFR* actor, RE::NiPoint3 clipCenter)
 	{
 		if (!object)
 			return;
 
 		const float radius = ActorManager::instance()->m_worldCollisionDistance;
-		// Re-crop an existing obstruction only once the actor has moved a quarter of the collision radius,
-		// so a walking actor doesn't rebuild every frame; the cached geometry means no GPU re-read anyway.
-		const float rebuildDist = radius * 0.25f;
+		// Turn "re-crops per second at a normal walk" into a move distance: the owner must move this far from
+		// where the collider was last cropped before we re-crop. A standing owner never re-crops; a runner
+		// re-crops proportionally more often. recropsPerSec <= 0 means "build once, never follow".
+		const float recropsPerSec = ActorManager::instance()->m_worldCollisionRecropsPerSec;
+		const float recropDist = recropsPerSec > 0.f ? kNormalWalkSpeed / recropsPerSec : 0.f;
 
 		for (auto& o : m_obstructions) {
-			if (o.object.get() == object) {
-				// Keep it alive long enough that the cached geometry survives a few missed probe frames
-				// (a re-add would otherwise drop the cache and force a multi-second GPU re-read).
-				o.timeout = kObstructionTimeout;
-				// Rate-limit rebuilds. Without this, every active actor (each passing ITS OWN position as
-				// clipCenter) and every step of movement re-crops this shared collider, so with several
-				// actors near the same big mesh we rebuild it many times per frame -- the O(2M) sphere test
-				// plus Bullet tree build then dominates the frame. The cooldown caps it to at most one
-				// re-crop per kRebuildCooldownFrames, at the cost of the crop lagging fast movement slightly.
-				if (o.rebuildCooldown <= 0 && (clipCenter - o.builtAt).SqrLength() > rebuildDist * rebuildDist) {
-					buildObstruction(o, clipCenter, radius);
-					o.rebuildCooldown = kRebuildCooldownFrames;
-				}
-				return;
+			if (o.object.get() != object)
+				continue;
+
+			// Any nearby actor keeps it alive; only its owner drives re-cropping, so several actors near the
+			// same big mesh can't each re-crop it around themselves every frame.
+			o.timeout = kObstructionTimeout;
+			bool isOwner = o.owner.get() == actor;
+			if (!isOwner && o.ownerTimeout <= 0) {
+				// The previous owner stopped probing this object, so this actor adopts it.
+				o.owner = RE::NiPointer<RE::TESObjectREFR>(actor);
+				isOwner = true;
 			}
+			if (isOwner) {
+				o.ownerTimeout = kOwnerTimeout;
+				if (recropsPerSec > 0.f && (clipCenter - o.builtAt).SqrLength() > recropDist * recropDist)
+					buildObstruction(o, clipCenter, radius);
+			}
+			return;
 		}
 
-		// New object: create the tracking entry, then build its (cropped) collider.
+		// New object: create the tracking entry owned by this actor, then build its (cropped) collider.
 		m_obstructions.push_back(Obstruction{});
 		auto& obstruction = m_obstructions.back();
 		obstruction.object = RE::NiPointer<RE::NiAVObject>(object);
+		obstruction.owner = RE::NiPointer<RE::TESObjectREFR>(actor);
 		obstruction.timeout = kObstructionTimeout;
+		obstruction.ownerTimeout = kOwnerTimeout;
 		buildObstruction(obstruction, clipCenter, radius);
 		if (!obstruction.hasPhysics())
 			m_obstructions.pop_back();  // nothing near the actor yet; re-added when the actor gets closer
-		else
-			obstruction.rebuildCooldown = kRebuildCooldownFrames;
 	}
 
 	void ActorManager::World::buildObstruction(Obstruction& obstruction, RE::NiPoint3 clipCenter, float radius)
@@ -951,8 +1002,8 @@ namespace hdt
 	void ActorManager::World::prune()
 	{
 		std::erase_if(m_obstructions, [](Obstruction& obstruction) {
-			if (obstruction.rebuildCooldown > 0)
-				--obstruction.rebuildCooldown;  // tick the re-crop rate limiter once per frame
+			if (obstruction.ownerTimeout > 0)
+				--obstruction.ownerTimeout;  // free up ownership if the owner stops probing this object
 			if (--obstruction.timeout > 0)
 				return false;
 			obstruction.clearPhysics();  // unregister the system from the physics world

@@ -41,6 +41,11 @@ namespace hdt
 		bool worldCollision = false;
 		// How near (units) world geometry must be to become a collider (ActorManager::m_worldCollisionDistance).
 		float worldCollisionDistance = 158.0f;
+		// Re-crops per second for an actor walking at a normal speed; sets how tightly the collider follows
+		// movement (ActorManager::m_worldCollisionRecropsPerSec). 0 = build once, never follow.
+		float worldCollisionRecropsPerSec = 2.0f;
+		// Debug: draw the world-collision probe rays on screen (ActorManager::m_visualizeWorldRaycasts).
+		bool worldCollisionVisualizeRaycasts = false;
 		// backupNodeByName has no menu control; it is preserved purely so a round-trip never drops it.
 		std::vector<std::string> backupNodeByName;
 
