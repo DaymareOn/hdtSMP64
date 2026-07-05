@@ -312,6 +312,11 @@ namespace hdt
 		// raycast-clone-and-simulate mechanism is expensive and still a prototype.
 		bool m_enableWorldCollision = false;
 
+		// @brief When true, only the player character probes and collides with world geometry; every other
+		// NPC is skipped. Much cheaper (one set of probes and colliders instead of one per active NPC). Off by
+		// default. Config <worldCollisionPlayerOnly>.
+		bool m_worldCollisionPlayerOnly = false;
+
 		// @brief How near (Skyrim units) static world geometry must be to an actor to be turned into a
 		// collider by manageWorldCollisions. Also the reach of the probe rays. Larger = more coverage
 		// but more geometry dragged into the sim (more cost). Config <worldCollisionDistance>.
@@ -357,6 +362,9 @@ namespace hdt
 		// high value with a high peak means the cost is re-crop frequency; near-zero with a high peak means a
 		// single build is expensive (then the next lever is the build itself, not the rate limit).
 		float m_recropsPerSec = 0.f;
+		// @brief How many probe rays were cast last frame (6 per probing actor). Overlay stat, shows how much
+		// probing is going on -- e.g. it drops to 6 when "player only" is on.
+		int m_raycastCount = 0;
 
 		// @brief Min percent of screen height a non-player skeleton must occupy to stay active; 0 = disabled. [0,100]
 		float m_minScreenSizePercent = 0.f;
@@ -372,6 +380,7 @@ namespace hdt
 		float m_recropWindow = 0.f;
 		std::chrono::steady_clock::time_point m_lastFrameStamp{};
 		bool m_haveFrameStamp = false;
+		int m_raycastAccum = 0;  // probe rays cast so far this frame; published into m_raycastCount at frame end
 
 		void setSkeletonsActive(const bool updateMetrics = false);
 	};

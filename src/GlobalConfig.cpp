@@ -107,6 +107,7 @@ namespace hdt
 		c.skipDeadActors = read(smp, "skipDeadActors", c.skipDeadActors);
 		c.minScreenSizePercent = clampv(read(smp, "minScreenSizePercent", c.minScreenSizePercent), 0.0f, 100.0f);
 		c.worldCollision = read(smp, "worldCollision", c.worldCollision);
+		c.worldCollisionPlayerOnly = read(smp, "worldCollisionPlayerOnly", c.worldCollisionPlayerOnly);
 		c.worldCollisionDistance = clampv(read(smp, "worldCollisionDistance", c.worldCollisionDistance), 0.0f, 1000.0f);
 		c.worldCollisionRecropsPerSec = clampv(read(smp, "worldCollisionRecropsPerSec", c.worldCollisionRecropsPerSec), 0.0f, 60.0f);
 		c.worldCollisionVisualizeRaycasts = read(smp, "worldCollisionVisualizeRaycasts", c.worldCollisionVisualizeRaycasts);
@@ -189,6 +190,8 @@ namespace hdt
 		w.Double(c.minScreenSizePercent);
 		w.Key("worldCollision");
 		w.Bool(c.worldCollision);
+		w.Key("worldCollisionPlayerOnly");
+		w.Bool(c.worldCollisionPlayerOnly);
 		w.Key("worldCollisionDistance");
 		w.Double(c.worldCollisionDistance);
 		w.Key("worldCollisionRecropsPerSec");

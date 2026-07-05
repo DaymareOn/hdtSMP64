@@ -450,6 +450,7 @@ namespace hdt
 		std::chrono::steady_clock::duration worldCollisionTime{};  // accumulated across this frame's active actors
 		World::instance()->m_buildsThisFrame = 0;                  // count obstruction rebuilds over this frame
 		m_rayVizPending.clear();                                   // collect this frame's probe rays afresh
+		m_raycastAccum = 0;                                        // count probe rays cast over this frame
 		for (auto& i : m_skeletons) {
 			// When enabled, skip physics for dead non-player actors to save performance.
 			bool skipDeadActor = false;
@@ -470,8 +471,9 @@ namespace hdt
 
 			// Experimental: let this actor's dynamic bones collide with nearby static world geometry.
 			// Done before the wind early-outs below so it runs independently of the wind feature.
-			// Timed so the perf overlay can show how much this (costly) feature adds per frame.
-			if (m_enableWorldCollision) {
+			// Timed so the perf overlay can show how much this (costly) feature adds per frame. When
+			// "player only" is on, every non-player skeleton is skipped, so only the player probes/collides.
+			if (m_enableWorldCollision && (!m_worldCollisionPlayerOnly || i.isPlayerCharacter())) {
 				const auto wcStart = std::chrono::steady_clock::now();
 				i.manageWorldCollisions();
 				worldCollisionTime += std::chrono::steady_clock::now() - wcStart;
@@ -585,6 +587,7 @@ namespace hdt
 			}
 			m_lastFrameStamp = now;
 			m_haveFrameStamp = true;
+			m_raycastCount = m_raycastAccum;
 
 			std::scoped_lock lock(m_rayVizLock);
 			m_rayViz = m_rayVizPending;
@@ -871,8 +874,10 @@ namespace hdt
 			{ 0.f, 0.f, 1.f }, { 0.f, 0.f, -1.f }
 		};
 
-		const bool viz = ActorManager::instance()->m_visualizeWorldRaycasts;
+		auto* const am = ActorManager::instance();
+		const bool viz = am->m_visualizeWorldRaycasts;
 		for (const auto& axis : axes) {
+			++am->m_raycastAccum;  // one probe ray cast (counted whether or not it is visualized)
 			RE::NiPoint3 target = pos.value() + axis * distance;
 			RE::NiPoint3 hitLocation;
 			const auto object = Actor_CalculateLOS(owner, &target, &hitLocation, std::numbers::pi_v<float> * 2.f);
@@ -881,7 +886,7 @@ namespace hdt
 			// Record the ray for the debug overlay: draw to the hit point if it hit anything, else to the
 			// full reach; colour is decided later by whether it became a collider.
 			if (viz)
-				ActorManager::instance()->m_rayVizPending.push_back(
+				am->m_rayVizPending.push_back(
 					ActorManager::WorldRayViz{ pos.value(), object ? hitLocation : target, becomesCollider });
 
 			if (becomesCollider)

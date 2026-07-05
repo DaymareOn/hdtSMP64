@@ -12,6 +12,8 @@
 #include <atomic>
 #include <cctype>
 #include <cfloat>
+#include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <ctime>
@@ -701,6 +703,11 @@ namespace
 					&a->m_enableWorldCollision, d.worldCollision))
 				commitReset();
 			ImGuiMCP::BeginDisabled(!a->m_enableWorldCollision);
+			if (rowCheck("World collision on player only",
+					"Only the player character collides with world geometry; all other NPCs are skipped. "
+					"Much cheaper -- one set of probes and colliders instead of one per active NPC.",
+					&a->m_worldCollisionPlayerOnly, d.worldCollisionPlayerOnly))
+				commitReset();
 			if (rowFloat("World collision distance",
 					"How near (units) world geometry must be to an actor to become a collider. "
 					"Larger = more coverage but more cost.",
@@ -1128,6 +1135,13 @@ namespace
 		const float sh = io->DisplaySize.y;
 		auto* draw = ImGuiMCP::GetForegroundDrawList();
 
+		// A white dot travels from each ray's origin to its end on a fast loop, so the player can see the rays
+		// are being cast live (not a frozen picture) and in which direction. Phase comes from wall-clock time;
+		// all rays pulse together. (The base line stays green/red; the moving dot is the "a ray just fired" cue.)
+		constexpr float kPulsePeriod = 0.5f;  // seconds for the pulse to travel a full ray
+		const float secs = std::chrono::duration<float>(std::chrono::steady_clock::now().time_since_epoch()).count();
+		const float pulseT = std::fmod(secs, kPulsePeriod) / kPulsePeriod;
+
 		// WorldPtToScreenPt3 gives normalized port coordinates (x,y in [0,1] with y measured upward) and
 		// returns false when the point is behind the camera; map that to ImGui's top-left pixel space.
 		const auto project = [&](const RE::NiPoint3& p, ImGuiMCP::ImVec2& out) -> bool {
@@ -1146,6 +1160,9 @@ namespace
 			ImGuiMCP::ImDrawListManager::AddLine(draw, o, e, col, 2.0f);
 			if (r.hit)
 				ImGuiMCP::ImDrawListManager::AddCircleFilled(draw, e, 4.0f, col, 12);
+			// The travelling white "just fired" pulse, interpolated along the (screen-space) ray.
+			const ImGuiMCP::ImVec2 pulse(o.x + (e.x - o.x) * pulseT, o.y + (e.y - o.y) * pulseT);
+			ImGuiMCP::ImDrawListManager::AddCircleFilled(draw, pulse, 3.5f, IM_COL32(255, 255, 255, 235), 10);
 		}
 	}
 
@@ -1170,6 +1187,7 @@ namespace
 					a->m_avgWorldCollisionMs, a->m_peakWorldCollisionMs);
 				ImGuiMCP::Text("%s: %d objs, %d verts, %.1f re-crops/s", tr("Obstructions"),
 					a->m_obstructionCount, a->m_obstructionVertices, a->m_recropsPerSec);
+				ImGuiMCP::Text("%s: %d", tr("World raycasts/frame"), a->m_raycastCount);
 			}
 		}
 		ImGuiMCP::End();

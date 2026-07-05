@@ -39,6 +39,8 @@ namespace hdt
 		float minScreenSizePercent = 0.0f;
 		// Experimental: hair/cloth collide with nearby static world geometry (ActorManager::m_enableWorldCollision).
 		bool worldCollision = false;
+		// Restrict world collision to the player character only (ActorManager::m_worldCollisionPlayerOnly).
+		bool worldCollisionPlayerOnly = false;
 		// How near (units) world geometry must be to become a collider (ActorManager::m_worldCollisionDistance).
 		float worldCollisionDistance = 158.0f;
 		// Re-crops per second for an actor walking at a normal speed; sets how tightly the collider follows
