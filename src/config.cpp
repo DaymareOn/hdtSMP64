@@ -63,6 +63,7 @@ namespace hdt
 		a->m_worldCollisionDistance = c.worldCollisionDistance;
 		a->m_worldCollisionRecropsPerSec = c.worldCollisionRecropsPerSec;
 		a->m_visualizeWorldRaycasts = c.worldCollisionVisualizeRaycasts;
+		a->m_worldCollisionHighlight = c.worldCollisionHighlight;
 
 		auto* w = SkyrimPhysicsWorld::get();
 		w->m_clampRotations = c.clampRotations;
@@ -117,6 +118,7 @@ namespace hdt
 		c.worldCollisionDistance = a->m_worldCollisionDistance;
 		c.worldCollisionRecropsPerSec = a->m_worldCollisionRecropsPerSec;
 		c.worldCollisionVisualizeRaycasts = a->m_visualizeWorldRaycasts;
+		c.worldCollisionHighlight = a->m_worldCollisionHighlight;
 
 		auto* w = SkyrimPhysicsWorld::get();
 		c.clampRotations = w->m_clampRotations;
@@ -232,6 +234,7 @@ namespace hdt
 		LOG("smp.worldCollisionDistance", a->m_worldCollisionDistance);
 		LOG("smp.worldCollisionRecropsPerSec", a->m_worldCollisionRecropsPerSec);
 		LOG("smp.worldCollisionVisualizeRaycasts", a->m_visualizeWorldRaycasts);
+		LOG("smp.worldCollisionHighlight", a->m_worldCollisionHighlight);
 #undef LOG
 	}
 }

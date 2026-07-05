@@ -111,6 +111,7 @@ namespace hdt
 		c.worldCollisionDistance = clampv(read(smp, "worldCollisionDistance", c.worldCollisionDistance), 0.0f, 1000.0f);
 		c.worldCollisionRecropsPerSec = clampv(read(smp, "worldCollisionRecropsPerSec", c.worldCollisionRecropsPerSec), 0.0f, 60.0f);
 		c.worldCollisionVisualizeRaycasts = read(smp, "worldCollisionVisualizeRaycasts", c.worldCollisionVisualizeRaycasts);
+		c.worldCollisionHighlight = read(smp, "worldCollisionHighlight", c.worldCollisionHighlight);
 		c.backupNodeByName = read(smp, "backupNodeByName", c.backupNodeByName);
 
 		// --- solver ---
@@ -198,6 +199,8 @@ namespace hdt
 		w.Double(c.worldCollisionRecropsPerSec);
 		w.Key("worldCollisionVisualizeRaycasts");
 		w.Bool(c.worldCollisionVisualizeRaycasts);
+		w.Key("worldCollisionHighlight");
+		w.Bool(c.worldCollisionHighlight);
 		w.Key("backupNodeByName");
 		w.StartArray();
 		for (const auto& n : c.backupNodeByName)

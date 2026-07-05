@@ -48,6 +48,8 @@ namespace hdt
 		float worldCollisionRecropsPerSec = 2.0f;
 		// Debug: draw the world-collision probe rays on screen (ActorManager::m_visualizeWorldRaycasts).
 		bool worldCollisionVisualizeRaycasts = false;
+		// Debug: glow collided objects with an effect shader (ActorManager::m_worldCollisionHighlight).
+		bool worldCollisionHighlight = false;
 		// backupNodeByName has no menu control; it is preserved purely so a round-trip never drops it.
 		std::vector<std::string> backupNodeByName;
 

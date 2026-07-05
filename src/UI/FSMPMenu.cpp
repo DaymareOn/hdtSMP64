@@ -721,8 +721,14 @@ namespace
 				commit();
 			if (rowCheck("Visualize world raycasts",
 					"Draw the probe rays that look for nearby world geometry (green = became a collider, "
-					"red = missed or too far). For debugging; needs the overlay shown.",
+					"red = missed or too far), plus a cyan wireframe of the exact cropped collider patch. "
+					"For debugging; needs the overlay shown.",
 					&a->m_visualizeWorldRaycasts, d.worldCollisionVisualizeRaycasts))
+				commit();
+			if (rowCheck("Highlight collided objects",
+					"Glow each collided world object cyan using an effect shader (the whole object, rendered by "
+					"the game so it is depth-correct). Separate from the raycast visualization above.",
+					&a->m_worldCollisionHighlight, d.worldCollisionHighlight))
 				commit();
 			ImGuiMCP::EndDisabled();
 			endRows();

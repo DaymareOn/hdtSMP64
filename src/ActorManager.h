@@ -199,6 +199,7 @@ namespace hdt
 			RE::NiPointer<RE::TESObjectREFR> owner;  // actor the crop is centered on (kept alive while it owns this)
 			int ownerTimeout = 0;                    // frames until ownership may pass to another actor (owner refreshes it)
 			std::vector<RE::NiPoint3> colliderTris;  // kept triangles in world space (3 points each) for the debug wireframe
+			int highlightCooldown = 0;               // frames until the glow effect shader is re-applied (see prune)
 		};
 
 		// @brief Tracks the nearby static world objects we currently turn into SMP colliders. Experimental
@@ -339,6 +340,11 @@ namespace hdt
 		// @brief Debug: draw the world-collision probe rays on screen (green = hit became a collider, red =
 		// miss/too far). Needs the overlay shown. Config <worldCollisionVisualizeRaycasts>.
 		bool m_visualizeWorldRaycasts = false;
+
+		// @brief Debug: apply a cyan glow effect shader to each collided world object (the whole object, in the
+		// game's own rendering, so it is depth-correct). Distinct from m_visualizeWorldRaycasts, which is a 2D
+		// overlay wireframe of just the cropped patch. Config <worldCollisionHighlight>.
+		bool m_worldCollisionHighlight = false;
 
 		// @brief One probe ray captured for on-screen debugging.
 		struct WorldRayViz

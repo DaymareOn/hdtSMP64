@@ -907,6 +907,81 @@ namespace hdt
 		return &s;
 	}
 
+	// Seconds each glow application lasts, and how often (frames) we re-apply it. Refresh is a little shorter
+	// than the duration so a still-colliding object never blinks off between applications.
+	static constexpr float kHighlightDuration = 2.0f;
+	static constexpr int kHighlightRefreshFrames = 90;
+
+	// A cyan glow effect shader, built once at runtime (no ESP/FormID needed) and reused to highlight every
+	// collided object. It colourises a grayscale fill texture that ships with the game (kGreyscaleToColor),
+	// blended additively and depth-tested so the glow is occluded correctly by geometry in front of it.
+	static RE::TESEffectShader* getHighlightShader()
+	{
+		static RE::TESEffectShader* shader = nullptr;
+		if (shader)
+			return shader;
+
+		auto* factory = RE::IFormFactory::GetConcreteFormFactoryByType<RE::TESEffectShader>();
+		auto* s = factory ? factory->Create() : nullptr;
+		if (!s)
+			return nullptr;
+
+		auto& d = s->data;
+		const RE::Color cyan(0x40, 0xE0, 0xFF, 0xFF);
+		d.flags = RE::EffectShaderData::Flags::kGreyscaleToColor;
+
+		// D3DBLEND/D3DBLENDOP are opaque (forward-declared) enums here, so use raw D3D9 values:
+		// SRCALPHA=5, ONE=2 (additive), ADD=1.
+		d.membraneShaderSourceBlendMode = static_cast<RE::D3DBLEND>(5);
+		d.membraneShaderDestBlendMode = static_cast<RE::D3DBLEND>(2);
+		d.membraneShaderBlendOperation = static_cast<RE::D3DBLENDOP>(1);
+		d.membraneShaderZTestFunction = RE::D3DCMPFUNC::kLessEqual;
+
+		d.fillTextureEffectColorKey1 = cyan;
+		d.fillTextureEffectColorKey2 = cyan;
+		d.fillTextureEffectColorKey3 = cyan;
+		d.fillTextureEffectColorKeyScaleTimeColorKey1Scale = 1.f;
+		d.fillTextureEffectColorKeyScaleTimeColorKey2Scale = 1.f;
+		d.fillTextureEffectColorKeyScaleTimeColorKey3Scale = 1.f;
+		d.fillTextureEffectColorKeyScaleTimeColorKey1Time = 0.f;
+		d.fillTextureEffectColorKeyScaleTimeColorKey2Time = 0.5f;
+		d.fillTextureEffectColorKeyScaleTimeColorKey3Time = 1.f;
+		d.fillTextureEffectAlphaFadeInTime = 0.2f;
+		d.fillTextureEffectFullAlphaTime = 1.f;
+		d.fillTextureEffectAlphaFadeOutTime = 0.2f;
+		d.fillTextureEffectPersistentAlphaRatio = 1.f;
+		d.fillTextureEffectFullAlphaRatio = 1.f;
+		d.fillTextureEffectTextureScaleU = 1.f;
+		d.fillTextureEffectTextureScaleV = 1.f;
+		d.textureCountU = 1.f;
+		d.textureCountV = 1.f;
+		d.colorScale = 1.f;
+
+		// A matching rim so edges read clearly.
+		d.edgeEffectColor = cyan;
+		d.edgeColor = cyan;
+		d.edgeEffectFallOff = 1.5f;
+		d.edgeEffectAlphaFadeInTime = 0.2f;
+		d.edgeEffectFullAlphaTime = 1.f;
+		d.edgeEffectAlphaFadeOutTime = 0.2f;
+		d.edgeEffectPersistentAlphaRatio = 1.f;
+		d.edgeEffectFullAlphaRatio = 1.f;
+
+		s->fillTexture.textureName = "Effects\\ScrShdrCircle01.dds";
+		shader = s;
+		return shader;
+	}
+
+	// Walk up from a hit scene node to the reference that owns it (statics/furniture/etc. store their
+	// TESObjectREFR in userData on one of their 3D nodes). Null if this geometry has no owning reference.
+	static RE::TESObjectREFR* refFromNode(RE::NiAVObject* node)
+	{
+		for (; node; node = node->parent)
+			if (auto* ref = node->GetUserData())
+				return ref;
+		return nullptr;
+	}
+
 	// Recursively gather the names of every BSTriShape under root. Used to map the single
 	// <per-triangle-shape name="WorldMesh"> in obstruction.xml to all cloned obstruction meshes.
 	static void collectTrishapeNames(RE::NiNode* root, DefaultBBP::NameSet_t& out)
@@ -1013,11 +1088,26 @@ namespace hdt
 
 	void ActorManager::World::prune()
 	{
-		std::erase_if(m_obstructions, [](Obstruction& obstruction) {
+		const bool highlight = ActorManager::instance()->m_worldCollisionHighlight;
+		std::erase_if(m_obstructions, [highlight](Obstruction& obstruction) {
 			if (obstruction.ownerTimeout > 0)
 				--obstruction.ownerTimeout;  // free up ownership if the owner stops probing this object
-			if (--obstruction.timeout > 0)
+			if (--obstruction.timeout > 0) {
+				// Surviving obstruction: keep its glow refreshed. The effect shader is applied with a finite
+				// duration, so we re-apply it a little before it would expire; when highlighting is off (or the
+				// object stops colliding) we simply stop re-applying and the game fades it out on its own.
+				if (highlight && obstruction.hasPhysics()) {
+					if (obstruction.highlightCooldown <= 0) {
+						if (auto* ref = refFromNode(obstruction.object.get()); ref && ref->Get3D())
+							if (auto* shader = getHighlightShader())
+								ref->ApplyEffectShader(shader, kHighlightDuration);
+						obstruction.highlightCooldown = kHighlightRefreshFrames;
+					} else {
+						--obstruction.highlightCooldown;
+					}
+				}
 				return false;
+			}
 			obstruction.clearPhysics();  // unregister the system from the physics world
 			return true;
 		});
