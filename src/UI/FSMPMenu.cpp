@@ -1157,24 +1157,28 @@ namespace
 		outputPanel();
 	}
 
-	// Draw the world-collision debug over the game via the foreground draw list (so it spans the whole screen,
-	// not just the overlay window): the probe rays (green = became a collider, red = missed/too far, plus a
-	// travelling white "just fired" pulse) and the cropped collider geometry as a cyan wireframe, so the exact
-	// triangles being collided with are visible. 3D points are projected with the game camera the main thread
-	// captured and handed us (held via NiPointer, so it can't die under us). Runs on the render thread, so it
-	// reads the published rays + collider tris + camera under ActorManager's lock. Points behind the camera
-	// (WorldPtToScreenPt3 returns false) are skipped.
+	// Draw the world-collision debug: the probe rays (green = became a collider, red = missed/too far, plus a
+	// travelling white "just fired" pulse) and the cropped collider geometry as a cyan wireframe. 3D points are
+	// projected with the game camera the main thread captured and handed us (held via NiPointer, so it can't
+	// die under us). Called from RenderWorldViz inside a full-screen window, so it draws into that window's
+	// draw list. Reads the published rays + collider tris + camera under ActorManager's lock; points behind the
+	// camera (WorldPtToScreenPt3 returns false) are skipped.
 	void drawWorldRaycasts(ActorManager* a)
 	{
 		std::scoped_lock lock(a->m_rayVizLock);
-		auto* cam = a->m_debugCamera.get();
-		if (!cam)
-			return;
-
+		auto* draw = ImGuiMCP::GetWindowDrawList();
 		auto* io = ImGuiMCP::GetIO();
 		const float sw = io->DisplaySize.x;
 		const float sh = io->DisplaySize.y;
-		auto* draw = ImGuiMCP::GetForegroundDrawList();
+		auto* cam = a->m_debugCamera.get();
+
+		// Diagnostic dot (top-left), drawn BEFORE the camera check: proves this debug layer is rendering at
+		// all, and its colour reports the camera state -- GREEN = a camera was found to project with, RED =
+		// no camera (so nothing world-space can be drawn). If you see no dot, the debug layer isn't running.
+		ImGuiMCP::ImDrawListManager::AddCircleFilled(draw, ImGuiMCP::ImVec2(24.f, 24.f), 9.f,
+			cam ? IM_COL32(40, 255, 40, 255) : IM_COL32(255, 40, 40, 255), 20);
+		if (!cam)
+			return;
 
 		// A white dot travels from each ray's origin to its end on a fast loop, so the player can see the rays
 		// are being cast live (not a frozen picture) and in which direction. Phase comes from wall-clock time;
@@ -1250,15 +1254,25 @@ namespace
 			g_overlay->IsOpen = false;
 	}
 
-	// Separate always-on layer that draws the world-collision debug (probe rays + cropped-patch wireframe)
-	// straight to the foreground draw list, independent of the numeric gameplay overlay -- so "Visualize
-	// world raycasts" shows whether or not that overlay is open. Emits no ImGui window/widgets, so when the
-	// toggle is off it draws nothing at all.
+	// Always-registered layer that draws the world-collision debug (probe rays + cropped-patch wireframe)
+	// independent of the numeric gameplay overlay. The framework only composites its ImGui frame around actual
+	// windows, so we open a full-screen, transparent, input-passthrough window and draw into ITS draw list --
+	// drawing to the foreground list without a window (the previous approach) was never flushed. When the
+	// toggle is off it opens no window, so nothing is drawn.
 	void __stdcall RenderWorldViz()
 	{
 		auto* a = ActorManager::instance();
-		if (a->m_enableWorldCollision && a->m_visualizeWorldRaycasts)
+		if (!a->m_enableWorldCollision || !a->m_visualizeWorldRaycasts)
+			return;
+		auto* io = ImGuiMCP::GetIO();
+		ImGuiMCP::SetNextWindowPos(ImGuiMCP::ImVec2(0.f, 0.f), 0, ImGuiMCP::ImVec2(0.f, 0.f));
+		ImGuiMCP::SetNextWindowSize(io->DisplaySize, 0);
+		const auto flags = ImGuiMCP::ImGuiWindowFlags_NoDecoration | ImGuiMCP::ImGuiWindowFlags_NoInputs |
+			ImGuiMCP::ImGuiWindowFlags_NoBackground | ImGuiMCP::ImGuiWindowFlags_NoSavedSettings |
+			ImGuiMCP::ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiMCP::ImGuiWindowFlags_NoFocusOnAppearing;
+		if (ImGuiMCP::Begin("##fsmp_worldviz", nullptr, flags))
 			drawWorldRaycasts(a);
+		ImGuiMCP::End();
 	}
 
 	// ---- Presets ----------------------------------------------------------------------------------------
