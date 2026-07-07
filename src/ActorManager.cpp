@@ -595,7 +595,7 @@ namespace hdt
 			                                         : RE::NiPointer<RE::NiCamera>();
 			m_colliderTris.clear();
 			if (m_visualizeWorldRaycasts)
-				World::instance()->collectColliderTris(m_colliderTris, 4000);  // cap keeps render-thread work bounded
+				World::instance()->collectColliderTris(m_colliderTris, 300);  // sparse, readable sample of the patch
 		}
 
 		for (auto& i : m_skeletons) {
@@ -1159,20 +1159,33 @@ namespace hdt
 
 	size_t ActorManager::World::collectColliderTris(std::vector<RE::NiPoint3>& out, size_t maxTris) const
 	{
-		size_t tris = 0;
+		// Total kept triangles across live obstructions.
+		size_t total = 0;
+		for (const auto& obstruction : m_obstructions)
+			if (obstruction.hasPhysics())
+				total += obstruction.colliderTris.size() / 3;
+		if (total == 0 || maxTris == 0)
+			return 0;
+
+		// Take an EVENLY-SPACED subset (every stride-th triangle) rather than the first maxTris: a dense
+		// blob of the first few thousand triangles is unreadable on screen, whereas a sparse sample spread
+		// across the whole cropped patch still shows its extent. Also bounds render-thread projection work.
+		const size_t stride = (total + maxTris - 1) / maxTris;  // ceil(total / maxTris)
+		size_t idx = 0, emitted = 0;
 		for (const auto& obstruction : m_obstructions) {
 			if (!obstruction.hasPhysics())
 				continue;
 			const auto& t = obstruction.colliderTris;
-			for (size_t i = 0; i + 2 < t.size() && tris < maxTris; i += 3, ++tris) {
+			for (size_t i = 0; i + 2 < t.size(); i += 3, ++idx) {
+				if (idx % stride != 0)
+					continue;
 				out.push_back(t[i]);
 				out.push_back(t[i + 1]);
 				out.push_back(t[i + 2]);
+				++emitted;
 			}
-			if (tris >= maxTris)
-				break;  // bounded so the render thread never has to project an unbounded triangle count
 		}
-		return tris;
+		return emitted;
 	}
 
 	void ActorManager::Skeleton::doSkeletonClean(RE::NiNode* dst, std::string_view prefix)
