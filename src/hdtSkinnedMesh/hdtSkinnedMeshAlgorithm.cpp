@@ -676,6 +676,16 @@ namespace hdt
 		return CollisionCheckAlgorithm<PerTriangleShape, true>(b, a, results)();
 	}
 
+	// Report a corrupt bone index coming out of a collider's vertex data. Capped so a persistently
+	// corrupt mesh can't flood the log; the first few occurrences carry all the diagnostic value.
+	static void reportBadBoneIndex(int idx, int count, const SkinnedMeshBody* body)
+	{
+		static std::atomic<int> logged{ 0 };
+		if (logged.fetch_add(1, std::memory_order_relaxed) < 20)
+			logger::error("collision merge: bone index {} out of range (body '{}' has {} bones) -- contact skipped",
+				idx, body->m_name.c_str(), count);
+	}
+
 	template <class T0, class T1>
 	void SkinnedMeshAlgorithm::MergeBuffer::doMerge(T0* a, T1* b, CollisionResult* collision, int count)
 	{
@@ -685,6 +695,8 @@ namespace hdt
 		const int bpcB = b->getBonePerCollider();
 		auto* bonesA = a->m_owner->m_skinnedBones.data();
 		auto* bonesB = b->m_owner->m_skinnedBones.data();
+		const int nBonesA = static_cast<int>(a->m_owner->m_skinnedBones.size());
+		const int nBonesB = static_cast<int>(b->m_owner->m_skinnedBones.size());
 
 		for (int i = 0; i < count; ++i) {
 			auto& res = collision[i];
@@ -710,6 +722,13 @@ namespace hdt
 			for (int ib = 0; ib < bpcA; ++ib) {
 				auto w0 = a->getColliderBoneWeight(res.colliderA, ib);
 				int boneIdx0 = a->getColliderBoneIndex(res.colliderA, ib);
+				// Bone indices come from mesh vertex data (an external input). A corrupt index would
+				// read foreign memory here and WRITE far outside the merge buffer in getAndTrack, so
+				// reject it (fail closed) and report it instead of crashing later in apply().
+				if (static_cast<unsigned>(boneIdx0) >= static_cast<unsigned>(nBonesA)) {
+					reportBadBoneIndex(boneIdx0, nBonesA, a->m_owner);
+					continue;
+				}
 				if (w0 <= bonesA[boneIdx0].weightThreshold)
 					continue;
 
@@ -718,6 +737,10 @@ namespace hdt
 				for (int jb = 0; jb < bpcB; ++jb) {
 					auto w1 = b->getColliderBoneWeight(res.colliderB, jb);
 					int boneIdx1 = b->getColliderBoneIndex(res.colliderB, jb);
+					if (static_cast<unsigned>(boneIdx1) >= static_cast<unsigned>(nBonesB)) {
+						reportBadBoneIndex(boneIdx1, nBonesB, b->m_owner);
+						continue;
+					}
 					if (w1 <= bonesB[boneIdx1].weightThreshold)
 						continue;
 
@@ -749,9 +772,22 @@ namespace hdt
 	{
 		// only visit cells that were actually written to this frame,
 		// instead of looping all bones0 * bones1 (far fewer iterations)
+		const int nBones0 = static_cast<int>(body0->m_skinnedBones.size());
+		const int nBones1 = static_cast<int>(body1->m_skinnedBones.size());
 		for (int flatIdx : activeCells) {
 			int i = flatIdx / mergeStride;
 			int j = flatIdx % mergeStride;
+
+			// A cell outside both bodies' bone ranges means the merge buffer was corrupted (a bad
+			// bone index slipped through, or the buffer was written concurrently). Skip and report
+			// rather than dereference foreign memory (this exact read used to crash, #394).
+			if (i >= nBones0 || j >= nBones1) {
+				static std::atomic<int> logged{ 0 };
+				if (logged.fetch_add(1, std::memory_order_relaxed) < 20)
+					logger::error("collision merge: cell ({}, {}) out of range ({} x {} bones, bodies '{}' x '{}') -- skipped",
+						i, j, nBones0, nBones1, body0->m_name.c_str(), body1->m_name.c_str());
+				continue;
+			}
 
 			auto* c = &buffer[flatIdx];
 			if (c->weight < FLT_EPSILON)
@@ -766,6 +802,15 @@ namespace hdt
 
 			auto rb0 = body0->m_skinnedBones[i].ptr;
 			auto rb1 = body1->m_skinnedBones[j].ptr;
+			// A null bone pointer here means the body is being read after its bones were torn down;
+			// skip and report instead of crashing (the crashing read was rb0->m_rig below, #394).
+			if (!rb0 || !rb1) {
+				static std::atomic<int> logged{ 0 };
+				if (logged.fetch_add(1, std::memory_order_relaxed) < 20)
+					logger::error("collision merge: null bone at cell ({}, {}) (bodies '{}' x '{}') -- skipped",
+						i, j, body0->m_name.c_str(), body1->m_name.c_str());
+				continue;
+			}
 			if (rb0 == rb1)
 				continue;
 
