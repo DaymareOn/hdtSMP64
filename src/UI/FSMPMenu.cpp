@@ -110,6 +110,8 @@ namespace
 
 	// The framework-managed overlay window shown during gameplay (see RenderPerfOverlay / the Measures page).
 	SKSEMenuFramework::Model::WindowInterface* g_overlay = nullptr;
+	// Always-open, invisible layer that draws the world-collision debug viz over gameplay (see RenderWorldViz).
+	SKSEMenuFramework::Model::WindowInterface* g_worldViz = nullptr;
 
 	// ---- Folder picker (Validation tab) -----------------------------------------------------------------
 	// A native folder dialog must not run on the render thread (it is modal and would block drawing), so it
@@ -695,11 +697,22 @@ namespace
 			endRows();
 		}
 
-		section(fa::Bolt, "Experimental");
-		if (beginRows("simpl.experimental")) {
+	}
+
+	// Dedicated page for the experimental world-collision feature: its controls plus a live status readout,
+	// so you can see whether it is actually running (probing, building colliders) without needing the
+	// gameplay overlay open.
+	void ExperimentalBody()
+	{
+		filterBox();
+		auto* a = ActorManager::instance();
+		const GlobalConfig& d = hdt::shippedDefaults();
+
+		section(fa::Bolt, "World collision");
+		if (beginRows("exp.worldcollision")) {
 			if (rowCheck("World collision",
 					"Let hair and cloth collide with nearby static world geometry (floors, walls). "
-					"Experimental and costly; watch the 'World collision' ms in the overlay.",
+					"Experimental and costly; watch the status readout below.",
 					&a->m_enableWorldCollision, d.worldCollision))
 				commitReset();
 			ImGuiMCP::BeginDisabled(!a->m_enableWorldCollision);
@@ -716,13 +729,13 @@ namespace
 			if (rowFloat("World collision re-crops/sec",
 					"How tightly the collider follows an actor walking at a normal speed. The collider re-crops "
 					"around the actor as they move; higher tracks movement more closely but rebuilds more often "
-					"(watch 're-crops/s' in the overlay). A standing actor never re-crops. 0 = build once, never follow.",
+					"(watch 're-crops/s' below). A standing actor never re-crops. 0 = build once, never follow.",
 					&a->m_worldCollisionRecropsPerSec, d.worldCollisionRecropsPerSec, 0.0f, 60.0f, "%.1f"))
 				commit();
 			if (rowCheck("Visualize world raycasts",
 					"Draw the probe rays that look for nearby world geometry (green = became a collider, "
 					"red = missed or too far), plus a cyan wireframe of the exact cropped collider patch. "
-					"For debugging; needs the overlay shown.",
+					"Drawn over the game whenever this is on -- the gameplay overlay does not need to be shown.",
 					&a->m_visualizeWorldRaycasts, d.worldCollisionVisualizeRaycasts))
 				commit();
 			if (rowCheck("Highlight collided objects",
@@ -732,6 +745,21 @@ namespace
 				commit();
 			ImGuiMCP::EndDisabled();
 			endRows();
+		}
+
+		// Live status: the numbers update every frame while the menu is open, so it is obvious whether the
+		// feature is probing and building colliders (and, if not, why).
+		section(fa::GaugeHigh, "Status (live)");
+		ImGuiMCP::Text("%s: %d", tr("Probe rays last frame"), a->m_raycastCount);
+		ImGuiMCP::Text("%s: %d objs, %d verts", tr("Colliders"), a->m_obstructionCount, a->m_obstructionVertices);
+		ImGuiMCP::Text("%s: %.1f", tr("Re-crops per second"), a->m_recropsPerSec);
+		ImGuiMCP::Text("%s: %.2f ms (peak %.2f)", tr("Add / remove cost"),
+			a->m_avgWorldCollisionMs, a->m_peakWorldCollisionMs);
+		if (a->m_enableWorldCollision && a->m_raycastCount == 0) {
+			constexpr ImGuiMCP::ImVec4 warn{ 1.0f, 0.72f, 0.20f, 1.0f };
+			ImGuiMCP::TextColored(warn, "%s",
+				tr("No probes ran last frame. The character must have active SMP hair/cloth and be within "
+				   "physics range (near the camera / not culled). Equip physics hair and stand still to test."));
 		}
 	}
 
@@ -1212,10 +1240,19 @@ namespace
 			}
 		}
 		ImGuiMCP::End();
-		if (a->m_enableWorldCollision && a->m_visualizeWorldRaycasts)
-			drawWorldRaycasts(a);
 		if (!open && g_overlay)
 			g_overlay->IsOpen = false;
+	}
+
+	// Separate always-on layer that draws the world-collision debug (probe rays + cropped-patch wireframe)
+	// straight to the foreground draw list, independent of the numeric gameplay overlay -- so "Visualize
+	// world raycasts" shows whether or not that overlay is open. Emits no ImGui window/widgets, so when the
+	// toggle is off it draws nothing at all.
+	void __stdcall RenderWorldViz()
+	{
+		auto* a = ActorManager::instance();
+		if (a->m_enableWorldCollision && a->m_visualizeWorldRaycasts)
+			drawWorldRaycasts(a);
 	}
 
 	// ---- Presets ----------------------------------------------------------------------------------------
@@ -1647,6 +1684,11 @@ namespace
 		chrome();
 		PerformanceBody();
 	}
+	void __stdcall RenderExperimental()
+	{
+		chrome();
+		ExperimentalBody();
+	}
 	void __stdcall RenderWind()
 	{
 		chrome();
@@ -1685,6 +1727,7 @@ namespace hdt::FSMPMenu
 		SKSEMenuFramework::AddSectionItem(tr("Presets"), RenderPresets);
 		SKSEMenuFramework::AddSectionItem(tr("Simplification"), RenderSimplification);
 		SKSEMenuFramework::AddSectionItem(tr("Performance"), RenderPerformance);
+		SKSEMenuFramework::AddSectionItem(tr("Experimental"), RenderExperimental);
 		SKSEMenuFramework::AddSectionItem(tr("Wind"), RenderWind);
 		SKSEMenuFramework::AddSectionItem(tr("Commands"), RenderCommands);
 		SKSEMenuFramework::AddSectionItem(tr("Measures"), RenderMeasures);
@@ -1695,5 +1738,11 @@ namespace hdt::FSMPMenu
 		g_overlay = SKSEMenuFramework::AddWindow(RenderPerfOverlay, false);
 		if (g_overlay)
 			g_overlay->IsOpen = false;
+
+		// The world-collision debug layer is always invoked (kept open) but draws only when its toggle is on,
+		// so the ray/wireframe viz does not depend on the gameplay overlay being shown.
+		g_worldViz = SKSEMenuFramework::AddWindow(RenderWorldViz, false);
+		if (g_worldViz)
+			g_worldViz->IsOpen = true;
 	}
 }

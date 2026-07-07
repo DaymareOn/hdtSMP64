@@ -840,16 +840,26 @@ namespace hdt
 	// Find the game's active render camera (a NiCamera under the player-camera root). Returns null while it
 	// isn't in the scene yet (e.g. during a load). Called on the main thread; the caller holds the result via
 	// NiPointer so the render thread can project world points with it without risking a use-after-free.
+	// Depth-first search for a NiCamera anywhere under a node (the camera is not always a DIRECT child of the
+	// player camera root -- e.g. VR / alternate camera setups nest it), so the debug projection reliably
+	// finds a camera to project with instead of silently drawing nothing.
+	static RE::NiCamera* findNiCamera(RE::NiAVObject* obj)
+	{
+		if (!obj)
+			return nullptr;
+		if (auto* cam = netimmerse_cast<RE::NiCamera*>(obj))
+			return cam;
+		if (auto* node = obj->AsNode())
+			for (auto& child : node->GetChildren())
+				if (auto* cam = findNiCamera(child.get()))
+					return cam;
+		return nullptr;
+	}
+
 	static RE::NiCamera* getPlayerNiCamera()
 	{
 		auto* pc = RE::PlayerCamera::GetSingleton();
-		if (!pc || !pc->cameraRoot)
-			return nullptr;
-		for (auto& child : pc->cameraRoot->GetChildren()) {
-			if (auto* cam = netimmerse_cast<RE::NiCamera*>(child.get()))
-				return cam;
-		}
-		return nullptr;
+		return pc ? findNiCamera(pc->cameraRoot.get()) : nullptr;
 	}
 
 	// Experimental world collision. We probe the world around the actor with 6 axis-aligned LOS
