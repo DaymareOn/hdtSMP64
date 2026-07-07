@@ -518,8 +518,8 @@ namespace hdt
 
 	struct DefaultBBPEntry
 	{
-		std::string shape;      // shape name from <map shape="...">, or skeleton path from <creature skeleton="...">
-		std::string xmlPath;    // resolved filesystem path (data/...)
+		std::string shape;    // shape name from <map shape="...">, or skeleton path from <creature skeleton="...">
+		std::string xmlPath;  // resolved filesystem path (data/...)
 		bool xmlExists = false;
 		bool isCreature = false;  // true for a <creature> entry, so the report labels it correctly
 	};
