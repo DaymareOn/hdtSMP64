@@ -721,6 +721,12 @@ namespace
 					"Much cheaper -- one set of probes and colliders instead of one per active NPC.",
 					&a->m_worldCollisionPlayerOnly, d.worldCollisionPlayerOnly))
 				commitReset();
+			if (rowCheck("Use collision mesh (not render mesh)",
+					"Build colliders from the game's coarse havok collision mesh instead of the dense render "
+					"mesh -- far fewer vertices, so much cheaper (watch 'verts' fall in the status below). "
+					"Objects whose collision isn't an extractable mesh (terrain, box/convex) get no collider.",
+					&a->m_worldCollisionUseCollisionMesh, d.worldCollisionUseCollisionMesh))
+				commitReset();
 			if (rowFloat("World collision distance",
 					"How near (units) world geometry must be to an actor to become a collider. "
 					"Larger = more coverage but more cost.",

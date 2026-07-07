@@ -1011,6 +1011,25 @@ namespace hdt
 		}
 	}
 
+	// First named trishape under root. Collision-mesh obstructions hang their single collision body on it: the
+	// body just needs one trishape's world transform to anchor the (whole-object) collision geometry.
+	static RE::BSTriShape* firstNamedTriShape(RE::NiNode* root)
+	{
+		if (!root)
+			return nullptr;
+		for (auto& childPtr : root->GetChildren()) {
+			auto* child = childPtr.get();
+			if (!child)
+				continue;
+			if (auto* tri = child->AsTriShape(); tri && tri->name.size())
+				return tri;
+			if (auto* node = castNiNode(child))
+				if (auto* tri = firstNamedTriShape(node))
+					return tri;
+		}
+		return nullptr;
+	}
+
 	// Frames an obstruction stays tracked after it was last probed. Long enough (~1.5s at 60fps) that brief
 	// probe misses don't drop its cached geometry and force a fresh multi-second GPU re-read.
 	static constexpr int kObstructionTimeout = 90;
@@ -1079,12 +1098,22 @@ namespace hdt
 		if (!node)
 			return;
 
-		// Map the single <per-triangle-shape name="WorldMesh"> in obstruction.xml to every trishape under
-		// the hit object; the unskinned path turns that static geometry into one kinematic collider.
+		// Map the single <per-triangle-shape name="WorldMesh"> in obstruction.xml to the object's trishapes.
+		// Render-mesh mode maps every trishape (each becomes collider geometry). Collision-mesh mode (Lever B)
+		// maps ONE named trishape and hangs the whole object's havok collision geometry on it, so the coarse
+		// collision mesh is extracted once rather than per trishape.
+		const bool useCollisionMesh = ActorManager::instance()->m_worldCollisionUseCollisionMesh;
 		DefaultBBP::NameSet_t names;
-		collectTrishapeNames(node, names);
-		if (names.empty())
-			return;
+		if (useCollisionMesh) {
+			auto* tri = firstNamedTriShape(node);
+			if (!tri)
+				return;
+			names.insert(std::string(tri->name.c_str()));
+		} else {
+			collectTrishapeNames(node, names);
+			if (names.empty())
+				return;
+		}
 
 		DefaultBBP::PhysicsFile_t file{ std::string("SKSE/Plugins/hdtSkinnedMeshConfigs/obstruction.xml"),
 			DefaultBBP::NameMap_t{ { "WorldMesh", names } } };
@@ -1102,7 +1131,7 @@ namespace hdt
 		std::unordered_map<RE::BSFixedString, RE::BSFixedString> noRename;
 		auto system = SkyrimSystemCreator().createOrUpdateSystem(node, obstruction.object.get(), &file,
 			std::move(noRename), nullptr, clipCenter, radius, &obstruction.cache,
-			viz ? &obstruction.colliderTris : nullptr);
+			viz ? &obstruction.colliderTris : nullptr, useCollisionMesh);
 		if (!system)
 			return;
 

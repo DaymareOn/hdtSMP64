@@ -45,12 +45,14 @@ namespace hdt
 
 	class XMLReader;
 
-	// Raw, position-independent geometry read once from a live (unskinned) trishape's GPU buffers. Cached
-	// on an obstruction so it can be re-cropped as the actor moves without touching the GPU buffer again.
+	// Raw, position-independent geometry read once for an obstruction and cached so it can be re-cropped as
+	// the actor moves without re-reading the source. The source is either the live trishape's GPU buffers
+	// (render-mesh mode) or the object's havok collision mesh (collision-mesh mode); either way this holds
+	// the geometry in one trishape's local space. Indices are 32-bit: a collision mesh can exceed 65k verts.
 	struct ObstructionMeshCache
 	{
 		std::vector<RE::NiPoint3> localPos;  // vertex positions in mesh-local space
-		std::vector<uint16_t> indices;       // triangleCount * 3 vertex indices
+		std::vector<uint32_t> indices;       // triangleCount * 3 vertex indices
 		RE::NiTransform world;               // mesh-local -> world (fixed for a static object)
 	};
 	using ObstructionCache = std::unordered_map<const RE::BSTriShape*, ObstructionMeshCache>;
@@ -64,7 +66,7 @@ namespace hdt
 		// keeping only triangles with a vertex inside it -- used for world-collision obstructions so a whole
 		// 2M-vertex static isn't turned into a collider. cache holds each mesh's raw geometry so a rebuild (as
 		// the actor moves) re-crops from memory instead of re-reading the GPU. Both are inert for armors.
-		RE::BSTSmartPointer<SkyrimSystem> createOrUpdateSystem(RE::NiNode* skeleton, RE::NiAVObject* model, DefaultBBP::PhysicsFile_t* file, std::unordered_map<RE::BSFixedString, RE::BSFixedString>&& renameMap, SkyrimSystem* old_system, RE::NiPoint3 clipCenter = {}, float clipRadius = -1.f, ObstructionCache* cache = nullptr, std::vector<RE::NiPoint3>* outClippedWorldTris = nullptr);
+		RE::BSTSmartPointer<SkyrimSystem> createOrUpdateSystem(RE::NiNode* skeleton, RE::NiAVObject* model, DefaultBBP::PhysicsFile_t* file, std::unordered_map<RE::BSFixedString, RE::BSFixedString>&& renameMap, SkyrimSystem* old_system, RE::NiPoint3 clipCenter = {}, float clipRadius = -1.f, ObstructionCache* cache = nullptr, std::vector<RE::NiPoint3>* outClippedWorldTris = nullptr, bool useCollisionMesh = false);
 
 	protected:
 		// O(1) bone lookup index. These are just to speed up the hashmap more since BSStrings are pooled
@@ -202,6 +204,9 @@ namespace hdt
 		// When set, the crop appends each kept triangle's 3 world-space vertices here (3 points per triangle),
 		// so the debug overlay can wireframe exactly the geometry we collide with. Null = don't capture.
 		std::vector<RE::NiPoint3>* m_outClippedWorldTris = nullptr;
+		// When true, an obstruction's cache is filled from the object's coarse havok collision mesh instead of
+		// the dense render-mesh GPU buffers (Lever B). Inert for armors.
+		bool m_useCollisionMesh = false;
 
 		RE::NiNode* findObjectByName(const RE::BSFixedString& name);
 		SkyrimBone* getOrCreateBone(const RE::BSFixedString& name);

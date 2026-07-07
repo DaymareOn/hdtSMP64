@@ -60,6 +60,7 @@ namespace hdt
 		a->m_minScreenSizePercent = c.minScreenSizePercent;
 		a->m_enableWorldCollision = c.worldCollision;
 		a->m_worldCollisionPlayerOnly = c.worldCollisionPlayerOnly;
+		a->m_worldCollisionUseCollisionMesh = c.worldCollisionUseCollisionMesh;
 		a->m_worldCollisionDistance = c.worldCollisionDistance;
 		a->m_worldCollisionRecropsPerSec = c.worldCollisionRecropsPerSec;
 		a->m_visualizeWorldRaycasts = c.worldCollisionVisualizeRaycasts;
@@ -115,6 +116,7 @@ namespace hdt
 		c.minScreenSizePercent = a->m_minScreenSizePercent;
 		c.worldCollision = a->m_enableWorldCollision;
 		c.worldCollisionPlayerOnly = a->m_worldCollisionPlayerOnly;
+		c.worldCollisionUseCollisionMesh = a->m_worldCollisionUseCollisionMesh;
 		c.worldCollisionDistance = a->m_worldCollisionDistance;
 		c.worldCollisionRecropsPerSec = a->m_worldCollisionRecropsPerSec;
 		c.worldCollisionVisualizeRaycasts = a->m_visualizeWorldRaycasts;
@@ -231,6 +233,7 @@ namespace hdt
 		LOG("smp.minScreenSizePercent", a->m_minScreenSizePercent);
 		LOG("smp.worldCollision", a->m_enableWorldCollision);
 		LOG("smp.worldCollisionPlayerOnly", a->m_worldCollisionPlayerOnly);
+		LOG("smp.worldCollisionUseCollisionMesh", a->m_worldCollisionUseCollisionMesh);
 		LOG("smp.worldCollisionDistance", a->m_worldCollisionDistance);
 		LOG("smp.worldCollisionRecropsPerSec", a->m_worldCollisionRecropsPerSec);
 		LOG("smp.worldCollisionVisualizeRaycasts", a->m_visualizeWorldRaycasts);

@@ -325,6 +325,12 @@ namespace hdt
 		// default. Config <worldCollisionPlayerOnly>.
 		bool m_worldCollisionPlayerOnly = false;
 
+		// @brief When true, obstruction colliders are built from the game's coarse havok collision mesh
+		// (Lever B) instead of the dense render mesh -- far fewer vertices, so much cheaper to collide with.
+		// Objects whose collision is not an extractable compressed mesh get no collider (no render-mesh
+		// fallback). Off by default. Config <worldCollisionUseCollisionMesh>.
+		bool m_worldCollisionUseCollisionMesh = false;
+
 		// @brief How near (Skyrim units) static world geometry must be to an actor to be turned into a
 		// collider by manageWorldCollisions. Also the reach of the probe rays. Larger = more coverage
 		// but more geometry dragged into the sim (more cost). Config <worldCollisionDistance>.

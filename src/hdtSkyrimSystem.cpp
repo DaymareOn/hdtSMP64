@@ -198,7 +198,7 @@ namespace hdt
 		return name;
 	}
 
-	RE::BSTSmartPointer<SkyrimSystem> SkyrimSystemCreator::createOrUpdateSystem(RE::NiNode* skeleton, RE::NiAVObject* model, DefaultBBP::PhysicsFile_t* file, std::unordered_map<RE::BSFixedString, RE::BSFixedString>&& renameMap, SkyrimSystem* old_system, RE::NiPoint3 clipCenter, float clipRadius, ObstructionCache* cache, std::vector<RE::NiPoint3>* outClippedWorldTris)
+	RE::BSTSmartPointer<SkyrimSystem> SkyrimSystemCreator::createOrUpdateSystem(RE::NiNode* skeleton, RE::NiAVObject* model, DefaultBBP::PhysicsFile_t* file, std::unordered_map<RE::BSFixedString, RE::BSFixedString>&& renameMap, SkyrimSystem* old_system, RE::NiPoint3 clipCenter, float clipRadius, ObstructionCache* cache, std::vector<RE::NiPoint3>* outClippedWorldTris, bool useCollisionMesh)
 	{
 		auto path = file->first;
 		if (path.empty()) {
@@ -217,6 +217,7 @@ namespace hdt
 		m_clipCenter = clipCenter;
 		m_clipRadius = clipRadius;
 		m_obstructionCache = cache;
+		m_useCollisionMesh = useCollisionMesh;
 		m_clippedTris.clear();
 		m_outClippedWorldTris = outClippedWorldTris;
 		if (m_outClippedWorldTris)
@@ -685,6 +686,165 @@ namespace hdt
 		return nullptr;
 	}
 
+	// ---- Lever B: build obstructions from the game's coarse HAVOK collision mesh instead of the dense render
+	// mesh. World statics store a compressed collision mesh (hkpCompressedMeshShape) that is 1-2 orders of
+	// magnitude coarser than the render geometry, so colliding hair/cloth against it is far cheaper. Objects
+	// whose collision is not an extractable compressed mesh (terrain heightfields, box/convex primitives) get
+	// no collider -- there is no render-mesh fallback, so the gap is visible in the obstruction counts. ----
+
+	// 1 / bhkWorldScale (0.0142875): converts Havok units to Skyrim units.
+	static constexpr float kHavokToSkyrim = 69.99124f;
+	// Bethesda quantizes each compressed-mesh chunk vertex to 1/1000 Havok unit around the chunk offset.
+	static constexpr float kChunkQuant = 1.0f / 1000.0f;
+
+	static inline void hkStore(const RE::hkVector4& v, float out[4]) { _mm_storeu_ps(out, v.quad); }
+
+	// Transform a shape-local Havok vertex by the rigid body's world transform (R*v + T), then to Skyrim world.
+	static RE::NiPoint3 havokLocalToSkyrimWorld(const RE::hkTransform& xf, const RE::hkVector4& vLocal)
+	{
+		float v[4], c0[4], c1[4], c2[4], t[4];
+		hkStore(vLocal, v);
+		hkStore(xf.rotation.col0, c0);
+		hkStore(xf.rotation.col1, c1);
+		hkStore(xf.rotation.col2, c2);
+		hkStore(xf.translation, t);
+		return RE::NiPoint3{
+			(c0[0] * v[0] + c1[0] * v[1] + c2[0] * v[2] + t[0]) * kHavokToSkyrim,
+			(c0[1] * v[0] + c1[1] * v[1] + c2[1] * v[2] + t[1]) * kHavokToSkyrim,
+			(c0[2] * v[0] + c1[2] * v[1] + c2[2] * v[2] + t[2]) * kHavokToSkyrim
+		};
+	}
+
+	// Apply a chunk's per-instance QsTransform: scale, then quaternion rotation, then translation.
+	static RE::hkVector4 applyQs(const RE::hkQsTransform& xf, float sx, float sy, float sz)
+	{
+		float q[4], s[4], t[4];
+		hkStore(xf.rotation.vec, q);
+		hkStore(xf.scale, s);
+		hkStore(xf.translation, t);
+		const float vx = sx * s[0], vy = sy * s[1], vz = sz * s[2];
+		const float qx = q[0], qy = q[1], qz = q[2], qw = q[3];
+		const float ax = 2.f * (qy * vz - qz * vy);
+		const float ay = 2.f * (qz * vx - qx * vz);
+		const float az = 2.f * (qx * vy - qy * vx);
+		return RE::hkVector4(
+			vx + qw * ax + (qy * az - qz * ay) + t[0],
+			vy + qw * ay + (qz * ax - qx * az) + t[1],
+			vz + qw * az + (qx * ay - qy * ax) + t[2], 0.f);
+	}
+
+	// Unwrap MOPP / bv-tree single-shape containers down to the compressed mesh shape, if any.
+	static const RE::hkpCompressedMeshShape* asCompressedMesh(const RE::hkpShape* shape)
+	{
+		for (int guard = 0; shape && guard < 8; ++guard) {
+			if (shape->type == RE::hkpShapeType::kCompressedMesh)
+				return static_cast<const RE::hkpCompressedMeshShape*>(shape);
+			const RE::hkpShapeContainer* container = shape->GetContainer();
+			if (!container)
+				return nullptr;
+			RE::hkpShapeBuffer buffer;
+			shape = container->GetChildShape(container->GetFirstKey(), buffer);
+		}
+		return nullptr;
+	}
+
+	// Collect every compressed collision mesh under obj (recursing children), each with its rigid body's
+	// world transform, so the vertices can be placed in Skyrim world space.
+	static void gatherCollisionMeshes(RE::NiAVObject* obj,
+		std::vector<std::pair<const RE::hkpCompressedMeshShape*, RE::hkTransform>>& out)
+	{
+		if (!obj)
+			return;
+		if (auto* col = obj->GetCollisionObject())
+			if (auto* rb = col->GetRigidBody())
+				if (auto* hkrb = rb->GetRigidBody())
+					if (auto* mesh = asCompressedMesh(hkrb->GetShape())) {
+						RE::hkTransform xf;
+						rb->GetTransform(xf);
+						out.emplace_back(mesh, xf);
+					}
+		if (auto* node = obj->AsNode())
+			for (auto& child : node->GetChildren())
+				gatherCollisionMeshes(child.get(), out);
+	}
+
+	// Decode the object's havok collision geometry into world-space vertices + triangle indices. Handles the
+	// big (uncompressed) triangles and the compressed chunks (quantized verts + triangle strips/lists).
+	static bool extractCollisionMesh(RE::NiAVObject* objectRoot, std::vector<RE::NiPoint3>& outWorld,
+		std::vector<uint32_t>& outIdx)
+	{
+		std::vector<std::pair<const RE::hkpCompressedMeshShape*, RE::hkTransform>> shapes;
+		gatherCollisionMeshes(objectRoot, shapes);
+
+		const auto emit = [&](uint32_t a, uint32_t b, uint32_t c) {
+			if (a != b && b != c && a != c) {  // drop degenerate (strip-stitch) triangles
+				outIdx.push_back(a);
+				outIdx.push_back(b);
+				outIdx.push_back(c);
+			}
+		};
+
+		for (const auto& [mesh, xf] : shapes) {
+			const uint32_t bigBase = static_cast<uint32_t>(outWorld.size());
+			for (const auto& bv : mesh->bigVertices)
+				outWorld.push_back(havokLocalToSkyrimWorld(xf, bv));
+			for (const auto& bt : mesh->bigTriangles)
+				emit(bigBase + bt.a, bigBase + bt.b, bigBase + bt.c);
+
+			for (const auto& chunk : mesh->chunks) {
+				const uint32_t base = static_cast<uint32_t>(outWorld.size());
+				float off[4];
+				hkStore(chunk.offset, off);
+				const bool hasXf = chunk.transformIndex != 0xFFFF && chunk.transformIndex < mesh->transforms.size();
+				const RE::hkQsTransform* qxf = hasXf ? &mesh->transforms[chunk.transformIndex] : nullptr;
+
+				const int nv = chunk.vertices.size() / 3;
+				for (int i = 0; i < nv; ++i) {
+					const float lx = off[0] + chunk.vertices[i * 3 + 0] * kChunkQuant;
+					const float ly = off[1] + chunk.vertices[i * 3 + 1] * kChunkQuant;
+					const float lz = off[2] + chunk.vertices[i * 3 + 2] * kChunkQuant;
+					const RE::hkVector4 local = qxf ? applyQs(*qxf, lx, ly, lz) : RE::hkVector4(lx, ly, lz, 0.f);
+					outWorld.push_back(havokLocalToSkyrimWorld(xf, local));
+				}
+
+				const int nIdx = chunk.indices.size();
+				int pos = 0;
+				for (const auto stripLen : chunk.stripLengths) {  // triangle strips (alternating winding)
+					for (int k = 0; k + 2 < stripLen && pos + k + 2 < nIdx; ++k) {
+						uint32_t a = base + chunk.indices[pos + k];
+						uint32_t b = base + chunk.indices[pos + k + 1];
+						uint32_t c = base + chunk.indices[pos + k + 2];
+						if (k & 1)
+							std::swap(b, c);
+						emit(a, b, c);
+					}
+					pos += stripLen;
+				}
+				for (; pos + 2 < nIdx; pos += 3)  // any trailing indices are a plain triangle list
+					emit(base + chunk.indices[pos], base + chunk.indices[pos + 1], base + chunk.indices[pos + 2]);
+			}
+		}
+		return !outIdx.empty();
+	}
+
+	// Fill the obstruction cache from the object's havok collision mesh (in tri's local space, so the existing
+	// crop/build path reuses it exactly like the render-mesh path). Returns false if there is no extractable
+	// compressed collision mesh, leaving the cache empty so the object gets no collider.
+	static bool fillGeomFromHavok(RE::NiAVObject* objectRoot, RE::BSTriShape* tri, ObstructionMeshCache& geom)
+	{
+		std::vector<RE::NiPoint3> world;
+		std::vector<uint32_t> idx;
+		if (!extractCollisionMesh(objectRoot, world, idx))
+			return false;
+		geom.world = tri->world;
+		const RE::NiTransform inv = tri->world.Invert();
+		geom.localPos.resize(world.size());
+		for (size_t i = 0; i < world.size(); ++i)
+			geom.localPos[i] = inv * world[i];
+		geom.indices = std::move(idx);
+		return true;
+	}
+
 	// Squared distance from point p to triangle (a,b,c). Standard closest-feature test (Ericson, Real-Time
 	// Collision Detection): find whether the closest point lies on a vertex, an edge, or the face interior,
 	// and return the squared distance to it. Used by the obstruction crop so a big floor triangle is kept
@@ -833,13 +993,19 @@ namespace hdt
 					// triangles with a vertex inside the clip sphere, compacting the vertices they reference.
 					auto& geom = (*m_obstructionCache)[triShape];
 					if (geom.localPos.empty()) {
-						geom.world = triShape->world;
-						geom.localPos.resize(vertexCount);
-						for (uint32_t j = 0; j < vertexCount; ++j)
-							geom.localPos[j] = readPos(j);
-						const uint16_t* idxBuf = renderer->rawIndexData;
-						const auto triangleCount = triShape->GetTrishapeRuntimeData().triangleCount;
-						geom.indices.assign(idxBuf, idxBuf + static_cast<size_t>(triangleCount) * 3);
+						if (m_useCollisionMesh) {
+							// Lever B: fill from the object's coarse havok collision mesh. Leaves geom empty if
+							// there is no extractable compressed collision mesh, so this object gets no collider.
+							fillGeomFromHavok(m_model, triShape, geom);
+						} else {
+							geom.world = triShape->world;
+							geom.localPos.resize(vertexCount);
+							for (uint32_t j = 0; j < vertexCount; ++j)
+								geom.localPos[j] = readPos(j);
+							const uint16_t* idxBuf = renderer->rawIndexData;
+							const auto triangleCount = triShape->GetTrishapeRuntimeData().triangleCount;
+							geom.indices.assign(idxBuf, idxBuf + static_cast<size_t>(triangleCount) * 3);
+						}
 					}
 
 					const float r2 = m_clipRadius * m_clipRadius;
@@ -856,7 +1022,7 @@ namespace hdt
 					std::vector<int> remap(geom.localPos.size(), -1);
 					auto& kept = m_clippedTris[std::string(meshName)];
 					for (size_t t = 0; t + 2 < geom.indices.size(); t += 3) {
-						const uint16_t vi[3] = { geom.indices[t], geom.indices[t + 1], geom.indices[t + 2] };
+						const uint32_t vi[3] = { geom.indices[t], geom.indices[t + 1], geom.indices[t + 2] };
 						// Keep the triangle if any vertex is inside the sphere (cheap common case), or if the
 						// sphere reaches the triangle's surface -- the latter catches large floor triangles
 						// whose vertices are all outside the sphere but whose face is right under the actor.
