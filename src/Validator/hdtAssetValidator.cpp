@@ -524,29 +524,15 @@ namespace hdt
 		bool isCreature = false;  // true for a <creature> entry, so the report labels it correctly
 	};
 
-	// Parse defaultBBPs.xml and resolve the file path of each <map> and <creature> entry.
+	// Parse the single defaultBBPs.xml AND every *.xml in the sibling defaultBBPs/ folder, resolving the
+	// file path of each <map> and <creature> entry. The folder mirrors the runtime loader
+	// (DefaultBBP::loadDefaultBBPs): many mods can each ship a drop-in there instead of fighting over the
+	// single file, so the report must check those entries too or a broken folder mapping goes unreported.
 	static std::vector<DefaultBBPEntry> discoverDefaultBBPXMLs()
 	{
 		std::vector<DefaultBBPEntry> result;
 		namespace fs = std::filesystem;
-
-		fs::path bbpFile = "data/SKSE/Plugins/hdtSkinnedMeshConfigs/defaultBBPs.xml";
 		std::error_code ec;
-		if (!fs::exists(bbpFile, ec)) {
-			logger::info("[Validator] defaultBBPs.xml not found at {}, skipping Phase 0",
-				PathToUtf8(bbpFile));
-			return result;
-		}
-
-		pugi::xml_document doc;
-		const std::string bbpPathUtf8 = PathToUtf8(bbpFile);
-		std::string bbpBytes = readAllFile2(bbpPathUtf8.c_str());
-		auto parseResult = doc.load_buffer(bbpBytes.data(), bbpBytes.size());
-		if (!parseResult) {
-			logger::warn("[Validator] Failed to parse defaultBBPs.xml: {}",
-				parseResult.description());
-			return result;
-		}
 
 		// Resolve one entry's XML reference to a filesystem path: try "data/<path>" first, then the
 		// path as-is (in case it's already absolute or differently rooted).
@@ -574,14 +560,46 @@ namespace hdt
 			result.push_back(std::move(entry));
 		};
 
-		for (auto& map : doc.child("default-bbps").children("map")) {
-			addEntry(map.attribute("shape").as_string(), map.attribute("file").as_string(), false);
-		}
+		// Parse one defaultBBPs document file, adding its <map> and <creature> entries.
+		auto parseDoc = [&](const fs::path& file) {
+			pugi::xml_document doc;
+			std::string bytes = readAllFile2(PathToUtf8(file).c_str());
+			auto parseResult = doc.load_buffer(bytes.data(), bytes.size());
+			if (!parseResult) {
+				logger::warn("[Validator] Failed to parse {}: {}", PathToUtf8(file), parseResult.description());
+				return;
+			}
+			for (auto& map : doc.child("default-bbps").children("map"))
+				addEntry(map.attribute("shape").as_string(), map.attribute("file").as_string(), false);
+			// <creature skeleton="..." file="..."/> — per-race creature defaults, keyed on the race
+			// skeleton path. Same existence + schema validation as <map> entries.
+			for (auto& creature : doc.child("default-bbps").children("creature"))
+				addEntry(creature.attribute("skeleton").as_string(), creature.attribute("file").as_string(), true);
+		};
 
-		// <creature skeleton="..." file="..."/> — per-race creature defaults, keyed on the race
-		// skeleton path. Same existence + schema validation as <map> entries.
-		for (auto& creature : doc.child("default-bbps").children("creature")) {
-			addEntry(creature.attribute("skeleton").as_string(), creature.attribute("file").as_string(), true);
+		// The single legacy file first, then the drop-in folder in ascending filename order — the same
+		// order the runtime loader feeds them (so the report reflects the effective mappings).
+		fs::path bbpFile = "data/SKSE/Plugins/hdtSkinnedMeshConfigs/defaultBBPs.xml";
+		if (fs::exists(bbpFile, ec))
+			parseDoc(bbpFile);
+		else
+			logger::info("[Validator] defaultBBPs.xml not found at {}", PathToUtf8(bbpFile));
+
+		fs::path folder = "data/SKSE/Plugins/hdtSkinnedMeshConfigs/defaultBBPs";
+		if (fs::is_directory(folder, ec)) {
+			std::vector<fs::path> files;
+			for (fs::directory_iterator it(folder, ec), end; !ec && it != end; it.increment(ec)) {
+				if (!it->is_regular_file(ec))
+					continue;
+				std::string ext = it->path().extension().string();
+				std::transform(ext.begin(), ext.end(), ext.begin(),
+					[](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+				if (ext == ".xml")
+					files.push_back(it->path());
+			}
+			std::sort(files.begin(), files.end());
+			for (const auto& p : files)
+				parseDoc(p);
 		}
 
 		return result;

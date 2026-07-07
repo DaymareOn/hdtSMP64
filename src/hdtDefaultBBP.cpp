@@ -3,6 +3,12 @@
 #include "NetImmerseUtils.h"
 #include "XmlReader.h"
 
+#include <algorithm>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <vector>
+
 namespace hdt
 {
 	DefaultBBP* DefaultBBP::instance()
@@ -53,11 +59,68 @@ namespace hdt
 		loadDefaultBBPs();
 	}
 
+	namespace
+	{
+		// Read a loose file straight off disk. The config folder holds loose files, which the mod manager's
+		// virtual file system makes visible to a normal file read. Returns "" if missing or unreadable.
+		std::string readLooseFile(const std::filesystem::path& path)
+		{
+			std::ifstream f(path, std::ios::binary);
+			if (!f)
+				return {};
+			std::ostringstream ss;
+			ss << f.rdbuf();
+			return ss.str();
+		}
+	}
+
 	void DefaultBBP::loadDefaultBBPs()
 	{
-		auto path = "SKSE/Plugins/hdtSkinnedMeshConfigs/defaultBBPs.xml";
+		// Two sources feed the same tables: the single legacy defaultBBPs.xml, and -- new -- every *.xml
+		// dropped into the sibling defaultBBPs/ folder. The folder lets many mods each ship their own
+		// mappings (for example one <creature> file per creature race) without the long-standing
+		// single-file conflict, where only one defaultBBPs.xml survives the mod manager's virtual file
+		// system and the rest are hidden.
+		//
+		// Precedence: the single defaultBBPs.xml is read FIRST, and every insert below keeps the FIRST value
+		// seen for a shape/skeleton key, so the legacy file stays authoritative and the folder is purely
+		// additive -- a folder file can only add mappings the single file does not already define, never
+		// silently change an existing one. Among folder files the alphabetically-earlier name wins (prefix a
+		// file with "00-" to raise its priority over other folder files). The folder is empty until a mod
+		// ships one, so no existing load order changes behavior.
+		auto single = readAllFile("SKSE/Plugins/hdtSkinnedMeshConfigs/defaultBBPs.xml");
+		parseDefaultBBPsDocument(single);
 
-		auto loaded = readAllFile(path);
+		// Raw filesystem so we can list the directory; the VFS makes each mod's loose files visible here.
+		namespace fs = std::filesystem;
+		const fs::path folder = "data/skse/plugins/hdtSkinnedMeshConfigs/defaultBBPs";
+		std::error_code ec;
+		if (!fs::is_directory(folder, ec))
+			return;
+
+		std::vector<fs::path> files;
+		for (fs::directory_iterator it(folder, ec), end; !ec && it != end; it.increment(ec)) {
+			if (!it->is_regular_file(ec))
+				continue;
+			std::string ext = it->path().extension().string();
+			std::transform(ext.begin(), ext.end(), ext.begin(),
+				[](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+			if (ext == ".xml")
+				files.push_back(it->path());
+		}
+		std::sort(files.begin(), files.end());
+
+		for (const fs::path& p : files) {
+			auto xml = readLooseFile(p);
+			parseDefaultBBPsDocument(xml);
+		}
+	}
+
+	// Parse one already-loaded <default-bbps> document into the tables. Shared by the single defaultBBPs.xml
+	// and each drop-in in the defaultBBPs/ folder. Every insert is first-wins, so the caller's feed order
+	// decides precedence between documents.
+	void DefaultBBP::parseDefaultBBPsDocument(std::string& loaded)
+	{
 		if (loaded.empty())
 			return;
 
