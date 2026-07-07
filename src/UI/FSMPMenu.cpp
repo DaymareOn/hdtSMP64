@@ -1207,17 +1207,17 @@ namespace
 		}
 
 		// Wireframe a SPARSE, evenly-sampled subset of the cropped collider triangles (collectColliderTris
-		// strides across the whole patch) in faint cyan, so the collider's extent is visible without the
-		// dense unreadable blob a full wireframe produced. 2D overlay, so lines are not depth-occluded.
-		const auto wire = IM_COL32(90, 210, 255, 70);
+		// strides across the whole patch) in bright cyan, so the collider surface is clearly visible (a coarse
+		// collision mesh is only a few hundred triangles). 2D overlay, so lines are not depth-occluded.
+		const auto wire = IM_COL32(90, 220, 255, 210);
 		for (size_t t = 0; t + 2 < a->m_colliderTris.size(); t += 3) {
 			ImGuiMCP::ImVec2 p0{}, p1{}, p2{};
 			if (!project(a->m_colliderTris[t], p0) || !project(a->m_colliderTris[t + 1], p1) ||
 				!project(a->m_colliderTris[t + 2], p2))
 				continue;
-			ImGuiMCP::ImDrawListManager::AddLine(draw, p0, p1, wire, 1.0f);
-			ImGuiMCP::ImDrawListManager::AddLine(draw, p1, p2, wire, 1.0f);
-			ImGuiMCP::ImDrawListManager::AddLine(draw, p2, p0, wire, 1.0f);
+			ImGuiMCP::ImDrawListManager::AddLine(draw, p0, p1, wire, 1.5f);
+			ImGuiMCP::ImDrawListManager::AddLine(draw, p1, p2, wire, 1.5f);
+			ImGuiMCP::ImDrawListManager::AddLine(draw, p2, p0, wire, 1.5f);
 		}
 	}
 

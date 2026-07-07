@@ -1031,8 +1031,9 @@ namespace hdt
 							keep = sqDistPointTri(m_clipCenter, worldPos[vi[0]], worldPos[vi[1]], worldPos[vi[2]]) <= r2;
 						if (!keep)
 							continue;
-						// Capture the kept triangle's world-space vertices for the debug wireframe overlay.
-						if (m_outClippedWorldTris)
+						// Capture the kept triangle's world-space vertices for the debug wireframe overlay, up to a
+						// cap so a huge render-mesh crop can't balloon this buffer (the overlay samples it anyway).
+						if (m_outClippedWorldTris && m_outClippedWorldTris->size() < 12000)
 							for (int k = 0; k < 3; ++k)
 								m_outClippedWorldTris->push_back(worldPos[vi[k]]);
 						for (int k = 0; k < 3; ++k) {

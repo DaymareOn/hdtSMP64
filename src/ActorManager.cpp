@@ -595,7 +595,7 @@ namespace hdt
 			                                         : RE::NiPointer<RE::NiCamera>();
 			m_colliderTris.clear();
 			if (m_visualizeWorldRaycasts)
-				World::instance()->collectColliderTris(m_colliderTris, 300);  // sparse, readable sample of the patch
+				World::instance()->collectColliderTris(m_colliderTris, 600);  // sparse, readable sample of the patch
 		}
 
 		for (auto& i : m_skeletons) {
@@ -1123,15 +1123,13 @@ namespace hdt
 		// SkyrimBone holds each node via NiPointer so the live nodes stay alive while we collide with them.
 		// Geometry is cropped to a sphere of `radius` around the actor (clipCenter), and the raw mesh is
 		// cached on the obstruction, so this rebuild re-crops from memory rather than re-reading the GPU.
-		// Only capture the debug wireframe triangles when the visualization is actually on -- otherwise this
-		// allocates and stores 3 world-space points per kept triangle on every re-crop for nothing.
-		const bool viz = ActorManager::instance()->m_visualizeWorldRaycasts;
-		if (!viz)
-			obstruction.colliderTris.clear();
+		// Always capture the debug wireframe triangles (bounded by the cap in the crop), so the visualization
+		// shows immediately when toggled on rather than only after the next re-crop. Cheap for a collision
+		// mesh; bounded for a render mesh.
 		std::unordered_map<RE::BSFixedString, RE::BSFixedString> noRename;
 		auto system = SkyrimSystemCreator().createOrUpdateSystem(node, obstruction.object.get(), &file,
 			std::move(noRename), nullptr, clipCenter, radius, &obstruction.cache,
-			viz ? &obstruction.colliderTris : nullptr, useCollisionMesh);
+			&obstruction.colliderTris, useCollisionMesh);
 		if (!system)
 			return;
 
