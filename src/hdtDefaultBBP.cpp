@@ -11,23 +11,25 @@ namespace hdt
 		return &s;
 	}
 
-	DefaultBBP::PhysicsFile_t DefaultBBP::scanEmbeddedBBP(RE::NiNode* scan)
+	std::optional<DefaultBBP::PhysicsFile_t> DefaultBBP::scanEmbeddedBBP(RE::NiNode* scan)
 	{
 		for (int i = 0; i < scan->extraDataSize; ++i) {
 			auto stringData = netimmerse_cast<RE::NiStringExtraData*>(scan->extra[i]);
 			if (stringData && stringData->name == "HDT Skinned Mesh Physics Object" && stringData->value) {
-				return { { std::string(stringData->value) }, defaultNameMap(scan) };
+				return PhysicsFile_t{ { std::string(stringData->value) }, defaultNameMap(scan) };
 			}
 		}
 
-		return { { std::string("") }, {} };
+		return std::nullopt;
 	}
 
 	DefaultBBP::PhysicsFile_t DefaultBBP::scanBBP(RE::NiNode* scan)
 	{
-		auto embedded = scanEmbeddedBBP(scan);
-		if (!embedded.first.empty()) {
-			return embedded;
+		// A present marker is authoritative even when its path is empty (malformed content): it must
+		// yield no physics rather than fall through to a defaultBBPs name-matching the author never
+		// asked for. Only markerless meshes consult the defaultBBPs mappings.
+		if (auto embedded = scanEmbeddedBBP(scan)) {
+			return *embedded;
 		}
 
 		return scanDefaultBBP(scan);

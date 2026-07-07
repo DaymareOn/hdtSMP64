@@ -21,11 +21,13 @@ namespace hdt
 		PhysicsFile_t scanBBP(RE::NiNode* scan);
 
 		// Physics file embedded directly on this node via the "HDT Skinned Mesh Physics Object"
-		// NiStringExtraData, with no defaultBBP name-matching fallback. The baked-geometry scan uses
-		// this so it only picks up meshes that explicitly opt in, and never auto-tags an ordinary
-		// creature body mesh the way scanBBP's defaultBBP fallback could. Returns an empty path when
-		// the node carries no such tag.
-		PhysicsFile_t scanEmbeddedBBP(RE::NiNode* scan);
+		// NiStringExtraData, with no defaultBBP name-matching involved. Returns nullopt when the node
+		// carries no marker at all, and the marker's content (whose path may be empty, for malformed
+		// content) when it does. The distinction matters: a present marker is AUTHORITATIVE. scanBBP
+		// consults the defaultBBPs name-matching only when no marker exists — an empty marker must
+		// yield no physics, never silently fall through to a defaultBBPs mapping. The baked-geometry
+		// scan uses this so it only picks up meshes that explicitly opt in.
+		std::optional<PhysicsFile_t> scanEmbeddedBBP(RE::NiNode* scan);
 
 		// Default physics file for a creature race, matched by its skeleton NIF path (as authored in the
 		// race record, e.g. "Actors\Canine\Character Assets\skeleton.nif"). This lets a mod add physics

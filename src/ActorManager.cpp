@@ -862,10 +862,14 @@ namespace hdt
 				continue;
 			}
 
-			if (auto file = DefaultBBP::instance()->scanEmbeddedBBP(node); !file.first.empty()) {
-				logger::info("Baked SMP outfit found on {} node {} -> {}", skeleton.name(), node->name.c_str(), file.first.c_str());
-				skeleton.addBakedArmor(node, file);
-				continue;
+			if (auto file = DefaultBBP::instance()->scanEmbeddedBBP(node)) {
+				// A marker with an empty path is malformed content: no physics from it (fail closed),
+				// but keep walking — children carrying valid markers are independent outfits.
+				if (!file->first.empty()) {
+					logger::info("Baked SMP outfit found on {} node {} -> {}", skeleton.name(), node->name.c_str(), file->first.c_str());
+					skeleton.addBakedArmor(node, *file);
+					continue;
+				}
 			}
 
 			for (auto& child : node->GetChildren()) {
