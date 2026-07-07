@@ -672,12 +672,11 @@ namespace hdt
 
 			{
 				BT_PROFILE("dispatch");
-				if (pairs.size() >= 32)
-					// isolate: thread parked here waiting for inner work must not steal an outer
-					// Note: If this is ever changed from isolate, you'll need to review tons of thread_local usage!
-					tbb::this_task_arena::isolate([&] { tbb::parallel_for_each(pairs.begin(), pairs.end(), func); });
-				else
-					for (auto& i : pairs) func(i);
+				// Serial on purpose: per-pair work is now tiny, so a nested parallel_for_each spent most
+				// of its time in barrier-waits; the outer body-pair parallelism already fills the threads
+				// (measured, see docs/COLLISIONS PERFORMANCE ANALYSIS.md §4). Serial also removes the
+				// isolate()/thread_local re-entrancy hazard nested tasks required.
+				for (auto& i : pairs) func(i);
 			}
 
 			return this->numResults;
