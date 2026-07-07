@@ -85,7 +85,7 @@ namespace hdt
 						auto skeleton = reader.getAttribute("skeleton");
 						auto file = reader.getAttribute("file");
 						std::transform(skeleton.begin(), skeleton.end(), skeleton.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-						logger::info("[creature-smp] defaultBBP creature entry: skeleton '{}' -> '{}'", skeleton, file);
+						logger::debug("creature physics: defaultBBPs entry skeleton '{}' -> '{}'", skeleton, file);
 						creatureFileList.insert(std::make_pair(skeleton, file));
 					} catch (...) {
 						logger::warn("defaultBBP({},{}) : invalid creature", reader.GetRow(), reader.GetColumn());
