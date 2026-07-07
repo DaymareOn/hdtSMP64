@@ -815,6 +815,13 @@ namespace hdt
 			return;
 		}
 
+		// The user can turn the feature off between an actor being queued and its 3D being built
+		// (menu toggle + reset). Off means off: drop the whole queue instead of scanning it.
+		if (!m_enableCreaturePhysics) {
+			m_pendingBakedScan.clear();
+			return;
+		}
+
 		for (auto it = m_pendingBakedScan.begin(); it != m_pendingBakedScan.end();) {
 			auto* actor = RE::TESForm::LookupByID<RE::Actor>(it->first);
 
