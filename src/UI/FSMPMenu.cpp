@@ -15,6 +15,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 #include <ctime>
 #include <filesystem>
@@ -1189,10 +1190,14 @@ namespace
 
 		// WorldPtToScreenPt3 gives normalized port coordinates (x,y in [0,1] with y measured upward) and
 		// returns false when the point is behind the camera; map that to ImGui's top-left pixel space.
+		int projOk = 0, projFail = 0;  // per-frame projection tallies for the diagnostic readout below
 		const auto project = [&](const RE::NiPoint3& p, ImGuiMCP::ImVec2& out) -> bool {
 			float x = 0.f, y = 0.f, z = 0.f;
-			if (!cam->WorldPtToScreenPt3(p, x, y, z, 1e-5f))
+			if (!cam->WorldPtToScreenPt3(p, x, y, z, 1e-5f)) {
+				++projFail;
 				return false;
+			}
+			++projOk;
 			out = ImGuiMCP::ImVec2(x * sw, (1.0f - y) * sh);
 			return true;
 		};
@@ -1223,6 +1228,22 @@ namespace
 			ImGuiMCP::ImDrawListManager::AddLine(draw, p1, p2, wire, 1.5f);
 			ImGuiMCP::ImDrawListManager::AddLine(draw, p2, p0, wire, 1.5f);
 		}
+
+		// Diagnostic readout next to the dot: how much data reached us and how projection fared, plus the
+		// camera and first-triangle world positions. If the triangles sit far from the camera, the Lever B
+		// havok decode placed them wrong; if proj is all failures, the camera matrix is not usable.
+		char diag[192];
+		const auto camPos = cam->world.translate;
+		if (a->m_colliderTris.empty())
+			std::snprintf(diag, sizeof(diag), "rays=%zu tris=0 proj=%d ok/%d fail cam=(%.0f,%.0f,%.0f)",
+				a->m_rayViz.size(), projOk, projFail, camPos.x, camPos.y, camPos.z);
+		else
+			std::snprintf(diag, sizeof(diag),
+				"rays=%zu tris=%zu proj=%d ok/%d fail cam=(%.0f,%.0f,%.0f) tri0=(%.0f,%.0f,%.0f)",
+				a->m_rayViz.size(), a->m_colliderTris.size() / 3, projOk, projFail,
+				camPos.x, camPos.y, camPos.z,
+				a->m_colliderTris[0].x, a->m_colliderTris[0].y, a->m_colliderTris[0].z);
+		ImGuiMCP::ImDrawListManager::AddText(draw, ImGuiMCP::ImVec2(40.f, 17.f), IM_COL32(255, 255, 255, 255), diag);
 	}
 
 	// The compact gameplay overlay. The framework invokes this callback without a surrounding Begin() ---
