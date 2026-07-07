@@ -739,6 +739,13 @@ namespace hdt
 		for (int guard = 0; shape && guard < 8; ++guard) {
 			if (shape->type == RE::hkpShapeType::kCompressedMesh)
 				return static_cast<const RE::hkpCompressedMeshShape*>(shape);
+			// A MOPP wraps the collection directly in its child member. Do NOT go through GetContainer()
+			// here: that returns the wrapped COLLECTION's container interface, whose GetChildShape decodes
+			// a single triangle of the mesh -- which would skip right past the compressed mesh we want.
+			if (shape->type == RE::hkpShapeType::kMOPP) {
+				shape = static_cast<const RE::hkpMoppBvTreeShape*>(shape)->child.childShape;
+				continue;
+			}
 			const RE::hkpShapeContainer* container = shape->GetContainer();
 			if (!container)
 				return nullptr;
