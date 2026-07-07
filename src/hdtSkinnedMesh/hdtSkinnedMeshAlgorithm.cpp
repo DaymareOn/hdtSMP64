@@ -421,7 +421,9 @@ namespace hdt
 		{
 			if (this->numResults.load(std::memory_order_relaxed) >= SkinnedMeshAlgorithm::MaxCollisionCount)
 				return;
-			BT_PROFILE("dispatch_body");
+			// Deliberately NOT profiled: entered millions of times/frame; the enter/leave overhead
+			// inflates the profile ~3x (see docs/COLLISIONS PERFORMANCE ANALYSIS.md §6).
+			// BT_PROFILE("dispatch_body");
 
 			if (!(listA.size() && listB.size()))
 				return;
@@ -640,7 +642,8 @@ namespace hdt
 				listB.reserve(bsize);
 
 				{
-					BT_PROFILE("filter_lists");
+					// Deliberately NOT profiled: per-node-pair scope, see dispatch_body note above.
+					// BT_PROFILE("filter_lists");
 					// Colliders in A that intersect full bounding box of B. Compute a new bounding box for just those - this
 					// can be MUCH smaller than the original bounding box for A (consider the case where we have two spheres
 					// colliding, offset by an equal amount in all three axes).
