@@ -66,10 +66,11 @@ void StrandHair::SetupResources()
 		rt.RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
 		device->CreateBlendState(&bd, m_blendState.put());
 	}
-	{  // PoC: depth test OFF so first light-up is guaranteed visible. Correct occlusion (bind the
-	   // main DSV + LESS_EQUAL like TerrainBlending) is the next step once we confirm it draws.
+	{  // Depth test against the scene (LESS_EQUAL) so heads/walls occlude hair; no depth write,
+	   // since alpha-blended ribbons must not punch holes into later transparents.
 		D3D11_DEPTH_STENCIL_DESC dd{};
-		dd.DepthEnable = FALSE;
+		dd.DepthEnable = TRUE;
+		dd.DepthFunc = D3D11_COMPARISON_LESS_EQUAL;
 		dd.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
 		device->CreateDepthStencilState(&dd, m_depthState.put());
 	}
@@ -164,10 +165,17 @@ void StrandHair::PostOpaque()
 				bead.t = static_cast<float>(v) / static_cast<float>(d.vertsPerStrand - 1);
 				m_beadScratch.push_back(bead);
 			}
+			// Each segment is a camera-facing quad over the doubled vertex ids the VS expands
+			// (bead i -> vertices 2i / 2i+1 for the ribbon's two sides).
 			for (std::uint32_t v = 0; v + 1 < d.vertsPerStrand; ++v) {
-				const std::uint32_t idx = vbase + s * d.vertsPerStrand + v;
-				m_indexScratch.push_back(idx);
-				m_indexScratch.push_back(idx + 1);
+				const std::uint32_t b0 = (vbase + s * d.vertsPerStrand + v) * 2;
+				const std::uint32_t b1 = b0 + 2;
+				m_indexScratch.push_back(b0);
+				m_indexScratch.push_back(b0 + 1);
+				m_indexScratch.push_back(b1);
+				m_indexScratch.push_back(b0 + 1);
+				m_indexScratch.push_back(b1 + 1);
+				m_indexScratch.push_back(b1);
 			}
 		}
 
@@ -192,8 +200,10 @@ void StrandHair::PostOpaque()
 		auto* cb = static_cast<StrandCB*>(mapped.pData);
 		const float ld[4] = { 0.3f, 0.5f, 0.7f, 0.0f };  // world-space "to light" (Z up); tune in-game
 		const float lc[4] = { 1.0f, 0.97f, 0.9f, 1.0f };
+		const float pr[4] = { 0.4f * settings.radiusScale, 0.0f, 0.0f, 0.0f };  // ribbon half-width
 		std::memcpy(cb->lightDir, ld, sizeof(ld));
 		std::memcpy(cb->lightColor, lc, sizeof(lc));
+		std::memcpy(cb->params, pr, sizeof(pr));
 		context->Unmap(m_strandCB.get(), 0);
 	}
 
@@ -204,14 +214,15 @@ void StrandHair::PostOpaque()
 
 	auto& main = renderer->GetRuntimeData().renderTargets[RE::RENDER_TARGETS::kMAIN];
 	ID3D11RenderTargetView* rtv = main.RTV;
-	context->OMSetRenderTargets(1, &rtv, nullptr);  // depth off for first light-up (see SetupResources)
+	ID3D11DepthStencilView* dsv = renderer->GetDepthStencilData().depthStencils[RE::RENDER_TARGETS_DEPTHSTENCIL::kMAIN].views[0];
+	context->OMSetRenderTargets(1, &rtv, dsv);  // scene depth: heads/walls occlude the ribbons
 
 	const float blendFactor[4] = { 0, 0, 0, 0 };
 	context->OMSetBlendState(m_blendState.get(), blendFactor, 0xFFFFFFFF);
 	context->OMSetDepthStencilState(m_depthState.get(), 0);
 	context->RSSetState(m_rasterState.get());
 	context->IASetInputLayout(nullptr);
-	context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINELIST);
+	context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	context->IASetIndexBuffer(m_indexBuffer.get(), DXGI_FORMAT_R32_UINT, 0);
 	ID3D11Buffer* nullVB = nullptr;
 	UINT zero = 0;
