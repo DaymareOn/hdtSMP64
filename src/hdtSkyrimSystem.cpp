@@ -685,6 +685,46 @@ namespace hdt
 		return nullptr;
 	}
 
+	// Squared distance from point p to triangle (a,b,c). Standard closest-feature test (Ericson, Real-Time
+	// Collision Detection): find whether the closest point lies on a vertex, an edge, or the face interior,
+	// and return the squared distance to it. Used by the obstruction crop so a big floor triangle is kept
+	// when the clip sphere touches its SURFACE, even if all three of its vertices are outside the sphere --
+	// the previous vertex-only test dropped exactly those large triangles the feature needs.
+	static float sqDistPointTri(const RE::NiPoint3& p, const RE::NiPoint3& a, const RE::NiPoint3& b, const RE::NiPoint3& c)
+	{
+		const RE::NiPoint3 ab = b - a, ac = c - a, ap = p - a;
+		const float d1 = ab.Dot(ap), d2 = ac.Dot(ap);
+		if (d1 <= 0.f && d2 <= 0.f)
+			return ap.SqrLength();  // closest is vertex A
+		const RE::NiPoint3 bp = p - b;
+		const float d3 = ab.Dot(bp), d4 = ac.Dot(bp);
+		if (d3 >= 0.f && d4 <= d3)
+			return bp.SqrLength();  // vertex B
+		const float vc = d1 * d4 - d3 * d2;
+		if (vc <= 0.f && d1 >= 0.f && d3 <= 0.f) {
+			const float v = d1 / (d1 - d3);
+			return (ap - ab * v).SqrLength();  // edge AB
+		}
+		const RE::NiPoint3 cp = p - c;
+		const float d5 = ab.Dot(cp), d6 = ac.Dot(cp);
+		if (d6 >= 0.f && d5 <= d6)
+			return cp.SqrLength();  // vertex C
+		const float vb = d5 * d2 - d1 * d6;
+		if (vb <= 0.f && d2 >= 0.f && d6 <= 0.f) {
+			const float w = d2 / (d2 - d6);
+			return (ap - ac * w).SqrLength();  // edge AC
+		}
+		const float va = d3 * d6 - d5 * d4;
+		if (va <= 0.f && (d4 - d3) >= 0.f && (d5 - d6) >= 0.f) {
+			const float w = (d4 - d3) / ((d4 - d3) + (d5 - d6));
+			return (bp - (c - b) * w).SqrLength();  // edge BC
+		}
+		const float denom = 1.f / (va + vb + vc);
+		const float v = vb * denom, w = vc * denom;
+		const RE::NiPoint3 closest = a + ab * v + ac * w;
+		return (p - closest).SqrLength();  // face interior
+	}
+
 	std::pair<RE::BSTSmartPointer<SkyrimBody>, SkyrimSystemCreator::VertexOffsetMap> SkyrimSystemCreator::generateMeshBody(const std::string name, DefaultBBP::NameSet_t* names)
 	{
 		RE::BSTSmartPointer<SkyrimBody> body = RE::make_smart<SkyrimBody>();
@@ -730,10 +770,21 @@ namespace hdt
 				}
 
 				// skin-to-bone maps the mesh's rest vertices into the parent (bone) frame; that is just
-				// the mesh's local transform. Bound comes straight from the geometry's model bound.
-				const auto modelBound = triShape->GetModelData().modelBound;
-				const auto boundingSphere = BoundingSphere(convertNi(modelBound.center), modelBound.radius);
-				body->addBone(bone, convertNi(triShape->local), boundingSphere);
+				// the mesh's local transform. For a cropped obstruction, use the CLIP SPHERE (in this mesh's
+				// local space) as the bone bound instead of the whole-mesh model bound: otherwise the
+				// broadphase AABB covers the entire monolithic cell mesh and every actor in the cell pairs
+				// with the obstruction (and pays its per-frame update) even thousands of units away.
+				RE::NiPoint3 boundCenter;
+				float boundRadius;
+				if (m_clipRadius > 0.f) {
+					boundCenter = triShape->world.Invert() * m_clipCenter;  // world -> mesh-local
+					boundRadius = m_clipRadius;
+				} else {
+					const auto modelBound = triShape->GetModelData().modelBound;
+					boundCenter = modelBound.center;
+					boundRadius = modelBound.radius;
+				}
+				body->addBone(bone, convertNi(triShape->local), BoundingSphere(convertNi(boundCenter), boundRadius));
 
 				auto vDesc = grd.vertexDesc;
 				const auto vSize = vDesc.GetSize();
@@ -792,10 +843,13 @@ namespace hdt
 					}
 
 					const float r2 = m_clipRadius * m_clipRadius;
+					// World positions of every source vertex (once): reused for the near flag, the
+					// sphere-vs-triangle test, and the debug wireframe capture.
+					std::vector<RE::NiPoint3> worldPos(geom.localPos.size());
 					std::vector<uint8_t> nearFlag(geom.localPos.size(), 0);
 					for (size_t j = 0; j < geom.localPos.size(); ++j) {
-						const RE::NiPoint3 wp = geom.world * geom.localPos[j];
-						if ((m_clipCenter - wp).SqrLength() <= r2)
+						worldPos[j] = geom.world * geom.localPos[j];
+						if ((m_clipCenter - worldPos[j]).SqrLength() <= r2)
 							nearFlag[j] = 1;
 					}
 
@@ -803,12 +857,18 @@ namespace hdt
 					auto& kept = m_clippedTris[std::string(meshName)];
 					for (size_t t = 0; t + 2 < geom.indices.size(); t += 3) {
 						const uint16_t vi[3] = { geom.indices[t], geom.indices[t + 1], geom.indices[t + 2] };
-						if (!(nearFlag[vi[0]] || nearFlag[vi[1]] || nearFlag[vi[2]]))
+						// Keep the triangle if any vertex is inside the sphere (cheap common case), or if the
+						// sphere reaches the triangle's surface -- the latter catches large floor triangles
+						// whose vertices are all outside the sphere but whose face is right under the actor.
+						bool keep = nearFlag[vi[0]] || nearFlag[vi[1]] || nearFlag[vi[2]];
+						if (!keep)
+							keep = sqDistPointTri(m_clipCenter, worldPos[vi[0]], worldPos[vi[1]], worldPos[vi[2]]) <= r2;
+						if (!keep)
 							continue;
 						// Capture the kept triangle's world-space vertices for the debug wireframe overlay.
 						if (m_outClippedWorldTris)
 							for (int k = 0; k < 3; ++k)
-								m_outClippedWorldTris->push_back(geom.world * geom.localPos[vi[k]]);
+								m_outClippedWorldTris->push_back(worldPos[vi[k]]);
 						for (int k = 0; k < 3; ++k) {
 							if (remap[vi[k]] < 0) {
 								remap[vi[k]] = static_cast<int>(body->m_vertices.size());

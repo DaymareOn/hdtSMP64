@@ -912,62 +912,64 @@ namespace hdt
 	static constexpr float kHighlightDuration = 2.0f;
 	static constexpr int kHighlightRefreshFrames = 90;
 
-	// A cyan glow effect shader, built once at runtime (no ESP/FormID needed) and reused to highlight every
-	// collided object. It colourises a grayscale fill texture that ships with the game (kGreyscaleToColor),
-	// blended additively and depth-tested so the glow is occluded correctly by geometry in front of it.
+	// A cyan glow effect shader used to highlight every collided object. The earlier version forged a
+	// TESEffectShader from a zeroed factory form and set kGreyscaleToColor without a membrane palette --
+	// which samples black and renders nothing under additive blend, so no glow ever appeared. Instead we
+	// CLONE a real vanilla effect shader (its data went through Load/InitItemImpl and its textures exist),
+	// then recolour it: drop greyscale-to-colour so the fill colour keys drive the tint, force cyan on the
+	// fill and the edge rim, and disable the particle pass. Returns null (retrying next frame) until the
+	// game data is loaded and a usable source shader is found.
 	static RE::TESEffectShader* getHighlightShader()
 	{
 		static RE::TESEffectShader* shader = nullptr;
 		if (shader)
 			return shader;
 
+		auto* dh = RE::TESDataHandler::GetSingleton();
+		if (!dh)
+			return nullptr;
+
+		// Pick a vanilla shader that already renders a full-object membrane: it must have a fill texture;
+		// prefer one that also has a membrane palette (a colourised membrane glow), which is the closest
+		// match to what we want and guarantees complete, game-authored shader data + real textures.
+		RE::TESEffectShader* src = nullptr;
+		for (auto* efsh : dh->GetFormArray<RE::TESEffectShader>()) {
+			if (!efsh || !efsh->fillTexture.textureName.size())
+				continue;
+			src = efsh;
+			if (efsh->membranePaletteTexture.textureName.size())
+				break;
+		}
+		if (!src)
+			return nullptr;
+
 		auto* factory = RE::IFormFactory::GetConcreteFormFactoryByType<RE::TESEffectShader>();
 		auto* s = factory ? factory->Create() : nullptr;
 		if (!s)
 			return nullptr;
 
-		auto& d = s->data;
+		// Clone the complete vanilla data + every texture path, then recolour to cyan.
+		s->data = src->data;
+		s->fillTexture.textureName = src->fillTexture.textureName;
+		s->membranePaletteTexture.textureName = src->membranePaletteTexture.textureName;
+		s->particleShaderTexture.textureName = src->particleShaderTexture.textureName;
+		s->holesTexture.textureName = src->holesTexture.textureName;
+		s->particlePaletteTexture.textureName = src->particlePaletteTexture.textureName;
+
 		const RE::Color cyan(0x40, 0xE0, 0xFF, 0xFF);
-		d.flags = RE::EffectShaderData::Flags::kGreyscaleToColor;
-
-		// D3DBLEND/D3DBLENDOP are opaque (forward-declared) enums here, so use raw D3D9 values:
-		// SRCALPHA=5, ONE=2 (additive), ADD=1.
-		d.membraneShaderSourceBlendMode = static_cast<RE::D3DBLEND>(5);
-		d.membraneShaderDestBlendMode = static_cast<RE::D3DBLEND>(2);
-		d.membraneShaderBlendOperation = static_cast<RE::D3DBLENDOP>(1);
-		d.membraneShaderZTestFunction = RE::D3DCMPFUNC::kLessEqual;
-
+		auto& d = s->data;
+		// Greyscale-to-colour takes its colour from the palette, not the colour keys; drop it so our cyan
+		// keys tint the fill, and turn off the particle pass we do not use.
+		d.flags.reset(RE::EffectShaderData::Flags::kGreyscaleToColor);
+		d.flags.set(RE::EffectShaderData::Flags::kDisableParticleShader);
 		d.fillTextureEffectColorKey1 = cyan;
 		d.fillTextureEffectColorKey2 = cyan;
 		d.fillTextureEffectColorKey3 = cyan;
-		d.fillTextureEffectColorKeyScaleTimeColorKey1Scale = 1.f;
-		d.fillTextureEffectColorKeyScaleTimeColorKey2Scale = 1.f;
-		d.fillTextureEffectColorKeyScaleTimeColorKey3Scale = 1.f;
-		d.fillTextureEffectColorKeyScaleTimeColorKey1Time = 0.f;
-		d.fillTextureEffectColorKeyScaleTimeColorKey2Time = 0.5f;
-		d.fillTextureEffectColorKeyScaleTimeColorKey3Time = 1.f;
-		d.fillTextureEffectAlphaFadeInTime = 0.2f;
-		d.fillTextureEffectFullAlphaTime = 1.f;
-		d.fillTextureEffectAlphaFadeOutTime = 0.2f;
-		d.fillTextureEffectPersistentAlphaRatio = 1.f;
-		d.fillTextureEffectFullAlphaRatio = 1.f;
-		d.fillTextureEffectTextureScaleU = 1.f;
-		d.fillTextureEffectTextureScaleV = 1.f;
-		d.textureCountU = 1.f;
-		d.textureCountV = 1.f;
-		d.colorScale = 1.f;
-
-		// A matching rim so edges read clearly.
-		d.edgeEffectColor = cyan;
 		d.edgeColor = cyan;
-		d.edgeEffectFallOff = 1.5f;
-		d.edgeEffectAlphaFadeInTime = 0.2f;
-		d.edgeEffectFullAlphaTime = 1.f;
-		d.edgeEffectAlphaFadeOutTime = 0.2f;
-		d.edgeEffectPersistentAlphaRatio = 1.f;
-		d.edgeEffectFullAlphaRatio = 1.f;
+		d.edgeEffectColor = cyan;
+		if (d.edgeWidthAlphaUnits <= 0.f)
+			d.edgeWidthAlphaUnits = 8.f;  // the forged version left this 0, so the edge rim had no width
 
-		s->fillTexture.textureName = "Effects\\ScrShdrCircle01.dds";
 		shader = s;
 		return shader;
 	}
@@ -1050,12 +1052,19 @@ namespace hdt
 		obstruction.timeout = kObstructionTimeout;
 		obstruction.ownerTimeout = kOwnerTimeout;
 		buildObstruction(obstruction, clipCenter, radius);
-		if (!obstruction.hasPhysics())
-			m_obstructions.pop_back();  // nothing near the actor yet; re-added when the actor gets closer
+		// Keep the entry even if the crop produced no collider this time: buildObstruction has already read
+		// the mesh into the cache (the expensive part), so we must NOT drop it -- a re-add would re-read the
+		// whole mesh from the GPU on the next probe. builtAt is set unconditionally, so the re-crop throttle
+		// engages and we only retry once the actor has moved, reusing the warm cache.
 	}
 
 	void ActorManager::World::buildObstruction(Obstruction& obstruction, RE::NiPoint3 clipCenter, float radius)
 	{
+		// Record where we (re)cropped regardless of outcome, so the move-based re-crop throttle always
+		// engages -- a failed or empty crop must not leave builtAt at the origin, which would re-crop every
+		// frame. An empty crop keeps the (now warm) cache and simply has no collider until the actor moves.
+		obstruction.builtAt = clipCenter;
+
 		auto* node = obstruction.object.get() ? obstruction.object->AsNode() : nullptr;
 		if (!node)
 			return;
@@ -1075,14 +1084,19 @@ namespace hdt
 		// SkyrimBone holds each node via NiPointer so the live nodes stay alive while we collide with them.
 		// Geometry is cropped to a sphere of `radius` around the actor (clipCenter), and the raw mesh is
 		// cached on the obstruction, so this rebuild re-crops from memory rather than re-reading the GPU.
+		// Only capture the debug wireframe triangles when the visualization is actually on -- otherwise this
+		// allocates and stores 3 world-space points per kept triangle on every re-crop for nothing.
+		const bool viz = ActorManager::instance()->m_visualizeWorldRaycasts;
+		if (!viz)
+			obstruction.colliderTris.clear();
 		std::unordered_map<RE::BSFixedString, RE::BSFixedString> noRename;
 		auto system = SkyrimSystemCreator().createOrUpdateSystem(node, obstruction.object.get(), &file,
-			std::move(noRename), nullptr, clipCenter, radius, &obstruction.cache, &obstruction.colliderTris);
+			std::move(noRename), nullptr, clipCenter, radius, &obstruction.cache,
+			viz ? &obstruction.colliderTris : nullptr);
 		if (!system)
 			return;
 
 		obstruction.setPhysics(system, true);  // swaps in the new (re-cropped) collider, unregistering the old
-		obstruction.builtAt = clipCenter;
 		++m_buildsThisFrame;  // overlay diagnostic: how many rebuilds happened this frame
 	}
 
