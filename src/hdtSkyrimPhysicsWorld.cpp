@@ -121,7 +121,14 @@ namespace hdt
 				const int steps = std::min(static_cast<int>(m_accumulatedInterval / fixedStep), m_maxSubSteps);
 				const auto remainingTimeStep = steps * fixedStep;
 
-				readTransform(remainingTimeStep);
+				{
+					// The previous frame's background step may still be running: bone rigid bodies must not
+					// be written while stepSimulation reads them, so wait for it by taking the same lock it
+					// holds. readTransform's inner parallel loop is isolated (see hdtSkinnedMeshWorld.h), so
+					// a thread parked there cannot steal the queued step task and self-deadlock on this lock.
+					std::lock_guard<decltype(m_lock)> l(m_lock);
+					readTransform(remainingTimeStep);
+				}
 
 				m_resetPc -= m_resetPc > 0;
 
