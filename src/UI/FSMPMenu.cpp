@@ -716,9 +716,18 @@ namespace
 			ImGuiMCP::EndDisabled();
 			endRows();
 		}
+	}
+
+	// A page for experimental, opt-in features: things that are off by default and only do something once
+	// you supply the content or spend the extra performance. Creature & animal physics lives here.
+	void ExperimentalBody()
+	{
+		filterBox();
+		auto* a = ActorManager::instance();
+		const GlobalConfig& d = hdt::shippedDefaults();
 
 		section(fa::Bolt, "Creatures & animals");
-		if (beginRows("simpl.creatures")) {
+		if (beginRows("exp.creatures")) {
 			if (rowCheck("Enable creature & animal physics",
 					"Apply SMP to loaded creatures and animals, not just humanoids. Covers physics baked "
 					"into a creature's body/skeleton mesh and per-race defaults declared in defaultBBPs.xml; "
@@ -1579,6 +1588,11 @@ namespace
 		chrome();
 		PerformanceBody();
 	}
+	void __stdcall RenderExperimental()
+	{
+		chrome();
+		ExperimentalBody();
+	}
 	void __stdcall RenderWind()
 	{
 		chrome();
@@ -1617,6 +1631,7 @@ namespace hdt::FSMPMenu
 		SKSEMenuFramework::AddSectionItem(tr("Presets"), RenderPresets);
 		SKSEMenuFramework::AddSectionItem(tr("Simplification"), RenderSimplification);
 		SKSEMenuFramework::AddSectionItem(tr("Performance"), RenderPerformance);
+		SKSEMenuFramework::AddSectionItem(tr("Experimental"), RenderExperimental);
 		SKSEMenuFramework::AddSectionItem(tr("Wind"), RenderWind);
 		SKSEMenuFramework::AddSectionItem(tr("Commands"), RenderCommands);
 		SKSEMenuFramework::AddSectionItem(tr("Measures"), RenderMeasures);
