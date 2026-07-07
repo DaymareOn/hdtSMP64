@@ -1,0 +1,88 @@
+diff --git a/src/Deferred.cpp b/src/Deferred.cpp
+index 9b87009..72abb7d 100644
+--- a/src/Deferred.cpp
++++ b/src/Deferred.cpp
+@@ -680,6 +680,9 @@ void Deferred::Hooks::Main_RenderWorld_BlendedDecals::thunk(RE::BSShaderAccumula
+ 
+ 	deferred->EndDeferred();
+ 
++	// StrandHair PoC: draw FSMP-simulated wig strands over the opaque, lit scene (before water).
++	Feature::ForEachLoadedFeature("PostOpaque", [](Feature* feat) { feat->PostOpaque(); });
++
+ 	// Copy depth from before water
+ 	auto renderer = globals::game::renderer;
+ 	auto context = globals::d3d::context;
+diff --git a/src/Feature.cpp b/src/Feature.cpp
+index b283011..e2955ed 100644
+--- a/src/Feature.cpp
++++ b/src/Feature.cpp
+@@ -12,6 +12,7 @@
+ #include "Features/GrassLighting.h"
+ #include "Features/HDRDisplay.h"
+ #include "Features/HairSpecular.h"
++#include "Features/StrandHair.h"
+ #include "Features/IBL.h"
+ #include "Features/InteriorSun.h"
+ #include "Features/InverseSquareLighting.h"
+@@ -240,6 +241,7 @@ const std::vector<Feature*>& Feature::GetFeatureList()
+ 		&globals::features::lodBlending,
+ 		&globals::features::inverseSquareLighting,
+ 		&globals::features::hairSpecular,
++		&globals::features::strandHair,
+ 		&globals::features::interiorSun,
+ 		&globals::features::terrainVariation,
+ 		&globals::features::ibl,
+diff --git a/src/Feature.h b/src/Feature.h
+index 2498fde..3df6db5 100644
+--- a/src/Feature.h
++++ b/src/Feature.h
+@@ -166,6 +166,9 @@ public:
+ 	/** @brief Per-frame work executed before Prepass, earliest per-frame hook. */
+ 	virtual void EarlyPrepass() {}
+ 
++	/** @brief Per-frame work executed after opaque geometry, before water (custom CS-fork hook; see Deferred::Hooks::Main_RenderWorld_BlendedDecals). Used to draw over the lit scene. */
++	virtual void PostOpaque() {}
++
+ 	/**
+ 	 * @brief Called during disk-cache shader loading to generate additional shader permutations.
+ 	 *
+diff --git a/src/Globals.cpp b/src/Globals.cpp
+index 8a13ff9..5d74cc9 100644
+--- a/src/Globals.cpp
++++ b/src/Globals.cpp
+@@ -23,6 +23,7 @@
+ #include "Features/ScreenSpaceShadows.h"
+ #include "Features/ScreenshotFeature.h"
+ #include "Features/Skin.h"
++#include "Features/StrandHair.h"
+ #include "Features/SkySync.h"
+ #include "Features/Skylighting.h"
+ #include "Features/SubsurfaceScattering.h"
+@@ -65,6 +66,7 @@ namespace globals
+ 		LinearLighting linearLighting{};
+ 		LODBlending lodBlending{};
+ 		HairSpecular hairSpecular{};
++		StrandHair strandHair{};
+ 		InteriorSun interiorSun{};
+ 		InverseSquareLighting inverseSquareLighting{};
+ 		ScreenSpaceGI screenSpaceGI{};
+diff --git a/src/Globals.h b/src/Globals.h
+index b48db66..bde707d 100644
+--- a/src/Globals.h
++++ b/src/Globals.h
+@@ -37,6 +37,7 @@ struct ExponentialHeightFog;
+ struct HDRDisplay;
+ struct ScreenshotFeature;
+ struct Skin;
++struct StrandHair;
+ 
+ class State;
+ class Deferred;
+@@ -94,6 +95,7 @@ namespace globals
+ 		extern GrassCollision grassCollision;
+ 		extern GrassLighting grassLighting;
+ 		extern HairSpecular hairSpecular;
++		extern StrandHair strandHair;
+ 		extern IBL ibl;
+ 		extern LightLimitFix lightLimitFix;
+ 		extern LinearLighting linearLighting;
