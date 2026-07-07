@@ -1106,8 +1106,11 @@ namespace hdt
 		DefaultBBP::NameSet_t names;
 		if (useCollisionMesh) {
 			auto* tri = firstNamedTriShape(node);
-			if (!tri)
+			if (!tri) {
+				logger::info("world collision: no named trishape under '{}' to anchor the collision mesh on",
+					node->name.c_str());
 				return;
+			}
 			names.insert(std::string(tri->name.c_str()));
 		} else {
 			collectTrishapeNames(node, names);

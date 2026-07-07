@@ -757,12 +757,16 @@ namespace hdt
 			return;
 		if (auto* col = obj->GetCollisionObject())
 			if (auto* rb = col->GetRigidBody())
-				if (auto* hkrb = rb->GetRigidBody())
+				if (auto* hkrb = rb->GetRigidBody()) {
 					if (auto* mesh = asCompressedMesh(hkrb->GetShape())) {
 						RE::hkTransform xf;
 						rb->GetTransform(xf);
 						out.emplace_back(mesh, xf);
+					} else if (auto* shape = hkrb->GetShape()) {
+						logger::info("world collision: node '{}' has collision shape type {} (not a compressed mesh), skipped",
+							obj->name.c_str(), static_cast<int>(shape->type));
 					}
+				}
 		if (auto* node = obj->AsNode())
 			for (auto& child : node->GetChildren())
 				gatherCollisionMeshes(child.get(), out);
@@ -834,8 +838,12 @@ namespace hdt
 	{
 		std::vector<RE::NiPoint3> world;
 		std::vector<uint32_t> idx;
-		if (!extractCollisionMesh(objectRoot, world, idx))
+		if (!extractCollisionMesh(objectRoot, world, idx)) {
+			logger::info("world collision: no extractable collision mesh under '{}'", objectRoot->name.c_str());
 			return false;
+		}
+		logger::info("world collision: extracted {} verts / {} tris from '{}' havok collision",
+			world.size(), idx.size() / 3, objectRoot->name.c_str());
 		geom.world = tri->world;
 		const RE::NiTransform inv = tri->world.Invert();
 		geom.localPos.resize(world.size());
@@ -915,7 +923,9 @@ namespace hdt
 				const auto& grd = triShape->GetGeometryRuntimeData();
 				auto* renderer = grd.rendererData;
 				const auto vertexCount = triShape->GetTrishapeRuntimeData().vertexCount;
-				if (!parentNode || !renderer || !renderer->rawVertexData || vertexCount == 0) {
+				// Collision-mesh mode never reads the render buffers (geometry comes from havok), so it must
+				// not require them: many statics keep no CPU-visible copy of their render geometry.
+				if (!parentNode || (!m_useCollisionMesh && (!renderer || !renderer->rawVertexData || vertexCount == 0))) {
 					continue;
 				}
 
@@ -949,7 +959,8 @@ namespace hdt
 				auto vDesc = grd.vertexDesc;
 				const auto vSize = vDesc.GetSize();
 				const bool fullPrec = vDesc.HasFlag(RE::BSGraphics::Vertex::Flags::VF_FULLPREC);
-				uint8_t* vBlock = renderer->rawVertexData;
+				// May be null in collision-mesh mode (which never calls readPos); guarded above otherwise.
+				uint8_t* vBlock = renderer ? renderer->rawVertexData : nullptr;
 
 				// Decode one packed vertex position (full- or half-precision) from the GPU buffer.
 				auto readPos = [&](uint32_t j) -> RE::NiPoint3 {
@@ -987,7 +998,7 @@ namespace hdt
 					for (uint32_t j = 0; j < vertexCount; ++j)
 						fillVertex(body->m_vertices[j + vertexStart], readPos(j));
 					vertexOffsetMap.insert({ meshName, vertexStart });
-				} else if (m_obstructionCache && renderer->rawIndexData) {
+				} else if (m_obstructionCache && (m_useCollisionMesh || renderer->rawIndexData)) {
 					// Obstruction crop. Read the raw geometry into the per-obstruction cache once (keyed by
 					// trishape); rebuilds as the actor moves reuse it with no GPU read. Then keep only the
 					// triangles with a vertex inside the clip sphere, compacting the vertices they reference.
@@ -1045,6 +1056,9 @@ namespace hdt
 							kept.push_back(remap[vi[k]]);
 						}
 					}
+					logger::info("world collision: crop '{}' kept {} of {} tris ({} verts), captured {} viz tris",
+						meshName, kept.size() / 3, geom.indices.size() / 3, body->m_vertices.size(),
+						m_outClippedWorldTris ? m_outClippedWorldTris->size() / 3 : 0);
 					vertexOffsetMap.insert({ meshName, vertexStart });
 				}
 
