@@ -419,6 +419,24 @@ namespace hdt
 	// Then when checking which skeletons are active to calculate the frame,
 	// we only allow the activation of headparts that are on active heads.
 	// @param Actor * actor is expected not null.
+	std::uint32_t ActorManager::getWornWigFormID(RE::Actor* actor)
+	{
+		if (!actor)
+			return 0;
+		// Same inventory walk as setHeadActiveIfNoHairArmor, but keep the worn item's formID as the
+		// wig identity instead of only its presence.
+		RE::TESBoundObject* ref = nullptr;
+		RE::ExtraContainerChanges* extraContainerchanges = actor->extraList.GetByType<RE::ExtraContainerChanges>();
+		if (extraContainerchanges && extraContainerchanges->changes && extraContainerchanges->changes->entryList) {
+			HairVisitor visitor(ref);
+			for (auto it : *extraContainerchanges->changes->entryList) {
+				if (visitor.Visit(it) == RE::BSContainer::ForEachResult::kStop)
+					break;
+			}
+		}
+		return ref ? ref->formID : 0;
+	}
+
 	void ActorManager::setHeadActiveIfNoHairArmor([[maybe_unused]] RE::Actor* actor, [[maybe_unused]] Skeleton* skeleton)
 	{
 		RE::TESBoundObject* ref = nullptr;

@@ -1,5 +1,6 @@
 #include "hdtSkyrimPhysicsWorld.h"
 #include "PluginInterfaceImpl.h"
+#include "StrandSystem.h"
 #include "WeatherManager.h"
 #include "hdtPhysicsProfiler.h"
 
@@ -155,6 +156,17 @@ namespace hdt
 			auto offset = applyTranslationOffset();
 			stepSimulation(remainingTimeStep, 0, tick);
 			restoreTranslationOffset(offset);
+			// PoC: step strand-hair wigs on the same fixed tick. Feed every SMP-active actor's own
+			// skeleton root (from our system list) so each wig binds to that actor's head with no
+			// ambiguity. Reads scene-graph node transforms, unaffected by the translation offset.
+			{
+				std::vector<StrandActor> smpActors;
+				smpActors.reserve(m_systems.size());
+				for (auto& sys : m_systems)
+					if (auto* s = static_cast<SkyrimSystem*>(sys.get()); s && s->m_skeleton)
+						smpActors.push_back({ s->m_skeleton.get(), s->m_actorFormID, s->m_wigFormID });
+				StrandManager::instance().step(remainingTimeStep, tick, smpActors);
+			}
 			m_accumulatedInterval = 0;
 			m_pendingTransformUpdate = true;
 		}

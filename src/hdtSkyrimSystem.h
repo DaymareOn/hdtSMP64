@@ -38,6 +38,10 @@ namespace hdt
 		RE::NiPointer<RE::NiNode> m_oldRoot;
 		bool m_initialized = false;
 		float m_windFactor = 1.f;  // wind factor for the system (i.e., full actor/skeleton) (calculated based off obstructions)
+		// Actor + worn-wig identity, stamped on the main thread at creation and read lock-free on the
+		// physics worker to key strand-wig configs. 0 means unknown/none.
+		std::uint32_t m_actorFormID = 0;
+		std::uint32_t m_wigFormID = 0;
 
 		// angular velocity damper
 		btQuaternion m_lastRootRotation;

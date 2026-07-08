@@ -1,6 +1,7 @@
 #include "hdtSkyrimSystem.h"
 #include "hdtSkinnedMesh/hdtSkinnedMeshShape.h"
 
+#include "ActorManager.h"
 #include "HavokUtils.h"
 #include "Patterns/hdtPatternLibrary.h"
 #include "Patterns/hdtXmlPatternExpander.h"
@@ -261,7 +262,9 @@ namespace hdt
 		std::vector<std::pair<RE::NiAVObject*, RE::NiTransform>> savedPoses;
 
 		if (auto* userData = skeleton->GetUserData()) {
+			m_mesh->m_actorFormID = userData->formID;  // stamp actor identity (main thread) for strand wigs
 			if (auto* actor = userData->As<RE::Actor>()) {
+				m_mesh->m_wigFormID = ActorManager::getWornWigFormID(actor);  // worn hair/wig item, 0 if none
 				if (auto havokSkel = havok::getAnimationSkeleton(actor)) {
 					savedPoses.reserve(havokSkel->bones.size());
 

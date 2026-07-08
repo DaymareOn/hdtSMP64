@@ -226,6 +226,12 @@ namespace hdt
 		static std::string armorPrefix(IDType id);
 		static std::string headPrefix(IDType id);
 
+		/// Return the formID of the hair/wig-slot armor the actor currently wears (an item that
+		/// occupies the kHair/kLongHair biped slot and carries an ExtraWorn tag), or 0 if none.
+		/// Main-thread only: it walks the actor's inventory extra data. Used to key strand-wig
+		/// configs by the equipped wig item.
+		static std::uint32_t getWornWigFormID(RE::Actor* actor);
+
 		/*
 		fix: take into account the unexpected armors names changes done by the Skyrim executable.
 
