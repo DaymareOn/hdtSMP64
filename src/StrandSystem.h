@@ -8,6 +8,7 @@
 #include <atomic>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <unordered_map>
 
@@ -22,7 +23,7 @@ namespace hdt
 		std::array<float, 3> colorRoot = { 0.05f, 0.03f, 0.02f };
 		std::array<float, 3> colorTip = { 0.14f, 0.09f, 0.05f };
 		float roughness = 0.35f;
-		float strandRadius = 0.15f;  // world units
+		float strandRadius = 0.4f;  // ribbon half-width base, world units (matches StrandConfig::width)
 	};
 
 	/// Build a synthetic groom -- a hemispherical scalp cap of strands that drape down -- so the
@@ -80,6 +81,15 @@ namespace hdt
 		btTransform m_lastHeadWorld = btTransform::getIdentity();
 	};
 
+	/// One SMP-active actor as seen by the wig driver: its skeleton root (the wig anchor + map key),
+	/// plus the actor and worn-wig formIDs stamped on its SMP system. formIDs are 0 when unknown.
+	struct StrandActor
+	{
+		RE::NiNode* root = nullptr;
+		std::uint32_t actorFormID = 0;
+		std::uint32_t wigFormID = 0;
+	};
+
 	/// Owns one wig per SMP-active actor and drives them from the physics step. Singleton.
 	class StrandManager
 	{
@@ -90,10 +100,11 @@ namespace hdt
 		bool enabled() const { return m_enabled; }
 
 		/// Called from SkyrimPhysicsWorld::doUpdate2ndStep (worker thread, under the sim lock).
-		/// Ensures a wig exists for every skeleton in `skeletons` (creating/binding new ones and
-		/// dropping wigs whose actor is gone), then steps them all. `skeletons` are the SMP-active
-		/// actor skeleton roots, so each head lookup is confined to one actor -- no player guessing.
-		void step(btScalar totalDt, btScalar tick, const std::vector<RE::NiNode*>& skeletons);
+		/// Ensures a wig exists for every qualifying actor in `actors` (creating/binding new ones and
+		/// dropping wigs whose actor is gone), then steps them all. Each entry carries its skeleton
+		/// root plus formIDs, so config selection + head lookup are confined to one actor -- no player
+		/// guessing, and no ActorManager access from the physics lock (formIDs are pre-stamped).
+		void step(btScalar totalDt, btScalar tick, const std::vector<StrandActor>& actors);
 
 		/// Request that all wigs be dropped before the next step (e.g. on game load).
 		void reset() { m_resetRequested = true; }
@@ -106,9 +117,20 @@ namespace hdt
 	private:
 		StrandManager();
 
+		/// Config for one actor, by priority: worn-wig file (wigs/<wigFormID>.xml) -> per-actor file
+		/// (wigs/<actorFormID>.xml) -> the global wig.xml default. Per-actor/wig files inherit the
+		/// global values and override only the tags they set. Results (hit and miss) are cached.
+		const StrandConfig& configFor(std::uint32_t actorFormID, std::uint32_t wigFormID);
+
+		/// Load and cache wigs/<id hex>.xml (inheriting the global config as its base). Returns the
+		/// cached config, or nullptr if that file is absent. Never throws (malformed files fail closed).
+		const StrandConfig* loadCachedConfig(std::uint32_t id);
+
 		std::atomic_bool m_enabled{ false };
 		std::atomic_bool m_resetRequested{ false };
 		StrandConfig m_config;  // author-editable groom/sim params, (re)loaded from wig.xml
+		// Per-id config cache; nullopt marks a known-absent file so we don't re-stat it every frame.
+		std::unordered_map<std::uint32_t, std::optional<StrandConfig>> m_configCache;
 		// One wig per actor, keyed by that actor's skeleton root node.
 		std::unordered_map<RE::NiNode*, std::unique_ptr<StrandInstance>> m_instances;
 		// Stable index order for the render-side API, rebuilt each step under m_publishLock.

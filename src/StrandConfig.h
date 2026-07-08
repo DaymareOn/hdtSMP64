@@ -15,6 +15,15 @@ namespace hdt
 		float lengthVariation = 0.25f;  // per-strand length spread, fraction of length (0..1)
 		float stiffness = 0.18f;     // shape retention toward the rest pose (0..1)
 		float damping = 0.92f;       // velocity retained each substep (0..1)
+		// Render material: linear RGB at the root and tip, and world-space ribbon half-width base.
+		float colorRoot[3] = { 0.05f, 0.03f, 0.02f };
+		float colorTip[3] = { 0.14f, 0.09f, 0.05f };
+		float width = 0.4f;          // ribbon half-width base, world units (x the render radius slider)
+		// Global gating policy (only read from the top-level wig.xml, not per-wig files): when true,
+		// strand wigs attach only to actors wearing a hair/wig-slot armor (true equip-driven mode);
+		// when false (default), to every SMP-active actor. Per-actor files (wigs/<actorFormID>.xml)
+		// always attach regardless. Defaults false so the visible behaviour is unchanged out of the box.
+		bool attachToWigArmorOnly = false;
 	};
 
 	/// Load a `<strand-hair>` config from an XML file, parsed with FSMP's own XML reader (same

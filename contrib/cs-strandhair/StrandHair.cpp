@@ -157,13 +157,23 @@ void StrandHair::PostOpaque()
 
 		const std::uint32_t vbase = static_cast<std::uint32_t>(m_beadScratch.size());
 		for (std::uint32_t s = 0; s < d.strandCount; ++s) {
+			// One clump seed per strand (constant for all its beads) so the interpolated copies keep
+			// a fixed offset direction along the strand instead of zig-zagging.
+			const float seed = static_cast<float>(vbase + s * d.vertsPerStrand) * 0.7531f;
 			for (std::uint32_t v = 0; v < d.vertsPerStrand; ++v) {
 				const std::size_t b = (static_cast<std::size_t>(s) * d.vertsPerStrand + v) * 3;
+				const float t = static_cast<float>(v) / static_cast<float>(d.vertsPerStrand - 1);
 				Bead bead{};
 				bead.pos[0] = m_posScratch[b + 0];
 				bead.pos[1] = m_posScratch[b + 1];
 				bead.pos[2] = m_posScratch[b + 2];
-				bead.t = static_cast<float>(v) / static_cast<float>(d.vertsPerStrand - 1);
+				bead.t = t;
+				// Per-wig colour, pre-lerped root->tip from the FSMP desc (author's wig.xml).
+				bead.color[0] = d.colorRoot[0] + (d.colorTip[0] - d.colorRoot[0]) * t;
+				bead.color[1] = d.colorRoot[1] + (d.colorTip[1] - d.colorRoot[1]) * t;
+				bead.color[2] = d.colorRoot[2] + (d.colorTip[2] - d.colorRoot[2]) * t;
+				bead.width = d.strandRadius;  // per-wig half-width base, world units
+				bead.seed = seed;
 				m_beadScratch.push_back(bead);
 			}
 			// Each segment is a camera-facing quad over the doubled vertex ids the VS expands
@@ -199,8 +209,8 @@ void StrandHair::PostOpaque()
 	}
 	if (SUCCEEDED(context->Map(m_strandCB.get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped))) {
 		auto* cb = static_cast<StrandCB*>(mapped.pData);
-		// x = ribbon half-width, z = clump radius (fans interpolated copies out), w = verts/strand.
-		const float pr[4] = { 0.4f * settings.radiusScale, 0.0f, 3.0f * settings.radiusScale, 12.0f };
+		// x = global radius-scale slider; per-wig width/clump derive from each bead's width.
+		const float pr[4] = { settings.radiusScale, 0.0f, 0.0f, 0.0f };
 		std::memcpy(cb->params, pr, sizeof(pr));
 		context->Unmap(m_strandCB.get(), 0);
 	}

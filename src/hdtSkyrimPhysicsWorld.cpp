@@ -160,12 +160,12 @@ namespace hdt
 			// skeleton root (from our system list) so each wig binds to that actor's head with no
 			// ambiguity. Reads scene-graph node transforms, unaffected by the translation offset.
 			{
-				std::vector<RE::NiNode*> smpSkeletons;
-				smpSkeletons.reserve(m_systems.size());
+				std::vector<StrandActor> smpActors;
+				smpActors.reserve(m_systems.size());
 				for (auto& sys : m_systems)
 					if (auto* s = static_cast<SkyrimSystem*>(sys.get()); s && s->m_skeleton)
-						smpSkeletons.push_back(s->m_skeleton.get());
-				StrandManager::instance().step(remainingTimeStep, tick, smpSkeletons);
+						smpActors.push_back({ s->m_skeleton.get(), s->m_actorFormID, s->m_wigFormID });
+				StrandManager::instance().step(remainingTimeStep, tick, smpActors);
 			}
 			m_accumulatedInterval = 0;
 			m_pendingTransformUpdate = true;

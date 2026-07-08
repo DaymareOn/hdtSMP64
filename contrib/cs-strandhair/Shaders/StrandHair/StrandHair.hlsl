@@ -12,12 +12,15 @@ struct Bead
 {
     float3 pos;
     float t;  // 0 at root .. 1 at tip
+    float3 color;  // per-wig, pre-lerped root->tip
+    float width;   // per-wig half-width base, world units
+    float seed;    // per-strand clump seed (constant along a strand)
 };
 StructuredBuffer<Bead> Beads : register(t0);
 
 cbuffer StrandCB : register(b0)
 {
-    float4 g_params;  // x = ribbon half-width, z = clump radius, w = verts per strand
+    float4 g_params;  // x = radius scale (slider); y/z/w unused
 };
 
 struct VSOut
@@ -26,6 +29,7 @@ struct VSOut
     float t : TEXCOORD0;
     float3 tangent : TEXCOORD1;
     float3 viewDir : TEXCOORD2;
+    float3 color : TEXCOORD3;
 };
 
 float hash11(float n)
@@ -57,23 +61,23 @@ VSOut VSMain(uint id : SV_VertexID, uint inst : SV_InstanceID)
     float3 positionCR = b.pos - FrameBuffer::CameraPosAdjust.xyz;  // camera-relative world position
 
     if (inst > 0) {
-        // Seed the clump on the strand's ROOT bead so the offset direction is constant along the
-        // whole strand (else it would zigzag). vps is uniform across grooms (12).
-        const uint vps = (uint)(g_params.w + 0.5);
-        const uint rootIdx = beadIdx - (uint)(b.t * (float)(vps - 1) + 0.5);
-        const float seed = (float)rootIdx * 0.7531 + (float)inst * 19.19;
+        // The clump seed is baked per-strand on the CPU (constant for every bead of a strand), so
+        // the offset direction stays fixed along the strand instead of zig-zagging -- and it works
+        // for any verts-per-strand, no fixed groom size assumed.
+        const float seed = b.seed + (float)inst * 19.19;
         const float ang = hash11(seed) * 6.2831853;
         float3 up = abs(tangent.z) < 0.99 ? float3(0, 0, 1) : float3(1, 0, 0);
         float3 p1 = normalize(cross(tangent, up));
         float3 p2 = cross(tangent, p1);
-        const float clumpR = g_params.z * (0.3 + b.t) * (0.5 + 0.5 * hash11(seed + 3.3));  // fans toward tip
+        // clump radius scales with the wig's own width (x7.5) so wide/narrow wigs fan proportionally.
+        const float clumpR = b.width * 7.5 * g_params.x * (0.3 + b.t) * (0.5 + 0.5 * hash11(seed + 3.3));
         positionCR += (p1 * cos(ang) + p2 * sin(ang)) * clumpR;
     }
 
     // Camera-facing ribbon: offset sideways, perpendicular to the strand and the view ray.
     float3 viewDir = normalize(positionCR);
     float3 offsetDir = normalize(cross(tangent, viewDir) + float3(1e-6, 0, 0));
-    float halfWidth = g_params.x * (1.0 - 0.5 * b.t);  // taper toward the tip
+    float halfWidth = b.width * g_params.x * (1.0 - 0.5 * b.t);  // per-wig width, taper toward tip
     positionCR += offsetDir * (halfWidth * side);
 
     VSOut o;
@@ -81,6 +85,7 @@ VSOut VSMain(uint id : SV_VertexID, uint inst : SV_InstanceID)
     o.t = b.t;
     o.tangent = tangent;
     o.viewDir = viewDir;
+    o.color = b.color;
     return o;
 }
 

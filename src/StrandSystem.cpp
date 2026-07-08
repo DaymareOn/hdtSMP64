@@ -4,8 +4,10 @@
 #include "hdtConvertNi.h"
 
 #include <cmath>
+#include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <unordered_set>
 
 namespace hdt
 {
@@ -122,6 +124,9 @@ namespace hdt
 		StrandGroom g;
 		g.strandCount = static_cast<std::uint32_t>(config.strandCount);
 		g.vertsPerStrand = static_cast<std::uint32_t>(config.vertsPerStrand);
+		g.colorRoot = { config.colorRoot[0], config.colorRoot[1], config.colorRoot[2] };
+		g.colorTip = { config.colorTip[0], config.colorTip[1], config.colorTip[2] };
+		g.strandRadius = config.width;
 		const float baseLength = config.length;
 		const float goldenAngle = 2.399963f;
 		g.restLocal.reserve(static_cast<size_t>(g.strandCount) * g.vertsPerStrand);
@@ -293,37 +298,79 @@ namespace hdt
 		return s;
 	}
 
-	void StrandManager::step(btScalar totalDt, btScalar tick, const std::vector<RE::NiNode*>& skeletons)
+	// Path of a per-id config: 8-uppercase-hex formID, e.g. wigs/00000014.xml for the player (0x14).
+	static std::string wigConfigPath(std::uint32_t id)
+	{
+		char buf[64];
+		std::snprintf(buf, sizeof(buf), "Data/SKSE/Plugins/FSMPWig/wigs/%08X.xml", id);
+		return std::string(buf);
+	}
+
+	const StrandConfig* StrandManager::loadCachedConfig(std::uint32_t id)
+	{
+		if (id == 0)
+			return nullptr;
+		if (auto it = m_configCache.find(id); it != m_configCache.end())
+			return it->second ? &*it->second : nullptr;
+		StrandConfig cfg = m_config;  // inherit the global config; the file overrides only its own tags
+		const bool found = loadStrandConfig(wigConfigPath(id), cfg);
+		auto& slot = m_configCache[id];
+		if (found)
+			slot = cfg;
+		else
+			slot = std::nullopt;  // remember the miss so we don't re-stat the file each frame
+		return found ? &*slot : nullptr;
+	}
+
+	const StrandConfig& StrandManager::configFor(std::uint32_t actorFormID, std::uint32_t wigFormID)
+	{
+		if (const StrandConfig* c = loadCachedConfig(wigFormID))
+			return *c;
+		if (const StrandConfig* c = loadCachedConfig(actorFormID))
+			return *c;
+		return m_config;
+	}
+
+	void StrandManager::step(btScalar totalDt, btScalar tick, const std::vector<StrandActor>& actors)
 	{
 		if (m_resetRequested.exchange(false)) {
 			std::lock_guard<std::mutex> lock(m_publishLock);
 			m_instances.clear();
 			m_order.clear();
-			// Re-read the config so editing wig.xml + reloading a save applies without a restart.
+			// Re-read configs so editing wig.xml / a per-wig file + reloading a save applies without
+			// a restart.
 			m_config = StrandConfig{};
 			loadStrandConfig("Data/SKSE/Plugins/FSMPWig/wig.xml", m_config);
+			m_configCache.clear();
 		}
 		if (!m_enabled)
 			return;
 
-		// Create a wig for any newly-seen SMP skeleton (bind confined to that actor's own subtree).
+		// Create a wig for any newly-seen qualifying actor (bind confined to that actor's own subtree).
+		// An actor qualifies when it wears a wig-slot armor, or has an explicit per-actor config file,
+		// or the global policy attaches to everyone. Config is chosen by worn wig, then per-actor, then
+		// the global default. Multiple SMP systems can share one skeleton root; the map de-dupes them.
 		std::unordered_set<RE::NiNode*> present;
-		present.reserve(skeletons.size());
-		for (auto* root : skeletons) {
-			if (!root)
+		present.reserve(actors.size());
+		for (const auto& a : actors) {
+			if (!a.root)
 				continue;
-			present.insert(root);
-			if (auto it = m_instances.find(root); it != m_instances.end()) {
+			const StrandConfig* actorCfg = loadCachedConfig(a.actorFormID);
+			const bool qualifies = a.wigFormID != 0 || actorCfg != nullptr || !m_config.attachToWigArmorOnly;
+			if (!qualifies)
+				continue;
+			present.insert(a.root);
+			if (auto it = m_instances.find(a.root); it != m_instances.end()) {
 				// An instance that lost its head node (cell reload) must re-bind to the fresh 3D.
 				if (!it->second->bound())
-					it->second->bind(root);
+					it->second->bind(a.root);
 				continue;
 			}
-			auto inst = std::make_unique<StrandInstance>(m_config);
-			if (!inst->bind(root))
+			auto inst = std::make_unique<StrandInstance>(configFor(a.actorFormID, a.wigFormID));
+			if (!inst->bind(a.root))
 				continue;  // head not ready yet; retry next frame
 			std::lock_guard<std::mutex> lock(m_publishLock);
-			m_instances.emplace(root, std::move(inst));
+			m_instances.emplace(a.root, std::move(inst));
 		}
 
 		// Drop wigs whose actor is gone, then rebuild the render-side index order -- both under the

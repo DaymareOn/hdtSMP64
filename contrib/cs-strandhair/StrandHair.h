@@ -57,18 +57,24 @@ struct StrandHair : Feature
 	} settings;
 
 private:
-	// One GPU bead: world position + the strand parameter t (0 root .. 1 tip). 16 bytes, matches
-	// StructuredBuffer<Bead> in the shader.
+	// One GPU bead: world position + strand parameter t (0 root .. 1 tip), the wig's pre-lerped
+	// root->tip colour, its half-width base (world units), and a per-strand clump seed (constant
+	// along a strand). 36 bytes, matches StructuredBuffer<Bead> in the shader. Per-wig colour/width
+	// live on the bead because every wig is drawn in one shared instanced call.
 	struct Bead
 	{
 		float pos[3];
 		float t;
+		float color[3];
+		float width;
+		float seed;
 	};
-	// b0 layout for the shader: ribbon parameters. Camera data comes from the game's per-frame
-	// cbuffer (b12) and lighting from CS's SharedData (b5), both bound during the pass.
+	// b0 layout for the shader: the global radius-scale slider. Per-wig colour/width now travel on
+	// each bead; camera data comes from the game's per-frame cbuffer (b12) and lighting from CS's
+	// SharedData (b5), both bound during the pass.
 	struct StrandCB
 	{
-		float params[4];  // x = ribbon half-width, z = clump radius, w = verts per strand
+		float params[4];  // x = radius scale (slider); y/z/w unused
 	};
 
 	static constexpr std::uint32_t kInterpCopies = 4;  // guide + 3 interpolated render strands
