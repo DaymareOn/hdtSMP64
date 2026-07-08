@@ -199,7 +199,8 @@ void StrandHair::PostOpaque()
 	}
 	if (SUCCEEDED(context->Map(m_strandCB.get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped))) {
 		auto* cb = static_cast<StrandCB*>(mapped.pData);
-		const float pr[4] = { 0.4f * settings.radiusScale, 0.0f, 0.0f, 0.0f };  // ribbon half-width
+		// x = ribbon half-width, z = clump radius (fans interpolated copies out), w = verts/strand.
+		const float pr[4] = { 0.4f * settings.radiusScale, 0.0f, 3.0f * settings.radiusScale, 12.0f };
 		std::memcpy(cb->params, pr, sizeof(pr));
 		context->Unmap(m_strandCB.get(), 0);
 	}
@@ -239,7 +240,9 @@ void StrandHair::PostOpaque()
 	ID3D11Buffer* sharedData = globals::state->sharedDataCB->CB();
 	context->PSSetConstantBuffers(5, 1, &sharedData);
 
-	context->DrawIndexed(static_cast<UINT>(m_indexScratch.size()), 0, 0);
+	// Guide + interpolation: draw the whole strand set kInterpCopies times; instance 0 is the
+	// simulated guide, the rest are clumped render strands (VS applies the per-instance offset).
+	context->DrawIndexedInstanced(static_cast<UINT>(m_indexScratch.size()), kInterpCopies, 0, 0, 0);
 
 	// Unbind our SRV and restore render targets; flag the engine to rebind its state next draw.
 	ID3D11ShaderResourceView* nullSRV = nullptr;

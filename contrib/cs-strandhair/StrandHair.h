@@ -68,8 +68,10 @@ private:
 	// cbuffer (b12) and lighting from CS's SharedData (b5), both bound during the pass.
 	struct StrandCB
 	{
-		float params[4];  // x = strand half-width in world units, yzw unused
+		float params[4];  // x = ribbon half-width, z = clump radius, w = verts per strand
 	};
+
+	static constexpr std::uint32_t kInterpCopies = 4;  // guide + 3 interpolated render strands
 
 	void CompileShaders();
 	void EnsureBuffers(std::size_t beadCount, std::size_t indexCount);

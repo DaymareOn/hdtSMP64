@@ -17,7 +17,7 @@ StructuredBuffer<Bead> Beads : register(t0);
 
 cbuffer StrandCB : register(b0)
 {
-    float4 g_params;  // x = strand half-width in world units, yzw unused
+    float4 g_params;  // x = ribbon half-width, z = clump radius, w = verts per strand
 };
 
 struct VSOut
@@ -28,15 +28,23 @@ struct VSOut
     float3 viewDir : TEXCOORD2;
 };
 
-VSOut VSMain(uint id : SV_VertexID)
+float hash11(float n)
+{
+    return frac(sin(n) * 43758.5453);
+}
+
+// Guide + interpolation: instance 0 is the simulated guide strand; instances >0 are extra render
+// strands clumped around it (constant angle along a strand, fanning out toward the tip), giving
+// visual density with no extra CPU simulation. TressFX-style strand multiplication.
+VSOut VSMain(uint id : SV_VertexID, uint inst : SV_InstanceID)
 {
     const uint beadIdx = id >> 1;
     const float side = (id & 1) ? 1.0 : -1.0;
     Bead b = Beads[beadIdx];
 
     // Tangent from the neighbor along the same strand. Beads are strand-major and t rises
-    // monotonically root->tip, so "next bead has larger t" means it continues this strand;
-    // otherwise this bead is a tip and the previous bead is the neighbor.
+    // monotonically root->tip, so "next bead has larger t" continues this strand; otherwise this
+    // bead is a tip and the previous bead is the neighbor.
     uint total, strideUnused;
     Beads.GetDimensions(total, strideUnused);
     float3 tangent;
@@ -47,6 +55,20 @@ VSOut VSMain(uint id : SV_VertexID)
     tangent = normalize(tangent + float3(1e-6, 0, 0));
 
     float3 positionCR = b.pos - FrameBuffer::CameraPosAdjust.xyz;  // camera-relative world position
+
+    if (inst > 0) {
+        // Seed the clump on the strand's ROOT bead so the offset direction is constant along the
+        // whole strand (else it would zigzag). vps is uniform across grooms (12).
+        const uint vps = (uint)(g_params.w + 0.5);
+        const uint rootIdx = beadIdx - (uint)(b.t * (float)(vps - 1) + 0.5);
+        const float seed = (float)rootIdx * 0.7531 + (float)inst * 19.19;
+        const float ang = hash11(seed) * 6.2831853;
+        float3 up = abs(tangent.z) < 0.99 ? float3(0, 0, 1) : float3(1, 0, 0);
+        float3 p1 = normalize(cross(tangent, up));
+        float3 p2 = cross(tangent, p1);
+        const float clumpR = g_params.z * (0.3 + b.t) * (0.5 + 0.5 * hash11(seed + 3.3));  // fans toward tip
+        positionCR += (p1 * cos(ang) + p2 * sin(ang)) * clumpR;
+    }
 
     // Camera-facing ribbon: offset sideways, perpendicular to the strand and the view ray.
     float3 viewDir = normalize(positionCR);
