@@ -344,6 +344,14 @@ namespace hdt
 			startTime = ticks.QuadPart;
 		}
 
+		// Normally each frame's background step is already drained by the intervening FrameSync, so this
+		// is a no-op. But if two frame events ever fire before a frame-sync event (observed once in the
+		// wild, likely a mod-induced event-order anomaly), the previous step could still be running when
+		// we start writing bone transforms below in readTransform -- a data race that corrupts the step's
+		// memory. Wait for the queue to drain here, BEFORE taking m_lock, so the still-running step (which
+		// takes m_lock itself) can finish rather than deadlocking against us.
+		m_tasks.wait();
+
 		std::lock_guard<decltype(m_lock)> l(m_lock);
 
 		float interval = (m_useRealTime ? RE::BSTimer::GetSingleton()->realTimeDelta : RE::BSTimer::GetSingleton()->delta);
