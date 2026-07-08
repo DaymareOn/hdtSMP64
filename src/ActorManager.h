@@ -217,6 +217,24 @@ namespace hdt
 		// outfits so it is safe to run repeatedly. Assumes the actor's 3D exists and it is non-humanoid.
 		void scanActorForBakedPhysics(RE::Actor* actor);
 
+		// @brief Periodically queue already-loaded non-humanoid actors for the baked scan. Creatures with
+		// baked/per-race physics have no self-healing ArmorAttachEvent the way humanoids do, and
+		// TESObjectLoadedEvent only catches a *fresh* load -- so it misses creatures already in the world
+		// when you enable the feature, persistent ones like the player's mount, and 3D rebuilds. This
+		// reconciliation sweep walks the high-process actor list and queues any in-scene non-humanoid
+		// whose current 3D has no physics yet, so discovery no longer depends on which event fired.
+		// Throttled by m_creatureSweepCountdown; the load event stays as an instant-pickup optimization.
+		void sweepLoadedCreatures();
+
+		// @brief True when the actor's *current* Get3D() root is already registered as a skeleton carrying
+		// physics. Lets the sweep skip creatures that already have their outfit while still re-queuing one
+		// whose 3D was rebuilt (its new root has no skeleton yet, so it returns false).
+		bool actorHasCreaturePhysicsOnCurrent3D(RE::Actor* actor);
+
+		// Frames left until the next sweepLoadedCreatures() pass (a whole-actor-list walk is too heavy to
+		// run every frame). Counts down in the FrameEvent handler while the feature is on.
+		int m_creatureSweepCountdown = 0;
+
 	public:
 		ActorManager();
 		~ActorManager();

@@ -234,6 +234,14 @@ namespace hdt
 
 		fixArmorNameMaps();
 
+		// Periodically reconcile already-loaded creatures the load event can't cover on its own: ones
+		// present before the feature was enabled, persistent ones like the player's mount, and 3D rebuilds.
+		// Throttled so a full actor-list walk does not run every frame; only while the feature is on.
+		if (m_enableCreaturePhysics && --m_creatureSweepCountdown <= 0) {
+			m_creatureSweepCountdown = 120;  // ~2 s at 60 fps
+			sweepLoadedCreatures();
+		}
+
 		// Scan any actors that loaded since the last frame for baked creature outfits, before deciding
 		// which skeletons are active, so a freshly discovered outfit can activate this same frame.
 		drainPendingBakedScans();
@@ -839,6 +847,42 @@ namespace hdt
 				--it->second;  // 3D not built yet, try again next frame
 				++it;
 			}
+		}
+	}
+
+	bool ActorManager::actorHasCreaturePhysicsOnCurrent3D(RE::Actor* actor)
+	{
+		auto* obj3D = actor->Get3D();
+		if (!obj3D)
+			return false;
+		auto* root = obj3D->AsNode();
+		for (auto& skel : m_skeletons) {
+			if (skel.skeleton.get() == root) {
+				auto& arms = skel.getArmors();
+				return std::any_of(arms.begin(), arms.end(), [](const Armor& a) { return a.hasPhysics(); });
+			}
+		}
+		return false;
+	}
+
+	void ActorManager::sweepLoadedCreatures()
+	{
+		auto* processLists = RE::ProcessLists::GetSingleton();
+		if (!processLists)
+			return;
+
+		// High-process actors are the ones fully simulated near the player -- exactly the creatures whose
+		// physics we want, and the set the player's own mount belongs to. We only QUEUE here; the actual
+		// (idempotent) walk happens in drainPendingBakedScans. Already-physicsed creatures are skipped, so
+		// a creature whose 3D was rebuilt (new root, no physics yet) is re-queued and re-scanned.
+		for (auto& handle : processLists->highActorHandles) {
+			auto actorPtr = handle.get();
+			RE::Actor* actor = actorPtr.get();
+			if (!actor || actor->IsHumanoid() || !actor->Get3D())
+				continue;
+			if (actorHasCreaturePhysicsOnCurrent3D(actor))
+				continue;
+			m_pendingBakedScan.insert_or_assign(actor->GetFormID(), 300);
 		}
 	}
 
