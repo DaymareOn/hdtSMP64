@@ -736,6 +736,48 @@ namespace hdt
 			vz + qw * az + (qx * ay - qy * ax), 0.f);
 	}
 
+	// Compose the bhkRigidBodyT shape offset into the body transform. A bhkRigidBodyT stores the collision
+	// shape's transform relative to the body frame (a quaternion + translation) separately from the body's
+	// own transform; GetTransform returns ONLY the body/node transform, so shape-local vertices placed with
+	// it alone land at the body origin instead of the shape origin (a chair's collision came out ~0.5m too
+	// low). Return xf * T so shape-local -> world is correct: R_eff = R_xf * R_T, t_eff = R_xf * t_T + t_xf.
+	static RE::hkTransform composeBodyT(const RE::hkTransform& xf, const RE::bhkRigidBodyT* rbT)
+	{
+		float c0[4], c1[4], c2[4], tx[4], q[4], tt[4];
+		hkStore(xf.rotation.col0, c0);
+		hkStore(xf.rotation.col1, c1);
+		hkStore(xf.rotation.col2, c2);
+		hkStore(xf.translation, tx);
+		hkStore(rbT->rotation.vec, q);
+		hkStore(rbT->translation, tt);
+
+		// Columns of the offset's rotation matrix, from its quaternion (x,y,z,w).
+		const float x = q[0], y = q[1], z = q[2], w = q[3];
+		const float tcol[3][3] = {
+			{ 1.f - 2.f * (y * y + z * z), 2.f * (x * y + w * z), 2.f * (x * z - w * y) },      // col 0
+			{ 2.f * (x * y - w * z), 1.f - 2.f * (x * x + z * z), 2.f * (y * z + w * x) },      // col 1
+			{ 2.f * (x * z + w * y), 2.f * (y * z - w * x), 1.f - 2.f * (x * x + y * y) }       // col 2
+		};
+		// Left-multiply each offset column (and the offset translation) by the body rotation R_xf.
+		const auto byRxf = [&](const float v[3], float out[3]) {
+			out[0] = c0[0] * v[0] + c1[0] * v[1] + c2[0] * v[2];
+			out[1] = c0[1] * v[0] + c1[1] * v[1] + c2[1] * v[2];
+			out[2] = c0[2] * v[0] + c1[2] * v[1] + c2[2] * v[2];
+		};
+		float e0[3], e1[3], e2[3], et[3];
+		byRxf(tcol[0], e0);
+		byRxf(tcol[1], e1);
+		byRxf(tcol[2], e2);
+		byRxf(tt, et);
+
+		RE::hkTransform eff;
+		eff.rotation.col0 = RE::hkVector4(e0[0], e0[1], e0[2], 0.f);
+		eff.rotation.col1 = RE::hkVector4(e1[0], e1[1], e1[2], 0.f);
+		eff.rotation.col2 = RE::hkVector4(e2[0], e2[1], e2[2], 0.f);
+		eff.translation = RE::hkVector4(et[0] + tx[0], et[1] + tx[1], et[2] + tx[2], 0.f);
+		return eff;
+	}
+
 	// Unwrap MOPP / bv-tree single-shape containers down to the compressed mesh shape, if any.
 	static const RE::hkpCompressedMeshShape* asCompressedMesh(const RE::hkpShape* shape)
 	{
@@ -771,6 +813,10 @@ namespace hdt
 					if (auto* mesh = asCompressedMesh(hkrb->GetShape())) {
 						RE::hkTransform xf;
 						rb->GetTransform(xf);
+						// A bhkRigidBodyT offsets its collision shape from the body frame; GetTransform omits that
+						// offset, so fold it in or the mesh sits at the body origin (a chair came out ~0.5m low).
+						if (auto* rbT = skyrim_cast<RE::bhkRigidBodyT*>(rb))
+							xf = composeBodyT(xf, rbT);
 						out.emplace_back(mesh, xf);
 					} else if (auto* shape = hkrb->GetShape()) {
 						logger::info("world collision: node '{}' has collision shape type {} (not a compressed mesh), skipped",
