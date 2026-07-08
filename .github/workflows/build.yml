@@ -393,3 +393,4 @@ jobs:
           display_name: FSMP ${{ needs.prepare.outputs.new_version }}
           file_category: main
           primary_mod_manager_download: true
+# ci/showcase tester build trigger -- creature-SMP + strand-hair NG + world-collision-perf combined. Throwaway.
