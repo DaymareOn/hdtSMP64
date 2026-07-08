@@ -43,13 +43,8 @@ namespace hdt
 			for (size_t i = 0; i < n; ++i)
 				m_timeSteps[i] = m_systems[i]->prepareForRead(timeStep);
 
-			// Isolated: the caller holds the physics lock, and a thread parked in this loop's wait
-			// must not steal the queued background step task -- the step takes the same lock, so
-			// stealing it here would deadlock this thread against itself.
-			tbb::this_task_arena::isolate([&] {
-				tbb::parallel_for(size_t{ 0 }, n, [this](size_t i) {
-					m_systems[i]->readTransform(m_timeSteps[i]);
-				});
+			tbb::parallel_for(size_t{ 0 }, n, [this](size_t i) {
+				m_systems[i]->readTransform(m_timeSteps[i]);
 			});
 		}
 

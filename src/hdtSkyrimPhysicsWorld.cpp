@@ -121,14 +121,7 @@ namespace hdt
 				const int steps = std::min(static_cast<int>(m_accumulatedInterval / fixedStep), m_maxSubSteps);
 				const auto remainingTimeStep = steps * fixedStep;
 
-				{
-					// The previous frame's background step may still be running: bone rigid bodies must not
-					// be written while stepSimulation reads them, so wait for it by taking the same lock it
-					// holds. readTransform's inner parallel loop is isolated (see hdtSkinnedMeshWorld.h), so
-					// a thread parked there cannot steal the queued step task and self-deadlock on this lock.
-					std::lock_guard<decltype(m_lock)> l(m_lock);
-					readTransform(remainingTimeStep);
-				}
+				readTransform(remainingTimeStep);
 
 				m_resetPc -= m_resetPc > 0;
 
@@ -377,6 +370,14 @@ namespace hdt
 			QueryPerformanceCounter(&ticks);
 			startTime = ticks.QuadPart;
 		}
+
+		// Normally each frame's background step is already drained by the intervening FrameSync, so this
+		// is a no-op. But if two frame events ever fire before a frame-sync event (observed once in the
+		// wild, likely a mod-induced event-order anomaly), the previous step could still be running when
+		// we start writing bone transforms below in readTransform -- a data race that corrupts the step's
+		// memory. Wait for the queue to drain here, BEFORE taking m_lock, so the still-running step (which
+		// takes m_lock itself) can finish rather than deadlocking against us.
+		m_tasks.wait();
 
 		std::lock_guard<decltype(m_lock)> l(m_lock);
 
