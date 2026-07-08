@@ -393,3 +393,4 @@ jobs:
           display_name: FSMP ${{ needs.prepare.outputs.new_version }}
           file_category: main
           primary_mod_manager_download: true
+# ci/creature-smp tester build trigger — refreshed for the creature-discovery sweep. Throwaway.
