@@ -35,6 +35,10 @@ namespace hdt
 		// the creature's meshes. Matching is case-insensitive. Returns "" when no entry matches. The
 		// baked-geometry scan uses this as a fallback when a creature carries no embedded-tag outfit.
 		std::string getCreatureDefaultFile(const char* skeletonPath) const;
+		// Loads one "default-bbps" mapping file and merges its entries into the shape->file
+		// list and bone remaps. Public so optional extra mappings (e.g. obstructionBBPs.xml,
+		// used by the experimental world-collision feature) can be merged on top of the defaults.
+		void loadBBP(const char* path);
 
 	private:
 		DefaultBBP();

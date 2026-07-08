@@ -12,6 +12,8 @@ set(SOURCE_FILES
 	"${SOURCE_DIR}/hdtSkinnedMesh/hdtBulletHelper.h"
 	"${SOURCE_DIR}/hdtSkinnedMesh/hdtCollider.cpp"
 	"${SOURCE_DIR}/hdtSkinnedMesh/hdtCollider.h"
+	"${SOURCE_DIR}/hdtSkinnedMesh/hdtCollisionAlgorithm.cpp"
+	"${SOURCE_DIR}/hdtSkinnedMesh/hdtCollisionAlgorithm.h"
 	"${SOURCE_DIR}/hdtSkinnedMesh/hdtConeTwistConstraint.cpp"
 	"${SOURCE_DIR}/hdtSkinnedMesh/hdtConeTwistConstraint.h"
 	"${SOURCE_DIR}/hdtSkinnedMesh/hdtConstraintGroup.h"
@@ -205,10 +207,16 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
 				"/external:anglebrackets" # Treat angle-bracket includes as external
 				"/external:W0" # No warnings from external headers (vcpkg, system)
 				"$<$<CONFIG:DEBUG>:/analyze;/analyze:external->" # Static analysis in Debug only; skip external headers
-				"$<$<OR:$<CONFIG:RELEASE>,$<CONFIG:PROFILE>>:/Zc:inline;/JMC-;/Ob3>")
+				# /Gy,/Gw: function/data COMDATs so the linker's /OPT:REF and /OPT:ICF can actually strip
+				#          unused and fold identical code (also tightens hot-path locality).
+				# /GL:      whole-program optimization — pairs with /LTCG below to enable cross-TU inlining
+				#          (e.g. checkSphereSphere into checkCollide) and interprocedural analysis across
+				#          all our objects. Pure optimization, no numeric change. Costs link time.
+				"$<$<OR:$<CONFIG:RELEASE>,$<CONFIG:PROFILE>>:/Zc:inline;/JMC-;/Ob3;/Gy;/Gw;/GL>")
 
+	# /LTCG must accompany /GL (and requires /INCREMENTAL:NO, already set for these configs).
 	target_link_options("${PROJECT_NAME}" PRIVATE "$<$<CONFIG:DEBUG>:/INCREMENTAL;/OPT:NOREF;/OPT:NOICF>"
-						"$<$<OR:$<CONFIG:RELEASE>,$<CONFIG:PROFILE>>:/INCREMENTAL:NO;/OPT:REF;/OPT:ICF;/DEBUG:FULL>")
+						"$<$<OR:$<CONFIG:RELEASE>,$<CONFIG:PROFILE>>:/INCREMENTAL:NO;/OPT:REF;/OPT:ICF;/DEBUG:FULL;/LTCG>")
 endif()
 
 # The SKSE Menu Framework SDK header (extern/SKSEMenuFramework/include) is vendored pristine. hdtSMP64 builds without

@@ -63,6 +63,14 @@ namespace hdt
 		a->m_skipDeadActors = c.skipDeadActors;
 		a->m_minScreenSizePercent = c.minScreenSizePercent;
 		a->m_enableCreaturePhysics = c.enableCreaturePhysics;
+		a->m_enableWorldCollision = c.worldCollision;
+		a->m_worldCollisionPlayerOnly = c.worldCollisionPlayerOnly;
+		a->m_worldCollisionUseCollisionMesh = c.worldCollisionUseCollisionMesh;
+		a->m_worldCollisionUseCellDetection = c.worldCollisionUseCellDetection;
+		a->m_worldCollisionDistance = c.worldCollisionDistance;
+		a->m_worldCollisionRecropsPerSec = c.worldCollisionRecropsPerSec;
+		a->m_visualizeWorldRaycasts = c.worldCollisionVisualizeRaycasts;
+		a->m_worldCollisionHighlight = c.worldCollisionHighlight;
 
 		auto* w = SkyrimPhysicsWorld::get();
 		w->m_clampRotations = c.clampRotations;
@@ -114,6 +122,14 @@ namespace hdt
 		c.skipDeadActors = a->m_skipDeadActors;
 		c.minScreenSizePercent = a->m_minScreenSizePercent;
 		c.enableCreaturePhysics = a->m_enableCreaturePhysics;
+		c.worldCollision = a->m_enableWorldCollision;
+		c.worldCollisionPlayerOnly = a->m_worldCollisionPlayerOnly;
+		c.worldCollisionUseCollisionMesh = a->m_worldCollisionUseCollisionMesh;
+		c.worldCollisionUseCellDetection = a->m_worldCollisionUseCellDetection;
+		c.worldCollisionDistance = a->m_worldCollisionDistance;
+		c.worldCollisionRecropsPerSec = a->m_worldCollisionRecropsPerSec;
+		c.worldCollisionVisualizeRaycasts = a->m_visualizeWorldRaycasts;
+		c.worldCollisionHighlight = a->m_worldCollisionHighlight;
 
 		auto* w = SkyrimPhysicsWorld::get();
 		c.clampRotations = w->m_clampRotations;
@@ -228,6 +244,14 @@ namespace hdt
 		LOG("smp.skipDeadActors", a->m_skipDeadActors);
 		LOG("smp.minScreenSizePercent", a->m_minScreenSizePercent);
 		LOG("smp.enableCreaturePhysics", a->m_enableCreaturePhysics);
+		LOG("smp.worldCollision", a->m_enableWorldCollision);
+		LOG("smp.worldCollisionPlayerOnly", a->m_worldCollisionPlayerOnly);
+		LOG("smp.worldCollisionUseCollisionMesh", a->m_worldCollisionUseCollisionMesh);
+		LOG("smp.worldCollisionUseCellDetection", a->m_worldCollisionUseCellDetection);
+		LOG("smp.worldCollisionDistance", a->m_worldCollisionDistance);
+		LOG("smp.worldCollisionRecropsPerSec", a->m_worldCollisionRecropsPerSec);
+		LOG("smp.worldCollisionVisualizeRaycasts", a->m_visualizeWorldRaycasts);
+		LOG("smp.worldCollisionHighlight", a->m_worldCollisionHighlight);
 #undef LOG
 	}
 }

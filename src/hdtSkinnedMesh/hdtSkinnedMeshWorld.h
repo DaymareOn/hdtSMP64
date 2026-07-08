@@ -33,6 +33,10 @@ namespace hdt
 			if (n == 0)
 				return;
 
+			// Main-thread "Setup" phase: pull game bone transforms into the rigid bodies. Already
+			// totalled by the Setup metric; this scopes it in the profile tree too.
+			BT_PROFILE("readTransform");
+
 			m_timeSteps.resize(n);
 
 			// processSkeletonRoot must be ran synchronously to avoid race issues
@@ -44,9 +48,19 @@ namespace hdt
 			});
 		}
 
-		void writeTransform()
+		void writeTransform(float alpha = 1.0f)
 		{
-			for (int i = 0; i < m_systems.size(); ++i) m_systems[i]->writeTransform();
+			// Main-thread "Apply" phase: write simulated bone transforms back to the game skeleton.
+			// alpha < 1 blends toward the previous solved step for smooth rendering above the
+			// fixed physics rate (D1); alpha == 1 applies the latest solved state verbatim.
+			BT_PROFILE("writeTransform");
+			for (int i = 0; i < m_systems.size(); ++i) m_systems[i]->writeTransform(alpha);
+		}
+
+		// Capture the current solved state as the interpolation start point, before stepping again.
+		void snapshotInterpolation()
+		{
+			for (int i = 0; i < m_systems.size(); ++i) m_systems[i]->snapshotInterpolation();
 		}
 
 		void applyGravity() override;

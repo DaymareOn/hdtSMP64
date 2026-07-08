@@ -153,20 +153,11 @@ namespace hdt
 		if (hdt::SkyrimPhysicsWorld::get()->m_enableWind)
 			applyWind(remainingTimeStep);
 
-		while (remainingTimeStep > fixedTimeStep) {
+		while (remainingTimeStep >= fixedTimeStep) {
 			internalSingleStepSimulation(fixedTimeStep);
 			remainingTimeStep -= fixedTimeStep;
 		}
 
-		// For the sake of the bullet library, we don't manage a step that would be lower than a 300Hz frame.
-		// Review this when (screens / Skyrim) will allow 300Hz+.
-		// Note: We are taking a final variable-sized step for the remaining time.
-		// Because Bullet's constraint solvers (ERP/CFM) are sensitive to delta-time,
-		// this variable tick can cause constraints to behave a bit differently
-		// (appearing more stiff or damping differently at various framerates).
-		constexpr auto minPossiblePeriod = 1.0f / 300.0f;
-		if (remainingTimeStep > minPossiblePeriod)
-			internalSingleStepSimulation(remainingTimeStep);
 		clearForces();
 
 		_bodies.clear();
@@ -184,26 +175,34 @@ namespace hdt
 	{
 		BT_PROFILE("performDiscreteCollisionDetection");
 
-		for (auto& system : m_systems) {
-			system->internalUpdate();
+		{
+			// Per-system bone transforms + bounding-sphere AABBs (one pass over systems).
+			BT_PROFILE("systemInternalUpdate");
+			for (auto& system : m_systems) {
+				system->internalUpdate();
+			}
 		}
 
 		btDispatcherInfo& dispatchInfo = getDispatchInfo();
 
-		for (int i = 0; i < m_collisionObjects.size(); i++) {
-			btCollisionObject* colObj = m_collisionObjects[i];
-			btBroadphaseProxy* proxy = colObj->getBroadphaseHandle();
+		{
+			// Bullet rigid-body (bone) broadphase: refresh proxy AABBs and find overlapping pairs.
+			BT_PROFILE("broadphase");
+			for (int i = 0; i < m_collisionObjects.size(); i++) {
+				btCollisionObject* colObj = m_collisionObjects[i];
+				btBroadphaseProxy* proxy = colObj->getBroadphaseHandle();
 
-			if (proxy->m_collisionFilterGroup == 0 && proxy->m_collisionFilterMask == 0)
-				continue;
+				if (proxy->m_collisionFilterGroup == 0 && proxy->m_collisionFilterMask == 0)
+					continue;
 
-			btVector3 minAabb, maxAabb;
-			colObj->getCollisionShape()->getAabb(colObj->getWorldTransform(), minAabb, maxAabb);
+				btVector3 minAabb, maxAabb;
+				colObj->getCollisionShape()->getAabb(colObj->getWorldTransform(), minAabb, maxAabb);
 
-			m_broadphasePairCache->setAabb(proxy, minAabb, maxAabb, m_dispatcher1);
+				m_broadphasePairCache->setAabb(proxy, minAabb, maxAabb, m_dispatcher1);
+			}
+
+			m_broadphasePairCache->calculateOverlappingPairs(m_dispatcher1);
 		}
-
-		m_broadphasePairCache->calculateOverlappingPairs(m_dispatcher1);
 
 		if (m_dispatcher1) {
 			m_dispatcher1->dispatchAllCollisionPairs(m_broadphasePairCache->getOverlappingPairCache(), dispatchInfo, m_dispatcher1);

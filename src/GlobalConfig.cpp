@@ -116,6 +116,14 @@ namespace hdt
 		c.skipDeadActors = read(smp, "skipDeadActors", c.skipDeadActors);
 		c.minScreenSizePercent = clampv(read(smp, "minScreenSizePercent", c.minScreenSizePercent), 0.0f, 100.0f);
 		c.enableCreaturePhysics = read(smp, "enableCreaturePhysics", c.enableCreaturePhysics);
+		c.worldCollision = read(smp, "worldCollision", c.worldCollision);
+		c.worldCollisionPlayerOnly = read(smp, "worldCollisionPlayerOnly", c.worldCollisionPlayerOnly);
+		c.worldCollisionUseCollisionMesh = read(smp, "worldCollisionUseCollisionMesh", c.worldCollisionUseCollisionMesh);
+		c.worldCollisionUseCellDetection = read(smp, "worldCollisionUseCellDetection", c.worldCollisionUseCellDetection);
+		c.worldCollisionDistance = clampv(read(smp, "worldCollisionDistance", c.worldCollisionDistance), 0.0f, 1000.0f);
+		c.worldCollisionRecropsPerSec = clampv(read(smp, "worldCollisionRecropsPerSec", c.worldCollisionRecropsPerSec), 0.0f, 60.0f);
+		c.worldCollisionVisualizeRaycasts = read(smp, "worldCollisionVisualizeRaycasts", c.worldCollisionVisualizeRaycasts);
+		c.worldCollisionHighlight = read(smp, "worldCollisionHighlight", c.worldCollisionHighlight);
 		c.backupNodeByName = read(smp, "backupNodeByName", c.backupNodeByName);
 
 		// --- solver ---
@@ -197,6 +205,22 @@ namespace hdt
 		w.Double(c.minScreenSizePercent);
 		w.Key("enableCreaturePhysics");
 		w.Bool(c.enableCreaturePhysics);
+		w.Key("worldCollision");
+		w.Bool(c.worldCollision);
+		w.Key("worldCollisionPlayerOnly");
+		w.Bool(c.worldCollisionPlayerOnly);
+		w.Key("worldCollisionUseCollisionMesh");
+		w.Bool(c.worldCollisionUseCollisionMesh);
+		w.Key("worldCollisionUseCellDetection");
+		w.Bool(c.worldCollisionUseCellDetection);
+		w.Key("worldCollisionDistance");
+		w.Double(c.worldCollisionDistance);
+		w.Key("worldCollisionRecropsPerSec");
+		w.Double(c.worldCollisionRecropsPerSec);
+		w.Key("worldCollisionVisualizeRaycasts");
+		w.Bool(c.worldCollisionVisualizeRaycasts);
+		w.Key("worldCollisionHighlight");
+		w.Bool(c.worldCollisionHighlight);
 		w.Key("backupNodeByName");
 		w.StartArray();
 		for (const auto& n : c.backupNodeByName)

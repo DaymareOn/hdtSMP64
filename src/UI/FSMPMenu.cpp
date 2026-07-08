@@ -12,7 +12,10 @@
 #include <atomic>
 #include <cctype>
 #include <cfloat>
+#include <chrono>
+#include <cmath>
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 #include <ctime>
 #include <filesystem>
@@ -108,6 +111,8 @@ namespace
 
 	// The framework-managed overlay window shown during gameplay (see RenderPerfOverlay / the Measures page).
 	SKSEMenuFramework::Model::WindowInterface* g_overlay = nullptr;
+	// Always-open, invisible layer that draws the world-collision debug viz over gameplay (see RenderWorldViz).
+	SKSEMenuFramework::Model::WindowInterface* g_worldViz = nullptr;
 
 	// ---- Folder picker (Validation tab) -----------------------------------------------------------------
 	// A native folder dialog must not run on the render thread (it is modal and would block drawing), so it
@@ -217,6 +222,13 @@ namespace
 	{
 		hdt::saveUserSettings();
 		hdt::applyConfigReset();
+	}
+
+	// Persist current settings WITHOUT a physics reset, for tweaks that the menu binds straight onto live
+	// ActorManager state (they take effect the moment the widget changes; we only need to save them to disk).
+	void commit()
+	{
+		hdt::saveUserSettings();
 	}
 
 	// Localized tooltip on the previous widget; AllowWhenDisabled so greyed-out controls still explain
@@ -718,8 +730,9 @@ namespace
 		}
 	}
 
-	// A page for experimental, opt-in features: things that are off by default and only do something once
-	// you supply the content or spend the extra performance. Creature & animal physics lives here.
+	// A page for experimental, opt-in features: things that are off by default and only do something once you
+	// supply the content or spend the extra performance. Creature & animal physics and the world-collision
+	// feature (with a live status readout) both live here.
 	void ExperimentalBody()
 	{
 		filterBox();
@@ -736,6 +749,82 @@ namespace
 					&a->m_enableCreaturePhysics, d.enableCreaturePhysics))
 				commitReset();
 			endRows();
+		}
+		section(fa::Bolt, "World collision");
+		if (beginRows("exp.worldcollision")) {
+			if (rowCheck("World collision",
+					"Let hair and cloth collide with nearby static world geometry (floors, walls). "
+					"Experimental and costly; watch the status readout below.",
+					&a->m_enableWorldCollision, d.worldCollision))
+				commitReset();
+			ImGuiMCP::BeginDisabled(!a->m_enableWorldCollision);
+			if (rowCheck("World collision on player only",
+					"Only the player character collides with world geometry; all other NPCs are skipped. "
+					"Much cheaper -- one set of probes and colliders instead of one per active NPC.",
+					&a->m_worldCollisionPlayerOnly, d.worldCollisionPlayerOnly))
+				commitReset();
+			if (rowCheck("Use collision mesh (not render mesh)",
+					"Build colliders from the game's coarse havok collision mesh instead of the dense render "
+					"mesh -- far fewer vertices, so much cheaper (watch 'verts' fall in the status below). "
+					"Objects whose collision isn't an extractable mesh (terrain, box/convex) get no collider.",
+					&a->m_worldCollisionUseCollisionMesh, d.worldCollisionUseCollisionMesh))
+				commitReset();
+			if (rowCheck("Detect via cell references (not probe rays)",
+					"Find nearby objects by scanning the loaded cell's references instead of casting 6 probe "
+					"rays. Finds every nearby collidable object (no missed diagonals or thin walls) with no "
+					"per-actor raycast, at the cost of enumerating the cell. Best paired with the collision "
+					"mesh option. Turn on 'Visualize' to compare coverage against the ray mode.",
+					&a->m_worldCollisionUseCellDetection, d.worldCollisionUseCellDetection))
+				commitReset();
+			if (rowFloat("World collision distance",
+					"How near (units) world geometry must be to an actor to become a collider. "
+					"Larger = more coverage but more cost.",
+					&a->m_worldCollisionDistance, d.worldCollisionDistance, 0.0f, 1000.0f, "%.0f"))
+				commitReset();
+			if (rowFloat("World collision re-crops/sec",
+					"How tightly the collider follows an actor walking at a normal speed. The collider re-crops "
+					"around the actor as they move; higher tracks movement more closely but rebuilds more often "
+					"(watch 're-crops/s' below). A standing actor never re-crops. 0 = build once, never follow.",
+					&a->m_worldCollisionRecropsPerSec, d.worldCollisionRecropsPerSec, 0.0f, 60.0f, "%.1f"))
+				commit();
+			if (rowCheck("Visualize world raycasts",
+					"Draw the probe rays that look for nearby world geometry (green = became a collider, "
+					"red = missed or too far), plus a cyan wireframe of the exact cropped collider patch. "
+					"Drawn over the game whenever this is on -- the gameplay overlay does not need to be shown.",
+					&a->m_visualizeWorldRaycasts, d.worldCollisionVisualizeRaycasts))
+				commit();
+			if (rowCheck("Highlight collided objects",
+					"Glow each collided world object cyan using an effect shader (the whole object, rendered by "
+					"the game so it is depth-correct). Separate from the raycast visualization above.",
+					&a->m_worldCollisionHighlight, d.worldCollisionHighlight))
+				commit();
+			ImGuiMCP::EndDisabled();
+			endRows();
+		}
+
+		// Live status: the numbers update every frame while the menu is open, so it is obvious whether the
+		// feature is probing and building colliders (and, if not, why).
+		section(fa::GaugeHigh, "Status (live)");
+		if (a->m_worldCollisionUseCellDetection)
+			ImGuiMCP::Text("%s: %d", tr("Cell candidates cached"), a->m_candidateCount);
+		else
+			ImGuiMCP::Text("%s: %d", tr("Probe rays last frame"), a->m_raycastCount);
+		ImGuiMCP::Text("%s: %d objs, %d verts", tr("Colliders"), a->m_obstructionCount, a->m_obstructionVertices);
+		ImGuiMCP::Text("%s: %.1f", tr("Re-crops per second"), a->m_recropsPerSec);
+		ImGuiMCP::Text("%s: %.2f ms (peak %.2f)", tr("Add / remove cost"),
+			a->m_avgWorldCollisionMs, a->m_peakWorldCollisionMs);
+		// Ray mode with zero probes means the actor is not being probed at all; call it out. Cell mode casts
+		// no rays, so its equivalent "nothing is happening" signal is an empty candidate cache.
+		if (a->m_enableWorldCollision && !a->m_worldCollisionUseCellDetection && a->m_raycastCount == 0) {
+			constexpr ImGuiMCP::ImVec4 warn{ 1.0f, 0.72f, 0.20f, 1.0f };
+			ImGuiMCP::TextColored(warn, "%s",
+				tr("No probes ran last frame. The character must have active SMP hair/cloth and be within "
+				   "physics range (near the camera / not culled). Equip physics hair and stand still to test."));
+		} else if (a->m_enableWorldCollision && a->m_worldCollisionUseCellDetection && a->m_candidateCount == 0) {
+			constexpr ImGuiMCP::ImVec4 warn{ 1.0f, 0.72f, 0.20f, 1.0f };
+			ImGuiMCP::TextColored(warn, "%s",
+				tr("No collidable objects found in range. Stand near static objects that have havok collision "
+				   "(buildings, rocks, furniture); terrain and box/convex-only objects are not collidable."));
 		}
 	}
 
@@ -1130,6 +1219,94 @@ namespace
 		outputPanel();
 	}
 
+	// Draw the world-collision debug: the probe rays (green = became a collider, red = missed/too far, plus a
+	// travelling white "just fired" pulse) and the cropped collider geometry as a cyan wireframe. 3D points are
+	// projected with the game camera the main thread captured and handed us (held via NiPointer, so it can't
+	// die under us). Called from RenderWorldViz inside a full-screen window, so it draws into that window's
+	// draw list. Reads the published rays + collider tris + camera under ActorManager's lock; points behind the
+	// camera (WorldPtToScreenPt3 returns false) are skipped.
+	void drawWorldRaycasts(ActorManager* a)
+	{
+		std::scoped_lock lock(a->m_rayVizLock);
+		auto* draw = ImGuiMCP::GetWindowDrawList();
+		auto* io = ImGuiMCP::GetIO();
+		const float sw = io->DisplaySize.x;
+		const float sh = io->DisplaySize.y;
+		auto* cam = a->m_debugCamera.get();
+
+		// Diagnostic dot (top-left), drawn BEFORE the camera check: proves this debug layer is rendering at
+		// all, and its colour reports the camera state -- GREEN = a camera was found to project with, RED =
+		// no camera (so nothing world-space can be drawn). If you see no dot, the debug layer isn't running.
+		ImGuiMCP::ImDrawListManager::AddCircleFilled(draw, ImGuiMCP::ImVec2(24.f, 24.f), 9.f,
+			cam ? IM_COL32(40, 255, 40, 255) : IM_COL32(255, 40, 40, 255), 20);
+		if (!cam)
+			return;
+
+		// A white dot travels from each ray's origin to its end on a fast loop, so the player can see the rays
+		// are being cast live (not a frozen picture) and in which direction. Phase comes from wall-clock time;
+		// all rays pulse together. (The base line stays green/red; the moving dot is the "a ray just fired" cue.)
+		constexpr float kPulsePeriod = 0.5f;  // seconds for the pulse to travel a full ray
+		const float secs = std::chrono::duration<float>(std::chrono::steady_clock::now().time_since_epoch()).count();
+		const float pulseT = std::fmod(secs, kPulsePeriod) / kPulsePeriod;
+
+		// WorldPtToScreenPt3 gives normalized port coordinates (x,y in [0,1] with y measured upward) and
+		// returns false when the point is behind the camera; map that to ImGui's top-left pixel space.
+		int projOk = 0, projFail = 0;  // per-frame projection tallies for the diagnostic readout below
+		const auto project = [&](const RE::NiPoint3& p, ImGuiMCP::ImVec2& out) -> bool {
+			float x = 0.f, y = 0.f, z = 0.f;
+			if (!cam->WorldPtToScreenPt3(p, x, y, z, 1e-5f)) {
+				++projFail;
+				return false;
+			}
+			++projOk;
+			out = ImGuiMCP::ImVec2(x * sw, (1.0f - y) * sh);
+			return true;
+		};
+
+		for (const auto& r : a->m_rayViz) {
+			ImGuiMCP::ImVec2 o{}, e{};
+			if (!project(r.origin, o) || !project(r.end, e))
+				continue;
+			const auto col = r.hit ? IM_COL32(64, 255, 64, 200) : IM_COL32(255, 72, 72, 150);
+			ImGuiMCP::ImDrawListManager::AddLine(draw, o, e, col, 2.0f);
+			if (r.hit)
+				ImGuiMCP::ImDrawListManager::AddCircleFilled(draw, e, 4.0f, col, 12);
+			// The travelling white "just fired" pulse, interpolated along the (screen-space) ray.
+			const ImGuiMCP::ImVec2 pulse(o.x + (e.x - o.x) * pulseT, o.y + (e.y - o.y) * pulseT);
+			ImGuiMCP::ImDrawListManager::AddCircleFilled(draw, pulse, 3.5f, IM_COL32(255, 255, 255, 235), 10);
+		}
+
+		// Wireframe a SPARSE, evenly-sampled subset of the cropped collider triangles (collectColliderTris
+		// strides across the whole patch) in bright cyan, so the collider surface is clearly visible (a coarse
+		// collision mesh is only a few hundred triangles). 2D overlay, so lines are not depth-occluded.
+		const auto wire = IM_COL32(90, 220, 255, 210);
+		for (size_t t = 0; t + 2 < a->m_colliderTris.size(); t += 3) {
+			ImGuiMCP::ImVec2 p0{}, p1{}, p2{};
+			if (!project(a->m_colliderTris[t], p0) || !project(a->m_colliderTris[t + 1], p1) ||
+				!project(a->m_colliderTris[t + 2], p2))
+				continue;
+			ImGuiMCP::ImDrawListManager::AddLine(draw, p0, p1, wire, 1.5f);
+			ImGuiMCP::ImDrawListManager::AddLine(draw, p1, p2, wire, 1.5f);
+			ImGuiMCP::ImDrawListManager::AddLine(draw, p2, p0, wire, 1.5f);
+		}
+
+		// Diagnostic readout next to the dot: how much data reached us and how projection fared, plus the
+		// camera and first-triangle world positions. If the triangles sit far from the camera, the Lever B
+		// havok decode placed them wrong; if proj is all failures, the camera matrix is not usable.
+		char diag[192];
+		const auto camPos = cam->world.translate;
+		if (a->m_colliderTris.empty())
+			std::snprintf(diag, sizeof(diag), "rays=%zu tris=0 proj=%d ok/%d fail cam=(%.0f,%.0f,%.0f)",
+				a->m_rayViz.size(), projOk, projFail, camPos.x, camPos.y, camPos.z);
+		else
+			std::snprintf(diag, sizeof(diag),
+				"rays=%zu tris=%zu proj=%d ok/%d fail cam=(%.0f,%.0f,%.0f) tri0=(%.0f,%.0f,%.0f)",
+				a->m_rayViz.size(), a->m_colliderTris.size() / 3, projOk, projFail,
+				camPos.x, camPos.y, camPos.z,
+				a->m_colliderTris[0].x, a->m_colliderTris[0].y, a->m_colliderTris[0].z);
+		ImGuiMCP::ImDrawListManager::AddText(draw, ImGuiMCP::ImVec2(40.f, 17.f), IM_COL32(255, 255, 255, 255), diag);
+	}
+
 	// The compact gameplay overlay. The framework invokes this callback without a surrounding Begin() ---
 	// content would land in ImGui's fallback "Debug" window --- so open our own window: titled "FSMP",
 	// auto-resizing to hug its content exactly (which also follows the font scale), never stealing focus from
@@ -1146,10 +1323,38 @@ namespace
 			ImGuiMCP::TextColored(msColor(w->m_averageSMPProcessingTimeInMainLoop), "%.2f ms",
 				w->m_averageSMPProcessingTimeInMainLoop);
 			ImGuiMCP::Text("%s: %d / %d", tr("Active physics NPCs"), a->activeSkeletons, a->m_maxActiveSkeletons);
+			if (a->m_enableWorldCollision) {
+				ImGuiMCP::Text("%s: %.2f ms (peak %.2f)", tr("World collision add/remove"),
+					a->m_avgWorldCollisionMs, a->m_peakWorldCollisionMs);
+				ImGuiMCP::Text("%s: %d objs, %d verts, %.1f re-crops/s", tr("Obstructions"),
+					a->m_obstructionCount, a->m_obstructionVertices, a->m_recropsPerSec);
+				ImGuiMCP::Text("%s: %d", tr("World raycasts/frame"), a->m_raycastCount);
+			}
 		}
 		ImGuiMCP::End();
 		if (!open && g_overlay)
 			g_overlay->IsOpen = false;
+	}
+
+	// Always-registered layer that draws the world-collision debug (probe rays + cropped-patch wireframe)
+	// independent of the numeric gameplay overlay. The framework only composites its ImGui frame around actual
+	// windows, so we open a full-screen, transparent, input-passthrough window and draw into ITS draw list --
+	// drawing to the foreground list without a window (the previous approach) was never flushed. When the
+	// toggle is off it opens no window, so nothing is drawn.
+	void __stdcall RenderWorldViz()
+	{
+		auto* a = ActorManager::instance();
+		if (!a->m_enableWorldCollision || !a->m_visualizeWorldRaycasts)
+			return;
+		auto* io = ImGuiMCP::GetIO();
+		ImGuiMCP::SetNextWindowPos(ImGuiMCP::ImVec2(0.f, 0.f), 0, ImGuiMCP::ImVec2(0.f, 0.f));
+		ImGuiMCP::SetNextWindowSize(io->DisplaySize, 0);
+		const auto flags = ImGuiMCP::ImGuiWindowFlags_NoDecoration | ImGuiMCP::ImGuiWindowFlags_NoInputs |
+			ImGuiMCP::ImGuiWindowFlags_NoBackground | ImGuiMCP::ImGuiWindowFlags_NoSavedSettings |
+			ImGuiMCP::ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiMCP::ImGuiWindowFlags_NoFocusOnAppearing;
+		if (ImGuiMCP::Begin("##fsmp_worldviz", nullptr, flags))
+			drawWorldRaycasts(a);
+		ImGuiMCP::End();
 	}
 
 	// ---- Presets ----------------------------------------------------------------------------------------
@@ -1642,5 +1847,11 @@ namespace hdt::FSMPMenu
 		g_overlay = SKSEMenuFramework::AddWindow(RenderPerfOverlay, false);
 		if (g_overlay)
 			g_overlay->IsOpen = false;
+
+		// The world-collision debug layer is always invoked (kept open) but draws only when its toggle is on,
+		// so the ray/wireframe viz does not depend on the gameplay overlay being shown.
+		g_worldViz = SKSEMenuFramework::AddWindow(RenderWorldViz, false);
+		if (g_worldViz)
+			g_worldViz->IsOpen = true;
 	}
 }

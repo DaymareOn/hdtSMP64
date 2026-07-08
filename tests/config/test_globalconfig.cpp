@@ -27,6 +27,17 @@ TEST_CASE("round-trip: serialize then parse is identity for a clamped config")
 	c.logLevel = 5;
 	c.disableSMPHairWhenWigEquipped = true;
 	c.hideSMPHairWhenInvisible = true;  // defaults to false, so flip it to exercise the round-trip
+	c.enableCreaturePhysics = true;  // creature-SMP field; defaults to false
+	// Experimental world-collision fields (default off / small): flip each and pick numeric values inside
+	// their clamp ranges so a faithful serialize->parse yields exactly what we set.
+	c.worldCollision = true;
+	c.worldCollisionPlayerOnly = true;
+	c.worldCollisionUseCollisionMesh = true;
+	c.worldCollisionUseCellDetection = true;
+	c.worldCollisionDistance = 200.0f;  // within [0,1000]
+	c.worldCollisionRecropsPerSec = 4.0f;  // within [0,60]
+	c.worldCollisionVisualizeRaycasts = true;
+	c.worldCollisionHighlight = true;
 	c.useRealTime = true;
 	c.maximumActiveSkeletons = 42;
 	c.budgetMs = 7.5f;

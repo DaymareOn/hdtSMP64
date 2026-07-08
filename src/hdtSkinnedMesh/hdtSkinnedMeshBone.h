@@ -27,11 +27,31 @@ namespace hdt
 		btTransform m_rigToLocal;
 		btQsTransform m_currentTransform;
 
+		// D1 temporal interpolation: rig world transform at the end of the previous physics step.
+		// Render frames between steps blend this with the current m_rig transform (see writeTransform).
+		btTransform m_prevRigTransform;
+
 		std::vector<RE::BSFixedString> m_canCollideWithBone;
 		std::vector<RE::BSFixedString> m_noCollideWithBone;
 
 		virtual void readTransform(float timeStep) = 0;
-		virtual void writeTransform() = 0;
+		// alpha in [0,1] blends from m_prevRigTransform (0) to the current solved transform (1).
+		virtual void writeTransform(float alpha) = 0;
+
+		// Capture the current solved transform as the interpolation start point, before the next step.
+		void snapshotInterpolation() { m_prevRigTransform = m_rig.getWorldTransform(); }
+
+		// Blend between the previous and current solved rig transforms for smooth sub-step rendering.
+		btTransform interpolatedWorldTransform(float alpha) const
+		{
+			const btTransform& cur = m_rig.getWorldTransform();
+			if (alpha >= 1.0f)
+				return cur;
+			btTransform out;
+			out.setOrigin(m_prevRigTransform.getOrigin().lerp(cur.getOrigin(), alpha));
+			out.setRotation(m_prevRigTransform.getRotation().slerp(cur.getRotation(), alpha));
+			return out;
+		}
 
 		void internalUpdate();
 

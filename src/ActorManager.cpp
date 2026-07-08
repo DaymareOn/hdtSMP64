@@ -5,6 +5,8 @@
 #include "hdtDefaultBBP.h"
 #include "hdtSkyrimPhysicsWorld.h"
 
+#include <chrono>
+
 namespace hdt
 {
 	// NiAVObject* Actor::CalculateLOS_1405FD2C0(Actor *aActor, NiPoint3 *aTargetPosition, NiPoint3 *aRayHitPosition, float aViewCone)
@@ -20,6 +22,8 @@ namespace hdt
 	REL::Relocation<_TESNPC_GetFaceGeomPath> TESNPC_GetFaceGeomPath{ REL::VariantID(24222, 24726, 0x0372B30) };  // 0x363210
 	REL::Relocation<_NiStream_constructor> NiStream_constructor{ REL::VariantID(68971, 70324, 0x0C9EC40) };      // 0xC59690
 	REL::Relocation<_NiStream_deconstructor> NiStream_deconstructor{ REL::VariantID(68972, 70325, 0x0C9EEA0) };  // 0xC598F0
+
+	static RE::NiCamera* getPlayerNiCamera();  // defined below; used by setSkeletonsActive to project debug rays
 
 	static bool IsHair(RE::TESBoundObject* a_ref)
 	{
@@ -491,6 +495,13 @@ namespace hdt
 			headPart.hiddenForInvisibility = hide;
 		}
 	}
+	// Cell-detection: how often (frames) the candidate cache is rebuilt from the loaded cell references.
+	// ~0.5s at 60fps -- the enumeration is the costly part, so it is amortised; the obstruction timeouts
+	// (~1.5s) and the per-frame distance filter easily bridge the gap between rebuilds.
+	static constexpr int kCandidateRefreshFrames = 30;
+	// Cell-detection: extra reach (Skyrim units) added around the player when gathering candidates, so
+	// objects near NPCs standing away from the player are still cached. Covers the usual SMP-active spread.
+	static constexpr float kCandidateGatherMargin = 2048.f;
 
 	// @brief This function is called by different events, with different locking needs, and is therefore extracted from the events.
 	void ActorManager::setSkeletonsActive(const bool updateMetrics)
@@ -575,6 +586,19 @@ namespace hdt
 		// had hidden; from then on it stays off until re-enabled.
 		const bool doHairInvisibility = m_hideSMPHairWhenInvisible || m_hairInvisibilityEngaged;
 		m_hairInvisibilityEngaged = m_hideSMPHairWhenInvisible;
+		std::chrono::steady_clock::duration worldCollisionTime{};  // accumulated across this frame's active actors
+		World::instance()->m_buildsThisFrame = 0;                  // count obstruction rebuilds over this frame
+		m_rayVizPending.clear();                                   // collect this frame's probe rays afresh
+		m_raycastAccum = 0;                                        // count probe rays cast over this frame
+
+		// Cell-detection mode: rebuild the shared candidate cache once per frame (rate-limited inside),
+		// before the per-actor detection in manageWorldCollisions below consumes it. Timed into the same
+		// world-collision budget shown in the overlay so its cost is visible when comparing detection modes.
+		if (m_enableWorldCollision && m_worldCollisionUseCellDetection) {
+			const auto wcStart = std::chrono::steady_clock::now();
+			World::instance()->refreshCandidates(m_worldCollisionDistance + kCandidateGatherMargin);
+			worldCollisionTime += std::chrono::steady_clock::now() - wcStart;
+		}
 
 		for (auto& i : m_skeletons) {
 			// Keep physics-hair visibility in sync with the actor's invisibility state. Runs for every
@@ -598,6 +622,16 @@ namespace hdt
 				continue;
 
 			activeSkeletons++;
+
+			// Experimental: let this actor's dynamic bones collide with nearby static world geometry.
+			// Done before the wind early-outs below so it runs independently of the wind feature.
+			// Timed so the perf overlay can show how much this (costly) feature adds per frame. When
+			// "player only" is on, every non-player skeleton is skipped, so only the player probes/collides.
+			if (m_enableWorldCollision && (!m_worldCollisionPlayerOnly || i.isPlayerCharacter())) {
+				const auto wcStart = std::chrono::steady_clock::now();
+				i.manageWorldCollisions();
+				worldCollisionTime += std::chrono::steady_clock::now() - wcStart;
+			}
 
 			// Check wind obstructions for active skeletons.
 			if (!windEnabled)
@@ -666,6 +700,57 @@ namespace hdt
 
 				i.updateWindFactor(newWindFactor);
 			}
+		}
+
+		// Once per frame: age out expired obstructions while enabled, or drop them all the moment the
+		// feature is switched off, so its physics cost is released immediately instead of lingering. Timed
+		// into worldCollisionTime with the detect+add work above: removing is part of the add/remove cost.
+		{
+			const auto wcStart = std::chrono::steady_clock::now();
+			if (m_enableWorldCollision)
+				World::instance()->prune();
+			else
+				World::instance()->clear();
+			worldCollisionTime += std::chrono::steady_clock::now() - wcStart;
+		}
+
+		// Report the add/remove cost: EMA for a stable read, plus a slowly-decaying peak so a one-frame
+		// build spike (a new heavy obstruction) stays visible for ~1s. Snapshot object/vertex counts too.
+		{
+			const int wcSampleSize = world->m_sampleSize > 0 ? world->m_sampleSize : 1;
+			const float instMs = std::chrono::duration<float, std::milli>(worldCollisionTime).count();
+			m_avgWorldCollisionMs = (m_avgWorldCollisionMs * (wcSampleSize - 1) + instMs) / wcSampleSize;
+			const float decayedPeak = m_peakWorldCollisionMs * 0.92f;
+			m_peakWorldCollisionMs = instMs > decayedPeak ? instMs : decayedPeak;
+			m_obstructionCount = static_cast<int>(World::instance()->count());
+			m_obstructionVertices = static_cast<int>(World::instance()->totalVertices());
+			m_candidateCount = static_cast<int>(World::instance()->candidateCount());
+		}
+
+		// Convert this frame's re-crop count into a per-second rate over a ~1s window, and publish the probe
+		// rays plus the camera to project them for the debug overlay (read on the render thread under lock).
+		{
+			const auto now = std::chrono::steady_clock::now();
+			if (m_haveFrameStamp) {
+				m_recropAccum += World::instance()->m_buildsThisFrame;
+				m_recropWindow += std::chrono::duration<float>(now - m_lastFrameStamp).count();
+				if (m_recropWindow >= 1.0f) {
+					m_recropsPerSec = static_cast<float>(m_recropAccum) / m_recropWindow;
+					m_recropAccum = 0;
+					m_recropWindow = 0.f;
+				}
+			}
+			m_lastFrameStamp = now;
+			m_haveFrameStamp = true;
+			m_raycastCount = m_raycastAccum;
+
+			std::scoped_lock lock(m_rayVizLock);
+			m_rayViz = m_rayVizPending;
+			m_debugCamera = m_visualizeWorldRaycasts ? RE::NiPointer<RE::NiCamera>(getPlayerNiCamera())
+			                                         : RE::NiPointer<RE::NiCamera>();
+			m_colliderTris.clear();
+			if (m_visualizeWorldRaycasts)
+				World::instance()->collectColliderTris(m_colliderTris, 600);  // sparse, readable sample of the patch
 		}
 
 		for (auto& i : m_skeletons) {
@@ -1011,6 +1096,456 @@ namespace hdt
 				renameTree(child, prefix, map);
 			}
 		}
+	}
+
+	// Find the game's active render camera (a NiCamera under the player-camera root). Returns null while it
+	// isn't in the scene yet (e.g. during a load). Called on the main thread; the caller holds the result via
+	// NiPointer so the render thread can project world points with it without risking a use-after-free.
+	// Depth-first search for a NiCamera anywhere under a node (the camera is not always a DIRECT child of the
+	// player camera root -- e.g. VR / alternate camera setups nest it), so the debug projection reliably
+	// finds a camera to project with instead of silently drawing nothing.
+	static RE::NiCamera* findNiCamera(RE::NiAVObject* obj)
+	{
+		if (!obj)
+			return nullptr;
+		if (auto* cam = netimmerse_cast<RE::NiCamera*>(obj))
+			return cam;
+		if (auto* node = obj->AsNode())
+			for (auto& child : node->GetChildren())
+				if (auto* cam = findNiCamera(child.get()))
+					return cam;
+		return nullptr;
+	}
+
+	static RE::NiCamera* getPlayerNiCamera()
+	{
+		auto* pc = RE::PlayerCamera::GetSingleton();
+		return pc ? findNiCamera(pc->cameraRoot.get()) : nullptr;
+	}
+
+	// Experimental world collision. We probe the world around the actor with 6 axis-aligned LOS
+	// rays; for each nearby object hit, we hand it to the World singleton, which clones it into the
+	// SMP scene as a collider. Note: Actor_CalculateLOS is a line-of-sight test (it returns the whole
+	// blocking object, not a surface), so this only approximately samples nearby geometry. Obstructions
+	// are pruned by timeout here so objects no longer near any active skeleton eventually disappear.
+	void ActorManager::Skeleton::manageWorldCollisions()
+	{
+		const auto owner = skyrim_cast<RE::Actor*>(skeletonOwner.get());
+		if (!owner)
+			return;
+
+		const auto pos = position();
+		if (!pos.has_value())
+			return;
+
+		auto* const am = ActorManager::instance();
+		const float distance = am->m_worldCollisionDistance;
+
+		// Cell detection: consult the shared candidate cache that setSkeletonsActive rebuilt this frame,
+		// and turn every cached object within reach into an obstruction. No probe rays are cast in this mode.
+		if (am->m_worldCollisionUseCellDetection) {
+			World::instance()->detectObstructions(skeletonOwner.get(), pos.value(), distance);
+			return;
+		}
+
+		// Probe out to the configured distance along each of the 6 axes; only obstructions within that
+		// distance of the skeleton are kept, to bound how much world geometry we drag into the simulation.
+		const float maxObstructionDistance2 = distance * distance;
+		static const RE::NiPoint3 axes[6] = {
+			{ 1.f, 0.f, 0.f }, { -1.f, 0.f, 0.f },
+			{ 0.f, 1.f, 0.f }, { 0.f, -1.f, 0.f },
+			{ 0.f, 0.f, 1.f }, { 0.f, 0.f, -1.f }
+		};
+
+		const bool viz = am->m_visualizeWorldRaycasts;
+
+		// Cast only ONE ray this frame, cycling through the 6 axes over 6 frames, to keep the probe cost low.
+		// Each direction is re-probed every 6 frames (~0.1s), which the obstruction timeout easily outlives.
+		const RE::NiPoint3& axis = axes[m_worldRayCursor % 6];
+		m_worldRayCursor = static_cast<uint8_t>((m_worldRayCursor + 1) % 6);
+
+		++am->m_raycastAccum;  // one probe ray cast (counted whether or not it is visualized)
+		RE::NiPoint3 target = pos.value() + axis * distance;
+		RE::NiPoint3 hitLocation;
+		const auto object = Actor_CalculateLOS(owner, &target, &hitLocation, std::numbers::pi_v<float> * 2.f);
+		const bool becomesCollider = object && (pos.value() - hitLocation).SqrLength() < maxObstructionDistance2;
+
+		// Record the ray for the debug overlay: draw to the hit point if it hit anything, else to the
+		// full reach; colour is decided later by whether it became a collider.
+		if (viz)
+			am->m_rayVizPending.push_back(
+				ActorManager::WorldRayViz{ pos.value(), object ? hitLocation : target, becomesCollider });
+
+		if (becomesCollider)
+			World::instance()->addObstruction(object, skeletonOwner.get(), pos.value());
+	}
+
+	ActorManager::World* ActorManager::World::instance()
+	{
+		static World s;
+		return &s;
+	}
+
+	// Seconds each glow application lasts, and how often (frames) we re-apply it. Refresh is a little shorter
+	// than the duration so a still-colliding object never blinks off between applications.
+	static constexpr float kHighlightDuration = 2.0f;
+	static constexpr int kHighlightRefreshFrames = 90;
+
+	// A cyan glow effect shader used to highlight every collided object. The earlier version forged a
+	// TESEffectShader from a zeroed factory form and set kGreyscaleToColor without a membrane palette --
+	// which samples black and renders nothing under additive blend, so no glow ever appeared. Instead we
+	// CLONE a real vanilla effect shader (its data went through Load/InitItemImpl and its textures exist),
+	// then recolour it: drop greyscale-to-colour so the fill colour keys drive the tint, force cyan on the
+	// fill and the edge rim, and disable the particle pass. Returns null (retrying next frame) until the
+	// game data is loaded and a usable source shader is found.
+	static RE::TESEffectShader* getHighlightShader()
+	{
+		static RE::TESEffectShader* shader = nullptr;
+		if (shader)
+			return shader;
+
+		auto* dh = RE::TESDataHandler::GetSingleton();
+		if (!dh)
+			return nullptr;
+
+		// Pick a vanilla shader that already renders a full-object membrane: it must have a fill texture;
+		// prefer one that also has a membrane palette (a colourised membrane glow), which is the closest
+		// match to what we want and guarantees complete, game-authored shader data + real textures.
+		RE::TESEffectShader* src = nullptr;
+		for (auto* efsh : dh->GetFormArray<RE::TESEffectShader>()) {
+			if (!efsh || !efsh->fillTexture.textureName.size())
+				continue;
+			src = efsh;
+			if (efsh->membranePaletteTexture.textureName.size())
+				break;
+		}
+		if (!src)
+			return nullptr;
+
+		auto* factory = RE::IFormFactory::GetConcreteFormFactoryByType<RE::TESEffectShader>();
+		auto* s = factory ? factory->Create() : nullptr;
+		if (!s)
+			return nullptr;
+
+		// Clone the complete vanilla data + every texture path, then recolour to cyan.
+		s->data = src->data;
+		s->fillTexture.textureName = src->fillTexture.textureName;
+		s->membranePaletteTexture.textureName = src->membranePaletteTexture.textureName;
+		s->particleShaderTexture.textureName = src->particleShaderTexture.textureName;
+		s->holesTexture.textureName = src->holesTexture.textureName;
+		s->particlePaletteTexture.textureName = src->particlePaletteTexture.textureName;
+
+		const RE::Color cyan(0x40, 0xE0, 0xFF, 0xFF);
+		auto& d = s->data;
+		// Greyscale-to-colour takes its colour from the palette, not the colour keys; drop it so our cyan
+		// keys tint the fill, and turn off the particle pass we do not use.
+		d.flags.reset(RE::EffectShaderData::Flags::kGreyscaleToColor);
+		d.flags.set(RE::EffectShaderData::Flags::kDisableParticleShader);
+		d.fillTextureEffectColorKey1 = cyan;
+		d.fillTextureEffectColorKey2 = cyan;
+		d.fillTextureEffectColorKey3 = cyan;
+		d.edgeColor = cyan;
+		d.edgeEffectColor = cyan;
+		if (d.edgeWidthAlphaUnits <= 0.f)
+			d.edgeWidthAlphaUnits = 8.f;  // the forged version left this 0, so the edge rim had no width
+
+		shader = s;
+		return shader;
+	}
+
+	// Walk up from a hit scene node to the reference that owns it (statics/furniture/etc. store their
+	// TESObjectREFR in userData on one of their 3D nodes). Null if this geometry has no owning reference.
+	static RE::TESObjectREFR* refFromNode(RE::NiAVObject* node)
+	{
+		for (; node; node = node->parent)
+			if (auto* ref = node->GetUserData())
+				return ref;
+		return nullptr;
+	}
+
+	// Recursively gather the names of every BSTriShape under root. Used to map the single
+	// <per-triangle-shape name="WorldMesh"> in obstruction.xml to all cloned obstruction meshes.
+	static void collectTrishapeNames(RE::NiNode* root, DefaultBBP::NameSet_t& out)
+	{
+		if (!root)
+			return;
+		for (auto& childPtr : root->GetChildren()) {
+			auto* child = childPtr.get();
+			if (!child)
+				continue;
+			if (auto* tri = child->AsTriShape(); tri && tri->name.size())
+				out.insert(std::string(tri->name.c_str()));
+			if (auto* node = castNiNode(child))
+				collectTrishapeNames(node, out);
+		}
+	}
+
+	// First named trishape under root. Collision-mesh obstructions hang their single collision body on it: the
+	// body just needs one trishape's world transform to anchor the (whole-object) collision geometry.
+	static RE::BSTriShape* firstNamedTriShape(RE::NiNode* root)
+	{
+		if (!root)
+			return nullptr;
+		for (auto& childPtr : root->GetChildren()) {
+			auto* child = childPtr.get();
+			if (!child)
+				continue;
+			if (auto* tri = child->AsTriShape(); tri && tri->name.size())
+				return tri;
+			if (auto* node = castNiNode(child))
+				if (auto* tri = firstNamedTriShape(node))
+					return tri;
+		}
+		return nullptr;
+	}
+
+	// Frames an obstruction stays tracked after it was last probed. Long enough (~1.5s at 60fps) that brief
+	// probe misses don't drop its cached geometry and force a fresh multi-second GPU re-read.
+	static constexpr int kObstructionTimeout = 90;
+	// Frames the owner may stop probing an obstruction before another actor can take it over (~0.5s). Stops
+	// ownership from flip-flopping between two nearby actors every frame.
+	static constexpr int kOwnerTimeout = 30;
+	// Nominal actor walk speed (Skyrim units/second), used only to turn the configured "re-crops per second
+	// at walk" into a move-distance threshold. Approximate; the user tunes the config value by feel anyway.
+	static constexpr float kNormalWalkSpeed = 175.f;
+
+	void ActorManager::World::refreshCandidates(float gatherRadius)
+	{
+		// Rate-limit the (costly) cell enumeration; between rebuilds the per-actor filter reuses the cache.
+		if (m_candidateRefreshCountdown > 0) {
+			--m_candidateRefreshCountdown;
+			return;
+		}
+		m_candidateRefreshCountdown = kCandidateRefreshFrames;
+
+		m_candidates.clear();
+		auto* tes = RE::TES::GetSingleton();
+		auto* player = RE::PlayerCharacter::GetSingleton();
+		if (!tes || !player)
+			return;
+
+		// Match the pre-check to the build mode so cell detection never tracks an object it can't collide:
+		// havok compressed mesh for Lever B, otherwise a named render trishape.
+		const bool useMesh = ActorManager::instance()->m_worldCollisionUseCollisionMesh;
+		tes->ForEachReferenceInRange(player, gatherRadius, [&](RE::TESObjectREFR* ref) {
+			// Skip anything that can't or shouldn't become a static collider: disabled/deleted refs, actors
+			// (they run their own SMP), or refs with no loaded 3D to read geometry from.
+			if (!ref || ref->IsDisabled() || ref->IsMarkedForDeletion() || skyrim_cast<RE::Actor*>(ref))
+				return RE::BSContainer::ForEachResult::kContinue;
+			auto* node = ref->Get3D();
+			if (!node)
+				return RE::BSContainer::ForEachResult::kContinue;
+
+			bool buildable;
+			if (useMesh)
+				buildable = nodeHasExtractableCollision(node);
+			else if (auto* asNode = castNiNode(node))
+				buildable = firstNamedTriShape(asNode) != nullptr;
+			else if (auto* tri = node->AsTriShape())
+				buildable = tri->name.size() > 0;
+			else
+				buildable = false;
+			if (!buildable)
+				return RE::BSContainer::ForEachResult::kContinue;
+
+			m_candidates.push_back(Candidate{ RE::NiPointer<RE::TESObjectREFR>(ref),
+				RE::NiPointer<RE::NiAVObject>(node), node->worldBound.center, node->worldBound.radius });
+			return RE::BSContainer::ForEachResult::kContinue;
+		});
+	}
+
+	void ActorManager::World::detectObstructions(RE::TESObjectREFR* actor, const RE::NiPoint3& actorPos, float radius)
+	{
+		for (auto& c : m_candidates) {
+			if (!c.node)
+				continue;
+			// Sphere-overlap test: the object's bound reaches within `radius` of the actor. Deliberately
+			// generous -- a large wall whose centre is far still collides once its surface is near; the
+			// crop in buildObstruction then trims the kept geometry to the actual clip sphere.
+			const float reach = radius + c.radius;
+			if ((c.center - actorPos).SqrLength() <= reach * reach)
+				addObstruction(c.node.get(), actor, actorPos);
+		}
+	}
+
+	void ActorManager::World::addObstruction(RE::NiAVObject* object, RE::TESObjectREFR* actor, RE::NiPoint3 clipCenter)
+	{
+		if (!object)
+			return;
+
+		const float radius = ActorManager::instance()->m_worldCollisionDistance;
+		// Turn "re-crops per second at a normal walk" into a move distance: the owner must move this far from
+		// where the collider was last cropped before we re-crop. A standing owner never re-crops; a runner
+		// re-crops proportionally more often. recropsPerSec <= 0 means "build once, never follow".
+		const float recropsPerSec = ActorManager::instance()->m_worldCollisionRecropsPerSec;
+		const float recropDist = recropsPerSec > 0.f ? kNormalWalkSpeed / recropsPerSec : 0.f;
+
+		for (auto& o : m_obstructions) {
+			if (o.object.get() != object)
+				continue;
+
+			// Any nearby actor keeps it alive; only its owner drives re-cropping, so several actors near the
+			// same big mesh can't each re-crop it around themselves every frame.
+			o.timeout = kObstructionTimeout;
+			bool isOwner = o.owner.get() == actor;
+			if (!isOwner && o.ownerTimeout <= 0) {
+				// The previous owner stopped probing this object, so this actor adopts it.
+				o.owner = RE::NiPointer<RE::TESObjectREFR>(actor);
+				isOwner = true;
+			}
+			if (isOwner) {
+				o.ownerTimeout = kOwnerTimeout;
+				if (recropsPerSec > 0.f && (clipCenter - o.builtAt).SqrLength() > recropDist * recropDist)
+					buildObstruction(o, clipCenter, radius);
+			}
+			return;
+		}
+
+		// New object: create the tracking entry owned by this actor, then build its (cropped) collider.
+		m_obstructions.push_back(Obstruction{});
+		auto& obstruction = m_obstructions.back();
+		obstruction.object = RE::NiPointer<RE::NiAVObject>(object);
+		obstruction.owner = RE::NiPointer<RE::TESObjectREFR>(actor);
+		obstruction.timeout = kObstructionTimeout;
+		obstruction.ownerTimeout = kOwnerTimeout;
+		buildObstruction(obstruction, clipCenter, radius);
+		// Keep the entry even if the crop produced no collider this time: buildObstruction has already read
+		// the mesh into the cache (the expensive part), so we must NOT drop it -- a re-add would re-read the
+		// whole mesh from the GPU on the next probe. builtAt is set unconditionally, so the re-crop throttle
+		// engages and we only retry once the actor has moved, reusing the warm cache.
+	}
+
+	void ActorManager::World::buildObstruction(Obstruction& obstruction, RE::NiPoint3 clipCenter, float radius)
+	{
+		// Record where we (re)cropped regardless of outcome, so the move-based re-crop throttle always
+		// engages -- a failed or empty crop must not leave builtAt at the origin, which would re-crop every
+		// frame. An empty crop keeps the (now warm) cache and simply has no collider until the actor moves.
+		obstruction.builtAt = clipCenter;
+
+		auto* node = obstruction.object.get() ? obstruction.object->AsNode() : nullptr;
+		if (!node)
+			return;
+
+		// Map the single <per-triangle-shape name="WorldMesh"> in obstruction.xml to the object's trishapes.
+		// Render-mesh mode maps every trishape (each becomes collider geometry). Collision-mesh mode (Lever B)
+		// maps ONE named trishape and hangs the whole object's havok collision geometry on it, so the coarse
+		// collision mesh is extracted once rather than per trishape.
+		const bool useCollisionMesh = ActorManager::instance()->m_worldCollisionUseCollisionMesh;
+		DefaultBBP::NameSet_t names;
+		if (useCollisionMesh) {
+			auto* tri = firstNamedTriShape(node);
+			if (!tri) {
+				logger::info("world collision: no named trishape under '{}' to anchor the collision mesh on",
+					node->name.c_str());
+				return;
+			}
+			names.insert(std::string(tri->name.c_str()));
+		} else {
+			collectTrishapeNames(node, names);
+			if (names.empty())
+				return;
+		}
+
+		DefaultBBP::PhysicsFile_t file{ std::string("SKSE/Plugins/hdtSkinnedMeshConfigs/obstruction.xml"),
+			DefaultBBP::NameMap_t{ { "WorldMesh", names } } };
+
+		// We do NOT clone the node tree (CreateClone/ProcessClone on arbitrary world objects can recurse into
+		// dangling references and crash, #394): the system reads the live trishape buffers directly, and
+		// SkyrimBone holds each node via NiPointer so the live nodes stay alive while we collide with them.
+		// Geometry is cropped to a sphere of `radius` around the actor (clipCenter), and the raw mesh is
+		// cached on the obstruction, so this rebuild re-crops from memory rather than re-reading the GPU.
+		// Always capture the debug wireframe triangles (bounded by the cap in the crop), so the visualization
+		// shows immediately when toggled on rather than only after the next re-crop. Cheap for a collision
+		// mesh; bounded for a render mesh.
+		std::unordered_map<RE::BSFixedString, RE::BSFixedString> noRename;
+		auto system = SkyrimSystemCreator().createOrUpdateSystem(node, obstruction.object.get(), &file,
+			std::move(noRename), nullptr, clipCenter, radius, &obstruction.cache,
+			&obstruction.colliderTris, useCollisionMesh);
+		if (!system)
+			return;
+
+		obstruction.setPhysics(system, true);  // swaps in the new (re-cropped) collider, unregistering the old
+		++m_buildsThisFrame;  // overlay diagnostic: how many rebuilds happened this frame
+	}
+
+	void ActorManager::World::prune()
+	{
+		const bool highlight = ActorManager::instance()->m_worldCollisionHighlight;
+		std::erase_if(m_obstructions, [highlight](Obstruction& obstruction) {
+			if (obstruction.ownerTimeout > 0)
+				--obstruction.ownerTimeout;  // free up ownership if the owner stops probing this object
+			if (--obstruction.timeout > 0) {
+				// Surviving obstruction: keep its glow refreshed. The effect shader is applied with a finite
+				// duration, so we re-apply it a little before it would expire; when highlighting is off (or the
+				// object stops colliding) we simply stop re-applying and the game fades it out on its own.
+				if (highlight && obstruction.hasPhysics()) {
+					if (obstruction.highlightCooldown <= 0) {
+						if (auto* ref = refFromNode(obstruction.object.get()); ref && ref->Get3D())
+							if (auto* shader = getHighlightShader())
+								ref->ApplyEffectShader(shader, kHighlightDuration);
+						obstruction.highlightCooldown = kHighlightRefreshFrames;
+					} else {
+						--obstruction.highlightCooldown;
+					}
+				}
+				return false;
+			}
+			obstruction.clearPhysics();  // unregister the system from the physics world
+			return true;
+		});
+	}
+
+	void ActorManager::World::clear()
+	{
+		for (auto& obstruction : m_obstructions)
+			obstruction.clearPhysics();  // unregister every system from the physics world
+		m_obstructions.clear();
+		m_candidates.clear();  // drop the cell-detection cache too, and force a rebuild when re-enabled
+		m_candidateRefreshCountdown = 0;
+	}
+
+	size_t ActorManager::World::totalVertices() const
+	{
+		size_t n = 0;
+		for (const auto& obstruction : m_obstructions) {
+			if (!obstruction.hasPhysics())
+				continue;
+			for (const auto& mesh : obstruction.meshes())
+				if (mesh)
+					n += mesh->m_vertices.size();
+		}
+		return n;
+	}
+
+	size_t ActorManager::World::collectColliderTris(std::vector<RE::NiPoint3>& out, size_t maxTris) const
+	{
+		// Total kept triangles across live obstructions.
+		size_t total = 0;
+		for (const auto& obstruction : m_obstructions)
+			if (obstruction.hasPhysics())
+				total += obstruction.colliderTris.size() / 3;
+		if (total == 0 || maxTris == 0)
+			return 0;
+
+		// Take an EVENLY-SPACED subset (every stride-th triangle) rather than the first maxTris: a dense
+		// blob of the first few thousand triangles is unreadable on screen, whereas a sparse sample spread
+		// across the whole cropped patch still shows its extent. Also bounds render-thread projection work.
+		const size_t stride = (total + maxTris - 1) / maxTris;  // ceil(total / maxTris)
+		size_t idx = 0, emitted = 0;
+		for (const auto& obstruction : m_obstructions) {
+			if (!obstruction.hasPhysics())
+				continue;
+			const auto& t = obstruction.colliderTris;
+			for (size_t i = 0; i + 2 < t.size(); i += 3, ++idx) {
+				if (idx % stride != 0)
+					continue;
+				out.push_back(t[i]);
+				out.push_back(t[i + 1]);
+				out.push_back(t[i + 2]);
+				++emitted;
+			}
+		}
+		return emitted;
 	}
 
 	void ActorManager::Skeleton::doSkeletonClean(RE::NiNode* dst, std::string_view prefix)

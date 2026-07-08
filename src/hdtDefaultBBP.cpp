@@ -116,6 +116,16 @@ namespace hdt
 		}
 	}
 
+	// Load one "default-bbps" XML file by path and merge it into the tables. Public entry point so optional
+	// extra mappings (e.g. obstructionBBPs.xml, used by the experimental world-collision feature) can be
+	// merged on top of the defaults. Reads the file, then hands it to parseDefaultBBPsDocument -- a missing or
+	// empty file parses to nothing, so callers can reference optional files without guarding first.
+	void DefaultBBP::loadBBP(const char* path)
+	{
+		auto loaded = readAllFile(path);
+		parseDefaultBBPsDocument(loaded);
+	}
+
 	// Parse one already-loaded <default-bbps> document into the tables. Shared by the single defaultBBPs.xml
 	// and each drop-in in the defaultBBPs/ folder. Every insert is first-wins, so the caller's feed order
 	// decides precedence between documents.

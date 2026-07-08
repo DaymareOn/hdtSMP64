@@ -6,6 +6,10 @@
 #include "Events.h"
 #include "hdtSkyrimSystem.h"
 
+#include <chrono>
+#include <mutex>
+#include <vector>
+
 namespace hdt
 {
 	class ActorManager :
@@ -112,6 +116,9 @@ namespace hdt
 			Head head;
 			SkeletonState state;
 			bool mustFixOneArmorMap = false;
+			// Which of the 6 axis probe rays manageWorldCollisions casts this frame; advances by one each
+			// frame so each actor casts only one world-collision ray per frame (the 6 axes cycle over 6 frames).
+			uint8_t m_worldRayCursor = 0;
 
 			std::string name();
 			void addArmor(RE::NiNode* armorModel);
@@ -153,6 +160,12 @@ namespace hdt
 			// @brief Get windfactor for skeleton
 			float getWindFactor();
 
+			// @brief Experimental: casts a ray along each of the 6 axes from this skeleton's position,
+			// and for every nearby static world object hit, registers it as an SMP obstruction (via
+			// ActorManager::World) so this actor's dynamic bones can collide with the world. Expired
+			// obstructions are pruned each call. Gated behind ActorManager::m_enableWorldCollision.
+			void manageWorldCollisions();
+
 			// @brief Updates the states and activity of skeletons, their heads parts and armors.
 			// @param playerCell The skeletons not in the player cell are automatically inactive.
 			// @param deactivate If set to true, the concerned skeleton will be inactive, regardless of other elements.
@@ -193,6 +206,88 @@ namespace hdt
 			bool isActive = false;
 			float currentWindFactor = 0.f;
 			std::vector<Armor> armors;
+		};
+
+		// @brief Experimental world-collision obstruction: one nearby static world object we currently
+		// collide with. We build a kinematic physics system straight from the object's LIVE geometry
+		// (no cloning) and hold the object via NiPointer so it stays alive while we reference it. It is
+		// removed once its timeout counts down to zero.
+		struct Obstruction : public PhysicsItem
+		{
+			RE::NiPointer<RE::NiAVObject> object;  // the live world object we collide with (kept alive by this ref)
+			int timeout = 0;
+			RE::NiPoint3 builtAt;                  // owner position the current cropped collider was built around
+			ObstructionCache cache;                // raw geometry per trishape, so re-cropping needs no GPU re-read
+			// The obstruction is cropped around ONE actor (the owner); only the owner's movement re-crops it, so
+			// several actors near the same big mesh can't fight to re-crop it around themselves every frame.
+			RE::NiPointer<RE::TESObjectREFR> owner;  // actor the crop is centered on (kept alive while it owns this)
+			int ownerTimeout = 0;                    // frames until ownership may pass to another actor (owner refreshes it)
+			std::vector<RE::NiPoint3> colliderTris;  // kept triangles in world space (3 points each) for the debug wireframe
+			int highlightCooldown = 0;               // frames until the glow effect shader is re-applied (see prune)
+		};
+
+		// @brief Tracks the nearby static world objects we currently turn into SMP colliders. Experimental
+		// and gated behind ActorManager::m_enableWorldCollision. It deliberately does NOT clone geometry:
+		// building a collider from a live object's trishapes avoids the CreateClone/ProcessClone crash on
+		// complex world objects (issue #394).
+		class World
+		{
+			std::vector<Obstruction> m_obstructions;
+
+			// A nearby collidable world object found by cell enumeration (cell-detection mode). Holds the
+			// live reference and its root node (both kept alive by NiPointer) plus a world bounding sphere,
+			// so per-actor detection is a cheap sphere-overlap test against this list rather than a fresh
+			// game-space query every frame.
+			struct Candidate
+			{
+				RE::NiPointer<RE::TESObjectREFR> ref;
+				RE::NiPointer<RE::NiAVObject> node;
+				RE::NiPoint3 center;
+				float radius = 0.f;
+			};
+			std::vector<Candidate> m_candidates;
+			int m_candidateRefreshCountdown = 0;  // frames until the candidate cache is rebuilt
+
+		public:
+			// @brief Number of obstruction (re)builds performed since ActorManager last reset it. ActorManager
+			// zeroes this before each frame's world-collision work and reads it after, to show a per-frame
+			// rebuild count in the overlay -- the key signal for whether the add/remove cost is many cheap
+			// rebuilds (rate-limit fixes it) or one catastrophic build (attack the build itself).
+			int m_buildsThisFrame = 0;
+
+			static World* instance();
+
+			// @brief Builds (or refreshes) a kinematic collider from object's live geometry, cropped to a
+			// sphere around clipCenter (actor's position). `actor` is who probed it: an obstruction is owned
+			// by one actor and only re-crops when that owner moves (see addObstruction/buildObstruction), so
+			// several nearby actors can't thrash the shared collider.
+			void addObstruction(RE::NiAVObject* object, RE::TESObjectREFR* actor, RE::NiPoint3 clipCenter);
+			// @brief Cell-detection mode: rebuild (rate-limited) the candidate cache of nearby collidable
+			// objects by enumerating the loaded cells around the player out to gatherRadius. The expensive
+			// enumeration only runs every few frames; between rebuilds detectObstructions reuses the cache.
+			void refreshCandidates(float gatherRadius);
+			// @brief Cell-detection mode: turn every cached candidate whose bounding sphere reaches within
+			// `radius` of actorPos into an obstruction owned by actor. Replaces the LOS-ray probe.
+			void detectObstructions(RE::TESObjectREFR* actor, const RE::NiPoint3& actorPos, float radius);
+			// @brief Ages every obstruction each frame; unregisters and drops those that expire.
+			void prune();
+			// @brief Immediately unregisters and drops ALL obstructions (used when the feature is turned
+			// off, so its physics cost is released at once rather than lingering until each times out).
+			void clear();
+			// @brief Number of world objects currently colliding (overlay stat).
+			size_t count() const { return m_obstructions.size(); }
+			// @brief Number of cached cell-detection candidates (overlay stat; 0 while in ray mode).
+			size_t candidateCount() const { return m_candidates.size(); }
+			// @brief Total collider vertices across all obstructions -- a complexity proxy for the overlay.
+			size_t totalVertices() const;
+			// @brief Append every obstruction's captured collider triangles (world space, 3 points each) to
+			// out, up to maxTris triangles total, for the debug wireframe. Returns how many were appended.
+			size_t collectColliderTris(std::vector<RE::NiPoint3>& out, size_t maxTris) const;
+
+		private:
+			// @brief (Re)builds an obstruction's cropped collider around clipCenter and registers it, reusing
+			// the obstruction's cached raw geometry so no GPU re-read is needed.
+			void buildObstruction(Obstruction& obstruction, RE::NiPoint3 clipCenter, float radius);
 		};
 
 		bool m_shutdown = false;
@@ -300,6 +395,88 @@ namespace hdt
 		// @brief When true, physics is skipped for dead non-player actors, to save performance.
 		bool m_skipDeadActors = false;
 
+		// @brief Experimental: when true, dynamic bones collide with nearby static world geometry
+		// (see Skeleton::manageWorldCollisions and ActorManager::World). Off by default; toggled via the
+		// "World collision" menu option / the <worldCollision> bool in the <smp> config section. The
+		// raycast-clone-and-simulate mechanism is expensive and still a prototype.
+		bool m_enableWorldCollision = false;
+
+		// @brief When true, only the player character probes and collides with world geometry; every other
+		// NPC is skipped. Much cheaper (one set of probes and colliders instead of one per active NPC). Off by
+		// default. Config <worldCollisionPlayerOnly>.
+		bool m_worldCollisionPlayerOnly = false;
+
+		// @brief When true, obstruction colliders are built from the game's coarse havok collision mesh
+		// (Lever B) instead of the dense render mesh -- far fewer vertices, so much cheaper to collide with.
+		// Objects whose collision is not an extractable compressed mesh get no collider (no render-mesh
+		// fallback). Off by default. Config <worldCollisionUseCollisionMesh>.
+		bool m_worldCollisionUseCollisionMesh = false;
+
+		// @brief Detect nearby objects by enumerating the loaded cell's references (a candidate cache
+		// distance-filtered per actor) instead of casting 6-axis line-of-sight probe rays. Finds every
+		// nearby collidable object rather than only those a straight axis ray happens to strike, at the
+		// cost of enumerating the cell. Off by default. Config <worldCollisionUseCellDetection>.
+		bool m_worldCollisionUseCellDetection = false;
+
+		// @brief How near (Skyrim units) static world geometry must be to an actor to be turned into a
+		// collider by manageWorldCollisions. Also the reach of the probe rays. Larger = more coverage
+		// but more geometry dragged into the sim (more cost). Config <worldCollisionDistance>.
+		float m_worldCollisionDistance = 158.f;
+
+		// @brief How many times per second the collider re-crops to follow an actor walking at a normal
+		// speed. The re-crop is really gated on distance moved, so a standing actor never re-crops and a
+		// runner re-crops proportionally more; this value just sets the walk-speed reference (converted to a
+		// move distance via a nominal walk speed). 0 = build once and never follow. Config
+		// <worldCollisionRecropsPerSec>.
+		float m_worldCollisionRecropsPerSec = 2.f;
+
+		// @brief Debug: draw the world-collision probe rays on screen (green = hit became a collider, red =
+		// miss/too far). Needs the overlay shown. Config <worldCollisionVisualizeRaycasts>.
+		bool m_visualizeWorldRaycasts = false;
+
+		// @brief Debug: apply a cyan glow effect shader to each collided world object (the whole object, in the
+		// game's own rendering, so it is depth-correct). Distinct from m_visualizeWorldRaycasts, which is a 2D
+		// overlay wireframe of just the cropped patch. Config <worldCollisionHighlight>.
+		bool m_worldCollisionHighlight = false;
+
+		// @brief One probe ray captured for on-screen debugging.
+		struct WorldRayViz
+		{
+			RE::NiPoint3 origin;   // where the ray started (the actor)
+			RE::NiPoint3 end;      // where it ended: the hit point, or the full reach if it hit nothing
+			bool hit = false;      // true when it hit geometry near enough to become a collider
+		};
+		// Published set of rays the overlay draws, the pending set filled during the frame, and the camera to
+		// project them with. m_rayVizLock guards the published set + camera across the main and render threads.
+		std::vector<WorldRayViz> m_rayViz;
+		std::vector<WorldRayViz> m_rayVizPending;
+		std::mutex m_rayVizLock;
+		RE::NiPointer<RE::NiCamera> m_debugCamera;  // held so the render thread can project rays safely
+		// Published collider triangles (world space, 3 points each) for the wireframe overlay; guarded by
+		// m_rayVizLock alongside the rays and camera. Filled only while the raycast visualization is on.
+		std::vector<RE::NiPoint3> m_colliderTris;
+
+		// @brief Per-frame CPU cost (ms) of ADDING/REMOVING world colliders (raycast + build + register +
+		// prune/clear) -- the on-thread work that causes micro-freezes. m_avg is EMA-smoothed over
+		// SkyrimPhysicsWorld::m_sampleSize frames; m_peak is a slowly-decaying max so a one-frame build
+		// spike stays visible in the overlay. This is NOT the physics-simulation collision cost.
+		float m_avgWorldCollisionMs = 0.f;
+		float m_peakWorldCollisionMs = 0.f;
+		// @brief Snapshot of how many world objects we currently collide with and the total collider
+		// vertices across them -- to see if the physics cost is driven by too many objects or too-complex
+		// ones. Shown in the overlay.
+		int m_obstructionCount = 0;
+		int m_obstructionVertices = 0;
+		// @brief Total obstruction (re)crops per second, averaged over a 1-second window (overlay stat). A
+		// high value with a high peak means the cost is re-crop frequency; near-zero with a high peak means a
+		// single build is expensive (then the next lever is the build itself, not the rate limit).
+		float m_recropsPerSec = 0.f;
+		// @brief How many probe rays were cast last frame (6 per probing actor). Overlay stat, shows how much
+		// probing is going on -- e.g. it drops to 6 when "player only" is on.
+		int m_raycastCount = 0;
+		// @brief Cell-detection candidate cache size, published for the status readout (0 while in ray mode).
+		int m_candidateCount = 0;
+
 		// @brief Min percent of screen height a non-player skeleton must occupy to stay active; 0 = disabled. [0,100]
 		float m_minScreenSizePercent = 0.f;
 
@@ -314,6 +491,14 @@ namespace hdt
 		RE::NiPoint3 m_cameraPositionDuringFrame;
 		float m_screenSizeThresholdScale = 0.f;  // precomputed per frame: (minScreenSizePercent/100)^2 * tan(fov/2)^2
 		static RE::NiNode* getCameraNode();
+
+		// Running accumulators that turn the per-frame re-crop count into m_recropsPerSec: sum re-crops and
+		// wall-clock over a ~1-second window, then divide and reset. m_lastFrameStamp measures each frame's dt.
+		int m_recropAccum = 0;
+		float m_recropWindow = 0.f;
+		std::chrono::steady_clock::time_point m_lastFrameStamp{};
+		bool m_haveFrameStamp = false;
+		int m_raycastAccum = 0;  // probe rays cast so far this frame; published into m_raycastCount at frame end
 
 		void setSkeletonsActive(const bool updateMetrics = false);
 	};
