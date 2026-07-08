@@ -1,6 +1,7 @@
 #include "Features/StrandHair.h"
 
 #include "Globals.h"
+#include "State.h"
 #include "Utils/D3D.h"
 
 bool StrandHair::ResolveFSMP()
@@ -198,11 +199,7 @@ void StrandHair::PostOpaque()
 	}
 	if (SUCCEEDED(context->Map(m_strandCB.get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped))) {
 		auto* cb = static_cast<StrandCB*>(mapped.pData);
-		const float ld[4] = { 0.3f, 0.5f, 0.7f, 0.0f };  // world-space "to light" (Z up); tune in-game
-		const float lc[4] = { 1.0f, 0.97f, 0.9f, 1.0f };
 		const float pr[4] = { 0.4f * settings.radiusScale, 0.0f, 0.0f, 0.0f };  // ribbon half-width
-		std::memcpy(cb->lightDir, ld, sizeof(ld));
-		std::memcpy(cb->lightColor, lc, sizeof(lc));
 		std::memcpy(cb->params, pr, sizeof(pr));
 		context->Unmap(m_strandCB.get(), 0);
 	}
@@ -238,6 +235,9 @@ void StrandHair::PostOpaque()
 	// just rendered with -- same binding Deferred uses for compute.
 	ID3D11Buffer* perFrame = *globals::game::perFrame.get();
 	context->VSSetConstantBuffers(12, 1, &perFrame);
+	// CS's SharedData (b5): scene sun direction/colour + directional ambient, updated pre-opaque.
+	ID3D11Buffer* sharedData = globals::state->sharedDataCB->CB();
+	context->PSSetConstantBuffers(5, 1, &sharedData);
 
 	context->DrawIndexed(static_cast<UINT>(m_indexScratch.size()), 0, 0);
 

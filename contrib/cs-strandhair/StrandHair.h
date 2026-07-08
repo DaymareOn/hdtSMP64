@@ -64,12 +64,10 @@ private:
 		float pos[3];
 		float t;
 	};
-	// b0 layout for the shader: light + ribbon parameters. Camera data comes from the game's own
-	// per-frame cbuffer (b12), bound during the pass -- same source as every other CS shader.
+	// b0 layout for the shader: ribbon parameters. Camera data comes from the game's per-frame
+	// cbuffer (b12) and lighting from CS's SharedData (b5), both bound during the pass.
 	struct StrandCB
 	{
-		float lightDir[4];
-		float lightColor[4];
 		float params[4];  // x = strand half-width in world units, yzw unused
 	};
 
