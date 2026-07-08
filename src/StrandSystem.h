@@ -26,10 +26,6 @@ namespace hdt
 		float strandRadius = 0.4f;  // ribbon half-width base, world units (matches StrandConfig::width)
 	};
 
-	/// Build a synthetic groom -- a hemispherical scalp cap of strands that drape down -- so the
-	/// end-to-end pipeline can be exercised without a DCC-authored .tfx. Head-local Skyrim units.
-	StrandGroom makeProceduralGroom();
-
 	/// Parse a TressFX .tfx binary into a groom. Returns false (out untouched) on any malformed
 	/// input: the 160-byte header is fully range-checked before a single vertex is trusted.
 	bool loadTfx(const std::string& path, StrandGroom& out);
@@ -40,7 +36,10 @@ namespace hdt
 	class StrandInstance
 	{
 	public:
-		explicit StrandInstance(const StrandConfig& config);
+		/// authoredGroom is a shared, immutable .tfx groom for this wig (from StrandManager's cache),
+		/// or null to fall back to the procedural scalp cap. Its geometry is copied per instance at
+		/// bind(); render material always comes from `config`, never the shared groom.
+		StrandInstance(const StrandConfig& config, std::shared_ptr<const StrandGroom> authoredGroom);
 
 		/// Resolve the anchor + collider nodes under skeletonRoot and prime the solver.
 		/// Returns false if the head node is missing (the manager retries next frame).
@@ -72,6 +71,7 @@ namespace hdt
 		static bool buildScalpGroom(RE::NiNode* headBone, const StrandConfig& config, StrandGroom& out);
 
 		StrandConfig m_config;
+		std::shared_ptr<const StrandGroom> m_authoredGroom;  // null -> procedural scalp cap
 		StrandGroom m_groom;
 		StrandSolver m_solver;
 		StrandParams m_params;
@@ -126,11 +126,18 @@ namespace hdt
 		/// cached config, or nullptr if that file is absent. Never throws (malformed files fail closed).
 		const StrandConfig* loadCachedConfig(std::uint32_t id);
 
+		/// Load + cache the authored .tfx groom named by `cfg` (from grooms/), scaled by cfg.groomScale.
+		/// Shared across every actor that uses the same file+scale. Returns null when no groom is set
+		/// or the file is missing/invalid (caller then uses the procedural cap). Cached by "file|scale".
+		std::shared_ptr<const StrandGroom> loadCachedGroom(const StrandConfig& cfg);
+
 		std::atomic_bool m_enabled{ false };
 		std::atomic_bool m_resetRequested{ false };
 		StrandConfig m_config;  // author-editable groom/sim params, (re)loaded from wig.xml
 		// Per-id config cache; nullopt marks a known-absent file so we don't re-stat it every frame.
 		std::unordered_map<std::uint32_t, std::optional<StrandConfig>> m_configCache;
+		// Authored-groom cache keyed by "file|scale"; a null value marks a known-bad/absent groom.
+		std::unordered_map<std::string, std::shared_ptr<const StrandGroom>> m_groomCache;
 		// One wig per actor, keyed by that actor's skeleton root node.
 		std::unordered_map<RE::NiNode*, std::unique_ptr<StrandInstance>> m_instances;
 		// Stable index order for the render-side API, rebuilt each step under m_publishLock.

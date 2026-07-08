@@ -2,11 +2,31 @@
 
 #include "NetImmerseUtils.h"
 #include "XmlReader.h"
+#include "hdtStringUtils.h"
 
 #include <algorithm>
+#include <cctype>
 
 namespace hdt
 {
+	// Reduce a config-supplied groom filename to a safe bare filename, or "" if it is unsafe. This
+	// is a trust boundary: the value gets appended to a fixed grooms/ path, so anything that could
+	// escape that folder (path separators, "..", drive/absolute markers) is rejected outright.
+	static std::string sanitizeGroomFile(const std::string& raw)
+	{
+		const std::string s = TrimAsciiWhitespace(raw);
+		if (s.empty() || s.size() > 128)
+			return {};
+		if (s.find("..") != std::string::npos)
+			return {};
+		for (const char c : s) {
+			const bool ok = std::isalnum(static_cast<unsigned char>(c)) || c == '.' || c == '_' || c == '-' || c == ' ';
+			if (!ok)  // rejects '/', '\\', ':' and any other separator/control char
+				return {};
+		}
+		return s;
+	}
+
 	bool loadStrandConfig(const std::string& path, StrandConfig& out)
 	{
 		std::string data = readAllFile2(path.c_str());
@@ -46,6 +66,10 @@ namespace hdt
 					out.colorTip[2] = static_cast<float>(v.z());
 				} else if (name == "width")
 					out.width = reader.readFloat();
+				else if (name == "groom")
+					out.groomFile = sanitizeGroomFile(reader.readText());
+				else if (name == "groom-scale")
+					out.groomScale = reader.readFloat();
 				else if (name == "wig-armor-only")
 					out.attachToWigArmorOnly = reader.readBool();
 				// unknown tags: ignored (readText/readFloat not called, so the reader steps past them)
@@ -66,6 +90,7 @@ namespace hdt
 		for (float& c : out.colorTip)
 			c = std::clamp(c, 0.0f, 1.0f);
 		out.width = std::clamp(out.width, 0.01f, 5.0f);
+		out.groomScale = std::clamp(out.groomScale, 0.001f, 1000.0f);
 		return true;
 	}
 }

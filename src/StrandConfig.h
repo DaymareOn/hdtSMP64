@@ -19,6 +19,11 @@ namespace hdt
 		float colorRoot[3] = { 0.05f, 0.03f, 0.02f };
 		float colorTip[3] = { 0.14f, 0.09f, 0.05f };
 		float width = 0.4f;          // ribbon half-width base, world units (x the render radius slider)
+		// Authored groom: a TressFX .tfx file in FSMPWig/grooms/ supplying the strand geometry
+		// (head-local, Skyrim units). Empty -> the built-in procedural scalp cap. groomScale is a
+		// uniform multiplier to rescale authored units onto the Skyrim head.
+		std::string groomFile;
+		float groomScale = 1.0f;
 		// Global gating policy (only read from the top-level wig.xml, not per-wig files): when true,
 		// strand wigs attach only to actors wearing a hair/wig-slot armor (true equip-driven mode);
 		// when false (default), to every SMP-active actor. Per-actor files (wigs/<actorFormID>.xml)

@@ -11,41 +11,6 @@
 
 namespace hdt
 {
-	StrandGroom makeProceduralGroom()
-	{
-		// A scalp cap of strands that each start on the upper hemisphere and drape mostly
-		// downward with a little outward lean, so the pipeline has something clearly hair-shaped
-		// to move and light. Roots are spread with a Fibonacci spiral for an even cap; sizes are
-		// rough Skyrim-unit guesses (a head is ~12 units) and are meant to be tuned in-game.
-		StrandGroom g;
-		g.strandCount = 220;
-		g.vertsPerStrand = 16;
-		const float capRadius = 8.0f;
-		const float hairLength = 45.0f;
-		const float seg = hairLength / static_cast<float>(g.vertsPerStrand - 1);
-		const float goldenAngle = 2.399963f;
-
-		g.restLocal.reserve(static_cast<size_t>(g.strandCount) * g.vertsPerStrand);
-		for (std::uint32_t s = 0; s < g.strandCount; ++s) {
-			const float zf = (static_cast<float>(s) + 0.5f) / static_cast<float>(g.strandCount);  // 0..1 up the hemisphere
-			const float ring = std::sqrt(std::max(0.0f, 1.0f - zf * zf));
-			const float phi = static_cast<float>(s) * goldenAngle;
-			const btVector3 dir(ring * std::cos(phi), ring * std::sin(phi), zf);
-			const btVector3 root = dir * capRadius;
-
-			btVector3 outward(dir.x(), dir.y(), 0.0f);
-			if (outward.length() > SIMD_EPSILON)
-				outward.normalize();
-			btVector3 stepDir = btVector3(0, 0, -1) * 0.85f + outward * 0.15f;
-			stepDir.normalize();
-
-			g.restLocal.push_back(root);
-			for (std::uint32_t v = 1; v < g.vertsPerStrand; ++v)
-				g.restLocal.push_back(g.restLocal.back() + stepDir * seg);
-		}
-		return g;
-	}
-
 	bool loadTfx(const std::string& path, StrandGroom& out)
 	{
 		// TressFX .tfx layout: a fixed 160-byte header, then numStrands*numVerts float4 positions
@@ -66,6 +31,8 @@ namespace hdt
 		};
 		static_assert(sizeof(TfxHeader) == 160, "TressFX header must be 160 bytes");
 
+		static constexpr std::uint64_t kMaxVerts = 4'000'000;  // ~64 MB of positions; ample for any wig
+
 		std::ifstream f(path, std::ios::binary);
 		if (!f)
 			return false;
@@ -81,20 +48,30 @@ namespace hdt
 		if (h.offsetPos < sizeof(TfxHeader))
 			return false;
 
-		const size_t n = static_cast<size_t>(h.numStrands) * h.numVerts;
+		const std::uint64_t n = static_cast<std::uint64_t>(h.numStrands) * h.numVerts;
+		if (n > kMaxVerts)
+			return false;
+
+		// Validate the whole position block fits in the file BEFORE allocating/reading, rather than
+		// discovering a short/truncated file mid-read.
+		f.seekg(0, std::ios::end);
+		const std::streamoff fileSize = f.tellg();
+		if (fileSize < 0)
+			return false;
+		const std::uint64_t need = static_cast<std::uint64_t>(h.offsetPos) + n * 16u;  // float4 per vertex
+		if (need > static_cast<std::uint64_t>(fileSize))
+			return false;
+
+		std::vector<float> raw(static_cast<size_t>(n) * 4);
 		f.seekg(static_cast<std::streamoff>(h.offsetPos), std::ios::beg);
+		f.read(reinterpret_cast<char*>(raw.data()), static_cast<std::streamsize>(raw.size() * sizeof(float)));
 		if (!f)
 			return false;
 
 		std::vector<btVector3> rest;
-		rest.reserve(n);
-		for (size_t i = 0; i < n; ++i) {
-			float p[4];
-			f.read(reinterpret_cast<char*>(p), sizeof(p));
-			if (!f)
-				return false;
-			rest.emplace_back(p[0], p[1], p[2]);
-		}
+		rest.reserve(static_cast<size_t>(n));
+		for (size_t i = 0; i < static_cast<size_t>(n); ++i)
+			rest.emplace_back(raw[i * 4 + 0], raw[i * 4 + 1], raw[i * 4 + 2]);  // xyz; w (inverse mass) unused
 
 		out.strandCount = h.numStrands;
 		out.vertsPerStrand = h.numVerts;
@@ -124,9 +101,6 @@ namespace hdt
 		StrandGroom g;
 		g.strandCount = static_cast<std::uint32_t>(config.strandCount);
 		g.vertsPerStrand = static_cast<std::uint32_t>(config.vertsPerStrand);
-		g.colorRoot = { config.colorRoot[0], config.colorRoot[1], config.colorRoot[2] };
-		g.colorTip = { config.colorTip[0], config.colorTip[1], config.colorTip[2] };
-		g.strandRadius = config.width;
 		const float baseLength = config.length;
 		const float goldenAngle = 2.399963f;
 		g.restLocal.reserve(static_cast<size_t>(g.strandCount) * g.vertsPerStrand);
@@ -163,12 +137,12 @@ namespace hdt
 		return true;
 	}
 
-	StrandInstance::StrandInstance(const StrandConfig& config) :
-		m_config(config)
+	StrandInstance::StrandInstance(const StrandConfig& config, std::shared_ptr<const StrandGroom> authoredGroom) :
+		m_config(config), m_authoredGroom(std::move(authoredGroom))
 	{
 		// Gravity is expressed in Skyrim units/s^2 to match SMP's own world (which uses
 		// -9.8 * scaleSkyrim); the solver otherwise works entirely in raw Skyrim units. The solver
-		// is primed later in bind(), once buildScalpGroom has produced this actor's groom.
+		// is primed later in bind(), once the groom (authored or procedural) is chosen.
 		m_params.gravity = btVector3(0, 0, -9.8f * scaleSkyrim);
 		m_params.globalStiffness = config.stiffness;  // hold the styled shape; less wet-noodle droop
 		m_params.damping = config.damping;
@@ -184,12 +158,28 @@ namespace hdt
 		if (!head)
 			return false;
 
-		StrandGroom scalp;
-		if (!buildScalpGroom(head, m_config, scalp))
-			return false;
+		if (m_authoredGroom) {
+			m_groom = *m_authoredGroom;  // authored .tfx geometry (shared, immutable) copied per instance
+			// Authored positions are world-up-axis offsets from the head origin (Skyrim units). Convert
+			// to head-local the same way the procedural cap does, so the wig follows the head and sits
+			// right whatever the head bone's orientation -- the head rotation cancels at render time.
+			const RE::NiTransform headInv = head->world.Invert();
+			for (auto& p : m_groom.restLocal) {
+				const RE::NiPoint3 pW = head->world.translate + RE::NiPoint3(p.x(), p.y(), p.z());
+				p = convertNi(headInv * pW);
+			}
+		} else {
+			StrandGroom scalp;
+			if (!buildScalpGroom(head, m_config, scalp))
+				return false;  // head geometry not ready yet; caller retries next frame
+			m_groom = std::move(scalp);
+		}
+		// Render material always comes from this actor's config, never the shared groom geometry.
+		m_groom.colorRoot = { m_config.colorRoot[0], m_config.colorRoot[1], m_config.colorRoot[2] };
+		m_groom.colorTip = { m_config.colorTip[0], m_config.colorTip[1], m_config.colorTip[2] };
+		m_groom.strandRadius = m_config.width;
 
 		m_anchor = make_nismart(head);
-		m_groom = std::move(scalp);
 		m_solver.init(m_groom.strandCount, m_groom.vertsPerStrand, m_groom.restLocal);
 		m_colliders.clear();
 
@@ -331,6 +321,30 @@ namespace hdt
 		return m_config;
 	}
 
+	std::shared_ptr<const StrandGroom> StrandManager::loadCachedGroom(const StrandConfig& cfg)
+	{
+		if (cfg.groomFile.empty())
+			return nullptr;
+		// Same .tfx at a different scale is a distinct groom, so the scale is part of the key.
+		char scaleKey[32];
+		std::snprintf(scaleKey, sizeof(scaleKey), "%.4f", cfg.groomScale);
+		const std::string key = cfg.groomFile + "|" + scaleKey;
+		if (auto it = m_groomCache.find(key); it != m_groomCache.end())
+			return it->second;
+
+		std::shared_ptr<const StrandGroom> result;  // stays null if load fails
+		auto groom = std::make_shared<StrandGroom>();
+		const std::string path = "Data/SKSE/Plugins/FSMPWig/grooms/" + cfg.groomFile;
+		if (loadTfx(path, *groom) && groom->strandCount > 0 && groom->vertsPerStrand >= 2) {
+			if (cfg.groomScale != 1.0f)
+				for (auto& p : groom->restLocal)
+					p *= cfg.groomScale;
+			result = groom;
+		}
+		m_groomCache[key] = result;  // cache the miss too, so a bad/missing file isn't re-read each frame
+		return result;
+	}
+
 	void StrandManager::step(btScalar totalDt, btScalar tick, const std::vector<StrandActor>& actors)
 	{
 		if (m_resetRequested.exchange(false)) {
@@ -342,6 +356,7 @@ namespace hdt
 			m_config = StrandConfig{};
 			loadStrandConfig("Data/SKSE/Plugins/FSMPWig/wig.xml", m_config);
 			m_configCache.clear();
+			m_groomCache.clear();
 		}
 		if (!m_enabled)
 			return;
@@ -366,7 +381,8 @@ namespace hdt
 					it->second->bind(a.root);
 				continue;
 			}
-			auto inst = std::make_unique<StrandInstance>(configFor(a.actorFormID, a.wigFormID));
+			const StrandConfig& cfg = configFor(a.actorFormID, a.wigFormID);
+			auto inst = std::make_unique<StrandInstance>(cfg, loadCachedGroom(cfg));
 			if (!inst->bind(a.root))
 				continue;  // head not ready yet; retry next frame
 			std::lock_guard<std::mutex> lock(m_publishLock);
