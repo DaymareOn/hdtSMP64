@@ -715,22 +715,25 @@ namespace hdt
 		};
 	}
 
-	// Apply a chunk's per-instance QsTransform: scale, then quaternion rotation, then translation.
-	static RE::hkVector4 applyQs(const RE::hkQsTransform& xf, float sx, float sy, float sz)
+	// Apply a chunk's per-instance transform, matching Bethesda's compressed-mesh layout (as decoded by
+	// NifSkope's reference gltools.cpp): the transform's translation is added to the chunk-space point
+	// (offset + quantized vertex) FIRST, then the whole sum is rotated by the transform's quaternion.
+	// The QsTransform's scale is 1 for these rigid chunk transforms and is deliberately ignored, exactly
+	// as the reference decoder does. (px,py,pz) is the already-dequantized chunk-space point.
+	static RE::hkVector4 applyChunkTransform(const RE::hkQsTransform& xf, float px, float py, float pz)
 	{
-		float q[4], s[4], t[4];
+		float q[4], t[4];
 		hkStore(xf.rotation.vec, q);
-		hkStore(xf.scale, s);
 		hkStore(xf.translation, t);
-		const float vx = sx * s[0], vy = sy * s[1], vz = sz * s[2];
+		const float vx = px + t[0], vy = py + t[1], vz = pz + t[2];
 		const float qx = q[0], qy = q[1], qz = q[2], qw = q[3];
 		const float ax = 2.f * (qy * vz - qz * vy);
 		const float ay = 2.f * (qz * vx - qx * vz);
 		const float az = 2.f * (qx * vy - qy * vx);
 		return RE::hkVector4(
-			vx + qw * ax + (qy * az - qz * ay) + t[0],
-			vy + qw * ay + (qz * ax - qx * az) + t[1],
-			vz + qw * az + (qx * ay - qy * ax) + t[2], 0.f);
+			vx + qw * ax + (qy * az - qz * ay),
+			vy + qw * ay + (qz * ax - qx * az),
+			vz + qw * az + (qx * ay - qy * ax), 0.f);
 	}
 
 	// Unwrap MOPP / bv-tree single-shape containers down to the compressed mesh shape, if any.
@@ -814,7 +817,7 @@ namespace hdt
 					const float lx = off[0] + chunk.vertices[i * 3 + 0] * kChunkQuant;
 					const float ly = off[1] + chunk.vertices[i * 3 + 1] * kChunkQuant;
 					const float lz = off[2] + chunk.vertices[i * 3 + 2] * kChunkQuant;
-					const RE::hkVector4 local = qxf ? applyQs(*qxf, lx, ly, lz) : RE::hkVector4(lx, ly, lz, 0.f);
+					const RE::hkVector4 local = qxf ? applyChunkTransform(*qxf, lx, ly, lz) : RE::hkVector4(lx, ly, lz, 0.f);
 					outWorld.push_back(havokLocalToSkyrimWorld(xf, local));
 				}
 
