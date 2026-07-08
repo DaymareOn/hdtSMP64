@@ -109,6 +109,7 @@ namespace hdt
 		c.worldCollision = read(smp, "worldCollision", c.worldCollision);
 		c.worldCollisionPlayerOnly = read(smp, "worldCollisionPlayerOnly", c.worldCollisionPlayerOnly);
 		c.worldCollisionUseCollisionMesh = read(smp, "worldCollisionUseCollisionMesh", c.worldCollisionUseCollisionMesh);
+		c.worldCollisionUseCellDetection = read(smp, "worldCollisionUseCellDetection", c.worldCollisionUseCellDetection);
 		c.worldCollisionDistance = clampv(read(smp, "worldCollisionDistance", c.worldCollisionDistance), 0.0f, 1000.0f);
 		c.worldCollisionRecropsPerSec = clampv(read(smp, "worldCollisionRecropsPerSec", c.worldCollisionRecropsPerSec), 0.0f, 60.0f);
 		c.worldCollisionVisualizeRaycasts = read(smp, "worldCollisionVisualizeRaycasts", c.worldCollisionVisualizeRaycasts);
@@ -196,6 +197,8 @@ namespace hdt
 		w.Bool(c.worldCollisionPlayerOnly);
 		w.Key("worldCollisionUseCollisionMesh");
 		w.Bool(c.worldCollisionUseCollisionMesh);
+		w.Key("worldCollisionUseCellDetection");
+		w.Bool(c.worldCollisionUseCellDetection);
 		w.Key("worldCollisionDistance");
 		w.Double(c.worldCollisionDistance);
 		w.Key("worldCollisionRecropsPerSec");

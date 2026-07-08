@@ -371,6 +371,14 @@ namespace hdt
 		return RE::PlayerCamera::GetSingleton()->cameraRoot.get();
 	}
 
+	// Cell-detection: how often (frames) the candidate cache is rebuilt from the loaded cell references.
+	// ~0.5s at 60fps -- the enumeration is the costly part, so it is amortised; the obstruction timeouts
+	// (~1.5s) and the per-frame distance filter easily bridge the gap between rebuilds.
+	static constexpr int kCandidateRefreshFrames = 30;
+	// Cell-detection: extra reach (Skyrim units) added around the player when gathering candidates, so
+	// objects near NPCs standing away from the player are still cached. Covers the usual SMP-active spread.
+	static constexpr float kCandidateGatherMargin = 2048.f;
+
 	// @brief This function is called by different events, with different locking needs, and is therefore extracted from the events.
 	void ActorManager::setSkeletonsActive(const bool updateMetrics)
 	{
@@ -451,6 +459,16 @@ namespace hdt
 		World::instance()->m_buildsThisFrame = 0;                  // count obstruction rebuilds over this frame
 		m_rayVizPending.clear();                                   // collect this frame's probe rays afresh
 		m_raycastAccum = 0;                                        // count probe rays cast over this frame
+
+		// Cell-detection mode: rebuild the shared candidate cache once per frame (rate-limited inside),
+		// before the per-actor detection in manageWorldCollisions below consumes it. Timed into the same
+		// world-collision budget shown in the overlay so its cost is visible when comparing detection modes.
+		if (m_enableWorldCollision && m_worldCollisionUseCellDetection) {
+			const auto wcStart = std::chrono::steady_clock::now();
+			World::instance()->refreshCandidates(m_worldCollisionDistance + kCandidateGatherMargin);
+			worldCollisionTime += std::chrono::steady_clock::now() - wcStart;
+		}
+
 		for (auto& i : m_skeletons) {
 			// When enabled, skip physics for dead non-player actors to save performance.
 			bool skipDeadActor = false;
@@ -570,6 +588,7 @@ namespace hdt
 			m_peakWorldCollisionMs = instMs > decayedPeak ? instMs : decayedPeak;
 			m_obstructionCount = static_cast<int>(World::instance()->count());
 			m_obstructionVertices = static_cast<int>(World::instance()->totalVertices());
+			m_candidateCount = static_cast<int>(World::instance()->candidateCount());
 		}
 
 		// Convert this frame's re-crop count into a per-second rate over a ~1s window, and publish the probe
@@ -877,9 +896,18 @@ namespace hdt
 		if (!pos.has_value())
 			return;
 
+		auto* const am = ActorManager::instance();
+		const float distance = am->m_worldCollisionDistance;
+
+		// Cell detection: consult the shared candidate cache that setSkeletonsActive rebuilt this frame,
+		// and turn every cached object within reach into an obstruction. No probe rays are cast in this mode.
+		if (am->m_worldCollisionUseCellDetection) {
+			World::instance()->detectObstructions(skeletonOwner.get(), pos.value(), distance);
+			return;
+		}
+
 		// Probe out to the configured distance along each of the 6 axes; only obstructions within that
 		// distance of the skeleton are kept, to bound how much world geometry we drag into the simulation.
-		const float distance = ActorManager::instance()->m_worldCollisionDistance;
 		const float maxObstructionDistance2 = distance * distance;
 		static const RE::NiPoint3 axes[6] = {
 			{ 1.f, 0.f, 0.f }, { -1.f, 0.f, 0.f },
@@ -887,7 +915,6 @@ namespace hdt
 			{ 0.f, 0.f, 1.f }, { 0.f, 0.f, -1.f }
 		};
 
-		auto* const am = ActorManager::instance();
 		const bool viz = am->m_visualizeWorldRaycasts;
 
 		// Cast only ONE ray this frame, cycling through the 6 axes over 6 frames, to keep the probe cost low.
@@ -1040,6 +1067,65 @@ namespace hdt
 	// at walk" into a move-distance threshold. Approximate; the user tunes the config value by feel anyway.
 	static constexpr float kNormalWalkSpeed = 175.f;
 
+	void ActorManager::World::refreshCandidates(float gatherRadius)
+	{
+		// Rate-limit the (costly) cell enumeration; between rebuilds the per-actor filter reuses the cache.
+		if (m_candidateRefreshCountdown > 0) {
+			--m_candidateRefreshCountdown;
+			return;
+		}
+		m_candidateRefreshCountdown = kCandidateRefreshFrames;
+
+		m_candidates.clear();
+		auto* tes = RE::TES::GetSingleton();
+		auto* player = RE::PlayerCharacter::GetSingleton();
+		if (!tes || !player)
+			return;
+
+		// Match the pre-check to the build mode so cell detection never tracks an object it can't collide:
+		// havok compressed mesh for Lever B, otherwise a named render trishape.
+		const bool useMesh = ActorManager::instance()->m_worldCollisionUseCollisionMesh;
+		tes->ForEachReferenceInRange(player, gatherRadius, [&](RE::TESObjectREFR* ref) {
+			// Skip anything that can't or shouldn't become a static collider: disabled/deleted refs, actors
+			// (they run their own SMP), or refs with no loaded 3D to read geometry from.
+			if (!ref || ref->IsDisabled() || ref->IsMarkedForDeletion() || skyrim_cast<RE::Actor*>(ref))
+				return RE::BSContainer::ForEachResult::kContinue;
+			auto* node = ref->Get3D();
+			if (!node)
+				return RE::BSContainer::ForEachResult::kContinue;
+
+			bool buildable;
+			if (useMesh)
+				buildable = nodeHasExtractableCollision(node);
+			else if (auto* asNode = castNiNode(node))
+				buildable = firstNamedTriShape(asNode) != nullptr;
+			else if (auto* tri = node->AsTriShape())
+				buildable = tri->name.size() > 0;
+			else
+				buildable = false;
+			if (!buildable)
+				return RE::BSContainer::ForEachResult::kContinue;
+
+			m_candidates.push_back(Candidate{ RE::NiPointer<RE::TESObjectREFR>(ref),
+				RE::NiPointer<RE::NiAVObject>(node), node->worldBound.center, node->worldBound.radius });
+			return RE::BSContainer::ForEachResult::kContinue;
+		});
+	}
+
+	void ActorManager::World::detectObstructions(RE::TESObjectREFR* actor, const RE::NiPoint3& actorPos, float radius)
+	{
+		for (auto& c : m_candidates) {
+			if (!c.node)
+				continue;
+			// Sphere-overlap test: the object's bound reaches within `radius` of the actor. Deliberately
+			// generous -- a large wall whose centre is far still collides once its surface is near; the
+			// crop in buildObstruction then trims the kept geometry to the actual clip sphere.
+			const float reach = radius + c.radius;
+			if ((c.center - actorPos).SqrLength() <= reach * reach)
+				addObstruction(c.node.get(), actor, actorPos);
+		}
+	}
+
 	void ActorManager::World::addObstruction(RE::NiAVObject* object, RE::TESObjectREFR* actor, RE::NiPoint3 clipCenter)
 	{
 		if (!object)
@@ -1172,6 +1258,8 @@ namespace hdt
 		for (auto& obstruction : m_obstructions)
 			obstruction.clearPhysics();  // unregister every system from the physics world
 		m_obstructions.clear();
+		m_candidates.clear();  // drop the cell-detection cache too, and force a rebuild when re-enabled
+		m_candidateRefreshCountdown = 0;
 	}
 
 	size_t ActorManager::World::totalVertices() const

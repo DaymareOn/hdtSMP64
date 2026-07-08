@@ -210,6 +210,20 @@ namespace hdt
 		{
 			std::vector<Obstruction> m_obstructions;
 
+			// A nearby collidable world object found by cell enumeration (cell-detection mode). Holds the
+			// live reference and its root node (both kept alive by NiPointer) plus a world bounding sphere,
+			// so per-actor detection is a cheap sphere-overlap test against this list rather than a fresh
+			// game-space query every frame.
+			struct Candidate
+			{
+				RE::NiPointer<RE::TESObjectREFR> ref;
+				RE::NiPointer<RE::NiAVObject> node;
+				RE::NiPoint3 center;
+				float radius = 0.f;
+			};
+			std::vector<Candidate> m_candidates;
+			int m_candidateRefreshCountdown = 0;  // frames until the candidate cache is rebuilt
+
 		public:
 			// @brief Number of obstruction (re)builds performed since ActorManager last reset it. ActorManager
 			// zeroes this before each frame's world-collision work and reads it after, to show a per-frame
@@ -224,6 +238,13 @@ namespace hdt
 			// by one actor and only re-crops when that owner moves (see addObstruction/buildObstruction), so
 			// several nearby actors can't thrash the shared collider.
 			void addObstruction(RE::NiAVObject* object, RE::TESObjectREFR* actor, RE::NiPoint3 clipCenter);
+			// @brief Cell-detection mode: rebuild (rate-limited) the candidate cache of nearby collidable
+			// objects by enumerating the loaded cells around the player out to gatherRadius. The expensive
+			// enumeration only runs every few frames; between rebuilds detectObstructions reuses the cache.
+			void refreshCandidates(float gatherRadius);
+			// @brief Cell-detection mode: turn every cached candidate whose bounding sphere reaches within
+			// `radius` of actorPos into an obstruction owned by actor. Replaces the LOS-ray probe.
+			void detectObstructions(RE::TESObjectREFR* actor, const RE::NiPoint3& actorPos, float radius);
 			// @brief Ages every obstruction each frame; unregisters and drops those that expire.
 			void prune();
 			// @brief Immediately unregisters and drops ALL obstructions (used when the feature is turned
@@ -231,6 +252,8 @@ namespace hdt
 			void clear();
 			// @brief Number of world objects currently colliding (overlay stat).
 			size_t count() const { return m_obstructions.size(); }
+			// @brief Number of cached cell-detection candidates (overlay stat; 0 while in ray mode).
+			size_t candidateCount() const { return m_candidates.size(); }
 			// @brief Total collider vertices across all obstructions -- a complexity proxy for the overlay.
 			size_t totalVertices() const;
 			// @brief Append every obstruction's captured collider triangles (world space, 3 points each) to
@@ -331,6 +354,12 @@ namespace hdt
 		// fallback). Off by default. Config <worldCollisionUseCollisionMesh>.
 		bool m_worldCollisionUseCollisionMesh = false;
 
+		// @brief Detect nearby objects by enumerating the loaded cell's references (a candidate cache
+		// distance-filtered per actor) instead of casting 6-axis line-of-sight probe rays. Finds every
+		// nearby collidable object rather than only those a straight axis ray happens to strike, at the
+		// cost of enumerating the cell. Off by default. Config <worldCollisionUseCellDetection>.
+		bool m_worldCollisionUseCellDetection = false;
+
 		// @brief How near (Skyrim units) static world geometry must be to an actor to be turned into a
 		// collider by manageWorldCollisions. Also the reach of the probe rays. Larger = more coverage
 		// but more geometry dragged into the sim (more cost). Config <worldCollisionDistance>.
@@ -387,6 +416,8 @@ namespace hdt
 		// @brief How many probe rays were cast last frame (6 per probing actor). Overlay stat, shows how much
 		// probing is going on -- e.g. it drops to 6 when "player only" is on.
 		int m_raycastCount = 0;
+		// @brief Cell-detection candidate cache size, published for the status readout (0 while in ray mode).
+		int m_candidateCount = 0;
 
 		// @brief Min percent of screen height a non-player skeleton must occupy to stay active; 0 = disabled. [0,100]
 		float m_minScreenSizePercent = 0.f;

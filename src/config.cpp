@@ -61,6 +61,7 @@ namespace hdt
 		a->m_enableWorldCollision = c.worldCollision;
 		a->m_worldCollisionPlayerOnly = c.worldCollisionPlayerOnly;
 		a->m_worldCollisionUseCollisionMesh = c.worldCollisionUseCollisionMesh;
+		a->m_worldCollisionUseCellDetection = c.worldCollisionUseCellDetection;
 		a->m_worldCollisionDistance = c.worldCollisionDistance;
 		a->m_worldCollisionRecropsPerSec = c.worldCollisionRecropsPerSec;
 		a->m_visualizeWorldRaycasts = c.worldCollisionVisualizeRaycasts;
@@ -117,6 +118,7 @@ namespace hdt
 		c.worldCollision = a->m_enableWorldCollision;
 		c.worldCollisionPlayerOnly = a->m_worldCollisionPlayerOnly;
 		c.worldCollisionUseCollisionMesh = a->m_worldCollisionUseCollisionMesh;
+		c.worldCollisionUseCellDetection = a->m_worldCollisionUseCellDetection;
 		c.worldCollisionDistance = a->m_worldCollisionDistance;
 		c.worldCollisionRecropsPerSec = a->m_worldCollisionRecropsPerSec;
 		c.worldCollisionVisualizeRaycasts = a->m_visualizeWorldRaycasts;
@@ -234,6 +236,7 @@ namespace hdt
 		LOG("smp.worldCollision", a->m_enableWorldCollision);
 		LOG("smp.worldCollisionPlayerOnly", a->m_worldCollisionPlayerOnly);
 		LOG("smp.worldCollisionUseCollisionMesh", a->m_worldCollisionUseCollisionMesh);
+		LOG("smp.worldCollisionUseCellDetection", a->m_worldCollisionUseCellDetection);
 		LOG("smp.worldCollisionDistance", a->m_worldCollisionDistance);
 		LOG("smp.worldCollisionRecropsPerSec", a->m_worldCollisionRecropsPerSec);
 		LOG("smp.worldCollisionVisualizeRaycasts", a->m_visualizeWorldRaycasts);

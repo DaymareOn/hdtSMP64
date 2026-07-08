@@ -11,6 +11,10 @@
 
 namespace hdt
 {
+	// True if any collision object under root unwraps to a havok compressed mesh shape -- i.e. Lever B
+	// would produce a collider for it. Used by cell detection to keep only objects that actually collide.
+	bool nodeHasExtractableCollision(RE::NiAVObject* root);
+
 	class PerVertexShape;
 	class SkyrimSystem : public SkinnedMeshSystem
 	{

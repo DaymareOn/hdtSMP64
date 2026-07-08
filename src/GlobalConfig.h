@@ -43,6 +43,10 @@ namespace hdt
 		bool worldCollisionPlayerOnly = false;
 		// Build colliders from the coarse havok collision mesh, not the render mesh (ActorManager::m_worldCollisionUseCollisionMesh).
 		bool worldCollisionUseCollisionMesh = false;
+		// Detect nearby objects by enumerating loaded cell references instead of casting LOS probe rays
+		// (ActorManager::m_worldCollisionUseCellDetection). Finds every nearby collidable object, not just
+		// the ones a 6-axis ray happens to strike.
+		bool worldCollisionUseCellDetection = false;
 		// How near (units) world geometry must be to become a collider (ActorManager::m_worldCollisionDistance).
 		float worldCollisionDistance = 158.0f;
 		// Re-crops per second for an actor walking at a normal speed; sets how tightly the collider follows

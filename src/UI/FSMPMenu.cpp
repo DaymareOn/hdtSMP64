@@ -728,6 +728,13 @@ namespace
 					"Objects whose collision isn't an extractable mesh (terrain, box/convex) get no collider.",
 					&a->m_worldCollisionUseCollisionMesh, d.worldCollisionUseCollisionMesh))
 				commitReset();
+			if (rowCheck("Detect via cell references (not probe rays)",
+					"Find nearby objects by scanning the loaded cell's references instead of casting 6 probe "
+					"rays. Finds every nearby collidable object (no missed diagonals or thin walls) with no "
+					"per-actor raycast, at the cost of enumerating the cell. Best paired with the collision "
+					"mesh option. Turn on 'Visualize' to compare coverage against the ray mode.",
+					&a->m_worldCollisionUseCellDetection, d.worldCollisionUseCellDetection))
+				commitReset();
 			if (rowFloat("World collision distance",
 					"How near (units) world geometry must be to an actor to become a collider. "
 					"Larger = more coverage but more cost.",
@@ -757,16 +764,26 @@ namespace
 		// Live status: the numbers update every frame while the menu is open, so it is obvious whether the
 		// feature is probing and building colliders (and, if not, why).
 		section(fa::GaugeHigh, "Status (live)");
-		ImGuiMCP::Text("%s: %d", tr("Probe rays last frame"), a->m_raycastCount);
+		if (a->m_worldCollisionUseCellDetection)
+			ImGuiMCP::Text("%s: %d", tr("Cell candidates cached"), a->m_candidateCount);
+		else
+			ImGuiMCP::Text("%s: %d", tr("Probe rays last frame"), a->m_raycastCount);
 		ImGuiMCP::Text("%s: %d objs, %d verts", tr("Colliders"), a->m_obstructionCount, a->m_obstructionVertices);
 		ImGuiMCP::Text("%s: %.1f", tr("Re-crops per second"), a->m_recropsPerSec);
 		ImGuiMCP::Text("%s: %.2f ms (peak %.2f)", tr("Add / remove cost"),
 			a->m_avgWorldCollisionMs, a->m_peakWorldCollisionMs);
-		if (a->m_enableWorldCollision && a->m_raycastCount == 0) {
+		// Ray mode with zero probes means the actor is not being probed at all; call it out. Cell mode casts
+		// no rays, so its equivalent "nothing is happening" signal is an empty candidate cache.
+		if (a->m_enableWorldCollision && !a->m_worldCollisionUseCellDetection && a->m_raycastCount == 0) {
 			constexpr ImGuiMCP::ImVec4 warn{ 1.0f, 0.72f, 0.20f, 1.0f };
 			ImGuiMCP::TextColored(warn, "%s",
 				tr("No probes ran last frame. The character must have active SMP hair/cloth and be within "
 				   "physics range (near the camera / not culled). Equip physics hair and stand still to test."));
+		} else if (a->m_enableWorldCollision && a->m_worldCollisionUseCellDetection && a->m_candidateCount == 0) {
+			constexpr ImGuiMCP::ImVec4 warn{ 1.0f, 0.72f, 0.20f, 1.0f };
+			ImGuiMCP::TextColored(warn, "%s",
+				tr("No collidable objects found in range. Stand near static objects that have havok collision "
+				   "(buildings, rocks, furniture); terrain and box/convex-only objects are not collidable."));
 		}
 	}
 

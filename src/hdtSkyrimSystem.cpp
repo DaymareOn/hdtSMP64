@@ -782,6 +782,25 @@ namespace hdt
 				gatherCollisionMeshes(child.get(), out);
 	}
 
+	// Cheap predicate mirroring gatherCollisionMeshes' walk, but stopping at the first compressed mesh:
+	// answers "would Lever B build any collider for this object?" without decoding vertices. Cell detection
+	// uses it to admit only genuinely collidable objects, so it never tracks empty (non-colliding) obstructions.
+	bool nodeHasExtractableCollision(RE::NiAVObject* root)
+	{
+		if (!root)
+			return false;
+		if (auto* col = root->GetCollisionObject())
+			if (auto* rb = col->GetRigidBody())
+				if (auto* hkrb = rb->GetRigidBody())
+					if (asCompressedMesh(hkrb->GetShape()))
+						return true;
+		if (auto* node = root->AsNode())
+			for (auto& child : node->GetChildren())
+				if (nodeHasExtractableCollision(child.get()))
+					return true;
+		return false;
+	}
+
 	// Decode the object's havok collision geometry into world-space vertices + triangle indices. Handles the
 	// big (uncompressed) triangles and the compressed chunks (quantized verts + triangle strips/lists).
 	static bool extractCollisionMesh(RE::NiAVObject* objectRoot, std::vector<RE::NiPoint3>& outWorld,
