@@ -1,6 +1,7 @@
 #pragma once
 
 #include "FSMP_WigAPI.h"
+#include "StrandConfig.h"
 #include "StrandSolver.h"
 
 #include <array>
@@ -38,7 +39,7 @@ namespace hdt
 	class StrandInstance
 	{
 	public:
-		explicit StrandInstance(StrandGroom groom);
+		explicit StrandInstance(const StrandConfig& config);
 
 		/// Resolve the anchor + collider nodes under skeletonRoot and prime the solver.
 		/// Returns false if the head node is missing (the manager retries next frame).
@@ -67,8 +68,9 @@ namespace hdt
 		/// spheres of all geometry under the head bone for the head's true centre + radius, seed
 		/// roots over the upper (world-up) hemisphere, and grow each strand down-and-out. Returns
 		/// false if the head geometry bound isn't ready yet (caller retries next frame).
-		static bool buildScalpGroom(RE::NiNode* headBone, StrandGroom& out);
+		static bool buildScalpGroom(RE::NiNode* headBone, const StrandConfig& config, StrandGroom& out);
 
+		StrandConfig m_config;
 		StrandGroom m_groom;
 		StrandSolver m_solver;
 		StrandParams m_params;
@@ -106,6 +108,7 @@ namespace hdt
 
 		std::atomic_bool m_enabled{ false };
 		std::atomic_bool m_resetRequested{ false };
+		StrandConfig m_config;  // author-editable groom/sim params, (re)loaded from wig.xml
 		// One wig per actor, keyed by that actor's skeleton root node.
 		std::unordered_map<RE::NiNode*, std::unique_ptr<StrandInstance>> m_instances;
 		// Stable index order for the render-side API, rebuilt each step under m_publishLock.

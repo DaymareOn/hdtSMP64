@@ -102,7 +102,7 @@ namespace hdt
 
 	// ---------------------------------------------------------------- StrandInstance
 
-	bool StrandInstance::buildScalpGroom(RE::NiNode* headBone, StrandGroom& out)
+	bool StrandInstance::buildScalpGroom(RE::NiNode* headBone, const StrandConfig& config, StrandGroom& out)
 	{
 		// The head's true centre + radius in world space, from the real head geometry bounds.
 		// The head bone (confirmed via the bind log to be the player's head) is the anchor. The scalp
@@ -120,9 +120,9 @@ namespace hdt
 		};
 
 		StrandGroom g;
-		g.strandCount = 320;
-		g.vertsPerStrand = 12;
-		const float baseLength = 22.0f;
+		g.strandCount = static_cast<std::uint32_t>(config.strandCount);
+		g.vertsPerStrand = static_cast<std::uint32_t>(config.vertsPerStrand);
+		const float baseLength = config.length;
 		const float goldenAngle = 2.399963f;
 		g.restLocal.reserve(static_cast<size_t>(g.strandCount) * g.vertsPerStrand);
 
@@ -145,7 +145,7 @@ namespace hdt
 			if (gl > 1e-4f)
 				growW = growW * (1.0f / gl);
 
-			const float len = baseLength * (0.75f + 0.5f * h1);  // +/-25% per-strand length
+			const float len = baseLength * (1.0f - config.lengthVariation + 2.0f * config.lengthVariation * h1);
 			const float seg = len / static_cast<float>(g.vertsPerStrand - 1);
 
 			RE::NiPoint3 pW = C + dirW * (R * 0.98f);  // root sits on the scalp surface
@@ -158,15 +158,15 @@ namespace hdt
 		return true;
 	}
 
-	StrandInstance::StrandInstance(StrandGroom groom) :
-		m_groom(std::move(groom))
+	StrandInstance::StrandInstance(const StrandConfig& config) :
+		m_config(config)
 	{
 		// Gravity is expressed in Skyrim units/s^2 to match SMP's own world (which uses
-		// -9.8 * scaleSkyrim); the solver otherwise works entirely in raw Skyrim units.
+		// -9.8 * scaleSkyrim); the solver otherwise works entirely in raw Skyrim units. The solver
+		// is primed later in bind(), once buildScalpGroom has produced this actor's groom.
 		m_params.gravity = btVector3(0, 0, -9.8f * scaleSkyrim);
-		m_params.globalStiffness = 0.18f;  // hold the styled shape a bit more; less wet-noodle droop
-		m_params.damping = 0.92f;
-		m_solver.init(m_groom.strandCount, m_groom.vertsPerStrand, m_groom.restLocal);
+		m_params.globalStiffness = config.stiffness;  // hold the styled shape; less wet-noodle droop
+		m_params.damping = config.damping;
 	}
 
 	bool StrandInstance::bind(RE::NiNode* skeletonRoot)
@@ -180,7 +180,7 @@ namespace hdt
 			return false;
 
 		StrandGroom scalp;
-		if (!buildScalpGroom(head, scalp))
+		if (!buildScalpGroom(head, m_config, scalp))
 			return false;
 
 		m_anchor = make_nismart(head);
@@ -284,6 +284,7 @@ namespace hdt
 		std::error_code ec;
 		if (std::filesystem::exists("Data/SKSE/Plugins/FSMPWig/enable.txt", ec))
 			m_enabled = true;
+		loadStrandConfig("Data/SKSE/Plugins/FSMPWig/wig.xml", m_config);
 	}
 
 	StrandManager& StrandManager::instance()
@@ -298,6 +299,9 @@ namespace hdt
 			std::lock_guard<std::mutex> lock(m_publishLock);
 			m_instances.clear();
 			m_order.clear();
+			// Re-read the config so editing wig.xml + reloading a save applies without a restart.
+			m_config = StrandConfig{};
+			loadStrandConfig("Data/SKSE/Plugins/FSMPWig/wig.xml", m_config);
 		}
 		if (!m_enabled)
 			return;
@@ -315,7 +319,7 @@ namespace hdt
 					it->second->bind(root);
 				continue;
 			}
-			auto inst = std::make_unique<StrandInstance>(StrandGroom{});
+			auto inst = std::make_unique<StrandInstance>(m_config);
 			if (!inst->bind(root))
 				continue;  // head not ready yet; retry next frame
 			std::lock_guard<std::mutex> lock(m_publishLock);

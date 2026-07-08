@@ -77,6 +77,8 @@ set(SOURCE_FILES
 	"${SOURCE_DIR}/hdtConvertNi.h"
 	"${SOURCE_DIR}/hdtSkyrimSystem.cpp"
 	"${SOURCE_DIR}/hdtSkyrimSystem.h"
+	"${SOURCE_DIR}/StrandConfig.cpp"
+	"${SOURCE_DIR}/StrandConfig.h"
 	"${SOURCE_DIR}/StrandSolver.cpp"
 	"${SOURCE_DIR}/StrandSolver.h"
 	"${SOURCE_DIR}/StrandSystem.cpp"

@@ -1,0 +1,45 @@
+#include "StrandConfig.h"
+
+#include "NetImmerseUtils.h"
+#include "XmlReader.h"
+
+#include <algorithm>
+
+namespace hdt
+{
+	bool loadStrandConfig(const std::string& path, StrandConfig& out)
+	{
+		std::string data = readAllFile2(path.c_str());
+		if (data.empty())
+			return false;  // no file -> keep defaults
+
+		XMLReader reader(reinterpret_cast<BYTE*>(data.data()), data.size());
+		while (reader.Inspect()) {
+			if (reader.GetInspected() != XMLReader::Inspected::StartTag)
+				continue;
+			const auto name = reader.GetName();
+			if (name == "strands")
+				out.strandCount = reader.readInt();
+			else if (name == "verts-per-strand")
+				out.vertsPerStrand = reader.readInt();
+			else if (name == "length")
+				out.length = reader.readFloat();
+			else if (name == "length-variation")
+				out.lengthVariation = reader.readFloat();
+			else if (name == "stiffness")
+				out.stiffness = reader.readFloat();
+			else if (name == "damping")
+				out.damping = reader.readFloat();
+			// unknown tags: ignored (readText/readFloat not called, so the reader steps past them)
+		}
+
+		// Clamp every value read across the trust boundary to a solver-safe range (fail closed).
+		out.strandCount = std::clamp(out.strandCount, 1, 4096);
+		out.vertsPerStrand = std::clamp(out.vertsPerStrand, 2, 64);
+		out.length = std::clamp(out.length, 1.0f, 500.0f);
+		out.lengthVariation = std::clamp(out.lengthVariation, 0.0f, 1.0f);
+		out.stiffness = std::clamp(out.stiffness, 0.0f, 1.0f);
+		out.damping = std::clamp(out.damping, 0.0f, 1.0f);
+		return true;
+	}
+}
