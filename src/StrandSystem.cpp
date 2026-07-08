@@ -112,26 +112,41 @@ namespace hdt
 		const RE::NiPoint3 C = headBone->world.translate + RE::NiPoint3(0.0f, 0.0f, 10.0f);
 		const RE::NiTransform headInv = headBone->world.Invert();
 
+		// Deterministic per-strand pseudo-random in [0,1): gives length/direction variation so the
+		// groom reads as a hair mass rather than a uniform helmet, with no stateful RNG.
+		const auto hash = [](std::uint32_t n, float k) {
+			float v = std::sin(static_cast<float>(n) * k) * 43758.5453f;
+			return v - std::floor(v);
+		};
+
 		StrandGroom g;
-		g.strandCount = 240;
-		g.vertsPerStrand = 10;
-		const float hairLength = 16.0f;  // short cap that sits on the head
-		const float seg = hairLength / static_cast<float>(g.vertsPerStrand - 1);
+		g.strandCount = 320;
+		g.vertsPerStrand = 12;
+		const float baseLength = 22.0f;
 		const float goldenAngle = 2.399963f;
 		g.restLocal.reserve(static_cast<size_t>(g.strandCount) * g.vertsPerStrand);
 
 		for (std::uint32_t s = 0; s < g.strandCount; ++s) {
-			// Fibonacci point on the upper (world +Z) hemisphere == the scalp.
-			const float zf = (static_cast<float>(s) + 0.5f) / static_cast<float>(g.strandCount);
+			// Fibonacci point biased to the crown + upper sides (zf in [0.15,1]); the lowest ring
+			// near face level is skipped so strands don't sprout from the forehead.
+			const float t = (static_cast<float>(s) + 0.5f) / static_cast<float>(g.strandCount);
+			const float zf = 0.15f + 0.85f * t;
 			const float ring = std::sqrt(std::max(0.0f, 1.0f - zf * zf));
 			const float phi = static_cast<float>(s) * goldenAngle;
 			const RE::NiPoint3 dirW(ring * std::cos(phi), ring * std::sin(phi), zf);
 
-			// Rest pose drapes down-and-out from the scalp; gravity refines it at runtime.
-			RE::NiPoint3 growW = dirW * 0.4f - RE::NiPoint3(0.0f, 0.0f, 1.0f) * 0.6f;
+			// Rest pose drapes down-and-out with per-strand jitter; gravity + the head-sphere
+			// collider refine it at runtime.
+			const float h1 = hash(s, 12.9898f);
+			const float h2 = hash(s, 78.233f);
+			const RE::NiPoint3 jitter((h1 - 0.5f) * 0.4f, (h2 - 0.5f) * 0.4f, 0.0f);
+			RE::NiPoint3 growW = dirW * 0.35f + jitter - RE::NiPoint3(0.0f, 0.0f, 1.0f) * 0.65f;
 			const float gl = growW.Length();
 			if (gl > 1e-4f)
 				growW = growW * (1.0f / gl);
+
+			const float len = baseLength * (0.75f + 0.5f * h1);  // +/-25% per-strand length
+			const float seg = len / static_cast<float>(g.vertsPerStrand - 1);
 
 			RE::NiPoint3 pW = C + dirW * (R * 0.98f);  // root sits on the scalp surface
 			for (std::uint32_t v = 0; v < g.vertsPerStrand; ++v) {
@@ -149,7 +164,7 @@ namespace hdt
 		// Gravity is expressed in Skyrim units/s^2 to match SMP's own world (which uses
 		// -9.8 * scaleSkyrim); the solver otherwise works entirely in raw Skyrim units.
 		m_params.gravity = btVector3(0, 0, -9.8f * scaleSkyrim);
-		m_params.globalStiffness = 0.12f;
+		m_params.globalStiffness = 0.18f;  // hold the styled shape a bit more; less wet-noodle droop
 		m_params.damping = 0.92f;
 		m_solver.init(m_groom.strandCount, m_groom.vertsPerStrand, m_groom.restLocal);
 	}
