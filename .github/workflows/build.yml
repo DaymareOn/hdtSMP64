@@ -8,6 +8,9 @@ on:
       # Publish any branch under ci/ (e.g. ci/skse-menu-framework) to build all AVX variants and a
       # prerelease, without editing this file. The "/" lives only in the branch name; the versioning
       # step below sanitizes it to "-" in the version string.
+      # Creating a ci/ branch from commits that already exist on another branch does NOT start a
+      # run: that push has an empty changed-file list, so the paths filter below matches nothing.
+      # Push one commit touching a listed path to start the build.
       - "ci/**"
     paths:
       - "**.cpp"
@@ -266,6 +269,20 @@ jobs:
           cp temp-validator/LICENSE validator_files/
           cp temp-validator/skse/plugins/hdtSkinnedMeshConfigs/hdtSMP64.xsd validator_files/
 
+      - name: Fetch the FSMP MCM stub
+        # The splash-only branch is the only FSMP-MCM branch this CI uses: it holds the
+        # save-preserving stub of the retired MCM, offered as an optional FOMOD install
+        # for players updating mid-playthrough from FSMP 3.x (see issue #423).
+        run: |
+          echo "Cloning FSMP-MCM (splash-only branch)..."
+          git clone --depth 1 --branch splash-only https://github.com/DaymareOn/FSMP-MCM.git temp-mcm
+          mkdir -p mcm_files/Scripts mcm_files/Source/Scripts mcm_files/interface/FSMP
+          cp "temp-mcm/FSMPM - The FSMP MCM.esp" mcm_files/
+          cp temp-mcm/LICENSE mcm_files/
+          cp temp-mcm/Scripts/*.pex mcm_files/Scripts/
+          cp temp-mcm/Source/Scripts/*.psc mcm_files/Source/Scripts/
+          cp temp-mcm/interface/FSMP/Logo.dds mcm_files/interface/FSMP/
+
       - name: Organize and 7zip
         run: |
           # 1. Create a clean structure for the final ZIP
@@ -282,12 +299,20 @@ jobs:
           # 4. Copy the Validator to the root level of the package
           cp -r validator_files/* final_package/FSMPV/
 
+          # 4b. Copy the legacy MCM stub; the FOMOD installs it only when the player asks for it
+          mkdir -p final_package/FSMPM
+          cp -r mcm_files/* final_package/FSMPM/
+
           # 5. Ship the default global config + in-game presets. They install unconditionally via the FOMOD
           #    requiredInstallFiles SKSE folder.
           mkdir -p "final_package/SKSE/Plugins/hdtSkinnedMeshConfigs"
           cp configs/configs.json "final_package/SKSE/Plugins/hdtSkinnedMeshConfigs/"
           cp -r configs/configsPresets "final_package/SKSE/Plugins/hdtSkinnedMeshConfigs/"
           cp -r configs/localization "final_package/SKSE/Plugins/hdtSkinnedMeshConfigs/"
+          # The config menu's monospace font goes into the SKSE Menu Framework's font folder (Data/SKSE/Plugins/Fonts),
+          # which the framework scans; the menu selects it by name via SKSEMenuFramework::PushFont.
+          mkdir -p "final_package/SKSE/Plugins/Fonts"
+          cp configs/fonts/FSMPMono.ttf configs/fonts/FSMPMono.LICENSE.txt "final_package/SKSE/Plugins/Fonts/"
 
           # 6. Create the unique ZIP
           cd final_package

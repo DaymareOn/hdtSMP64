@@ -6,6 +6,8 @@
 		<file source="LICENSE" destination="LICENSE" />
 		<file source="Readme.txt" destination="Readme.txt" />
 		<file source="DynamicHDTOriginalWorkLicense.txt" destination="DynamicHDTOriginalWorkLicense.txt" />
+		<file source="SKSEMenuFrameworkLicense.txt" destination="SKSEMenuFrameworkLicense.txt" />
+		<file source="DearImGuiLicense.txt" destination="DearImGuiLicense.txt" />
 		<folder source="Scripts" destination="Scripts" priority="1" />
 		<folder source="SKSE" destination="SKSE" priority="1" />
 		<folder source="Source" destination="Source" priority="1" />
@@ -118,6 +120,40 @@ A: Advanced_Vector_Extensions are extensions to the instruction sets for micropr
 				</group>
 			</optionalFileGroups>
 		</installStep>
+		<installStep name="Legacy MCM">
+			<!-- Shown only when the old MCM esp is already in the load order: fresh installs never
+			     see this step, while players updating from FSMP 3.x get the save-preserving stub. -->
+			<visible operator="Or">
+				<fileDependency file="FSMPM - The FSMP MCM.esp" state="Active" />
+				<fileDependency file="FSMPM - The FSMP MCM.esp" state="Inactive" />
+			</visible>
+			<optionalFileGroups order="Explicit">
+				<group name="Old FSMP MCM detected: keep its esp for your save-games?" type="SelectExactlyOne">
+					<plugins order="Explicit">
+						<plugin name="Keep the legacy MCM (recommended)">
+							<description>"FSMPM - The FSMP MCM.esp" is in your load order, so you probably have save-games made with FSMP 3.x. FSMP 4 replaced the old SkyUI MCM with the new SKSE Menu Framework menu, and the esp was removed from the installer. Skyrim destroys a save-game when an esp it references is removed.
+
+This option installs a stub of the old MCM, so your saves keep their esp. The stub's menu only shows a splash page pointing you to the new menu.</description>
+							<conditionFlags>
+								<flag name="LEGACYMCM">On</flag>
+							</conditionFlags>
+							<typeDescriptor>
+								<type name="Recommended" />
+							</typeDescriptor>
+						</plugin>
+						<plugin name="No legacy MCM">
+							<description>Choose this only if you are starting a new playthrough: save-games made with FSMP 3.x will not survive without "FSMPM - The FSMP MCM.esp".</description>
+							<conditionFlags>
+								<flag name="LEGACYMCM">Off</flag>
+							</conditionFlags>
+							<typeDescriptor>
+								<type name="Optional" />
+							</typeDescriptor>
+						</plugin>
+					</plugins>
+				</group>
+			</optionalFileGroups>
+		</installStep>
 		<installStep name="Thanks">
 			<optionalFileGroups order="Explicit">
 				<group name="" type="SelectAll">
@@ -176,6 +212,17 @@ Finally, credits and thanks to hydrogensaysHDT, aers, ousnius, Karonar1, alandts
 				</dependencies>
 				<files>
 					<folder source="raw-vs2022-windows-avx512\SKSE" destination="SKSE" priority="0" />
+				</files>
+			</pattern>
+			<pattern>
+				<dependencies>
+					<flagDependency flag="LEGACYMCM" value="On" />
+				</dependencies>
+				<files>
+					<folder source="FSMPM\Scripts" destination="Scripts" priority="1" />
+					<folder source="FSMPM\Source" destination="Source" priority="1" />
+					<folder source="FSMPM\interface" destination="interface" priority="1" />
+					<file source="FSMPM\FSMPM - The FSMP MCM.esp" destination="FSMPM - The FSMP MCM.esp" priority="1" />
 				</files>
 			</pattern>
 		</patterns>

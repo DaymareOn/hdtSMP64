@@ -24,7 +24,7 @@ namespace hdt
 		// internal scale on apply; we keep the user-facing value here so the menu slider maps directly.
 		int logLevel = 0;
 		bool disableSMPHairWhenWigEquipped = false;
-		bool hideSMPHairWhenInvisible = true;
+		bool hideSMPHairWhenInvisible = false;
 		bool clampRotations = true;
 		float rotationSpeedLimit = 10.0f;
 		bool unclampedResets = true;
@@ -38,6 +38,7 @@ namespace hdt
 		bool disable1stPersonViewPhysics = false;
 		bool skipDeadActors = false;
 		float minScreenSizePercent = 0.0f;
+		bool enableCreaturePhysics = false;
 		// backupNodeByName has no menu control; it is preserved purely so a round-trip never drops it.
 		std::vector<std::string> backupNodeByName;
 
@@ -63,8 +64,10 @@ namespace hdt
 		std::string locale;
 
 		// Font scales for the menu's text views (the A-/A+ buttons): one for the Output panels + log viewer,
-		// one for the gameplay overlay. UI settings like locale, so they live at the JSON root too.
-		static constexpr float minFontScale = 0.6f;
+		// one for the gameplay overlay. UI settings like locale, so they live at the JSON root too. The A-/A+
+		// stepping and the JSON loader both clamp to this range, so it is the single place to widen it. The
+		// floor is deliberately very low (down to ~a tenth-size) for reading long dumps/logs at a glance.
+		static constexpr float minFontScale = 0.1f;
 		static constexpr float maxFontScale = 2.0f;
 		float outputFontScale = 1.0f;
 		float overlayFontScale = 1.0f;

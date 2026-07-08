@@ -1,6 +1,7 @@
 {
   "Simplification": "Simplificaci\u00f3n",
   "Performance": "Rendimiento",
+  "Experimental": "Experimental",
   "Wind": "Viento",
   "Validation": "Validaci\u00f3n",
   "Logs": "Registros",
@@ -20,6 +21,9 @@
   "Skip non-player NPCs smaller than this % of screen height. 0 disables the check.": "Omite los NPC no jugadores m\u00e1s peque\u00f1os que este % de la altura de pantalla. 0 desactiva la comprobaci\u00f3n.",
   "Skip dead actors": "Omitir actores muertos",
   "Skip physics for dead non-player actors (corpses). The player is never affected.": "Omite la f\u00edsica de los actores no jugadores muertos (cad\u00e1veres). El jugador nunca se ve afectado.",
+  "Creatures & animals": "Criaturas y animales",
+  "Enable creature & animal physics": "Activar la f\u00edsica de criaturas y animales",
+  "Apply SMP to loaded creatures and animals, not just humanoids. Covers physics baked into a creature's body/skeleton mesh and per-race defaults declared in defaultBBPs.xml; equipped SMP armor on creatures works regardless. Needs physics content authored for the creature and takes effect as creatures load. Off by default.": "Aplica SMP a las criaturas y animales cargados, no solo a los humanoides. Cubre la f\u00edsica integrada en la malla del cuerpo/esqueleto de una criatura y los valores por defecto por raza declarados en defaultBBPs.xml; una armadura SMP equipada en una criatura funciona igualmente. Necesita contenido f\u00edsico creado para la criatura y surte efecto a medida que se cargan las criaturas. Desactivado por defecto.",
   "Limiting active physics NPCs": "Limitar los NPC con f\u00edsica activos",
   "Maximum physics NPCs": "N\u00famero m\u00e1ximo de NPC con f\u00edsica",
   "Upper bound on simultaneously simulated NPCs (including the player).": "L\u00edmite m\u00e1ximo de NPC simulados simult\u00e1neamente (incluido el jugador).",

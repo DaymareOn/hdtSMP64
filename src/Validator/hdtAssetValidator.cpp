@@ -518,60 +518,88 @@ namespace hdt
 
 	struct DefaultBBPEntry
 	{
-		std::string shape;    // shape name from <map shape="...">
+		std::string shape;    // shape name from <map shape="...">, or skeleton path from <creature skeleton="...">
 		std::string xmlPath;  // resolved filesystem path (data/...)
 		bool xmlExists = false;
+		bool isCreature = false;  // true for a <creature> entry, so the report labels it correctly
 	};
 
-	// Parse defaultBBPs.xml and resolve the file path of each <map> entry.
+	// Parse the single defaultBBPs.xml AND every *.xml in the sibling defaultBBPs/ folder, resolving the
+	// file path of each <map> and <creature> entry. The folder mirrors the runtime loader
+	// (DefaultBBP::loadDefaultBBPs): many mods can each ship a drop-in there instead of fighting over the
+	// single file, so the report must check those entries too or a broken folder mapping goes unreported.
 	static std::vector<DefaultBBPEntry> discoverDefaultBBPXMLs()
 	{
 		std::vector<DefaultBBPEntry> result;
 		namespace fs = std::filesystem;
-
-		fs::path bbpFile = "data/SKSE/Plugins/hdtSkinnedMeshConfigs/defaultBBPs.xml";
 		std::error_code ec;
-		if (!fs::exists(bbpFile, ec)) {
-			logger::info("[Validator] defaultBBPs.xml not found at {}, skipping Phase 0",
-				PathToUtf8(bbpFile));
-			return result;
-		}
 
-		pugi::xml_document doc;
-		const std::string bbpPathUtf8 = PathToUtf8(bbpFile);
-		std::string bbpBytes = readAllFile2(bbpPathUtf8.c_str());
-		auto parseResult = doc.load_buffer(bbpBytes.data(), bbpBytes.size());
-		if (!parseResult) {
-			logger::warn("[Validator] Failed to parse defaultBBPs.xml: {}",
-				parseResult.description());
-			return result;
-		}
-
-		for (auto& map : doc.child("default-bbps").children("map")) {
-			std::string shape = map.attribute("shape").as_string();
-			std::string rawFile = map.attribute("file").as_string();
-			if (shape.empty() || rawFile.empty())
-				continue;
+		// Resolve one entry's XML reference to a filesystem path: try "data/<path>" first, then the
+		// path as-is (in case it's already absolute or differently rooted).
+		auto addEntry = [&](std::string key, std::string rawFile, bool isCreature) {
+			if (key.empty() || rawFile.empty())
+				return;
 
 			// Normalise path separators
 			std::replace(rawFile.begin(), rawFile.end(), '\\', '/');
 
-			// Build candidate paths: try "data/<path>" first, then as-is
 			DefaultBBPEntry entry;
-			entry.shape = shape;
+			entry.shape = std::move(key);
+			entry.isCreature = isCreature;
 
 			fs::path candidate = "data/" + rawFile;
 			if (fs::exists(candidate, ec)) {
 				entry.xmlPath = PathToUtf8(candidate);
 				entry.xmlExists = true;
 			} else {
-				// Fall back to path as-is (in case it's already absolute or differently rooted)
 				candidate = rawFile;
 				entry.xmlPath = PathToUtf8(candidate);
 				entry.xmlExists = fs::exists(candidate, ec);
 			}
 
 			result.push_back(std::move(entry));
+		};
+
+		// Parse one defaultBBPs document file, adding its <map> and <creature> entries.
+		auto parseDoc = [&](const fs::path& file) {
+			pugi::xml_document doc;
+			std::string bytes = readAllFile2(PathToUtf8(file).c_str());
+			auto parseResult = doc.load_buffer(bytes.data(), bytes.size());
+			if (!parseResult) {
+				logger::warn("[Validator] Failed to parse {}: {}", PathToUtf8(file), parseResult.description());
+				return;
+			}
+			for (auto& map : doc.child("default-bbps").children("map"))
+				addEntry(map.attribute("shape").as_string(), map.attribute("file").as_string(), false);
+			// <creature skeleton="..." file="..."/> — per-race creature defaults, keyed on the race
+			// skeleton path. Same existence + schema validation as <map> entries.
+			for (auto& creature : doc.child("default-bbps").children("creature"))
+				addEntry(creature.attribute("skeleton").as_string(), creature.attribute("file").as_string(), true);
+		};
+
+		// The single legacy file first, then the drop-in folder in ascending filename order — the same
+		// order the runtime loader feeds them (so the report reflects the effective mappings).
+		fs::path bbpFile = "data/SKSE/Plugins/hdtSkinnedMeshConfigs/defaultBBPs.xml";
+		if (fs::exists(bbpFile, ec))
+			parseDoc(bbpFile);
+		else
+			logger::info("[Validator] defaultBBPs.xml not found at {}", PathToUtf8(bbpFile));
+
+		fs::path folder = "data/SKSE/Plugins/hdtSkinnedMeshConfigs/defaultBBPs";
+		if (fs::is_directory(folder, ec)) {
+			std::vector<fs::path> files;
+			for (fs::directory_iterator it(folder, ec), end; !ec && it != end; it.increment(ec)) {
+				if (!it->is_regular_file(ec))
+					continue;
+				std::string ext = it->path().extension().string();
+				std::transform(ext.begin(), ext.end(), ext.begin(),
+					[](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+				if (ext == ".xml")
+					files.push_back(it->path());
+			}
+			std::sort(files.begin(), files.end());
+			for (const auto& p : files)
+				parseDoc(p);
 		}
 
 		return result;
@@ -1371,7 +1399,7 @@ namespace hdt
 			auto bbpEntries = discoverDefaultBBPXMLs();
 			if (!bbpEntries.empty()) {
 				bodyStream << "== Phase 0: DefaultBBP XML Validation ==\n";
-				bodyStream << "  Found " << bbpEntries.size() << " map entries in defaultBBPs.xml.\n";
+				bodyStream << "  Found " << bbpEntries.size() << " entries (map + creature) in defaultBBPs.xml.\n";
 
 				std::vector<size_t> validBatchIdx(bbpEntries.size(), SIZE_MAX);
 				std::vector<std::string> batch;
@@ -1395,10 +1423,10 @@ namespace hdt
 					const auto& entry = bbpEntries[i];
 					size_t batchIdx = validBatchIdx[i];
 
-					bodyStream << "  [BBP]  shape=" << entry.shape << " -> " << entry.xmlPath << "\n";
+					bodyStream << "  [BBP]  " << (entry.isCreature ? "skeleton=" : "shape=") << entry.shape << " -> " << entry.xmlPath << "\n";
 
 					if (!entry.xmlExists) {
-						std::string err = "defaultBBPs.xml: shape '" + entry.shape + "' references missing XML: " + entry.xmlPath;
+						std::string err = std::string("defaultBBPs.xml: ") + (entry.isCreature ? "creature skeleton '" : "shape '") + entry.shape + "' references missing XML: " + entry.xmlPath;
 						report.errors.push_back(err);
 						report.hasErrors = true;
 						bodyStream << "    [ERROR] XML file not found\n";

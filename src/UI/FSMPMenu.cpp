@@ -481,6 +481,28 @@ namespace
 	// The captured smp-command output, shown on every tab that can run a command (Commands, Validation,
 	// Measures) so the result appears right where the command was launched. Header row: title, font-size
 	// buttons, clear. The view fills the tab's remaining height and follows the newest line.
+	// The free-text panels (the command Output box and the log-tail viewer) show node-tree dumps, validation
+	// reports and log lines --- columnar text that reads far better in a fixed-width font. FSMP ships a
+	// monospace face (FSMPMono.ttf) into the framework's Data/SKSE/Plugins/Fonts folder and selects it there.
+	//
+	// SKSEMenuFramework::PushFont was added to the framework after the SDK header FSMP vendors, but the DLL
+	// exports it (extern "C"), so resolve it directly --- the same GetProcAddress mechanism the vendored header
+	// already uses for PushSolid/Pop. Returns false (leaving the default proportional font) when the export or
+	// the font is missing --- a very old framework --- so the caller knows whether to balance it with a Pop.
+	bool pushMonoFont()
+	{
+		using PushFontFn = void (*)(const char*);
+		static const PushFontFn pushFont = []() -> PushFontFn {
+			if (const HMODULE m = GetModuleHandleW(L"SKSEMenuFramework"))
+				return reinterpret_cast<PushFontFn>(GetProcAddress(m, "PushFont"));
+			return nullptr;
+		}();
+		if (!pushFont)
+			return false;
+		pushFont("FSMPMono");  // the font ships as FSMPMono.ttf; the framework accepts the stem too
+		return true;
+	}
+
 	void outputPanel()
 	{
 		ImGuiMCP::NewLine();  // an empty line before the output, like between sections
@@ -504,6 +526,7 @@ namespace
 		if (ImGuiMCP::BeginChild("##smpout", ImGuiMCP::ImVec2{ 0.0f, -FLT_MIN },
 				ImGuiMCP::ImGuiChildFlags_Border, ImGuiMCP::ImGuiWindowFlags_HorizontalScrollbar)) {
 			ImGuiMCP::SetWindowFontScale(hdt::g_outputFontScale);
+			const bool mono = pushMonoFont();  // fixed-width so dumps / reports / profiler tables line up
 			// A list clipper submits only the visible rows, so a whole report tail (thousands of lines in the
 			// ring buffer) costs the same to draw as a dozen.
 			ImGuiMCP::ImGuiListClipper* clip = ImGuiMCP::ImGuiListClipperManager::Create();
@@ -512,6 +535,8 @@ namespace
 				for (int i = clip->DisplayStart; i < clip->DisplayEnd; ++i)
 					ImGuiMCP::TextUnformatted(lines[static_cast<size_t>(i)].c_str());
 			ImGuiMCP::ImGuiListClipperManager::Destroy(clip);
+			if (mono)
+				FontAwesome::Pop();
 			// Keep following the newest line while the view is pinned to the bottom.
 			if (ImGuiMCP::GetScrollY() >= ImGuiMCP::GetScrollMaxY() - 1.0f)
 				ImGuiMCP::SetScrollY(ImGuiMCP::GetScrollMaxY());
@@ -689,6 +714,27 @@ namespace
 					&w->m_sampleSize, d.sampleSize, 1, 50))
 				commitReset();
 			ImGuiMCP::EndDisabled();
+			endRows();
+		}
+	}
+
+	// A page for experimental, opt-in features: things that are off by default and only do something once
+	// you supply the content or spend the extra performance. Creature & animal physics lives here.
+	void ExperimentalBody()
+	{
+		filterBox();
+		auto* a = ActorManager::instance();
+		const GlobalConfig& d = hdt::shippedDefaults();
+
+		section(fa::Bolt, "Creatures & animals");
+		if (beginRows("exp.creatures")) {
+			if (rowCheck("Enable creature & animal physics",
+					"Apply SMP to loaded creatures and animals, not just humanoids. Covers physics baked "
+					"into a creature's body/skeleton mesh and per-race defaults declared in defaultBBPs.xml; "
+					"equipped SMP armor on creatures works regardless. Needs physics content authored for the "
+					"creature and takes effect as creatures load. Off by default.",
+					&a->m_enableCreaturePhysics, d.enableCreaturePhysics))
+				commitReset();
 			endRows();
 		}
 	}
@@ -943,7 +989,10 @@ namespace
 		if (ImGuiMCP::BeginChild("##logview", ImGuiMCP::ImVec2{ 0.0f, -FLT_MIN },
 				ImGuiMCP::ImGuiChildFlags_Border, ImGuiMCP::ImGuiWindowFlags_HorizontalScrollbar)) {
 			ImGuiMCP::SetWindowFontScale(hdt::g_outputFontScale);
+			const bool mono = pushMonoFont();  // fixed-width so the log lines line up
 			ImGuiMCP::TextUnformatted(logText.c_str());
+			if (mono)
+				FontAwesome::Pop();
 			// Follow the tail while auto-refreshing, but only if the user is already near the bottom.
 			if (autoRefresh && ImGuiMCP::GetScrollY() >= ImGuiMCP::GetScrollMaxY() - 4.0f)
 				ImGuiMCP::SetScrollHereY(1.0f);
@@ -1539,6 +1588,11 @@ namespace
 		chrome();
 		PerformanceBody();
 	}
+	void __stdcall RenderExperimental()
+	{
+		chrome();
+		ExperimentalBody();
+	}
 	void __stdcall RenderWind()
 	{
 		chrome();
@@ -1577,6 +1631,7 @@ namespace hdt::FSMPMenu
 		SKSEMenuFramework::AddSectionItem(tr("Presets"), RenderPresets);
 		SKSEMenuFramework::AddSectionItem(tr("Simplification"), RenderSimplification);
 		SKSEMenuFramework::AddSectionItem(tr("Performance"), RenderPerformance);
+		SKSEMenuFramework::AddSectionItem(tr("Experimental"), RenderExperimental);
 		SKSEMenuFramework::AddSectionItem(tr("Wind"), RenderWind);
 		SKSEMenuFramework::AddSectionItem(tr("Commands"), RenderCommands);
 		SKSEMenuFramework::AddSectionItem(tr("Measures"), RenderMeasures);
