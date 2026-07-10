@@ -100,19 +100,36 @@ namespace hdt
 		return findNode(npc, "Camera1st [Cam1]") ? true : false;
 	}
 
-	RE::NiNode* getNpcNode(RE::NiNode* skeleton)
+	// Resolve the node under which an actor's animated bone tree lives — the mount point where
+	// armor-addon bones get merged and where the physics system reads the skeleton from. This is
+	// the single place that used to assume every actor is a humanoid; generalizing it is what lets
+	// creatures and animals carry SMP outfits.
+	//
+	// Skyrim actor skeletons come in two shapes:
+	//   * Correctly built (all humanoids, most creatures): the animated tree is nested
+	//     "NPC" -> "NPC Root [Root]" -> bones, so the "NPC" node is the mount.
+	//   * Incorrectly built (e.g. the Benthic Lurker, and various custom creatures): they omit
+	//     "NPC" or leave a stray "NPC" outside the bone tree, so the bones actually hang off the
+	//     outer "NPC Root [Root]" container instead.
+	// We tell the two apart structurally rather than by hardcoding skeleton file paths: a genuine
+	// mount "NPC" must contain "NPC Root [Root]" beneath it. This reproduces the old per-skeleton
+	// Lurker workaround for every misbuilt skeleton, present and future, with zero hardcoded
+	// exceptions. Returns nullptr only when neither node exists — i.e. this isn't an actor skeleton.
+	RE::NiNode* getActorRootNode(RE::NiNode* skeleton)
 	{
-		// TODO: replace this with a generic skeleton fixing configuration option
-		// hardcode an exception for lurker skeletons because they are made incorrectly
-		auto shouldFix = false;
-		if (skeleton->GetUserData() && skeleton->GetUserData()->GetObjectReference()) {
-			auto npcForm = skyrim_cast<RE::TESNPC*>(skeleton->GetUserData()->GetObjectReference());
-			if (npcForm && npcForm->race && !strcmp(npcForm->race->skeletonModels[0].GetModel(), "Actors\\DLC02\\BenthicLurker\\Character Assets\\skeleton.nif")) {
-				shouldFix = true;
-			}
-		}
+		if (!skeleton)
+			return nullptr;
 
-		return findNode(skeleton, shouldFix ? "NPC Root [Root]" : "NPC");
+		auto* npc = findNode(skeleton, "NPC");
+		if (npc && findNode(npc, "NPC Root [Root]"))
+			return npc;
+
+		if (auto* root = findNode(skeleton, "NPC Root [Root]"))
+			return root;
+
+		// Last resort: a rootless stray "NPC" keeps legacy behavior for oddball skeletons rather
+		// than dropping the actor; true non-actor nodes have neither and fall through to nullptr.
+		return npc;
 	}
 
 	ActorManager::ActorManager()
@@ -131,8 +148,10 @@ namespace hdt
 
 	RE::BSEventNotifyControl ActorManager::ProcessEvent(const Events::ArmorAttachEvent* e, RE::BSTEventSource<Events::ArmorAttachEvent>*)
 	{
-		// No armor is ever attached to a lurker skeleton, thus we don't need to test.
-		if (e->skeleton == nullptr || !findNode(e->skeleton, "NPC")) {
+		// Only process real actor skeletons. getActorRootNode() accepts both the humanoid ("NPC")
+		// and creature ("NPC Root [Root]") layouts, so this no longer rejects creatures the way the
+		// old literal "NPC" test did — that is what unblocks equippable SMP outfits on creatures.
+		if (!getActorRootNode(e->skeleton)) {
 			return RE::BSEventNotifyControl::kContinue;
 		}
 
@@ -246,7 +265,8 @@ namespace hdt
 		fixArmorNameMaps();
 
 		auto& skeleton = getSkeletonData(e->skeleton);
-		// Non-lurker here (see above), so getNpcNode() would just re-find this same "NPC" node — reuse it.
+		// Head geometry only skins onto humanoid ("NPC") skeletons, so getActorRootNode() would just
+		// re-find this same "NPC" node — reuse it.
 		skeleton.npc = hdt::make_nismart(npc);
 
 		skeleton.processGeometry(e->headNode, e->geometry);
@@ -921,8 +941,7 @@ namespace hdt
 
 		IDType id = armors.size() ? armors.back().id + 1 : 0;
 		auto prefix = armorPrefix(id);
-		// FIXME we probably could simplify this by using findNode as surely we don't merge Armors with lurkers skeleton?
-		npc = hdt::make_nismart(getNpcNode(skeleton.get()));
+		npc = hdt::make_nismart(getActorRootNode(skeleton.get()));
 		auto physicsFile = DefaultBBP::instance()->scanBBP(armorModel);
 
 		armors.push_back(Armor());
@@ -950,9 +969,8 @@ namespace hdt
 		mustFixOneArmorMap = true;
 
 		if (!isFirstPersonSkeleton(skeleton.get())) {
-			// FIXME we probably could simplify this by using findNode as surely we don't attach Armors to lurkers skeleton?
 			auto renameMap = armor.renameMap;
-			auto system = SkyrimSystemCreator().createOrUpdateSystem(getNpcNode(skeleton.get()), attachedNode, &armor.physicsFile, std::move(renameMap), nullptr);
+			auto system = SkyrimSystemCreator().createOrUpdateSystem(getActorRootNode(skeleton.get()), attachedNode, &armor.physicsFile, std::move(renameMap), nullptr);
 			if (system) {
 				armor.setPhysics(system, isActive);
 				hasPhysics = true;
