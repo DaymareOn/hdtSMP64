@@ -45,6 +45,9 @@ namespace hdt
 		std::vector<Remap> remaps;
 
 		void loadDefaultBBPs();
+		// Parse one <default-bbps> document (the single defaultBBPs.xml, or a defaultBBPs/ folder drop-in)
+		// into the shared tables. First-wins inserts, so load order decides precedence. See loadDefaultBBPs.
+		void parseDefaultBBPsDocument(std::string& xml);
 		PhysicsFile_t scanDefaultBBP(RE::NiNode* scan);
 		NameMap_t getNameMap(RE::NiNode* armor);
 		NameMap_t defaultNameMap(RE::NiNode* armor);
