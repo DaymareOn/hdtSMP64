@@ -11,16 +11,41 @@ namespace hdt
 		return &s;
 	}
 
-	DefaultBBP::PhysicsFile_t DefaultBBP::scanBBP(RE::NiNode* scan)
+	std::optional<DefaultBBP::PhysicsFile_t> DefaultBBP::scanEmbeddedBBP(RE::NiNode* scan)
 	{
 		for (int i = 0; i < scan->extraDataSize; ++i) {
 			auto stringData = netimmerse_cast<RE::NiStringExtraData*>(scan->extra[i]);
 			if (stringData && stringData->name == "HDT Skinned Mesh Physics Object" && stringData->value) {
-				return { { std::string(stringData->value) }, defaultNameMap(scan) };
+				return PhysicsFile_t{ { std::string(stringData->value) }, defaultNameMap(scan) };
 			}
 		}
 
+		return std::nullopt;
+	}
+
+	DefaultBBP::PhysicsFile_t DefaultBBP::scanBBP(RE::NiNode* scan)
+	{
+		// A present marker is authoritative even when its path is empty (malformed content): it must
+		// yield no physics rather than fall through to a defaultBBPs name-matching the author never
+		// asked for. Only markerless meshes consult the defaultBBPs mappings.
+		if (auto embedded = scanEmbeddedBBP(scan)) {
+			return *embedded;
+		}
+
 		return scanDefaultBBP(scan);
+	}
+
+	std::string DefaultBBP::getCreatureDefaultFile(const char* skeletonPath) const
+	{
+		if (!skeletonPath || !*skeletonPath) {
+			return "";
+		}
+
+		std::string key(skeletonPath);
+		std::transform(key.begin(), key.end(), key.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+
+		auto it = creatureFileList.find(key);
+		return it == creatureFileList.end() ? "" : it->second;
 	}
 
 	DefaultBBP::DefaultBBP()
@@ -51,6 +76,19 @@ namespace hdt
 						bbpFileList.insert(std::make_pair(shape, file));
 					} catch (...) {
 						logger::warn("defaultBBP({},{}) : invalid map", reader.GetRow(), reader.GetColumn());
+					}
+					reader.skipCurrentElement();
+				} else if (reader.GetName() == "creature") {
+					// <creature skeleton="Actors\...\skeleton.nif" file="physics.xml"/>: a per-race default,
+					// keyed on the race's skeleton NIF path. Stored lowercased so lookup is case-insensitive.
+					try {
+						auto skeleton = reader.getAttribute("skeleton");
+						auto file = reader.getAttribute("file");
+						std::transform(skeleton.begin(), skeleton.end(), skeleton.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+						logger::debug("creature physics: defaultBBPs entry skeleton '{}' -> '{}'", skeleton, file);
+						creatureFileList.insert(std::make_pair(skeleton, file));
+					} catch (...) {
+						logger::warn("defaultBBP({},{}) : invalid creature", reader.GetRow(), reader.GetColumn());
 					}
 					reader.skipCurrentElement();
 				} else if (reader.GetName() == "remap") {
