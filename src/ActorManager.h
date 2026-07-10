@@ -112,6 +112,10 @@ namespace hdt
 			Head head;
 			SkeletonState state;
 			bool mustFixOneArmorMap = false;
+			// True once the baked-outfit scan ran against this skeleton's 3D. The discovery sweep skips
+			// skeletons that carry it, so a creature that yielded no physics is not re-walked every pass;
+			// a 3D rebuild produces a new root with a fresh entry (flag false), so it still gets rescanned.
+			bool bakedScanDone = false;
 
 			std::string name();
 			void addArmor(RE::NiNode* armorModel);
@@ -216,6 +220,25 @@ namespace hdt
 		// file, registering each as a baked armor. Skips equipped-armor subtrees and already-registered
 		// outfits so it is safe to run repeatedly. Assumes the actor's 3D exists and it is non-humanoid.
 		void scanActorForBakedPhysics(RE::Actor* actor);
+
+		// @brief Periodically queue already-loaded non-humanoid actors for the baked scan. Creatures with
+		// baked/per-race physics have no self-healing ArmorAttachEvent the way humanoids do, and
+		// TESObjectLoadedEvent only catches a *fresh* load -- so it misses creatures already in the world
+		// when you enable the feature, persistent ones like the player's mount, and 3D rebuilds. This
+		// reconciliation sweep walks the high-process actor list and queues any in-scene non-humanoid
+		// whose current 3D has no physics yet, so discovery no longer depends on which event fired.
+		// Throttled by m_creatureSweepCountdown; the load event stays as an instant-pickup optimization.
+		void sweepLoadedCreatures();
+
+		// @brief True when the actor's *current* Get3D() root already went through the baked scan, or is
+		// already registered as a skeleton carrying physics. Lets the sweep skip creatures it has fully
+		// handled — including ones the scan found nothing for, so they are not re-walked every pass —
+		// while still re-queuing one whose 3D was rebuilt (its new root has no entry, so it returns false).
+		bool actorCurrent3DAlreadyHandled(RE::Actor* actor);
+
+		// Frames left until the next sweepLoadedCreatures() pass (a whole-actor-list walk is too heavy to
+		// run every frame). Counts down in the FrameEvent handler while the feature is on.
+		int m_creatureSweepCountdown = 0;
 
 	public:
 		ActorManager();
