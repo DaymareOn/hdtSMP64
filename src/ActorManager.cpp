@@ -263,13 +263,15 @@ namespace hdt
 		}
 
 		if (e->loaded) {
-			// This event fires for every reference (clutter, items, ...), so filter to non-humanoid
-			// actors here to keep the pending map small — humanoids are handled by the armor/facegen
-			// paths. The form always exists now; it's the 3D that lags, so we don't scan here. We queue
-			// the actor and let the FrameEvent handler retry until its 3D is built. ~300 frames (~5s at
-			// 60fps) is far more than the engine needs; if the model never appears we quietly give up.
+			// This event fires for every reference (clutter, items, ...), so filter to actors. Every race
+			// is scanned — creatures, animals, and playable races alike — so a modded race with native
+			// physics parts (a tail, wings) gets its skeleton default too; the scan runs once per actor
+			// per 3D, so this stays cheap. The form always exists now; it's the 3D that lags, so we don't
+			// scan here. We queue the actor and let the FrameEvent handler retry until its 3D is built.
+			// ~300 frames (~5s at 60fps) is far more than the engine needs; if the model never appears we
+			// quietly give up.
 			auto* actor = RE::TESForm::LookupByID<RE::Actor>(e->formID);
-			if (actor && !actor->IsHumanoid()) {
+			if (actor) {
 				m_pendingBakedScan.insert_or_assign(e->formID, 300);
 			}
 		} else {
@@ -833,9 +835,8 @@ namespace hdt
 		for (auto it = m_pendingBakedScan.begin(); it != m_pendingBakedScan.end();) {
 			auto* actor = RE::TESForm::LookupByID<RE::Actor>(it->first);
 
-			// Drop actors we can't or shouldn't scan: gone, humanoid (handled by the armor/facegen
-			// paths), or out of retries waiting for a 3D that never arrived.
-			if (!actor || actor->IsHumanoid() || it->second <= 0) {
+			// Drop actors we can't scan: gone, or out of retries waiting for a 3D that never arrived.
+			if (!actor || it->second <= 0) {
 				it = m_pendingBakedScan.erase(it);
 				continue;
 			}
@@ -884,7 +885,7 @@ namespace hdt
 		for (auto& handle : processLists->highActorHandles) {
 			auto actorPtr = handle.get();
 			RE::Actor* actor = actorPtr.get();
-			if (!actor || actor->IsHumanoid() || !actor->Get3D())
+			if (!actor || !actor->Get3D())
 				continue;
 			if (actorCurrent3DAlreadyHandled(actor))
 				continue;
@@ -936,29 +937,30 @@ namespace hdt
 			}
 		}
 
-		// Fallback: a creature with no SMP physics yet can still receive it from a per-race default keyed
-		// on its skeleton NIF path (a defaultBBPs.xml <creature> entry), applied at the actor root so its
-		// shape names resolve against the creature's meshes. We gate on "already has actual physics", NOT
-		// on "has any Armor entry": a creature's body registers as a physics-less Armor through the
-		// armor-attach path (its NIF carries no SMP XML), and that must not suppress the per-race default.
-		// A genuinely equipped SMP outfit (an Armor that DID get a physics system) does suppress it.
+		// Fallback: an actor with no baked outfit can still receive one from a skeleton default keyed on
+		// its skeleton model path (a defaultBBPs.xml <skeleton> entry), applied at the actor root so its
+		// shape names resolve against the actor's meshes. We stand down only for BAKED entries (an
+		// embedded tag found above, or a default applied by an earlier scan): a baked tag is authoritative
+		// over the default. Equipped SMP items never suppress it — barding on a horse, or SMP hair on a
+		// modded playable race, must not rob the race of its default. Physics-less body Armor entries
+		// (every actor's skin registers one through the armor-attach path) don't suppress it either.
 		const auto& arms = skeleton.getArmors();
-		const bool hasAnyPhysics = std::any_of(arms.begin(), arms.end(), [](const Armor& a) { return a.hasPhysics(); });
-		if (!hasAnyPhysics) {
+		const bool hasBakedOutfit = std::any_of(arms.begin(), arms.end(), [](const Armor& a) { return a.baked; });
+		if (!hasBakedOutfit) {
 			if (auto* race = actor->GetRace()) {
 				std::string file;
 				for (const auto& model : race->skeletonModels) {
 					const char* path = model.GetModel();
-					// Debug-level: this is the exact string a <creature> entry's "skeleton" must match, and the
+					// Debug-level: this is the exact string a <skeleton> entry's "model" must match, and the
 					// only reliable way for an author to discover it (dumptree shows nodes, not the race record).
-					logger::debug("creature physics: race {:08X} skeleton model '{}'", race->GetFormID(), path ? path : "(null)");
-					file = DefaultBBP::instance()->getCreatureDefaultFile(path);
+					logger::debug("skeleton default: race {:08X} skeleton model '{}'", race->GetFormID(), path ? path : "(null)");
+					file = DefaultBBP::instance()->getSkeletonDefaultFile(path);
 					if (!file.empty()) {
 						break;
 					}
 				}
 				if (!file.empty()) {
-					logger::info("Applying per-race default SMP physics to {} -> {}", skeleton.name(), file.c_str());
+					logger::info("Applying skeleton-default SMP physics to {} -> {}", skeleton.name(), file.c_str());
 					skeleton.addBakedArmor(root, { file, {} });
 				}
 			}
@@ -1196,6 +1198,7 @@ namespace hdt
 		armors.push_back(Armor());
 		Armor& armor = armors.back();
 		armor.id = id;
+		armor.baked = true;  // registered by the baked scan, so the skeleton-default fallback stands down
 		// A real (unique) prefix keeps this entry out of cleanArmor()'s empty-prefix purge. doSkeletonClean
 		// with it is a harmless no-op since no bones were merged under it — baked bones are already skeleton-owned.
 		armor.prefix = armorPrefix(id);

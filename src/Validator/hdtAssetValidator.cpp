@@ -518,14 +518,14 @@ namespace hdt
 
 	struct DefaultBBPEntry
 	{
-		std::string shape;    // shape name from <map shape="...">, or skeleton path from <creature skeleton="...">
+		std::string shape;    // shape name from <map shape="...">, or skeleton model path from <skeleton model="...">
 		std::string xmlPath;  // resolved filesystem path (data/...)
 		bool xmlExists = false;
-		bool isCreature = false;  // true for a <creature> entry, so the report labels it correctly
+		bool isSkeletonEntry = false;  // true for a <skeleton> entry, so the report labels it correctly
 	};
 
 	// Parse the single defaultBBPs.xml AND every *.xml in the sibling defaultBBPs/ folder, resolving the
-	// file path of each <map> and <creature> entry. The folder mirrors the runtime loader
+	// file path of each <map> and <skeleton> entry. The folder mirrors the runtime loader
 	// (DefaultBBP::loadDefaultBBPs): many mods can each ship a drop-in there instead of fighting over the
 	// single file, so the report must check those entries too or a broken folder mapping goes unreported.
 	static std::vector<DefaultBBPEntry> discoverDefaultBBPXMLs()
@@ -536,7 +536,7 @@ namespace hdt
 
 		// Resolve one entry's XML reference to a filesystem path: try "data/<path>" first, then the
 		// path as-is (in case it's already absolute or differently rooted).
-		auto addEntry = [&](std::string key, std::string rawFile, bool isCreature) {
+		auto addEntry = [&](std::string key, std::string rawFile, bool isSkeletonEntry) {
 			if (key.empty() || rawFile.empty())
 				return;
 
@@ -545,7 +545,7 @@ namespace hdt
 
 			DefaultBBPEntry entry;
 			entry.shape = std::move(key);
-			entry.isCreature = isCreature;
+			entry.isSkeletonEntry = isSkeletonEntry;
 
 			fs::path candidate = "data/" + rawFile;
 			if (fs::exists(candidate, ec)) {
@@ -560,7 +560,7 @@ namespace hdt
 			result.push_back(std::move(entry));
 		};
 
-		// Parse one defaultBBPs document file, adding its <map> and <creature> entries.
+		// Parse one defaultBBPs document file, adding its <map> and <skeleton> entries.
 		auto parseDoc = [&](const fs::path& file) {
 			pugi::xml_document doc;
 			std::string bytes = readAllFile2(PathToUtf8(file).c_str());
@@ -571,10 +571,10 @@ namespace hdt
 			}
 			for (auto& map : doc.child("default-bbps").children("map"))
 				addEntry(map.attribute("shape").as_string(), map.attribute("file").as_string(), false);
-			// <creature skeleton="..." file="..."/> — per-race creature defaults, keyed on the race
-			// skeleton path. Same existence + schema validation as <map> entries.
-			for (auto& creature : doc.child("default-bbps").children("creature"))
-				addEntry(creature.attribute("skeleton").as_string(), creature.attribute("file").as_string(), true);
+			// <skeleton model="..." file="..."/> — a default for every race using that skeleton model,
+			// keyed on its NIF path. Same existence + schema validation as <map> entries.
+			for (auto& skel : doc.child("default-bbps").children("skeleton"))
+				addEntry(skel.attribute("model").as_string(), skel.attribute("file").as_string(), true);
 		};
 
 		// The single legacy file first, then the drop-in folder in ascending filename order — the same
@@ -1399,7 +1399,7 @@ namespace hdt
 			auto bbpEntries = discoverDefaultBBPXMLs();
 			if (!bbpEntries.empty()) {
 				bodyStream << "== Phase 0: DefaultBBP XML Validation ==\n";
-				bodyStream << "  Found " << bbpEntries.size() << " entries (map + creature) in defaultBBPs.xml.\n";
+				bodyStream << "  Found " << bbpEntries.size() << " entries (map + skeleton) in defaultBBPs.xml.\n";
 
 				std::vector<size_t> validBatchIdx(bbpEntries.size(), SIZE_MAX);
 				std::vector<std::string> batch;
@@ -1423,10 +1423,10 @@ namespace hdt
 					const auto& entry = bbpEntries[i];
 					size_t batchIdx = validBatchIdx[i];
 
-					bodyStream << "  [BBP]  " << (entry.isCreature ? "skeleton=" : "shape=") << entry.shape << " -> " << entry.xmlPath << "\n";
+					bodyStream << "  [BBP]  " << (entry.isSkeletonEntry ? "skeleton=" : "shape=") << entry.shape << " -> " << entry.xmlPath << "\n";
 
 					if (!entry.xmlExists) {
-						std::string err = std::string("defaultBBPs.xml: ") + (entry.isCreature ? "creature skeleton '" : "shape '") + entry.shape + "' references missing XML: " + entry.xmlPath;
+						std::string err = std::string("defaultBBPs.xml: ") + (entry.isSkeletonEntry ? "skeleton model '" : "shape '") + entry.shape + "' references missing XML: " + entry.xmlPath;
 						report.errors.push_back(err);
 						report.hasErrors = true;
 						bodyStream << "    [ERROR] XML file not found\n";

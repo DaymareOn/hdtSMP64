@@ -29,19 +29,19 @@ namespace hdt
 		// scan uses this so it only picks up meshes that explicitly opt in.
 		std::optional<PhysicsFile_t> scanEmbeddedBBP(RE::NiNode* scan);
 
-		// Default physics file for a creature race, matched by its skeleton NIF path (as authored in the
-		// race record, e.g. "Actors\Canine\Character Assets\skeleton.nif"). This lets a mod add physics
-		// to a whole creature race with just an XML plus a defaultBBPs.xml <creature> entry — no edits to
-		// the creature's meshes. Matching is case-insensitive. Returns "" when no entry matches. The
-		// baked-geometry scan uses this as a fallback when a creature carries no embedded-tag outfit.
-		std::string getCreatureDefaultFile(const char* skeletonPath) const;
+		// Default physics file for a skeleton model, matched by its NIF path (as authored in the race
+		// record, e.g. "Actors\Canine\Character Assets\skeleton.nif"). This lets a mod add physics to
+		// every race using that skeleton with just an XML plus a defaultBBPs.xml <skeleton> entry — no
+		// edits to any mesh. Matching is case-insensitive. Returns "" when no entry matches. The
+		// baked-geometry scan uses this as a fallback when an actor carries no embedded-tag outfit.
+		std::string getSkeletonDefaultFile(const char* skeletonPath) const;
 
 	private:
 		DefaultBBP();
 
 		std::unordered_map<std::string, std::string> bbpFileList;
-		// Creature skeleton NIF path (lowercased) -> default physics XML. See getCreatureDefaultFile().
-		std::unordered_map<std::string, std::string> creatureFileList;
+		// Skeleton model NIF path (lowercased) -> default physics XML. See getSkeletonDefaultFile().
+		std::unordered_map<std::string, std::string> skeletonFileList;
 		std::vector<Remap> remaps;
 
 		void loadDefaultBBPs();

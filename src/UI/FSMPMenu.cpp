@@ -729,10 +729,11 @@ namespace
 		section(fa::Bolt, "Creatures & animals");
 		if (beginRows("exp.creatures")) {
 			if (rowCheck("Enable creature & animal physics",
-					"Apply SMP to loaded creatures and animals, not just humanoids. Covers physics baked "
-					"into a creature's body/skeleton mesh and per-race defaults declared in defaultBBPs.xml; "
-					"equipped SMP armor on creatures works regardless. Needs physics content authored for the "
-					"creature and takes effect as creatures load. Off by default.",
+					"Apply SMP to loaded actors of any race: creatures, animals, and modded races with "
+					"native physics parts such as tails or wings. Covers physics baked into a body or "
+					"skeleton mesh and skeleton defaults declared in defaultBBPs.xml; equipped SMP armor "
+					"works regardless. Needs physics content authored for the race and takes effect as "
+					"actors load. Off by default.",
 					&a->m_enableCreaturePhysics, d.enableCreaturePhysics))
 				commitReset();
 			endRows();

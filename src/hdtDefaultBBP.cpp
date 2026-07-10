@@ -41,7 +41,7 @@ namespace hdt
 		return scanDefaultBBP(scan);
 	}
 
-	std::string DefaultBBP::getCreatureDefaultFile(const char* skeletonPath) const
+	std::string DefaultBBP::getSkeletonDefaultFile(const char* skeletonPath) const
 	{
 		if (!skeletonPath || !*skeletonPath) {
 			return "";
@@ -50,8 +50,8 @@ namespace hdt
 		std::string key(skeletonPath);
 		std::transform(key.begin(), key.end(), key.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
 
-		auto it = creatureFileList.find(key);
-		return it == creatureFileList.end() ? "" : it->second;
+		auto it = skeletonFileList.find(key);
+		return it == skeletonFileList.end() ? "" : it->second;
 	}
 
 	DefaultBBP::DefaultBBP()
@@ -78,7 +78,7 @@ namespace hdt
 	{
 		// Two sources feed the same tables: the single legacy defaultBBPs.xml, and -- new -- every *.xml
 		// dropped into the sibling defaultBBPs/ folder. The folder lets many mods each ship their own
-		// mappings (for example one <creature> file per creature race) without the long-standing
+		// mappings (for example one <skeleton> drop-in per creature race) without the long-standing
 		// single-file conflict, where only one defaultBBPs.xml survives the mod manager's virtual file
 		// system and the rest are hidden.
 		//
@@ -141,17 +141,17 @@ namespace hdt
 						logger::warn("defaultBBP({},{}) : invalid map", reader.GetRow(), reader.GetColumn());
 					}
 					reader.skipCurrentElement();
-				} else if (reader.GetName() == "creature") {
-					// <creature skeleton="Actors\...\skeleton.nif" file="physics.xml"/>: a per-race default,
-					// keyed on the race's skeleton NIF path. Stored lowercased so lookup is case-insensitive.
+				} else if (reader.GetName() == "skeleton") {
+					// <skeleton model="Actors\...\skeleton.nif" file="physics.xml"/>: a default physics file
+					// for every race using that skeleton model. Stored lowercased so lookup is case-insensitive.
 					try {
-						auto skeleton = reader.getAttribute("skeleton");
+						auto model = reader.getAttribute("model");
 						auto file = reader.getAttribute("file");
-						std::transform(skeleton.begin(), skeleton.end(), skeleton.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-						logger::debug("creature physics: defaultBBPs entry skeleton '{}' -> '{}'", skeleton, file);
-						creatureFileList.insert(std::make_pair(skeleton, file));
+						std::transform(model.begin(), model.end(), model.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+						logger::debug("skeleton default: defaultBBPs entry model '{}' -> '{}'", model, file);
+						skeletonFileList.insert(std::make_pair(model, file));
 					} catch (...) {
-						logger::warn("defaultBBP({},{}) : invalid creature", reader.GetRow(), reader.GetColumn());
+						logger::warn("defaultBBP({},{}) : invalid skeleton entry", reader.GetRow(), reader.GetColumn());
 					}
 					reader.skipCurrentElement();
 				} else if (reader.GetName() == "remap") {

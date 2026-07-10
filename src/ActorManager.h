@@ -95,6 +95,10 @@ namespace hdt
 		{
 			IDType id;
 			std::string prefix;
+			// True for entries registered by the baked scan (embedded tag or skeleton default), false for
+			// equipped items. The skeleton-default fallback only stands down for baked entries: an equipped
+			// SMP item must not rob a race of its default (e.g. barding on a horse with a tail default).
+			bool baked = false;
 			RE::NiPointer<RE::NiAVObject> armorWorn;
 			std::unordered_map<RE::BSFixedString, RE::BSFixedString> renameMap;
 			// @brief This bool is set to true when the first name for the NiAVObject armor is attributed by the Skyrim executable,
@@ -218,15 +222,15 @@ namespace hdt
 
 		// @brief Depth-first walk of one actor's 3D for geometry tagged with an embedded SMP physics
 		// file, registering each as a baked armor. Skips equipped-armor subtrees and already-registered
-		// outfits so it is safe to run repeatedly. Assumes the actor's 3D exists and it is non-humanoid.
+		// outfits so it is safe to run repeatedly. Assumes the actor's 3D exists. Runs for every race.
 		void scanActorForBakedPhysics(RE::Actor* actor);
 
-		// @brief Periodically queue already-loaded non-humanoid actors for the baked scan. Creatures with
-		// baked/per-race physics have no self-healing ArmorAttachEvent the way humanoids do, and
-		// TESObjectLoadedEvent only catches a *fresh* load -- so it misses creatures already in the world
+		// @brief Periodically queue already-loaded actors for the baked scan. Baked and skeleton-default
+		// physics have no self-healing ArmorAttachEvent the way equipped items do, and
+		// TESObjectLoadedEvent only catches a *fresh* load -- so it misses actors already in the world
 		// when you enable the feature, persistent ones like the player's mount, and 3D rebuilds. This
-		// reconciliation sweep walks the high-process actor list and queues any in-scene non-humanoid
-		// whose current 3D has no physics yet, so discovery no longer depends on which event fired.
+		// reconciliation sweep walks the high-process actor list and queues any in-scene actor
+		// whose current 3D was not handled yet, so discovery no longer depends on which event fired.
 		// Throttled by m_creatureSweepCountdown; the load event stays as an instant-pickup optimization.
 		void sweepLoadedCreatures();
 
@@ -320,11 +324,11 @@ namespace hdt
 		// @brief Min percent of screen height a non-player skeleton must occupy to stay active; 0 = disabled. [0,100]
 		float m_minScreenSizePercent = 0.f;
 
-		// @brief When true, loaded non-humanoid actors are scanned for SMP geometry baked into their
+		// @brief When true, loaded actors of every race are scanned for SMP geometry baked into their
 		// body/skeleton NIF — geometry carrying an "HDT Skinned Mesh Physics Object" tag that is not an
-		// equippable armor addon and so never fires the ArmorAttachEvent path. This is what gives
-		// creatures and animals SMP outfits. Humanoids are skipped (their outfits are equipped armor and
-		// facegen head parts, already covered by the other paths). Off by default — opt-in feature.
+		// equippable armor addon and so never fires the ArmorAttachEvent path — and, failing that, for a
+		// skeleton default declared in defaultBBPs.xml. This is what gives creatures, animals, and modded
+		// races with native physics parts (tails, wings) SMP outfits from config alone. Off by default.
 		bool m_enableCreaturePhysics = false;
 
 	private:
