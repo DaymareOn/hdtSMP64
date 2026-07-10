@@ -16,7 +16,8 @@
     "sampleSize": 1,
     "disable1stPersonViewPhysics": true,
     "skipDeadActors": false,
-    "minScreenSizePercent": 0.0
+    "minScreenSizePercent": 0.0,
+    "enableCreaturePhysics": false
   },
   "solver": {
     "numIterations": 16,
