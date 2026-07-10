@@ -518,12 +518,13 @@ namespace hdt
 
 	struct DefaultBBPEntry
 	{
-		std::string shape;    // shape name from <map shape="...">
+		std::string shape;    // shape name from <map shape="...">, or skeleton path from <creature skeleton="...">
 		std::string xmlPath;  // resolved filesystem path (data/...)
 		bool xmlExists = false;
+		bool isCreature = false;  // true for a <creature> entry, so the report labels it correctly
 	};
 
-	// Parse defaultBBPs.xml and resolve the file path of each <map> entry.
+	// Parse defaultBBPs.xml and resolve the file path of each <map> and <creature> entry.
 	static std::vector<DefaultBBPEntry> discoverDefaultBBPXMLs()
 	{
 		std::vector<DefaultBBPEntry> result;
@@ -547,31 +548,40 @@ namespace hdt
 			return result;
 		}
 
-		for (auto& map : doc.child("default-bbps").children("map")) {
-			std::string shape = map.attribute("shape").as_string();
-			std::string rawFile = map.attribute("file").as_string();
-			if (shape.empty() || rawFile.empty())
-				continue;
+		// Resolve one entry's XML reference to a filesystem path: try "data/<path>" first, then the
+		// path as-is (in case it's already absolute or differently rooted).
+		auto addEntry = [&](std::string key, std::string rawFile, bool isCreature) {
+			if (key.empty() || rawFile.empty())
+				return;
 
 			// Normalise path separators
 			std::replace(rawFile.begin(), rawFile.end(), '\\', '/');
 
-			// Build candidate paths: try "data/<path>" first, then as-is
 			DefaultBBPEntry entry;
-			entry.shape = shape;
+			entry.shape = std::move(key);
+			entry.isCreature = isCreature;
 
 			fs::path candidate = "data/" + rawFile;
 			if (fs::exists(candidate, ec)) {
 				entry.xmlPath = PathToUtf8(candidate);
 				entry.xmlExists = true;
 			} else {
-				// Fall back to path as-is (in case it's already absolute or differently rooted)
 				candidate = rawFile;
 				entry.xmlPath = PathToUtf8(candidate);
 				entry.xmlExists = fs::exists(candidate, ec);
 			}
 
 			result.push_back(std::move(entry));
+		};
+
+		for (auto& map : doc.child("default-bbps").children("map")) {
+			addEntry(map.attribute("shape").as_string(), map.attribute("file").as_string(), false);
+		}
+
+		// <creature skeleton="..." file="..."/> — per-race creature defaults, keyed on the race
+		// skeleton path. Same existence + schema validation as <map> entries.
+		for (auto& creature : doc.child("default-bbps").children("creature")) {
+			addEntry(creature.attribute("skeleton").as_string(), creature.attribute("file").as_string(), true);
 		}
 
 		return result;
@@ -1371,7 +1381,7 @@ namespace hdt
 			auto bbpEntries = discoverDefaultBBPXMLs();
 			if (!bbpEntries.empty()) {
 				bodyStream << "== Phase 0: DefaultBBP XML Validation ==\n";
-				bodyStream << "  Found " << bbpEntries.size() << " map entries in defaultBBPs.xml.\n";
+				bodyStream << "  Found " << bbpEntries.size() << " entries (map + creature) in defaultBBPs.xml.\n";
 
 				std::vector<size_t> validBatchIdx(bbpEntries.size(), SIZE_MAX);
 				std::vector<std::string> batch;
@@ -1395,10 +1405,10 @@ namespace hdt
 					const auto& entry = bbpEntries[i];
 					size_t batchIdx = validBatchIdx[i];
 
-					bodyStream << "  [BBP]  shape=" << entry.shape << " -> " << entry.xmlPath << "\n";
+					bodyStream << "  [BBP]  " << (entry.isCreature ? "skeleton=" : "shape=") << entry.shape << " -> " << entry.xmlPath << "\n";
 
 					if (!entry.xmlExists) {
-						std::string err = "defaultBBPs.xml: shape '" + entry.shape + "' references missing XML: " + entry.xmlPath;
+						std::string err = std::string("defaultBBPs.xml: ") + (entry.isCreature ? "creature skeleton '" : "shape '") + entry.shape + "' references missing XML: " + entry.xmlPath;
 						report.errors.push_back(err);
 						report.hasErrors = true;
 						bodyStream << "    [ERROR] XML file not found\n";
