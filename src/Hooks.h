@@ -11,7 +11,7 @@ namespace Hooks
 
 		static void Hook()
 		{
-			REL::Relocation<uintptr_t> SkinSingleGeometryCode1{ REL::VariantID(26466, 27061, 0x03EBB30), REL::VariantOffset(0x108, 0x10F, 0x108) };  // 0x03dc1c0, 0x03F6770, 0x03EBB30 (SE/1.5.97.0, AE/1.6.640.0, VR/1.4.15.0)
+			REL::Relocation<uintptr_t> SkinSingleGeometryCode1{ RELOCATION_ID(26466, 27061), REL::VariantOffset(0x108, 0x10F, 0x108) };  // 0x03dc1c0, 0x03F6770, 0x03EBB30 (SE/1.5.97.0, AE/1.6.640.0, VR/1.4.15.0)
 
 			//
 			auto& trampoline = SKSE::GetTrampoline();
@@ -89,8 +89,8 @@ namespace Hooks
 	public:
 		static void Hook()
 		{
-			REL::Relocation<uintptr_t> UpdateHook1{ REL::VariantID(35551, 36544, 0x05B6D70), REL::VariantOffset(0x11F, 0x160, 0x11F) };  // 0x05AF3D0, 0x05E7EE0, 0x05B6D70 (SE/1.5.97.0, AE/1.6.640.0, VR/1.4.15.0)
-			REL::Relocation<uintptr_t> UpdateHook2{ REL::VariantID(35565, 36564, 0x05BAB10), REL::VariantOffset(0x56D, 0x9DC, 0x611) };  // 0x05B2FF0, 0x05EC240, 0x05BAB10 (SE/1.5.97.0, AE/1.6.640.0, VR/1.4.15.0)
+			REL::Relocation<uintptr_t> UpdateHook1{ RELOCATION_ID(35551, 36544), REL::VariantOffset(0x11F, 0x160, 0x11F) };  // 0x05AF3D0, 0x05E7EE0, 0x05B6D70 (SE/1.5.97.0, AE/1.6.640.0, VR/1.4.15.0)
+			REL::Relocation<uintptr_t> UpdateHook2{ RELOCATION_ID(35565, 36564), REL::VariantOffset(0x56D, 0x9DC, 0x611) };  // 0x05B2FF0, 0x05EC240, 0x05BAB10 (SE/1.5.97.0, AE/1.6.640.0, VR/1.4.15.0)
 
 			logger::debug("Applying MainHooks hooks!");
 
@@ -137,7 +137,7 @@ namespace Hooks
 		using func_t = decltype(func);
 
 	private:
-		static inline func_t* _func{ (func_t*)REL::VariantID(37945, 38901, 0x06411A0).address() };  // 0x0638190, 0x0670210, 0x06411A0 (SE/1.5.97.0, AE/1.6.640.0, VR/1.4.15.0)
+		static inline func_t* _func{ (func_t*)RELOCATION_ID(37945, 38901).address() };  // 0x0638190, 0x0670210, 0x06411A0 (SE/1.5.97.0, AE/1.6.640.0, VR/1.4.15.0)
 	};
 
 	class BipedAnimHooks
@@ -163,7 +163,7 @@ namespace Hooks
 		using func_t = decltype(func);
 
 	private:
-		static inline func_t* _func{ (func_t*)REL::VariantID(15535, 15712, 0x01DB9E0).address() };  // 0x01CAFB0, 0x01D83B0, 0x01DB9E0 (SE/1.5.97.0, AE/1.6.640.0, VR/1.4.15.0)
+		static inline func_t* _func{ (func_t*)RELOCATION_ID(15535, 15712).address() };  // 0x01CAFB0, 0x01D83B0, 0x01DB9E0 (SE/1.5.97.0, AE/1.6.640.0, VR/1.4.15.0)
 	};
 
 	// Intended for hooks that may get drowned out by other mods.
