@@ -143,6 +143,13 @@ namespace hdt
 
 		auto& skeleton = getSkeletonData(e->skeleton);
 		if (e->hasAttached) {
+			// A runtime armor swap can desync the attach/detach pairing, leaving no armor record.
+			// The override reads below and attachArmor both need armors.back(), so stop here if empty.
+			if (skeleton.getArmors().empty()) {
+				logger::trace("ArmorAttachEvent with hasAttached but no armor record - skipping.");
+				return RE::BSEventNotifyControl::kContinue;
+			}
+
 			// Check override data for current armoraddon
 			if (e->skeleton->GetUserData()) {
 				auto actor_formID = e->skeleton->GetUserData()->formID;
@@ -935,6 +942,7 @@ namespace hdt
 	{
 		if (armors.size() == 0 || armors.back().hasPhysics()) {
 			logger::trace("Not attaching armor - no record or physics already exists");
+			return;
 		}
 
 		Armor& armor = armors.back();
