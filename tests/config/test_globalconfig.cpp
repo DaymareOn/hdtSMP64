@@ -92,7 +92,7 @@ TEST_CASE("min-fps and windStrength clamps match the FSMPMenu.cpp slider bounds,
 		"wind": { "windStrength": 500.0 }
 	})");
 
-	CHECK(c.minFps == 60);                          // floor now matches the menu (was 1)
+	CHECK(c.minFps == 60);                             // floor now matches the menu (was 1)
 	CHECK(c.windStrength == doctest::Approx(100.0f));  // ceiling now matches the menu (was 1000)
 }
 
