@@ -69,9 +69,9 @@ TEST_CASE("out-of-range numbers are clamped, not rejected")
 	CHECK(c.minScreenSizePercent == doctest::Approx(0.0f));                    // [0,100]
 	CHECK(c.numIterations == 4);                                               // [4,128]
 	CHECK(c.erp == doctest::Approx(1.0f));                                     // [0.01,1.0]
-	CHECK(c.minFps == 300);                                                    // [1,300]
+	CHECK(c.minFps == 300);                                                    // [60,300]
 	CHECK(c.maxSubSteps == 1);                                                 // [1,60]
-	CHECK(c.windStrength == doctest::Approx(0.0f));                            // [0,1000]
+	CHECK(c.windStrength == doctest::Approx(0.0f));                            // [0,100]
 	CHECK(c.distanceForMaxWind == doctest::Approx(10000.0f));                  // [0,10000]
 	CHECK(c.rotationSpeedLimit == doctest::Approx(100.0f));                    // [0,100]
 	CHECK(c.unclampedResetAngle == doctest::Approx(0.0f));                     // [0,360]
@@ -79,6 +79,21 @@ TEST_CASE("out-of-range numbers are clamped, not rejected")
 	CHECK(c.maximumActiveSkeletons == 200);                                    // [0,200]
 	CHECK(c.outputFontScale == doctest::Approx(GlobalConfig::maxFontScale));   // [0.6,2.0]
 	CHECK(c.overlayFontScale == doctest::Approx(GlobalConfig::minFontScale));  // [0.6,2.0]
+}
+
+TEST_CASE("min-fps and windStrength clamps match the FSMPMenu.cpp slider bounds, not the old wider parser range (#439)")
+{
+	// A hand-edited/externally generated userConfigs.json used to be able to persist min-fps as low
+	// as 1 (the code's own tooltip says "Never set below 60 or the physics engine misbehaves") and
+	// windStrength as high as 1000 (the menu slider tops out at 100 and cannot represent or correct
+	// it). The parser's clamp must agree with the only UI for the same fields.
+	const GlobalConfig c = parseConfigJson(R"({
+		"solver": { "min-fps": 5 },
+		"wind": { "windStrength": 500.0 }
+	})");
+
+	CHECK(c.minFps == 60);                          // floor now matches the menu (was 1)
+	CHECK(c.windStrength == doctest::Approx(100.0f));  // ceiling now matches the menu (was 1000)
 }
 
 TEST_CASE("wrong-typed fields fall back to defaults")
