@@ -307,6 +307,9 @@ jobs:
           #    requiredInstallFiles SKSE folder.
           mkdir -p "final_package/SKSE/Plugins/hdtSkinnedMeshConfigs"
           cp configs/configs.json "final_package/SKSE/Plugins/hdtSkinnedMeshConfigs/"
+          # The FSMP logo shown in the in-game menu's status header (SKSEMenuFramework::LoadTexture); mirrors
+          # src/CMakeLists.txt's own install() of the same file (issue #463).
+          cp configs/FSMP.dds "final_package/SKSE/Plugins/hdtSkinnedMeshConfigs/"
           cp -r configs/configsPresets "final_package/SKSE/Plugins/hdtSkinnedMeshConfigs/"
           cp -r configs/localization "final_package/SKSE/Plugins/hdtSkinnedMeshConfigs/"
           # The config menu's monospace font goes into the SKSE Menu Framework's font folder (Data/SKSE/Plugins/Fonts),

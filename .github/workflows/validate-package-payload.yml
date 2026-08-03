@@ -1,0 +1,66 @@
+name: Validate shipped-config payload parity
+
+# Cheap, build-free check that every file src/CMakeLists.txt's shipped-config install() block declares is
+# also copied by the CI package step (.github/workflows/build.yml) --- the only path that produces the
+# released zip (it contains no `cmake --install`/`cpack` invocation of its own). The two lists drifted once
+# already (issue #463: FSMP.dds was installed by CMake but never copied into the release, so the in-game
+# menu's Home logo silently never loaded on a fresh FOMOD install) with nothing catching it. This job stops
+# the next file added to one list from silently missing the other.
+on:
+  push:
+    paths:
+      - "src/CMakeLists.txt"
+      - ".github/workflows/build.yml"
+  pull_request:
+    paths:
+      - "src/CMakeLists.txt"
+      - ".github/workflows/build.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-package-payload-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Diff CMake install() shipped-config payload against the CI package step
+        shell: bash
+        run: |
+          set -uo pipefail
+          fail=0
+          cmake_file="src/CMakeLists.txt"
+          build_file=".github/workflows/build.yml"
+
+          # The shipped-config block is delimited by its own leading comment and the COPY_OUTPUT guard that
+          # follows it (see src/CMakeLists.txt) --- everything in between is `install(FILES ...)` /
+          # `install(DIRECTORY ...)` for a file/directory the released FOMOD ships unconditionally.
+          start=$(grep -n '^# Ship the default global config' "$cmake_file" | head -1 | cut -d: -f1)
+          end=$(grep -n '^if("\${COPY_OUTPUT}")' "$cmake_file" | head -1 | cut -d: -f1)
+          if [ -z "$start" ] || [ -z "$end" ]; then
+            echo "::error file=$cmake_file::could not locate the shipped-config install() block markers --- has the comment/guard been reworded? Update this check's markers to match."
+            exit 1
+          fi
+
+          names=$(sed -n "${start},${end}p" "$cmake_file" | grep -oP '\$\{ROOT_DIR\}/[^"]+' | sed 's#.*/##' | sort -u)
+          if [ -z "$names" ]; then
+            echo "::error file=$cmake_file::found the shipped-config block but extracted zero payload names --- the install() shape may have changed; update this check."
+            exit 1
+          fi
+
+          for n in $names; do
+            if ! grep -qF -- "$n" "$build_file"; then
+              echo "::error file=$build_file::package step never copies '$n', which src/CMakeLists.txt's shipped-config install() block declares --- a released FOMOD install silently omits it (issue #463 was FSMP.dds)"
+              fail=1
+            fi
+          done
+
+          exit $fail
