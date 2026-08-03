@@ -13,7 +13,9 @@
     "maximumActiveSkeletons": 5,
     "budgetMs": 3.0,
     "sampleSize": 1,
-    "disable1stPersonViewPhysics": true
+    "disable1stPersonViewPhysics": true,
+    "skipDeadActors": false,
+    "minScreenSizePercent": 0.0
   },
   "solver": {
     "numIterations": 16,

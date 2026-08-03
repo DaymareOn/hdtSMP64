@@ -54,4 +54,28 @@ jobs:
             fi
           done
 
+          # 3. Every configs.json `smp` key must exist in every configsPresets/*.json file (issue #456).
+          #    scanPresets()/parseConfigJson() (src/UI/FSMPMenu.cpp, src/GlobalConfig.cpp) parse a preset into
+          #    a GlobalConfig struct pre-filled with its own field defaults, so a key a preset omits is not
+          #    "leave unchanged" --- applying that preset silently resets the field to the struct default,
+          #    and the menu's "(loaded)" highlight can then never match a user who changed it. commit
+          #    803595f fixed one such straggler (hideSMPHairWhenInvisible); this check stops the next one from
+          #    going unnoticed the same way.
+          #    `backupNodeByName` is a deliberate, documented exception (GlobalConfig.h: "has no menu
+          #    control; it is preserved purely so a round-trip never drops it") --- presets never own it,
+          #    physicsOnly()/PresetsBody() (src/UI/FSMPMenu.cpp) explicitly clear/preserve it on both sides of
+          #    the comparison and the apply, exactly like `validation.mods-dir` and the top-level UI fields
+          #    (locale, font scales), which live outside the `smp` block entirely and so aren't in this key
+          #    set at all.
+          smp_exceptions='["backupNodeByName"]'
+          config_smp_keys=$(jq -c --argjson ex "$smp_exceptions" '(.smp | keys) - $ex' configs/configs.json)
+          for f in configs/configsPresets/*.json; do
+            missing=$(jq -n --argjson want "$config_smp_keys" --slurpfile p "$f" '$want - ($p[0].smp | keys) | .[]' -r)
+            if [ -n "$missing" ]; then
+              echo "::error file=$f::missing smp key(s) present in configs/configs.json (applying this preset silently resets them to the struct default):"
+              echo "$missing"
+              fail=1
+            fi
+          done
+
           exit $fail
