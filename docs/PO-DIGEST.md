@@ -7,7 +7,8 @@ inspection alone — every `.cpp`/`.h` fix on this list needed a human with the 
 
 ## Awaiting land (on `chore/auto-integration`, not yet in `dev`)
 
-**auto-consistency** (2 resolved, both pure JSON/CI-script — no C++ touched):
+**auto-consistency / auto-testgap** (3 resolved — partially for #466 — all pure JSON/CI-script, no
+C++ touched):
 
 - **#456** — All 5 `configs/configsPresets/*.json` files were missing `smp.skipDeadActors` /
   `smp.minScreenSizePercent` that `configs.json` ships; applying any preset silently reset both to
@@ -19,8 +20,15 @@ inspection alone — every `.cpp`/`.h` fix on this list needed a human with the 
   zip — never copied it, so a fresh FOMOD install showed no logo. Fix: added the missing `cp` line,
   plus a new `validate-package-payload.yml` CI workflow that diffs the CMake `install()` payload
   against the package step's copies on every future change to either file. (PR #465)
+- **#466** (partial — issue left open) — `CMakeLists.txt` falsely claimed CI turns
+  `BUILD_PATTERN_TESTS` on; only `BUILD_VALIDATOR_TESTS` ever is. Fixed the false comment on both
+  `BUILD_PATTERN_TESTS`/`BUILD_CONFIG_TESTS`, and added `validate-build-test-flags.yml` — a
+  build-free CI guard that fails if a future `BUILD_*_TESTS` option is neither wired `ON` in
+  `build.yml` nor listed as a documented exception. **Not** flipped `ON` in CI: that half needs a
+  real Windows/MSVC/vcpkg build to confirm `config_tests`/`xml_pattern_tests` still compile — left
+  as a smaller follow-up for a human with the toolchain. (PR #467, issue stays open)
 
-5 commits ahead of `origin/dev` (2 fix commits + 2 merge commits + this digest refresh).
+7 commits ahead of `origin/dev` (3 fix commits + 3 merge commits + this digest refresh).
 
 ## Awaiting decision (`needs-po-input`)
 
@@ -55,14 +63,13 @@ land or be superseded.
 
 ## New this run
 
-- **#466** (`auto-consistency` + `auto-testgap`) — Of the repo's 3 standalone doctest suites
-  (`tests/validator`, `tests/patterns`, `tests/config`), only `tests/validator`'s
-  `BUILD_VALIDATOR_TESTS` flag is ever turned on anywhere (`build.yml:194`). `BUILD_PATTERN_TESTS`
-  (549 lines, `xml_pattern_tests`) and `BUILD_CONFIG_TESTS` (152 lines, `config_tests`) are never
-  built or run by CI, a pre-commit hook, or anything else, despite `CMakeLists.txt`'s own comment
-  claiming "CI and local dev turn it ON to build + run the suite." Both are self-contained (no
-  CommonLibSSE — only rapidjson/pugixml + doctest + STL), so wiring them in is cheap, but doing so
-  needs a real CI run to confirm neither has bit-rotted while unbuilt.
+None — this run resolved (partially) #466, filed the prior run, per "Awaiting land" above.
+
+## Still open: sweep the `blocked-cloud-verify` relabel
+
+The "Approved, blocked only on a human build" section above is unchanged and still needs a future
+slice to relabel the ~19 remaining approved-but-untagged issues (#438, #441, #444–#448, #451–#461)
+with `blocked-cloud-verify`.
 
 ## Changelog / roadmap stub
 
@@ -76,4 +83,8 @@ land or be superseded.
   remain genuine open questions (#450, #449, #443, #442).
 - **2026-08-05** — Relabeled #462 `blocked-cloud-verify` (approved but not yet re-tagged after its
   `needs-po-input` came off). Filed #466: two of the repo's three standalone doctest suites are
-  never built or run in CI, despite `CMakeLists.txt` claiming otherwise — see "New this run" above.
+  never built or run in CI, despite `CMakeLists.txt` claiming otherwise.
+- **2026-08-05 (later)** — Partially resolved #466: fixed the false CMake comment and added a
+  build-free CI guard (`validate-build-test-flags.yml`) preventing a future doctest suite from
+  silently joining `BUILD_PATTERN_TESTS`/`BUILD_CONFIG_TESTS` unwired. Left the "compile + wire the
+  two suites into CI" half open — needs a real toolchain to verify safely. (PR #467)
