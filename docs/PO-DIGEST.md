@@ -36,7 +36,8 @@ audits triaged has since received a PO decision (label removed):
 - #442 — validator models shape template inheritance (`*-shape-default`) the runtime never
   implements, citing a nonexistent function in its own comments — implement, or strip the model?
 
-*Pre-existing, not `auto-*`:*
+_Pre-existing, not `auto-_`:\*
+
 - #375 — CI: migrate `Nexus-Mods/upload-action` beta.7 → beta.8 before 2026-09-09 API removal
 - #374 — CI: Nexus upload doesn't update the mod page's main version
 - #276 — Document the new version of Dynamic HDT
