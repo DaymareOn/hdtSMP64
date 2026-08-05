@@ -39,16 +39,15 @@ option(BUILD_VALIDATOR_TESTS "Build the validator/XML-reader doctest suite" OFF)
 set(BUILD_TESTS OFF)
 
 # Standalone doctest suite for the SMP XML pattern expander (PLAN smp-xml-patterns, D5). OFF by default so
-# normal/packaged builds stay DLL-only. Unlike BUILD_VALIDATOR_TESTS, CI does NOT currently turn this ON --
-# it is a documented exception in .github/workflows/validate-build-test-flags.yml pending a real
-# Windows/MSVC/vcpkg CI run to confirm the suite still compiles (issue #466). Turn it ON locally to build
-# and run the suite in the meantime.
+# normal/packaged builds stay DLL-only. Unlike BUILD_VALIDATOR_TESTS, CI does NOT currently turn this ON -- it is a
+# documented exception in .github/workflows/validate-build-test-flags.yml pending a real Windows/MSVC/vcpkg CI run to
+# confirm the suite still compiles (issue #466). Turn it ON locally to build and run the suite in the meantime.
 option(BUILD_PATTERN_TESTS "Build the SMP XML pattern expander doctest suite" OFF)
 
 # Standalone doctest suite for the GlobalConfig JSON (de)serialization. OFF by default and never packaged; it compiles
 # src/GlobalConfig.cpp directly without the game's PCH and links only rapidjson + doctest (no CommonLibSSE/Bullet/TBB),
-# mirroring tests/patterns. Also NOT currently turned on by CI -- see BUILD_PATTERN_TESTS's comment above
-# and issue #466; the same documented exception applies here.
+# mirroring tests/patterns. Also NOT currently turned on by CI -- see BUILD_PATTERN_TESTS's comment above and issue
+# #466; the same documented exception applies here.
 option(BUILD_CONFIG_TESTS "Build the GlobalConfig JSON doctest suite" OFF)
 
 # default definitions
