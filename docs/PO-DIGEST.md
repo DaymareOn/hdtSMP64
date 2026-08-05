@@ -20,64 +20,49 @@ inspection alone — every `.cpp`/`.h` fix on this list needed a human with the 
   plus a new `validate-package-payload.yml` CI workflow that diffs the CMake `install()` payload
   against the package step's copies on every future change to either file. (PR #465)
 
-4 commits ahead of `origin/dev` (2 fix commits + 2 merge commits).
+5 commits ahead of `origin/dev` (2 fix commits + 2 merge commits + this digest refresh).
 
 ## Awaiting decision (`needs-po-input`)
 
-**25 open issues need a human with a Windows/MSVC/CommonLibSSE/vcpkg dev box** (this run triaged 22
-of them this pass, adding a skip comment + `needs-po-input` to each with the specific fix location
-and what still needs verifying; 3 pre-existed from before this run):
+Only **4 open issues** still carry `needs-po-input` today — every other issue this repo's prior
+audits triaged has since received a PO decision (label removed):
 
-*Pure bug-fix, no design call needed — just needs to be compiled and tested:*
-- #462 — `logConfig` prints `smp.budgetMS`, should be `smp.budgetMs` (`src/config.cpp:219`)
-- #460 — validator's `catch(std::exception&)` can never catch `XMLReader`'s `throw std::string`,
-  degrading every reader diagnostic to "Unknown XML parse error" (also `auto-testgap`: zero test
-  coverage of this exception path)
-- #458 — `smp dumptree`'s menu Output panel shows only 2 of 7 emission points (`src/main.cpp`)
-- #457 — `castBSTriShape`/`castBSDynamicTriShape` skip the `isValidNiObject` vtable guard their
-  siblings apply — a real VR crash risk (`src/NetImmerseUtils.h`)
-- #455 — `SkinAllGeometry__Hook`/`SkinAllGeometryCalls` skip a null guard their siblings apply
-  (`src/Hooks.cpp`) — crash-to-desktop risk
-- #454 — `<shape type="compound">`'s outer loop is the one element loop with no warn-and-skip else,
-  silently truncating the compound (also `auto-testgap`)
-- #453 — `smp` console command's `helpString` lists 3 subcommands, `smp help` documents 10
-- #452 — `scanHead` ignores the `head.isActive` wig flag its sibling paths honor
-  (`src/ActorManager.cpp:1331`)
-- #451 — 5 `ConsoleLog::Print` calls mix fmt-style `{}` into printf-style calls, printing a literal
-  `{}` instead of the exception/found-not-found text
-- #450 — `<gravity-factor>` clamps to `[0,1]`, sibling `<wind-factor>` only floors at 0, silently
-- #449 — menu tooltip says "default 20", shipped default is 5
-- #448 — `XMLReader::readTransform` has no warn-and-skip else, silently truncates on an unknown
-  child (also `auto-testgap`)
-- #447 — `<remap target>` read is unguarded and can throw out of the `DefaultBBP` singleton
-  constructor — a startup crash risk on malformed `defaultBBPs.xml`
-- #445 — `weight-threshold` stops at the first match in per-vertex but keeps scanning in
-  per-triangle — same tag, different semantics
-- #444 — fallback bone creation skips transform/factor initialization its sibling path performs
-- #441 — `readPerVertexShape`'s "unknown element" warning prints the shape's name instead of the
-  offending element
-- #438 — hull collision shape parses `<margin>` but never applies it via `setMargin()`
-
-*Needs a product/design decision before any code change:*
-- #461 — `FrameType`'s 3 `AWith*PointToB` enum values are fully implemented but unreachable from
-  XML — expose them as new tags, or delete the dead arms?
-- #459 — 3 different numeric-lexing grammars (engine/validator/redundancy-analyzer) disagree on
-  what a valid XML number is — needs a single shared definition (also `auto-testgap`: zero test
-  coverage of any of the 3 grammars)
-- #446 — bone-template collision-filter tags are parsed but never wired to the created bone —
-  implement, or reject/warn on the no-op?
+- #450 — `<gravity-factor>` clamps to `[0,1]`, sibling `<wind-factor>` only floors at 0 — intentional
+  asymmetry, or should both clamp the same way?
+- #449 — menu tooltip says "default 20", shipped default is 5 — which is correct: fix the tooltip, or
+  the default?
 - #443 — validator's redundancy analysis assumes shape collision lists use replace semantics; the
   runtime is purely additive — align the model or the runtime?
 - #442 — validator models shape template inheritance (`*-shape-default`) the runtime never
   implements, citing a nonexistent function in its own comments — implement, or strip the model?
 
-*Pre-existing (not filed this run):*
+*Pre-existing, not `auto-*`:*
 - #375 — CI: migrate `Nexus-Mods/upload-action` beta.7 → beta.8 before 2026-09-09 API removal
 - #374 — CI: Nexus upload doesn't update the mod page's main version
 - #276 — Document the new version of Dynamic HDT
 
-**#439** ("config-file clamps disagree with menu slider ranges") already has an open PR (#440) from
-a prior session — not re-triaged, left for that PR to land or be superseded.
+## Approved, blocked only on a human build (`blocked-cloud-verify`)
+
+The remaining ~20 open `auto-consistency`/`auto-testgap` issues (#438, #441, #444–#448, #451–#462)
+have each already received a PO decision approving the fix direction (their `needs-po-input` label
+was removed on 2026-08-04) — they are genuine engineering work, not open questions, but every one
+needs a real Windows/MSVC/CommonLibSSE/vcpkg build to fix and verify. **Most still lack the
+`blocked-cloud-verify` label** (only #462 carries it as of this run — relabeled this pass, since it
+was approved but never re-tagged after `needs-po-input` came off). A future slice should sweep the
+rest the same way so the tracker accurately shows "approved, awaiting build" rather than looking
+untriaged. #439 already has an open PR (#440) from a prior session fixing it — left for that PR to
+land or be superseded.
+
+## New this run
+
+- **#466** (`auto-consistency` + `auto-testgap`) — Of the repo's 3 standalone doctest suites
+  (`tests/validator`, `tests/patterns`, `tests/config`), only `tests/validator`'s
+  `BUILD_VALIDATOR_TESTS` flag is ever turned on anywhere (`build.yml:194`). `BUILD_PATTERN_TESTS`
+  (549 lines, `xml_pattern_tests`) and `BUILD_CONFIG_TESTS` (152 lines, `config_tests`) are never
+  built or run by CI, a pre-commit hook, or anything else, despite `CMakeLists.txt`'s own comment
+  claiming "CI and local dev turn it ON to build + run the suite." Both are self-contained (no
+  CommonLibSSE — only rapidjson/pugixml + doctest + STL), so wiring them in is cheap, but doing so
+  needs a real CI run to confirm neither has bit-rotted while unbuilt.
 
 ## Changelog / roadmap stub
 
@@ -85,10 +70,10 @@ a prior session — not re-triaged, left for that PR to land or be superseded.
   packaging + CI enforcement) on `chore/auto-integration`. Triaged 22 open `auto-consistency`
   issues that are genuine C++ logic/crash-safety bugs unresolvable in this Linux sandbox (no
   MSVC/CommonLibSSE/vcpkg) — each got a skip comment naming the exact fix location and verification
-  steps, plus `needs-po-input`. Cross-tagged 3 of those (#448, #459, #460) with `auto-testgap`:
-  zero test coverage exists today for `XmlReader.cpp`'s numeric conversion functions, its
-  missing-attribute exception path, or `readTransform`'s unknown-child handling, even though all
-  three are reachable from the existing game-free `tests/validator`/`tests/config` harness.
-- **Queued for a human with the real toolchain** — see "Awaiting decision" above; 5 of those need a
-  product/design call first (#461, #459, #446, #443, #442), the rest are straightforward compiles
-  once someone can build.
+  steps, plus `needs-po-input`.
+- **2026-08-04** — PO reviewed and approved the fix direction for ~20 of those triaged issues,
+  removing `needs-po-input` from each (recorded as a "PO decision" comment on each issue). 4 issues
+  remain genuine open questions (#450, #449, #443, #442).
+- **2026-08-05** — Relabeled #462 `blocked-cloud-verify` (approved but not yet re-tagged after its
+  `needs-po-input` came off). Filed #466: two of the repo's three standalone doctest suites are
+  never built or run in CI, despite `CMakeLists.txt` claiming otherwise — see "New this run" above.
