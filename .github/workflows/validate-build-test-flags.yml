@@ -1,0 +1,84 @@
+name: Validate BUILD_*_TESTS CI wiring
+
+# Cheap, build-free check that every `option(BUILD_..._TESTS ...)` declared in CMakeLists.txt is either
+# turned ON in the main build workflow (.github/workflows/build.yml) or listed below as a documented
+# exception with a reason -- so a future doctest suite can't silently repeat issue #466:
+# BUILD_PATTERN_TESTS/BUILD_CONFIG_TESTS were both declared, both documented in CMakeLists.txt as a "dev/CI
+# tool" (one comment even falsely claimed "CI and local dev turn it ON"), and neither was ever actually
+# turned ON anywhere -- so `config_tests`/`xml_pattern_tests` were compiled and run by nobody, ever, while
+# only the third sibling (BUILD_VALIDATOR_TESTS) was ever wired in. This job stops a fourth suite from
+# joining them unnoticed.
+on:
+  push:
+    paths:
+      - "CMakeLists.txt"
+      - ".github/workflows/build.yml"
+      - ".github/workflows/validate-build-test-flags.yml"
+  pull_request:
+    paths:
+      - "CMakeLists.txt"
+      - ".github/workflows/build.yml"
+      - ".github/workflows/validate-build-test-flags.yml"
+  workflow_dispatch:
+
+# Least privilege: this job only reads the repo to lint text.
+permissions:
+  contents: read
+
+# Supersede in-flight runs for the same ref so a rapid series of pushes doesn't pile up.
+concurrency:
+  group: validate-build-test-flags-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Diff CMakeLists.txt's BUILD_*_TESTS options against build.yml's CMake configure step
+        shell: bash
+        run: |
+          set -uo pipefail
+          fail=0
+          cmake_file="CMakeLists.txt"
+          build_file=".github/workflows/build.yml"
+
+          # Every BUILD_*_TESTS doctest-suite toggle declared in CMakeLists.txt, e.g. BUILD_VALIDATOR_TESTS.
+          names=$(grep -oP '^\s*option\(\K(BUILD_[A-Z0-9_]*_TESTS)(?=\s)' "$cmake_file" | sort -u)
+          if [ -z "$names" ]; then
+            echo "::error file=$cmake_file::found zero BUILD_*_TESTS option() declarations -- has the naming shape changed? Update this check's pattern to match."
+            exit 1
+          fi
+
+          # Suites known NOT to be wired into CI yet, with the reason a human must resolve before removing an
+          # entry. Every name here is a documented, deliberate exception -- never a place to silently grow;
+          # adding a new suite here without ALSO wiring it into build.yml or explaining why not is exactly the
+          # regression this check exists to catch.
+          #
+          # BUILD_PATTERN_TESTS / BUILD_CONFIG_TESTS: never verified to still compile (no C++ toolchain was
+          # available to the audit that found them dead-in-CI). Wiring either into build.yml needs a real
+          # Windows/MSVC/vcpkg CI run proving the suite still builds against the currently-pinned
+          # rapidjson/pugixml/doctest versions before flipping it ON -- see issue #466.
+          exempt="BUILD_PATTERN_TESTS BUILD_CONFIG_TESTS"
+
+          for n in $names; do
+            if grep -qF -- "-D${n}=ON" "$build_file"; then
+              echo "wired: $n"
+              continue
+            fi
+            is_exempt=0
+            for e in $exempt; do
+              [ "$e" = "$n" ] && is_exempt=1 && break
+            done
+            if [ "$is_exempt" = "1" ]; then
+              echo "::notice file=$cmake_file::$n is declared but not wired into CI -- documented exception in this workflow's own 'exempt' list"
+              continue
+            fi
+            echo "::error file=$build_file::$n is declared in $cmake_file's option() list but never turned ON anywhere in $build_file -- CI compiles and runs nothing for this suite. Either add -D${n}=ON to the CMake configure step, or add it to this workflow's documented 'exempt' list with a reason."
+            fail=1
+          done
+
+          exit $fail
