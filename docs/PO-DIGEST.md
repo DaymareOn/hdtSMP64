@@ -8,7 +8,8 @@ inspection alone — every `.cpp`/`.h` fix on this list needed a human with the 
 ## Awaiting land (on `chore/auto-integration`, not yet in `dev`)
 
 **auto-consistency / auto-testgap** (3 resolved — partially for #466 — all pure JSON/CI-script, no
-C++ touched):
+C++ touched). #456 and #463 are now **closed** (confirmed already fixed and merged here this run);
+#466 stays open, `blocked-cloud-verify`-tagged, for its remaining CI-wiring half:
 
 - **#456** — All 5 `configs/configsPresets/*.json` files were missing `smp.skipDeadActors` /
   `smp.minScreenSizePercent` that `configs.json` ships; applying any preset silently reset both to
@@ -52,25 +53,34 @@ _Pre-existing, not `auto-*`:_
 
 ## Approved, blocked only on a human build (`blocked-cloud-verify`)
 
-The remaining ~20 open `auto-consistency`/`auto-testgap` issues (#438, #441, #444–#448, #451–#462)
-have each already received a PO decision approving the fix direction (their `needs-po-input` label
-was removed on 2026-08-04) — they are genuine engineering work, not open questions, but every one
-needs a real Windows/MSVC/CommonLibSSE/vcpkg build to fix and verify. **Most still lack the
-`blocked-cloud-verify` label** (only #462 carries it as of this run — relabeled this pass, since it
-was approved but never re-tagged after `needs-po-input` came off). A future slice should sweep the
-rest the same way so the tracker accurately shows "approved, awaiting build" rather than looking
-untriaged. #439 already has an open PR (#440) from a prior session fixing it — left for that PR to
-land or be superseded.
+**Sweep complete this run.** All 19 open `auto-consistency`/`auto-testgap` issues that had a PO
+decision approving the fix direction (their `needs-po-input` label removed on 2026-08-04) but no
+`blocked-cloud-verify` tag now carry it: **#438, #439, #441, #444, #445, #446, #447, #448, #451,
+#452, #453, #454, #455, #457, #458, #459, #460, #461, #466**. Each got a short comment pointing back
+at the original skip comment's exact fix/verification steps. #462 already carried the label from a
+prior slice. #450/#449/#443/#442 are excluded on purpose — they still carry `needs-po-input`
+(genuine open questions, see below), not a cloud-verify blocker. #439 additionally has an open PR
+(#440, targeting `dev`) fixing its `GlobalConfig.cpp` half already — noted in its comment.
+
+Two of the touched issues (**#448, #459, #460**) got a follow-up correction: an initial comment
+speculated their files (`XmlReader.cpp` + the validator files) might be standalone-buildable via
+`g++`/MinGW the way `GlobalConfig.cpp` was in PR #440, since `tests/validator/CMakeLists.txt` calls
+them "game-independent". A real attempt (installing `libbullet-dev`, `g++-mingw-w64-x86-64`) proved
+this false: `XmlReader.h` transitively needs `hdtSkinnedMesh/hdtBulletHelper.h`, which requires a
+Bullet build compiled with SSE/`get128()` support the generic Ubuntu `libbullet-dev` package lacks,
+on top of real `<windows.h>`/`<intrin.h>`. Unlike `GlobalConfig.cpp` (zero Bullet/Windows
+dependency), these three genuinely need the real vcpkg-configured toolchain — corrected in-thread so
+a future slice doesn't retry the same dead end.
 
 ## New this run
 
-None — this run resolved (partially) #466, filed the prior run, per "Awaiting land" above.
-
-## Still open: sweep the `blocked-cloud-verify` relabel
-
-The "Approved, blocked only on a human build" section above is unchanged and still needs a future
-slice to relabel the ~19 remaining approved-but-untagged issues (#438, #441, #444–#448, #451–#461)
-with `blocked-cloud-verify`.
+- Closed **#456** and **#463** — both were already fixed and merged on `chore/auto-integration`
+  (commits `06f15ca`/`ec0187d` and `4e8e62b`/`14e40ac`) but never auto-closed, since the merge target
+  was the integration branch, not the repo's default branch. Verified directly against the current
+  tree (preset JSON keys present; `FSMP.dds` copied in `build.yml`) before closing.
+- Completed the `blocked-cloud-verify` relabel sweep (19 issues, see above).
+- No new code landed on `chore/auto-integration` this run — pure GitHub-issue triage plus this digest
+  refresh.
 
 ## Changelog / roadmap stub
 
@@ -89,3 +99,11 @@ with `blocked-cloud-verify`.
   build-free CI guard (`validate-build-test-flags.yml`) preventing a future doctest suite from
   silently joining `BUILD_PATTERN_TESTS`/`BUILD_CONFIG_TESTS` unwired. Left the "compile + wire the
   two suites into CI" half open — needs a real toolchain to verify safely. (PR #467)
+- **2026-08-05 (relabel sweep)** — Tagged all 19 remaining approved-but-untagged issues
+  `blocked-cloud-verify` (#438, #439, #441, #444–#448, #451–#461, #466). Closed #456/#463 as
+  already-fixed-but-never-auto-closed. Attempted a real fix for #448 (`XmlReader::readTransform`'s
+  missing warn-and-skip else) using the standalone-build approach PR #440 established for
+  `GlobalConfig.cpp`; discovered `XmlReader.h`'s transitive dependency on a SSE-configured Bullet
+  build (`get128()`, etc.) makes that approach NOT viable for `XmlReader.cpp`/the validator files
+  the way it was for `GlobalConfig.cpp` — abandoned the fix branch cleanly and corrected the
+  over-optimistic "standalone-buildable" claim on #448/#459/#460.
