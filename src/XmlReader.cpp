@@ -96,6 +96,8 @@ namespace hdt
 			case Inspected::EndTag:
 				--currentDepth;
 				break;
+			default:
+				break;
 			}
 		}
 	}
@@ -239,6 +241,8 @@ namespace hdt
 				break;
 			case Inspected::EndTag:
 				return ret;
+			default:
+				break;
 			}
 		}
 		return ret;
