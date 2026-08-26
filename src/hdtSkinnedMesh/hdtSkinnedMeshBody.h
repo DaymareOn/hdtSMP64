@@ -98,10 +98,12 @@ namespace hdt
 
 		bool canCollideWith(const SkinnedMeshBone* bone) const
 		{
-			if (!m_canCollideWithBones.empty()) {
+			// Blacklist always takes priority, regardless of whether a whitelist is also set.
+			if (m_noCollideWithBones.contains(const_cast<SkinnedMeshBone*>(bone)))
+				return false;
+			if (!m_canCollideWithBones.empty())
 				return m_canCollideWithBones.contains(const_cast<SkinnedMeshBone*>(bone));
-			}
-			return !m_noCollideWithBones.contains(const_cast<SkinnedMeshBone*>(bone));
+			return true;
 		}
 
 		virtual bool canCollideWith(const SkinnedMeshBody* body) const;

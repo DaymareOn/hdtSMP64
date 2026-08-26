@@ -239,12 +239,14 @@ namespace hdt
 		if (m_isKinematic && body->m_isKinematic)
 			return false;
 
-		if (m_canCollideWithTags.empty()) {
-			for (auto& i : body->m_tags)
-				if (m_noCollideWithTags.find(i) != m_noCollideWithTags.end())
-					return false;
+		// Blacklist always takes priority, regardless of whether a whitelist is also set.
+		for (auto& i : body->m_tags)
+			if (m_noCollideWithTags.find(i) != m_noCollideWithTags.end())
+				return false;
+
+		if (m_canCollideWithTags.empty())
 			return true;
-		}
+
 		for (auto& i : body->m_tags)
 			if (m_canCollideWithTags.find(i) != m_canCollideWithTags.end())
 				return true;
