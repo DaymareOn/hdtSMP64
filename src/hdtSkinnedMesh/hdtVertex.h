@@ -6,9 +6,9 @@ namespace hdt
 {
 	struct alignas(16) Vertex
 	{
-		Vertex()
+		Vertex() :
+			m_skinPos(0, 0, 0), m_weight{}, m_boneIdx{}
 		{
-			ZeroMemory(this, sizeof(*this));
 		}
 
 		Vertex(float x, float y, float z) :
