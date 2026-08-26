@@ -1,7 +1,6 @@
 #pragma once
 
 #include "hdtSkinnedMeshSystem.h"
-#include "hdtSkyrimSystem.h"
 #include <BulletCollision/CollisionDispatch/btSimulationIslandManager.h>
 #include <BulletDynamics/Dynamics/btDiscreteDynamicsWorldMt.h>
 
@@ -23,6 +22,8 @@ namespace hdt
 
 		btVector3& getWind() { return m_windSpeed; }
 		const btVector3& getWind() const { return m_windSpeed; }
+
+		bool m_enableWind = true;
 
 	protected:
 		std::vector<float> m_timeSteps;

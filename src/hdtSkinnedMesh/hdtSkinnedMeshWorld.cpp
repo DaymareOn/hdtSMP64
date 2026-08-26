@@ -2,8 +2,6 @@
 #include "hdtBoneScaleConstraint.h"
 #include "hdtDispatcher.h"
 #include "hdtSkinnedMeshAlgorithm.h"
-#include "hdtSkyrimPhysicsWorld.h"
-#include "hdtSkyrimSystem.h"
 #include <algorithm>
 #include <cmath>
 #include <thread>
@@ -150,7 +148,7 @@ namespace hdt
 	int SkinnedMeshWorld::stepSimulation(btScalar remainingTimeStep, int, btScalar fixedTimeStep)
 	{
 		applyGravity();
-		if (hdt::SkyrimPhysicsWorld::get()->m_enableWind)
+		if (m_enableWind)
 			applyWind(remainingTimeStep);
 
 		while (remainingTimeStep > fixedTimeStep) {
@@ -258,15 +256,14 @@ namespace hdt
 		const btScalar gustSpeed = clampScalar(windMagnitude * kGustSpeedPerForce, kMinGustSpeed, kMaxGustSpeed);
 
 		for (auto& i : m_systems) {
-			auto system = static_cast<SkyrimSystem*>(i.get());
-			if (btFuzzyZero(system->m_windFactor))  // skip any systems that aren't affected by wind
+			if (btFuzzyZero(i->m_windFactor))  // skip any systems that aren't affected by wind
 				continue;
 			for (auto& j : i->m_bones) {
 				auto body = &j->m_rig;
 				if (body->isStaticOrKinematicObject() || btFuzzyZero(j->m_windFactor))
 					continue;
 
-				const btScalar windFactor = j->m_windFactor * system->m_windFactor;
+				const btScalar windFactor = j->m_windFactor * i->m_windFactor;
 				const btVector3 origin = body->getWorldTransform().getOrigin();
 				// Move gust phases downwind so stronger wind carries the same gust across bones faster
 				const btScalar advectedTime = m_windTime - origin.dot(windDirection) / gustSpeed - origin.dot(side) * kCrosswindTimeScale;
