@@ -1,6 +1,7 @@
 {
   "Simplification": "Uproszczenie",
   "Performance": "Wydajno\u015b\u0107",
+  "Experimental": "Eksperymentalne",
   "Wind": "Wiatr",
   "Validation": "Walidacja",
   "Logs": "Dzienniki",
@@ -20,6 +21,9 @@
   "Skip non-player NPCs smaller than this % of screen height. 0 disables the check.": "Pomija NPC nieb\u0119d\u0105ce graczem mniejsze ni\u017c ten % wysoko\u015bci ekranu. 0 wy\u0142\u0105cza sprawdzanie.",
   "Skip dead actors": "Pomijaj martwych aktor\u00f3w",
   "Skip physics for dead non-player actors (corpses). The player is never affected.": "Pomija fizyk\u0119 martwych aktor\u00f3w nieb\u0119d\u0105cych graczem (zw\u0142ok). Gracz nigdy nie jest dotkni\u0119ty.",
+  "Creatures & animals": "Stwory i zwierz\u0119ta",
+  "Enable creature & animal physics": "W\u0142\u0105cz fizyk\u0119 stwor\u00f3w i zwierz\u0105t",
+  "Apply SMP to loaded actors of any race: creatures, animals, and modded races with native physics parts such as tails or wings. Covers physics baked into a body or skeleton mesh and skeleton defaults declared in defaultBBPs.xml; equipped SMP armor works regardless. Needs physics content authored for the race and takes effect as actors load. Off by default.": "Stosuje SMP do wczytanych aktor\u00f3w dowolnej rasy: stwor\u00f3w, zwierz\u0105t oraz ras z mod\u00f3w z natywnymi cz\u0119\u015bciami fizycznymi, jak ogony czy skrzyd\u0142a. Obejmuje fizyk\u0119 wbudowan\u0105 w siatk\u0119 cia\u0142a lub szkieletu oraz domy\u015blne ustawienia szkieletu zadeklarowane w defaultBBPs.xml; za\u0142o\u017cona zbroja SMP dzia\u0142a niezale\u017cnie. Wymaga tre\u015bci fizycznych przygotowanych dla rasy i zaczyna dzia\u0142a\u0107 w miar\u0119 wczytywania aktor\u00f3w. Domy\u015blnie wy\u0142\u0105czone.",
   "Limiting active physics NPCs": "Ograniczanie aktywnych NPC z fizyk\u0105",
   "Maximum physics NPCs": "Maksymalna liczba NPC z fizyk\u0105",
   "Upper bound on simultaneously simulated NPCs (including the player); default 20. With auto-adjust off it's a fixed cap; with it on it's the ceiling and the live cap floats between 3 and this value. NPCs within the always-on distance are exempt from this limit (other simplifications still apply).": "G\u00f3rny limit jednocze\u015bnie symulowanych NPC (w\u0142\u0105cznie z graczem); domy\u015blnie 20. Przy wy\u0142\u0105czonym automatycznym dostosowaniu jest to sta\u0142y limit; przy w\u0142\u0105czonym jest to g\u00f3rna granica, a bie\u017c\u0105cy limit waha si\u0119 mi\u0119dzy 3 a t\u0105 warto\u015bci\u0105. NPC w zasi\u0119gu odleg\u0142o\u015bci zawsze aktywnej s\u0105 zwolnione z tego limitu (pozosta\u0142e uproszczenia nadal obowi\u0105zuj\u0105).",

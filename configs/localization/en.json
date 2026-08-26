@@ -1,6 +1,7 @@
 {
   "Simplification": "Simplification",
   "Performance": "Performance",
+  "Experimental": "Experimental",
   "Wind": "Wind",
   "Validation": "Validation",
   "Logs": "Logs",
@@ -20,6 +21,9 @@
   "Skip non-player NPCs smaller than this % of screen height. 0 disables the check.": "Skip non-player NPCs smaller than this % of screen height. 0 disables the check.",
   "Skip dead actors": "Skip dead actors",
   "Skip physics for dead non-player actors (corpses). The player is never affected.": "Skip physics for dead non-player actors (corpses). The player is never affected.",
+  "Creatures & animals": "Creatures & animals",
+  "Enable creature & animal physics": "Enable creature & animal physics",
+  "Apply SMP to loaded actors of any race: creatures, animals, and modded races with native physics parts such as tails or wings. Covers physics baked into a body or skeleton mesh and skeleton defaults declared in defaultBBPs.xml; equipped SMP armor works regardless. Needs physics content authored for the race and takes effect as actors load. Off by default.": "Apply SMP to loaded actors of any race: creatures, animals, and modded races with native physics parts such as tails or wings. Covers physics baked into a body or skeleton mesh and skeleton defaults declared in defaultBBPs.xml; equipped SMP armor works regardless. Needs physics content authored for the race and takes effect as actors load. Off by default.",
   "Limiting active physics NPCs": "Limiting active physics NPCs",
   "Maximum physics NPCs": "Maximum physics NPCs",
   "Upper bound on simultaneously simulated NPCs (including the player); default 20. With auto-adjust off it's a fixed cap; with it on it's the ceiling and the live cap floats between 3 and this value. NPCs within the always-on distance are exempt from this limit (other simplifications still apply).": "Upper bound on simultaneously simulated NPCs (including the player); default 20. With auto-adjust off it's a fixed cap; with it on it's the ceiling and the live cap floats between 3 and this value. NPCs within the always-on distance are exempt from this limit (other simplifications still apply).",

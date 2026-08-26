@@ -14,7 +14,8 @@ namespace hdt
 		public RE::BSTEventSink<Events::SkinSingleHeadGeometryEvent>,
 		public RE::BSTEventSink<Events::SkinAllHeadGeometryEvent>,
 		public RE::BSTEventSink<Events::FrameEvent>,
-		public RE::BSTEventSink<Events::ShutdownEvent>
+		public RE::BSTEventSink<Events::ShutdownEvent>,
+		public RE::BSTEventSink<RE::TESObjectLoadedEvent>
 	{
 		using IDType = uint32_t;
 
@@ -94,6 +95,10 @@ namespace hdt
 		{
 			IDType id;
 			std::string prefix;
+			// True for entries registered by the baked scan (embedded tag or skeleton default), false for
+			// equipped items. The skeleton-default fallback only stands down for baked entries: an equipped
+			// SMP item must not rob a race of its default (e.g. barding on a horse with a tail default).
+			bool baked = false;
 			RE::NiPointer<RE::NiAVObject> armorWorn;
 			std::unordered_map<RE::BSFixedString, RE::BSFixedString> renameMap;
 			// @brief This bool is set to true when the first name for the NiAVObject armor is attributed by the Skyrim executable,
@@ -111,10 +116,27 @@ namespace hdt
 			Head head;
 			SkeletonState state;
 			bool mustFixOneArmorMap = false;
+			// True once the baked-outfit scan ran against this skeleton's 3D. The discovery sweep skips
+			// skeletons that carry it, so a creature that yielded no physics is not re-walked every pass;
+			// a 3D rebuild produces a new root with a fresh entry (flag false), so it still gets rescanned.
+			bool bakedScanDone = false;
 
 			std::string name();
 			void addArmor(RE::NiNode* armorModel);
 			void attachArmor(RE::NiNode* armorModel, RE::NiAVObject* attachedNode);
+
+			// @brief Registers SMP physics for geometry that is already part of the skeleton — an outfit
+			// baked into a creature's body/skeleton NIF rather than equipped as an armor addon. Because
+			// the bones already live in the skeleton there is no bone merge and the rename map is empty;
+			// the outfit node is used directly as the physics model. Stored as an ordinary Armor so the
+			// existing activation, culling, reset and wind machinery drives it with no special-casing.
+			// No-op when physicsFile has no path. Idempotent via hasArmorForNode().
+			void addBakedArmor(RE::NiNode* outfitNode, const DefaultBBP::PhysicsFile_t& physicsFile);
+
+			// @brief True if a tracked armor already owns this exact node. The baked scan uses this to
+			// skip equipped-armor subtrees (owned by the ArmorAttachEvent path) and to avoid registering
+			// the same baked outfit twice across repeated load events.
+			bool hasArmorForNode(const RE::NiAVObject* node) const;
 
 			void cleanArmor();
 			void cleanHead(bool cleanAll = false);
@@ -189,6 +211,39 @@ namespace hdt
 		ActorManager::Skeleton* get3rdPersonSkeleton(RE::Actor* actor);
 		static void setHeadActiveIfNoHairArmor(RE::Actor* actor, Skeleton* skeleton);
 
+		// Actors whose load event fired before their 3D was built, mapped to remaining retry frames.
+		// Drained each FrameEvent (see drainPendingBakedScans): once an actor's 3D exists it is scanned
+		// and dropped; if the retry budget runs out first it is dropped un-scanned. Guarded by m_lock.
+		std::unordered_map<IDType, int> m_pendingBakedScan;
+
+		// @brief Walks a queued actor's node tree for baked SMP outfits and registers them; retries
+		// actors whose 3D isn't ready yet until it is, or until their retry budget is exhausted.
+		void drainPendingBakedScans();
+
+		// @brief Depth-first walk of one actor's 3D for geometry tagged with an embedded SMP physics
+		// file, registering each as a baked armor. Skips equipped-armor subtrees and already-registered
+		// outfits so it is safe to run repeatedly. Assumes the actor's 3D exists. Runs for every race.
+		void scanActorForBakedPhysics(RE::Actor* actor);
+
+		// @brief Periodically queue already-loaded actors for the baked scan. Baked and skeleton-default
+		// physics have no self-healing ArmorAttachEvent the way equipped items do, and
+		// TESObjectLoadedEvent only catches a *fresh* load -- so it misses actors already in the world
+		// when you enable the feature, persistent ones like the player's mount, and 3D rebuilds. This
+		// reconciliation sweep walks the high-process actor list and queues any in-scene actor
+		// whose current 3D was not handled yet, so discovery no longer depends on which event fired.
+		// Throttled by m_creatureSweepCountdown; the load event stays as an instant-pickup optimization.
+		void sweepLoadedCreatures();
+
+		// @brief True when the actor's *current* Get3D() root already went through the baked scan, or is
+		// already registered as a skeleton carrying physics. Lets the sweep skip creatures it has fully
+		// handled — including ones the scan found nothing for, so they are not re-walked every pass —
+		// while still re-queuing one whose 3D was rebuilt (its new root has no entry, so it returns false).
+		bool actorCurrent3DAlreadyHandled(RE::Actor* actor);
+
+		// Frames left until the next sweepLoadedCreatures() pass (a whole-actor-list walk is too heavy to
+		// run every frame). Counts down in the FrameEvent handler while the feature is on.
+		int m_creatureSweepCountdown = 0;
+
 	public:
 		ActorManager();
 		~ActorManager();
@@ -234,6 +289,12 @@ namespace hdt
 
 		RE::BSEventNotifyControl ProcessEvent(const RE::MenuOpenCloseEvent*, RE::BSTEventSource<RE::MenuOpenCloseEvent>*);
 		RE::BSEventNotifyControl ProcessEvent(const Events::ShutdownEvent*, RE::BSTEventSource<Events::ShutdownEvent>*) override;
+
+		// @brief Fired by the engine when any object reference streams in. Actors — creatures especially —
+		// that never equip an armor addon (and so never trigger the ArmorAttachEvent path) are queued here
+		// for a baked-outfit scan once their 3D is built. See m_pendingBakedScan / drainPendingBakedScans().
+		RE::BSEventNotifyControl ProcessEvent(const RE::TESObjectLoadedEvent*, RE::BSTEventSource<RE::TESObjectLoadedEvent>*) override;
+
 		RE::BSEventNotifyControl ProcessEvent(const Events::SkinSingleHeadGeometryEvent*, RE::BSTEventSource<Events::SkinSingleHeadGeometryEvent>*) override;
 		RE::BSEventNotifyControl ProcessEvent(const Events::SkinAllHeadGeometryEvent*, RE::BSTEventSource<Events::SkinAllHeadGeometryEvent>*) override;
 
@@ -262,6 +323,13 @@ namespace hdt
 
 		// @brief Min percent of screen height a non-player skeleton must occupy to stay active; 0 = disabled. [0,100]
 		float m_minScreenSizePercent = 0.f;
+
+		// @brief When true, loaded actors of every race are scanned for SMP geometry baked into their
+		// body/skeleton NIF — geometry carrying an "HDT Skinned Mesh Physics Object" tag that is not an
+		// equippable armor addon and so never fires the ArmorAttachEvent path — and, failing that, for a
+		// skeleton default declared in defaultBBPs.xml. This is what gives creatures, animals, and modded
+		// races with native physics parts (tails, wings) SMP outfits from config alone. Off by default.
+		bool m_enableCreaturePhysics = false;
 
 	private:
 		RE::NiPoint3 m_cameraPositionDuringFrame;

@@ -1,6 +1,7 @@
 {
   "Simplification": "Simplification",
   "Performance": "Performance",
+  "Experimental": "Exp\u00e9rimental",
   "Wind": "Vent",
   "Validation": "Validation",
   "Logs": "Journaux",
@@ -20,6 +21,9 @@
   "Skip non-player NPCs smaller than this % of screen height. 0 disables the check.": "Ignore les PNJ plus petits que ce % de la hauteur de l'\u00e9cran. 0 d\u00e9sactive la v\u00e9rification.",
   "Skip dead actors": "Ignorer les acteurs morts",
   "Skip physics for dead non-player actors (corpses). The player is never affected.": "Ignore la physique des acteurs non-joueurs morts (cadavres). Le joueur n'est jamais affect\u00e9.",
+  "Creatures & animals": "Cr\u00e9atures et animaux",
+  "Enable creature & animal physics": "Activer la physique des cr\u00e9atures et animaux",
+  "Apply SMP to loaded actors of any race: creatures, animals, and modded races with native physics parts such as tails or wings. Covers physics baked into a body or skeleton mesh and skeleton defaults declared in defaultBBPs.xml; equipped SMP armor works regardless. Needs physics content authored for the race and takes effect as actors load. Off by default.": "Applique la SMP aux acteurs charg\u00e9s de toutes les races : cr\u00e9atures, animaux et races modd\u00e9es dot\u00e9es d'\u00e9l\u00e9ments physiques natifs comme une queue ou des ailes. Couvre la physique int\u00e9gr\u00e9e au maillage du corps ou du squelette et les valeurs par d\u00e9faut par squelette d\u00e9clar\u00e9es dans defaultBBPs.xml ; une armure SMP \u00e9quip\u00e9e fonctionne dans tous les cas. N\u00e9cessite du contenu physique con\u00e7u pour la race et prend effet au chargement des acteurs. D\u00e9sactiv\u00e9 par d\u00e9faut.",
   "Limiting active physics NPCs": "Limiter les PNJ physiques actifs",
   "Maximum physics NPCs": "Nombre maximal de PNJ physiques",
   "Upper bound on simultaneously simulated NPCs (including the player); default 20. With auto-adjust off it's a fixed cap; with it on it's the ceiling and the live cap floats between 3 and this value. NPCs within the always-on distance are exempt from this limit (other simplifications still apply).": "Limite maximale de PNJ simul\u00e9s simultan\u00e9ment (le joueur inclus) ; 20 par d\u00e9faut. Sans l'ajustement automatique, c'est un plafond fixe ; avec, c'est le plafond maximal et la limite r\u00e9elle varie entre 3 et cette valeur. Les PNJ situ\u00e9s dans la distance toujours active sont exempt\u00e9s de cette limite (les autres simplifications s'appliquent toujours).",

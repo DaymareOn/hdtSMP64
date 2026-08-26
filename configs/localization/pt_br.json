@@ -1,6 +1,7 @@
 {
   "Simplification": "Simplifica\u00e7\u00e3o",
   "Performance": "Desempenho",
+  "Experimental": "Experimental",
   "Wind": "Vento",
   "Validation": "Valida\u00e7\u00e3o",
   "Logs": "Logs",
@@ -20,6 +21,9 @@
   "Skip non-player NPCs smaller than this % of screen height. 0 disables the check.": "Ignora NPCs (exceto o jogador) menores que esta % da altura da tela. 0 desativa a verifica\u00e7\u00e3o.",
   "Skip dead actors": "Ignorar atores mortos",
   "Skip physics for dead non-player actors (corpses). The player is never affected.": "Ignora a f\u00edsica dos atores mortos (cad\u00e1veres), exceto o jogador, que nunca \u00e9 afetado.",
+  "Creatures & animals": "Criaturas e animais",
+  "Enable creature & animal physics": "Ativar a f\u00edsica de criaturas e animais",
+  "Apply SMP to loaded actors of any race: creatures, animals, and modded races with native physics parts such as tails or wings. Covers physics baked into a body or skeleton mesh and skeleton defaults declared in defaultBBPs.xml; equipped SMP armor works regardless. Needs physics content authored for the race and takes effect as actors load. Off by default.": "Aplica o SMP a atores carregados de qualquer ra\u00e7a: criaturas, animais e ra\u00e7as de mods com partes f\u00edsicas nativas, como caudas ou asas. Abrange a f\u00edsica embutida na malha do corpo ou do esqueleto e os padr\u00f5es por esqueleto declarados no defaultBBPs.xml; uma armadura SMP equipada funciona de qualquer forma. Precisa de conte\u00fado f\u00edsico criado para a ra\u00e7a e passa a valer conforme os atores s\u00e3o carregados. Desativado por padr\u00e3o.",
   "Limiting active physics NPCs": "Limitar os NPCs com f\u00edsica ativos",
   "Maximum physics NPCs": "M\u00e1ximo de NPCs com f\u00edsica",
   "Upper bound on simultaneously simulated NPCs (including the player); default 20. With auto-adjust off it's a fixed cap; with it on it's the ceiling and the live cap floats between 3 and this value. NPCs within the always-on distance are exempt from this limit (other simplifications still apply).": "Limite m\u00e1ximo de NPCs simulados simultaneamente (incluindo o jogador); padr\u00e3o 20. Com o ajuste autom\u00e1tico desativado, \u00e9 um limite fixo; com ele ativado, \u00e9 o teto, e o limite real varia entre 3 e este valor. NPCs dentro da dist\u00e2ncia sempre ativa est\u00e3o isentos deste limite (as demais simplifica\u00e7\u00f5es continuam valendo).",

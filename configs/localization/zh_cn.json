@@ -1,6 +1,7 @@
 {
   "Simplification": "\u7b80\u5316",
   "Performance": "\u6027\u80fd",
+  "Experimental": "\u5b9e\u9a8c\u6027\u529f\u80fd",
   "Wind": "\u98ce",
   "Validation": "\u9a8c\u8bc1",
   "Logs": "\u65e5\u5fd7",
@@ -20,6 +21,9 @@
   "Skip non-player NPCs smaller than this % of screen height. 0 disables the check.": "\u8df3\u8fc7\u5c0f\u4e8e\u5c4f\u5e55\u9ad8\u5ea6\u6b64\u767e\u5206\u6bd4\u7684\u975e\u73a9\u5bb6 NPC\u30020 \u8868\u793a\u7981\u7528\u68c0\u67e5\u3002",
   "Skip dead actors": "\u8df3\u8fc7\u6b7b\u4ea1\u89d2\u8272",
   "Skip physics for dead non-player actors (corpses). The player is never affected.": "\u8df3\u8fc7\u6b7b\u4ea1\u7684\u975e\u73a9\u5bb6\u89d2\u8272\uff08\u5c38\u4f53\uff09\u7684\u7269\u7406\u3002\u73a9\u5bb6\u6c38\u8fdc\u4e0d\u53d7\u5f71\u54cd\u3002",
+  "Creatures & animals": "\u751f\u7269\u4e0e\u52a8\u7269",
+  "Enable creature & animal physics": "\u542f\u7528\u751f\u7269\u4e0e\u52a8\u7269\u7269\u7406",
+  "Apply SMP to loaded actors of any race: creatures, animals, and modded races with native physics parts such as tails or wings. Covers physics baked into a body or skeleton mesh and skeleton defaults declared in defaultBBPs.xml; equipped SMP armor works regardless. Needs physics content authored for the race and takes effect as actors load. Off by default.": "\u5c06SMP\u5e94\u7528\u4e8e\u4efb\u4f55\u79cd\u65cf\u7684\u5df2\u52a0\u8f7d\u89d2\u8272\uff1a\u5305\u62ec\u751f\u7269\u3001\u52a8\u7269\uff0c\u4ee5\u53ca\u5e26\u6709\u5c3e\u5df4\u6216\u7fc5\u8180\u7b49\u539f\u751f\u7269\u7406\u90e8\u4ef6\u7684Mod\u79cd\u65cf\u3002\u6db5\u76d6\u5d4c\u5165\u8eab\u4f53\u6216\u9aa8\u67b6\u7f51\u683c\u7684\u7269\u7406\uff0c\u4ee5\u53ca defaultBBPs.xml \u4e2d\u58f0\u660e\u7684\u9aa8\u67b6\u9ed8\u8ba4\u503c\uff1b\u5df2\u88c5\u5907\u7684SMP\u62a4\u7532\u4e0d\u53d7\u6b64\u9009\u9879\u5f71\u54cd\u3002\u9700\u8981\u4e3a\u8be5\u79cd\u65cf\u5236\u4f5c\u7684\u7269\u7406\u5185\u5bb9\uff0c\u5e76\u5728\u89d2\u8272\u52a0\u8f7d\u65f6\u751f\u6548\u3002\u9ed8\u8ba4\u5173\u95ed\u3002",
   "Limiting active physics NPCs": "\u9650\u5236\u6d3b\u52a8\u7684\u7269\u7406 NPC",
   "Maximum physics NPCs": "\u7269\u7406 NPC \u6700\u5927\u6570\u91cf",
   "Upper bound on simultaneously simulated NPCs (including the player); default 20. With auto-adjust off it's a fixed cap; with it on it's the ceiling and the live cap floats between 3 and this value. NPCs within the always-on distance are exempt from this limit (other simplifications still apply).": "\u540c\u65f6\u6a21\u62df\u7684 NPC \u6570\u91cf\u4e0a\u9650\uff08\u5305\u62ec\u73a9\u5bb6\uff09\uff1b\u9ed8\u8ba4 20\u3002\u5173\u95ed\u81ea\u52a8\u8c03\u6574\u65f6\u4e3a\u56fa\u5b9a\u4e0a\u9650\uff1b\u5f00\u542f\u65f6\u4e3a\u4e0a\u9650\u503c\uff0c\u5b9e\u9645\u4e0a\u9650\u4f1a\u5728 3 \u4e0e\u6b64\u503c\u4e4b\u95f4\u6d6e\u52a8\u3002\u59cb\u7ec8\u542f\u7528\u7684\u8ddd\u79bb\u5185\u7684 NPC \u4e0d\u53d7\u6b64\u9650\u5236\uff08\u4f46\u5176\u4ed6\u7b80\u5316\u4ecd\u4f1a\u5e94\u7528\uff09\u3002",

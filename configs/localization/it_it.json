@@ -1,6 +1,7 @@
 {
   "Simplification": "Semplificazione",
   "Performance": "Prestazioni",
+  "Experimental": "Sperimentale",
   "Wind": "Vento",
   "Validation": "Validazione",
   "Logs": "Registri",
@@ -20,6 +21,9 @@
   "Skip non-player NPCs smaller than this % of screen height. 0 disables the check.": "Salta gli NPC non giocanti pi\u00f9 piccoli di questa % dell'altezza dello schermo. 0 disabilita il controllo.",
   "Skip dead actors": "Salta gli attori morti",
   "Skip physics for dead non-player actors (corpses). The player is never affected.": "Salta la fisica per gli attori non giocanti morti (cadaveri). Il giocatore non \u00e8 mai interessato.",
+  "Creatures & animals": "Creature e animali",
+  "Enable creature & animal physics": "Abilita la fisica di creature e animali",
+  "Apply SMP to loaded actors of any race: creatures, animals, and modded races with native physics parts such as tails or wings. Covers physics baked into a body or skeleton mesh and skeleton defaults declared in defaultBBPs.xml; equipped SMP armor works regardless. Needs physics content authored for the race and takes effect as actors load. Off by default.": "Applica la SMP agli attori caricati di qualsiasi razza: creature, animali e razze aggiunte da mod con parti fisiche native come code o ali. Copre la fisica incorporata nella mesh del corpo o dello scheletro e i valori predefiniti per scheletro dichiarati in defaultBBPs.xml; un'armatura SMP equipaggiata funziona comunque. Richiede contenuti fisici creati per la razza e ha effetto al caricamento degli attori. Disattivato per impostazione predefinita.",
   "Limiting active physics NPCs": "Limitare gli NPC con fisica attivi",
   "Maximum physics NPCs": "Numero massimo di NPC con fisica",
   "Upper bound on simultaneously simulated NPCs (including the player); default 20. With auto-adjust off it's a fixed cap; with it on it's the ceiling and the live cap floats between 3 and this value. NPCs within the always-on distance are exempt from this limit (other simplifications still apply).": "Limite massimo di NPC simulati simultaneamente (incluso il giocatore); predefinito 20. Con la regolazione automatica disattivata \u00e8 un tetto fisso; con essa attiva \u00e8 il limite superiore e il limite effettivo oscilla tra 3 e questo valore. Gli NPC entro la distanza sempre attiva sono esenti da questo limite (le altre semplificazioni si applicano comunque).",
