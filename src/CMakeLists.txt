@@ -241,8 +241,6 @@ target_include_directories(
 # what ImGui expects.
 set_source_files_properties("${SOURCE_DIR}/UI/FSMPMenu.cpp" PROPERTIES COMPILE_OPTIONS "/wd4099;/wd5054;/utf-8")
 
-set(SKSE_SUPPORT_XBYAK ON)
-
 # dependency macros
 macro(find_dependency_path DEPENDENCY FILE)
 	# searches extern for dependencies and if not checks the environment variable
@@ -280,7 +278,6 @@ endif()
 
 find_package(Bullet CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
-find_package(xbyak REQUIRED CONFIG)
 find_package(TBB CONFIG REQUIRED)
 find_package(pugixml CONFIG REQUIRED)
 find_package(RapidJSON CONFIG REQUIRED) # configs.json (de)serialization in GlobalConfig.cpp
@@ -303,7 +300,6 @@ include_directories(${BULLET_INCLUDE_DIRS})
 target_link_libraries(
 	"${PROJECT_NAME}"
 	PRIVATE CommonLibSSE::CommonLibSSE
-			xbyak::xbyak
 			spdlog::spdlog
 			optimized
 			${DETOURS_LIBRARY_RELEASE}
