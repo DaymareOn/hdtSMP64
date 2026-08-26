@@ -41,6 +41,28 @@ namespace hdt
 
 		// angular velocity damper
 		btQuaternion m_lastRootRotation;
+
+	protected:
+		// PC root rotation damper (m_resetPc / clampRotations / unclampedResets).
+		virtual float dampRootRotation(float timeStep);
+	};
+
+	// Player skeleton: while a mod declares the body camera-driven
+	// (PluginInterface::setPlayerBodyCameraDriven), the damper is replaced by body-local space
+	// simulation - whole-body motion is cancelled out of the rigid bodies and injects no velocity.
+	class PlayerSkyrimSystem final : public SkyrimSystem
+	{
+	public:
+		PlayerSkyrimSystem(RE::NiNode* skeleton);
+
+	protected:
+		float dampRootRotation(float timeStep) override;
+
+	private:
+		RE::NiPointer<RE::NiNode> m_localSpaceRef;
+		btQuaternion m_localSpaceRotation;
+		btVector3 m_localSpacePosition;
+		bool m_localSpaceActive = false;
 	};
 
 	class XMLReader;

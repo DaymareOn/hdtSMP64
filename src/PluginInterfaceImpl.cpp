@@ -30,6 +30,11 @@ void hdt::PluginInterfaceImpl::removeListener(IPostStepListener* l)
 	}
 }
 
+void hdt::PluginInterfaceImpl::setPlayerBodyCameraDriven(bool active)
+{
+	m_playerBodyCameraDriven = active;
+}
+
 void hdt::PluginInterfaceImpl::onPostPostLoad()
 {
 	// Send ourselves to any plugin that registered during the PostLoad event

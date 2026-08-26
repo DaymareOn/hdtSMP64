@@ -21,6 +21,10 @@ namespace hdt
 		virtual void addListener(IPostStepListener* l) override;
 		virtual void removeListener(IPostStepListener* l) override;
 
+		virtual void setPlayerBodyCameraDriven(bool active) override;
+
+		bool isPlayerBodyCameraDriven() const { return m_playerBodyCameraDriven; }
+
 		void onPostPostLoad();
 
 		void onPreStep(const PreStepEvent& e) { m_preStepDispatcher.SendEvent(std::addressof(e)); }
@@ -32,6 +36,8 @@ namespace hdt
 		VersionInfo m_versionInfo{ INTERFACE_VERSION, BULLET_VERSION };
 		RE::BSTEventSource<PreStepEvent> m_preStepDispatcher;
 		RE::BSTEventSource<PostStepEvent> m_postStepDispatcher;
+
+		bool m_playerBodyCameraDriven = false;
 
 		SKSE::PluginHandle m_sksePluginHandle;
 		SKSE::MessagingInterface* m_skseMessagingInterface;
