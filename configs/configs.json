@@ -3,6 +3,7 @@
     "logLevel": 0,
     "backupNodeByName": [],
     "disableSMPHairWhenWigEquipped": true,
+    "hideSMPHairWhenInvisible": false,
     "clampRotations": true,
     "rotationSpeedLimit": 10.0,
     "unclampedResets": true,

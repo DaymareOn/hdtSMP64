@@ -90,7 +90,10 @@ namespace Hooks
 		static void Hook()
 		{
 			REL::Relocation<uintptr_t> UpdateHook1{ REL::VariantID(35551, 36544, 0x05B6D70), REL::VariantOffset(0x11F, 0x160, 0x11F) };  // 0x05AF3D0, 0x05E7EE0, 0x05B6D70 (SE/1.5.97.0, AE/1.6.640.0, VR/1.4.15.0)
-			REL::Relocation<uintptr_t> UpdateHook2{ REL::VariantID(35565, 36564, 0x05BAB10), REL::VariantOffset(0x56D, 0x9DC, 0x611) };  // 0x05B2FF0, 0x05EC240, 0x05BAB10 (SE/1.5.97.0, AE/1.6.640.0, VR/1.4.15.0)
+
+			// AE 1.7.99 shifted this call site to +0x9EE; do not collapse back to a flat literal.
+			std::size_t updateHook2AEOffset = REL::Module::IsAtLeast(SKSE::RUNTIME_SSE_1_7_99) ? 0x9EE : 0x9DC;
+			REL::Relocation<uintptr_t> UpdateHook2{ REL::VariantID(35565, 36564, 0x05BAB10), REL::VariantOffset(0x56D, updateHook2AEOffset, 0x611) };  // 0x05B2FF0, 0x05EC240, 0x05BAB10 (SE/1.5.97.0, AE/1.6.640.0, VR/1.4.15.0)
 
 			logger::debug("Applying MainHooks hooks!");
 

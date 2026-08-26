@@ -2,6 +2,7 @@
   "smp": {
     "logLevel": 4,
     "disableSMPHairWhenWigEquipped": false,
+    "hideSMPHairWhenInvisible": false,
     "clampRotations": true,
     "rotationSpeedLimit": 10.0,
     "unclampedResets": true,

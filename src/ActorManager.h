@@ -245,7 +245,7 @@ namespace hdt
 		// When true, physics hair is app-culled while its actor is under an Invisibility effect. FSMP
 		// re-skins hair to its own physics bones, so the game's invisibility shader no longer reaches it
 		// and the hair would otherwise float visibly on an invisible actor.
-		bool m_hideSMPHairWhenInvisible = true;
+		bool m_hideSMPHairWhenInvisible = false;
 		// Internal falling-edge tracker (not a config value): true while the hair-invisibility pass ran last
 		// frame. Lets setSkeletonsActive run one last restoring pass the frame the toggle is switched off,
 		// then skip the pass entirely while it stays off.
