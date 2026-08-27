@@ -120,12 +120,18 @@ namespace hdt
 		// --- solver ---
 		c.numIterations = clampv(read(solver, "numIterations", c.numIterations), 4, 128);
 		c.erp = clampv(read(solver, "erp", c.erp), 0.01f, 1.0f);
-		c.minFps = clampv(read(solver, "min-fps", c.minFps), 1, 300);
+		// Floor matches the menu slider (FSMPMenu.cpp) and its own tooltip: "Never set below 60 or
+		// the physics engine misbehaves." A hand-edited/externally generated userConfigs.json used to
+		// be able to persist a value as low as 1, which the menu can neither represent nor correct (#439).
+		c.minFps = clampv(read(solver, "min-fps", c.minFps), 60, 300);
 		c.maxSubSteps = clampv(read(solver, "maxSubSteps", c.maxSubSteps), 1, 60);
 
 		// --- wind ---
 		c.windEnabled = read(wind, "enabled", c.windEnabled);
-		c.windStrength = clampv(read(wind, "windStrength", c.windStrength), 0.0f, 1000.0f);
+		// Ceiling matches the menu slider's max (FSMPMenu.cpp), which cannot represent or correct a
+		// value above 100 — a hand-edited/externally generated userConfigs.json used to be able to
+		// persist up to 1000, silently reading as pinned at the slider end (#439).
+		c.windStrength = clampv(read(wind, "windStrength", c.windStrength), 0.0f, 100.0f);
 		c.distanceForNoWind = clampv(read(wind, "distanceForNoWind", c.distanceForNoWind), 0.0f, 10000.0f);
 		c.distanceForMaxWind = clampv(read(wind, "distanceForMaxWind", c.distanceForMaxWind), 0.0f, 10000.0f);
 
