@@ -1,5 +1,6 @@
 #include "dhdtPapyrusFunctions.h"
 #include "dhdtOverrideManager.h"
+#include "hdtBoneTranslationLock.h"
 #include "hdtSkyrimPhysicsWorld.h"
 
 bool RegisterFuncs(RE::BSScript::IVirtualMachine* registry)
@@ -9,6 +10,7 @@ bool RegisterFuncs(RE::BSScript::IVirtualMachine* registry)
 	registry->RegisterFunction("SwapPhysicsFile", "DynamicHDT", hdt::papyrus::SwapPhysicsFile);
 	registry->RegisterFunction("QueryCurrentPhysicsFile", "DynamicHDT", hdt::papyrus::QueryCurrentPhysicsFile);
 	registry->RegisterFunction("TogglePhysics", "DynamicHDT", hdt::papyrus::TogglePhysics);
+	registry->RegisterFunction("LockTranslation", "DynamicHDT", hdt::papyrus::LockTranslation);
 	registry->RegisterFunction("ResetPhysics", "DynamicHDT", hdt::papyrus::ResetPhysics);
 	//
 	return true;
@@ -124,6 +126,70 @@ std::vector<bool> hdt::papyrus::impl::TogglePhysicsImpl(RE::Actor* actor, std::v
 					world->updateConstraintsForBone(bone);
 				};
 
+				for (auto& armor : skeleton.getArmors()) {
+					if (armor.m_physics) {
+						processBone(armor.m_physics->findBone(boneNames[i]));
+					}
+				}
+
+				for (auto& headPart : skeleton.head.headParts) {
+					if (headPart.m_physics) {
+						processBone(headPart.m_physics->findBone(boneNames[i]));
+					}
+				}
+			}
+		}
+		break;
+	}
+
+	return result;
+}
+
+std::vector<bool> hdt::papyrus::LockTranslation(RE::StaticFunctionTag*, RE::Actor* actor, std::vector<RE::BSFixedString> boneNames, bool lockX, bool lockY, bool lockZ)
+{
+	if (!actor || boneNames.empty()) {
+		return std::vector<bool>();
+	}
+	return impl::LockTranslationImpl(actor, boneNames, lockX, lockY, lockZ);
+}
+
+std::vector<bool> hdt::papyrus::impl::LockTranslationImpl(RE::Actor* actor, std::vector<RE::BSFixedString>& boneNames, bool lockX, bool lockY, bool lockZ)
+{
+	// One result slot per requested bone; flipped to true once we find (and lock) that bone on the actor.
+	std::vector<bool> result(boneNames.size(), false);
+
+	const auto AM = hdt::ActorManager::instance();
+	auto guard = AM->lockGuard();
+	auto& skeletons = AM->getSkeletons();
+
+	for (auto& skeleton : skeletons) {
+		if (!skeleton.skeleton) {
+			continue;
+		}
+
+		auto owner = skeleton.skeleton->GetUserData();
+		if (!owner || owner->formID != actor->formID) {
+			continue;
+		}
+
+		{
+			auto world = hdt::SkyrimPhysicsWorld::get();
+			auto simLock = world->lockSimulation();
+
+			for (size_t i = 0; i < boneNames.size(); ++i) {
+				auto processBone = [&](SkinnedMeshBone* bone) {
+					if (!bone)
+						return;
+
+					result[i] = true;
+
+					// Per-axis translation lock (Bullet linear factor + velocity zeroing); see
+					// hdtBoneTranslationLock.h for the exact semantics and why it's reversible.
+					applyTranslationLock(bone->m_rig, lockX, lockY, lockZ);
+				};
+
+				// Lock every instance of the named bone across the actor's worn armors and head parts,
+				// mirroring how TogglePhysics fans out over the same systems.
 				for (auto& armor : skeleton.getArmors()) {
 					if (armor.m_physics) {
 						processBone(armor.m_physics->findBone(boneNames[i]));

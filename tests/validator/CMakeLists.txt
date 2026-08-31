@@ -1,10 +1,11 @@
-# validator_tests - doctest unit suite for the XML reader stream contract (#404) and the validator's inert-<bone>
-# warning (#402).
+# validator_tests - the project's headless doctest suite. Covers the XML reader stream contract (#404), the validator's
+# inert-<bone> warning (#402), and the DynamicHDT.LockTranslation bone helper (#414).
 #
 # Built only when BUILD_VALIDATOR_TESTS is ON (a dev/CI tool, never packaged). The targets under test are
-# game-independent: XmlReader.cpp needs only the XmlInspector headers and Bullet's header-inline math types, and the
-# XML-redundancy analysis (hdtTemplateDefaults.cpp) is pure pugixml + STL - no CommonLibSSE, no TBB - so both compile
-# directly without the game's force-included src/PCH.h (tests supply test_pch.h instead). Mirrors tests/patterns.
+# game-independent: XmlReader.cpp needs only the XmlInspector headers and Bullet's header-inline math types, the
+# XML-redundancy analysis (hdtTemplateDefaults.cpp) is pure pugixml + STL, and hdtBoneTranslationLock.h is pure Bullet -
+# no CommonLibSSE, no TBB - so all compile directly without the game's force-included src/PCH.h (tests supply test_pch.h
+# instead). Mirrors tests/patterns.
 
 set(ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../..")
 set(SOURCE_DIR "${ROOT_DIR}/src")
@@ -16,8 +17,8 @@ find_package(doctest CONFIG REQUIRED)
 add_executable(
 	validator_tests
 	"${CMAKE_CURRENT_SOURCE_DIR}/main.cpp" "${CMAKE_CURRENT_SOURCE_DIR}/test_xmlreader.cpp"
-	"${CMAKE_CURRENT_SOURCE_DIR}/test_inert_bones.cpp" "${SOURCE_DIR}/XmlReader.cpp"
-	"${SOURCE_DIR}/Validator/Utils/hdtTemplateDefaults.cpp")
+	"${CMAKE_CURRENT_SOURCE_DIR}/test_inert_bones.cpp" "${CMAKE_CURRENT_SOURCE_DIR}/test_translation_lock.cpp"
+	"${SOURCE_DIR}/XmlReader.cpp" "${SOURCE_DIR}/Validator/Utils/hdtTemplateDefaults.cpp")
 
 target_compile_features(validator_tests PRIVATE cxx_std_20)
 target_include_directories(validator_tests PRIVATE "${SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}" ${BULLET_INCLUDE_DIRS})

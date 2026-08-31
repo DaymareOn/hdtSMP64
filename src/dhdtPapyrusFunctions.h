@@ -20,6 +20,13 @@ namespace hdt
 		// - false = bone was kinematic (physics was OFF / not found)
 		std::vector<bool> TogglePhysics(RE::StaticFunctionTag* base, RE::Actor* actor, std::vector<RE::BSFixedString> boneNames, bool on);
 
+		// Lock/unlock a bone's translation on individual world axes while leaving its rotation (jiggle)
+		// under physics. Each of lockX/lockY/lockZ freezes that world axis (Bullet linear factor -> 0);
+		// passing false restores normal translation on that axis. Session-only, and unlike TogglePhysics
+		// the bone stays a dynamic, rotating body instead of becoming kinematic.
+		// Returns a Bool array parallel to boneNames: entry i = whether that bone was found (and locked).
+		std::vector<bool> LockTranslation(RE::StaticFunctionTag* base, RE::Actor* actor, std::vector<RE::BSFixedString> boneNames, bool lockX, bool lockY, bool lockZ);
+
 		// Reset an actor's SMP physics systems
 		// - full = true  -> complete reset, bones snap to reference pose
 		// - full = false -> soft reset, current bone poses are preserved
@@ -34,6 +41,8 @@ namespace hdt
 			std::string QueryCurrentPhysicsFileImpl(uint32_t on_actor_formID, uint32_t on_item_formID, bool verbose_log);
 
 			std::vector<bool> TogglePhysicsImpl(RE::Actor* actor, std::vector<RE::BSFixedString>& boneNames, bool on);
+
+			std::vector<bool> LockTranslationImpl(RE::Actor* actor, std::vector<RE::BSFixedString>& boneNames, bool lockX, bool lockY, bool lockZ);
 
 			void ResetPhysicsImpl(RE::Actor* actor, bool full);
 		}
