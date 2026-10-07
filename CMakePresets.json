@@ -183,6 +183,32 @@
         "value": "x64"
       },
       "cacheVariables": {
+        "CMAKE_CXX_FLAGS": "/EHsc /MP /W4 /arch:AVX2",
+        "ENABLE_TRACY": {
+          "type": "BOOL",
+          "value": "ON"
+        },
+        "VCPKG_MANIFEST_FEATURES": {
+          "type": "STRING",
+          "value": "tracy"
+        }
+      },
+      "generator": "Visual Studio 17 2022",
+      "inherits": [
+        "cmake-dev",
+        "vcpkg",
+        "windows-avx2",
+        "skyrim-runtimes"
+      ],
+      "name": "vs2022-windows-avx2-tracy",
+      "toolset": "v143"
+    },
+    {
+      "architecture": {
+        "strategy": "set",
+        "value": "x64"
+      },
+      "cacheVariables": {
         "CMAKE_CXX_FLAGS": "/EHsc /MP /W4 /arch:AVX512"
       },
       "generator": "Visual Studio 17 2022",
@@ -207,6 +233,12 @@
       "name": "avx2-release",
       "displayName": "Release",
       "configurePreset": "vs2022-windows-avx2",
+      "configuration": "Release"
+    },
+    {
+      "name": "avx2-tracy-release",
+      "displayName": "Release (Tracy)",
+      "configurePreset": "vs2022-windows-avx2-tracy",
       "configuration": "Release"
     }
   ],

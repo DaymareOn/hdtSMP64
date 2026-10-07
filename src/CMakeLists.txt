@@ -62,6 +62,7 @@ set(SOURCE_FILES
 	"${SOURCE_DIR}/hdtSerialization.cpp"
 	"${SOURCE_DIR}/hdtSerialization.h"
 	"${SOURCE_DIR}/PluginAPI.h"
+	"${SOURCE_DIR}/Profiling.h"
 	"${SOURCE_DIR}/PluginInterfaceImpl.cpp"
 	"${SOURCE_DIR}/PluginInterfaceImpl.h"
 	"${SOURCE_DIR}/DynamicHDT.cpp"
@@ -286,6 +287,12 @@ find_package(pugixml CONFIG REQUIRED)
 find_package(RapidJSON CONFIG REQUIRED) # configs.json (de)serialization in GlobalConfig.cpp
 find_package(miniz CONFIG REQUIRED) # zip the bug-report bundle (log + report + crashlog) in the menu
 
+# Tracy profiling zones in the physics hot paths. Gated on ENABLE_TRACY *and* the vcpkg manifest feature `tracy`: the
+# feature supplies the port, this option supplies the link.
+if(ENABLE_TRACY)
+	find_package(Tracy CONFIG REQUIRED)
+endif()
+
 # nifly (submodule: extern/nifly) — GPL-3.0 NIF library, Phase 0 of the nifly migration. It is built as its own separate
 # static library, so our strict warning settings (/W4 /WX) do NOT apply to it — those are attached only to our own
 # target. Linking against nifly (target_link_libraries below) automatically gives our code access to nifly's public
@@ -314,6 +321,13 @@ target_link_libraries(
 			pugixml::pugixml
 			miniz::miniz
 			nifly)
+
+# Tracy::TracyClient carries TRACY_ENABLE/TRACY_ON_DEMAND on its interface, so linking it is what switches the macros in
+# Profiling.h on; HDT_TRACY is our own gate for that header.
+if(ENABLE_TRACY)
+	target_compile_definitions("${PROJECT_NAME}" PRIVATE HDT_TRACY)
+	target_link_libraries("${PROJECT_NAME}" PRIVATE Tracy::TracyClient)
+endif()
 
 target_precompile_headers("${PROJECT_NAME}" PRIVATE "${SOURCE_DIR}/PCH.h")
 

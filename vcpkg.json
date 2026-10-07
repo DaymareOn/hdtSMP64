@@ -21,5 +21,24 @@
     "rapidjson",
     "doctest",
     "miniz"
+  ],
+  "features": {
+    "tracy": {
+      "description": "Tracy profiler instrumentation (off unless ENABLE_TRACY is configured).",
+      "dependencies": [
+        {
+          "name": "tracy",
+          "features": [
+            "on-demand"
+          ]
+        }
+      ]
+    }
+  },
+  "overrides": [
+    {
+      "name": "tracy",
+      "version-string": "0.15.0"
+    }
   ]
 }

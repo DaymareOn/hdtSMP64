@@ -30,6 +30,11 @@ option(ENABLE_SKYRIM_SE "Enable support for Skyrim SE in the dynamic runtime fea
 option(ENABLE_SKYRIM_AE "Enable support for Skyrim AE in the dynamic runtime feature." ON)
 option(ENABLE_SKYRIM_VR "Enable support for Skyrim VR in the dynamic runtime feature." ON)
 
+# Tracy profiler instrumentation of the physics hot paths (off by default). Requires the vcpkg manifest feature `tracy`
+# as well --- configure with -DENABLE_TRACY=ON -DVCPKG_MANIFEST_FEATURES=tracy, or use the vs2022-windows-avx2-tracy
+# preset. It links Tracy::TracyClient and defines HDT_TRACY on the plugin target.
+option(ENABLE_TRACY "Instrument the physics hot paths with Tracy profiling zones" OFF)
+
 # Headless doctest suite for the XML reader contract and the validator's inert-<bone> warning (a dev/CI tool, never
 # packaged; no CommonLibSSE), mirroring tests/patterns.
 option(BUILD_VALIDATOR_TESTS "Build the validator/XML-reader doctest suite" OFF)
