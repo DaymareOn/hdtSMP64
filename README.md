@@ -16,12 +16,13 @@ Most documentation lives in the wikis; both have a sidebar linking every page.
 
 ## Profiling
 
-`ENABLE_TRACY=ON` --- with the vcpkg manifest feature `tracy`, which the `vs2022-windows-avx2-tracy` configure
-preset sets alongside it --- links the Tracy client into the plugin and enables the `HDT_*` profiling macros in
-`src/Profiling.h`. This DLL and Open Shaders each run their own Tracy client in the process, on separate ports.
-Connect the profiler to each one in turn (one trace each), or capture both at once with `tracy-capture-daemon` from a
-Tracy v0.15.0 release build. Use the same Tracy release as Open Shaders (v0.15.0) so one profiler opens both. The
-option is off by default and normal builds are unaffected.
+`ENABLE_TRACY=ON` --- with the vcpkg manifest feature `tracy`, which the `vs2022-windows-avx2-tracy` configure preset
+sets alongside it --- links the Tracy client into the plugin and enables the `HDT_*` profiling macros in
+`src/Profiling.h`. The physics hot paths carry `hdtSMP64::*` zones, one `hdtSMP64.Tick` frame mark per tick and plots
+for the systems, rigid bodies and active skeletons a tick steps. This DLL and Open Shaders each run their own Tracy
+client in the process, on separate ports. Connect the profiler to each one in turn (one trace each), or capture both
+at once with `tracy-capture-daemon` from a Tracy v0.15.0 release build. Use the same Tracy release as Open Shaders
+(v0.15.0) so one profiler opens both. The option is off by default and normal builds are unaffected.
 
 ## Changes
 
