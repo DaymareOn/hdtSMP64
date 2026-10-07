@@ -14,6 +14,15 @@ Most documentation lives in the wikis; both have a sidebar linking every page.
 - **Mod authors** — the [SMP Modder Guide](https://github.com/DaymareOn/FSMP-Validator/wiki) covers authoring the physics XML and meshes, next to the XSD/Schematron schemas that define a valid file. See also `smp report` (validate a whole load order from the console) and the DynamicHDT Papyrus API (control physics from scripts), both in the FSMP wiki.
 - **Developers** — building FSMP, the `smp_replay` benchmark, and the code analyses are in the wiki's "Building FSMP" section. Build steps: [How to compile your own FSMP](https://github.com/DaymareOn/hdtSMP64/wiki/6-%E2%80%90-How-to-compile-your-own-FSMP).
 
+## Profiling
+
+`ENABLE_TRACY=ON` --- with the vcpkg manifest feature `tracy`, which the `vs2022-windows-avx2-tracy` configure
+preset sets alongside it --- links the Tracy client into the plugin and enables the `HDT_*` profiling macros in
+`src/Profiling.h`. This DLL and Open Shaders each run their own Tracy client in the process, on separate ports.
+Connect the profiler to each one in turn (one trace each), or capture both at once with `tracy-capture-daemon` from a
+Tracy v0.15.0 release build. Use the same Tracy release as Open Shaders (v0.15.0) so one profiler opens both. The
+option is off by default and normal builds are unaffected.
+
 ## Changes
 
 For the full, maintained changelog, see the [wiki Changelog](https://github.com/DaymareOn/hdtSMP64/wiki).
