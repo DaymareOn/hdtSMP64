@@ -34,6 +34,8 @@ option(ENABLE_SKYRIM_VR "Enable support for Skyrim VR in the dynamic runtime fea
 # packaged; no CommonLibSSE), mirroring tests/patterns.
 option(BUILD_VALIDATOR_TESTS "Build the validator/XML-reader doctest suite" OFF)
 
+option(BUILD_TRACE_TESTS "Build the physics trace recorder doctest suite" OFF)
+
 # CommonLibSSE consumes a variable of this exact name to gate its own Catch2-based tests; keep them off (Catch2 is not
 # in our vcpkg manifest).
 set(BUILD_TESTS OFF)
@@ -54,7 +56,7 @@ list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 
 add_subdirectory(src)
 
-if(BUILD_CONFIG_TESTS OR BUILD_VALIDATOR_TESTS)
+if(BUILD_CONFIG_TESTS OR BUILD_VALIDATOR_TESTS OR BUILD_TRACE_TESTS)
 	enable_testing()
 endif()
 if(BUILD_CONFIG_TESTS)
@@ -62,6 +64,9 @@ if(BUILD_CONFIG_TESTS)
 endif()
 if(BUILD_VALIDATOR_TESTS)
 	add_subdirectory(tests/validator)
+endif()
+if(BUILD_TRACE_TESTS)
+	add_subdirectory(tests/trace)
 endif()
 
 if(BUILD_PATTERN_TESTS)
