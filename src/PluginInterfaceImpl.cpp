@@ -63,6 +63,36 @@ void hdt::PluginInterfaceImpl::reloadActorPhysics(RE::Actor* actor)
 	});
 }
 
+void hdt::PluginInterfaceImpl::addFrameListener(IFrameListener* l)
+{
+	m_frameDispatcher.AddEventSink(l);
+}
+
+void hdt::PluginInterfaceImpl::removeFrameListener(IFrameListener* l)
+{
+	m_frameDispatcher.RemoveEventSink(l);
+}
+
+void hdt::PluginInterfaceImpl::addFrameSyncListener(IFrameSyncListener* l)
+{
+	m_frameSyncDispatcher.AddEventSink(l);
+}
+
+void hdt::PluginInterfaceImpl::removeFrameSyncListener(IFrameSyncListener* l)
+{
+	m_frameSyncDispatcher.RemoveEventSink(l);
+}
+
+void hdt::PluginInterfaceImpl::addShutdownListener(IShutdownListener* l)
+{
+	m_shutdownDispatcher.AddEventSink(l);
+}
+
+void hdt::PluginInterfaceImpl::removeShutdownListener(IShutdownListener* l)
+{
+	m_shutdownDispatcher.RemoveEventSink(l);
+}
+
 void hdt::PluginInterfaceImpl::onPostPostLoad()
 {
 	// Send ourselves to any plugin that registered during the PostLoad event

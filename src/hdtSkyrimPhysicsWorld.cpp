@@ -344,12 +344,14 @@ namespace hdt
 			startTime = ticks.QuadPart;
 		}
 
-		std::lock_guard<decltype(m_lock)> l(m_lock);
+		std::unique_lock<decltype(m_lock)> l(m_lock);
 
 		float interval = (m_useRealTime ? RE::BSTimer::GetSingleton()->realTimeDelta : RE::BSTimer::GetSingleton()->delta);
+		float steppedInterval = 0.0f;
 
 		if (interval > FLT_EPSILON && !m_suspended && !m_systems.empty()) {
 			doUpdate(interval);
+			steppedInterval = interval;
 		} else if (m_suspended && !m_loading) {
 			writeTransform();
 		}
@@ -361,6 +363,9 @@ namespace hdt
 			// float ticks_per_ms = static_cast<float>(ticks.QuadPart) * 1e-3;
 			m_SMPProcessingTimeInMainLoop = (endTime - startTime) / static_cast<float>(ticks.QuadPart) * 1e3f;
 		}
+
+		l.unlock();
+		g_pluginInterface.onFrame({ m_suspended.load(), steppedInterval });
 
 		return RE::BSEventNotifyControl::kContinue;
 	}
@@ -430,6 +435,8 @@ namespace hdt
 				m_pendingTransformUpdate = false;
 			}
 		}
+
+		g_pluginInterface.onFrameSync();
 
 		return RE::BSEventNotifyControl::kContinue;
 	}

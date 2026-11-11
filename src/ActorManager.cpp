@@ -1,5 +1,6 @@
 
 #include "ActorManager.h"
+#include "PluginInterfaceImpl.h"
 #include "WeatherManager.h"
 #include "dhdtOverrideManager.h"
 #include "hdtDefaultBBP.h"
@@ -269,6 +270,10 @@ namespace hdt
 
 	RE::BSEventNotifyControl ActorManager::ProcessEvent(const Events::ShutdownEvent*, RE::BSTEventSource<Events::ShutdownEvent>*)
 	{
+		if (!m_shutdown) {
+			g_pluginInterface.onShutdown();
+		}
+
 		m_shutdown = true;
 		std::lock_guard<decltype(m_lock)> l(m_lock);
 

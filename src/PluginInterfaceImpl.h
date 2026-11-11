@@ -26,9 +26,29 @@ namespace hdt
 
 		virtual void reloadActorPhysics(RE::Actor* actor) override;
 
+		virtual void addFrameListener(IFrameListener* l) override;
+		virtual void removeFrameListener(IFrameListener* l) override;
+
+		virtual void addFrameSyncListener(IFrameSyncListener* l) override;
+		virtual void removeFrameSyncListener(IFrameSyncListener* l) override;
+
+		virtual void addShutdownListener(IShutdownListener* l) override;
+		virtual void removeShutdownListener(IShutdownListener* l) override;
+
 		void onPostPostLoad();
 
 		void onPreStep(const PreStepEvent& e) { m_preStepDispatcher.SendEvent(std::addressof(e)); }
+		void onFrame(const PluginFrameEvent& e) { m_frameDispatcher.SendEvent(std::addressof(e)); }
+		void onFrameSync()
+		{
+			const PluginFrameSyncEvent e;
+			m_frameSyncDispatcher.SendEvent(std::addressof(e));
+		}
+		void onShutdown()
+		{
+			const PluginShutdownEvent e;
+			m_shutdownDispatcher.SendEvent(std::addressof(e));
+		}
 		void onPostStep(const PostStepEvent& e) { m_postStepDispatcher.SendEvent(std::addressof(e)); }
 
 		void init(const SKSE::LoadInterface* skse);
@@ -37,6 +57,9 @@ namespace hdt
 		VersionInfo m_versionInfo{ INTERFACE_VERSION, BULLET_VERSION };
 		RE::BSTEventSource<PreStepEvent> m_preStepDispatcher;
 		RE::BSTEventSource<PostStepEvent> m_postStepDispatcher;
+		RE::BSTEventSource<PluginFrameEvent> m_frameDispatcher;
+		RE::BSTEventSource<PluginFrameSyncEvent> m_frameSyncDispatcher;
+		RE::BSTEventSource<PluginShutdownEvent> m_shutdownDispatcher;
 
 		SKSE::PluginHandle m_sksePluginHandle;
 		SKSE::MessagingInterface* m_skseMessagingInterface;
