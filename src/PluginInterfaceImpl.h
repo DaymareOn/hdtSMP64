@@ -21,6 +21,11 @@ namespace hdt
 		virtual void addListener(IPostStepListener* l) override;
 		virtual void removeListener(IPostStepListener* l) override;
 
+		virtual void addMeshOwner(IMeshOwner* owner, const MeshOwnerInfo& info) override;
+		virtual void removeMeshOwner(IMeshOwner* owner) override;
+
+		virtual void reloadActorPhysics(RE::Actor* actor) override;
+
 		void onPostPostLoad();
 
 		void onPreStep(const PreStepEvent& e) { m_preStepDispatcher.SendEvent(std::addressof(e)); }

@@ -1,7 +1,11 @@
 #pragma once
 
+#include "PluginOwnerAPI.h"
+
 /*Plugins should register for messages from hdtSMP64 via SKSE during SKSE's PostLoad event.
 * When ready, hdtSMP64 will send a message of type MSG_STARTUP containing a PluginInterface* as data.
+*
+* Plugin authors need both this header and PluginOwnerAPI.h.
 *
 * A plugin MUST verify compatibility with the interface version before calling any other functions.
 * The interface version is semantic, meaning that
@@ -64,7 +68,7 @@ namespace hdt
 		};
 
 	public:
-		constexpr static Version INTERFACE_VERSION{ 2, 0, 0 };
+		constexpr static Version INTERFACE_VERSION{ 2, 1, 0 };
 		constexpr static Version BULLET_VERSION{ 3, 24, 0 };
 
 	public:
@@ -77,5 +81,18 @@ namespace hdt
 
 		virtual void addListener(IPostStepListener*) = 0;
 		virtual void removeListener(IPostStepListener*) = 0;
+
+		// @brief Registers a mesh owner. Ignores null and already registered owners.
+		virtual void addMeshOwner(IMeshOwner*, const MeshOwnerInfo&) = 0;
+
+		// @brief Unregisters an owner. Call it from the game main thread, not from inside claim or release. It returns
+		// after any running claim or release has finished; hdtSMP64 then never calls the owner or its claims again, so the
+		// owner frees its remaining per-mesh state itself. The affected actors are rebuilt on the main thread.
+		virtual void removeMeshOwner(IMeshOwner*) = 0;
+
+		// @brief Rebuilds an actor's meshes: each releases its claim and asks the owners again. This is how an owner
+		// gives a mesh back (decline in claim, then call this). Main thread only, not from inside claim or release; the
+		// rebuild is queued, so release runs later.
+		virtual void reloadActorPhysics(RE::Actor*) = 0;
 	};
 }
