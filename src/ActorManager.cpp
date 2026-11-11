@@ -115,6 +115,53 @@ namespace hdt
 		return findNode(skeleton, shouldFix ? "NPC Root [Root]" : "NPC");
 	}
 
+	namespace
+	{
+		class SkyrimMeshClaimContext : public IMeshClaimContext
+		{
+		public:
+			SkyrimMeshClaimContext(MeshKind a_kind, RE::NiNode* a_skeleton, RE::NiAVObject* a_model, const char* a_physicsFile, const std::unordered_map<RE::BSFixedString, RE::BSFixedString>& a_renameMap) :
+				m_kind(a_kind),
+				m_skeleton(a_skeleton),
+				m_model(a_model),
+				m_physicsFile(a_physicsFile),
+				m_renameMap(a_renameMap)
+			{}
+
+			virtual MeshKind getKind() const override { return m_kind; }
+			virtual const char* getPhysicsFile() const override { return m_physicsFile; }
+			virtual RE::NiNode* getSkeleton() const override { return m_skeleton; }
+			virtual RE::NiAVObject* getModel() const override { return m_model; }
+
+			virtual RE::Actor* getActor() const override
+			{
+				if (!m_skeleton) {
+					return nullptr;
+				}
+
+				RE::TESObjectREFR* owner = m_skeleton->GetUserData();
+				return owner ? owner->As<RE::Actor>() : nullptr;
+			}
+
+			virtual const char* getMergedBoneName(const char* a_originalName) const override
+			{
+				if (!a_originalName) {
+					return nullptr;
+				}
+
+				const auto iter = m_renameMap.find(RE::BSFixedString(a_originalName));
+				return iter != m_renameMap.end() ? iter->second.c_str() : nullptr;
+			}
+
+		private:
+			MeshKind m_kind;
+			RE::NiNode* m_skeleton;
+			RE::NiAVObject* m_model;
+			const char* m_physicsFile;
+			const std::unordered_map<RE::BSFixedString, RE::BSFixedString>& m_renameMap;
+		};
+	}
+
 	ActorManager::ActorManager()
 	{
 	}
@@ -671,6 +718,7 @@ namespace hdt
 		}
 		m_physics = nullptr;
 		m_hasDynamicPhysics = false;
+		m_claim.reset();
 	}
 
 	ActorManager::ItemState ActorManager::PhysicsItem::state() const
@@ -696,6 +744,28 @@ namespace hdt
 	{
 		if (m_physics)
 			m_physics->m_windFactor = a_windFactor;
+	}
+
+	RE::BSTSmartPointer<SkyrimSystem> ActorManager::PhysicsItem::createSystem(MeshKind kind, RE::NiNode* skeleton, RE::NiAVObject* model, std::unordered_map<RE::BSFixedString, RE::BSFixedString>&& renameMap, SkyrimSystem* oldSystem)
+	{
+		m_claim.reset();
+
+		if (physicsFile.first.empty()) {
+			return nullptr;
+		}
+
+		if (skeleton) {
+			const SkyrimMeshClaimContext context(kind, skeleton, model, physicsFile.first.c_str(), renameMap);
+			const auto* ref = skeleton->GetUserData();
+			ExternalClaim claim = ExternalOwnerRegistry::instance().tryClaim(context, ref ? ref->GetFormID() : 0);
+			if (claim.active()) {
+				logger::info("External mesh owner {} took over physics file {}.", claim.ownerName(), physicsFile.first.c_str());
+				m_claim = std::make_shared<ExternalClaim>(std::move(claim));
+				return nullptr;
+			}
+		}
+
+		return SkyrimSystemCreator().createOrUpdateSystem(skeleton, model, &physicsFile, std::move(renameMap), oldSystem);
 	}
 
 	std::vector<ActorManager::Skeleton>& ActorManager::getSkeletons()
@@ -952,7 +1022,7 @@ namespace hdt
 		if (!isFirstPersonSkeleton(skeleton.get())) {
 			// FIXME we probably could simplify this by using findNode as surely we don't attach Armors to lurkers skeleton?
 			auto renameMap = armor.renameMap;
-			auto system = SkyrimSystemCreator().createOrUpdateSystem(getNpcNode(skeleton.get()), attachedNode, &armor.physicsFile, std::move(renameMap), nullptr);
+			auto system = armor.createSystem(MeshKind::Armor, getNpcNode(skeleton.get()), attachedNode, std::move(renameMap), nullptr);
 			if (system) {
 				armor.setPhysics(system, isActive);
 				hasPhysics = true;
@@ -1225,7 +1295,7 @@ namespace hdt
 			i.clearPhysics();
 			if (!isFirstPersonSkeleton(skeleton.get())) {
 				auto renameMap = i.renameMap;
-				auto system = SkyrimSystemCreator().createOrUpdateSystem(npc.get(), i.armorWorn.get(), &i.physicsFile, std::move(renameMap), nullptr);
+				auto system = i.createSystem(MeshKind::Armor, npc.get(), i.armorWorn.get(), std::move(renameMap), nullptr);
 				if (system) {
 					i.setPhysics(system, isActive);
 					hasPhysics = true;
@@ -1238,7 +1308,7 @@ namespace hdt
 	// Reload meshes without entirely wiping their physics
 	void ActorManager::Skeleton::softReloadMeshes()
 	{
-		auto reloadPhysicsItem = [&](auto& item, RE::NiAVObject* model, const auto& renameMapSrc, bool itemActive) {
+		auto reloadPhysicsItem = [&](auto& item, RE::NiAVObject* model, const auto& renameMapSrc, bool itemActive, MeshKind kind) {
 			RE::BSTSmartPointer<SkyrimSystem> oldSystem = item.m_physics;
 			item.clearPhysics();
 
@@ -1247,7 +1317,7 @@ namespace hdt
 			}
 
 			auto renameMap = renameMapSrc;
-			auto system = SkyrimSystemCreator().createOrUpdateSystem(npc.get(), model, &item.physicsFile, std::move(renameMap), nullptr);
+			auto system = item.createSystem(kind, npc.get(), model, std::move(renameMap), nullptr);
 
 			if (system) {
 				system->block_resetting = true;
@@ -1262,7 +1332,7 @@ namespace hdt
 		};
 
 		for (auto& armor : armors) {
-			reloadPhysicsItem(armor, armor.armorWorn.get(), armor.renameMap, isActive);
+			reloadPhysicsItem(armor, armor.armorWorn.get(), armor.renameMap, isActive, MeshKind::Armor);
 		}
 
 		if (isFirstPersonSkeleton(skeleton.get()) || !head.headNode) {
@@ -1283,7 +1353,7 @@ namespace hdt
 				continue;
 			}
 
-			reloadPhysicsItem(headPart, head.headNode.get(), head.renameMap, isActive && head.isActive);
+			reloadPhysicsItem(headPart, head.headNode.get(), head.renameMap, isActive && head.isActive, MeshKind::HeadPart);
 		}
 	}
 
@@ -1325,7 +1395,7 @@ namespace hdt
 			logger::debug("Try create system for headpart {} physics file {}.", headPart.headPart->name, headPart.physicsFile.first.c_str());
 			physicsDupes.insert(headPart.physicsFile.first);
 			auto renameMap = this->head.renameMap;
-			auto system = SkyrimSystemCreator().createOrUpdateSystem(npc.get(), this->head.headNode.get(), &headPart.physicsFile, std::move(renameMap), nullptr);
+			auto system = headPart.createSystem(MeshKind::HeadPart, npc.get(), this->head.headNode.get(), std::move(renameMap), nullptr);
 			if (system) {
 				logger::debug("Success.");
 				headPart.setPhysics(system, isActive);

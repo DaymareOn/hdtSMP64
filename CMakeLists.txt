@@ -47,6 +47,11 @@ option(BUILD_PATTERN_TESTS "Build the SMP XML pattern expander doctest suite" OF
 # mirroring tests/patterns.
 option(BUILD_CONFIG_TESTS "Build the GlobalConfig JSON doctest suite" OFF)
 
+# Standalone doctest suite for the external mesh owner registry. OFF by default and never packaged; it compiles
+# src/ExternalOwner.cpp directly without the game's PCH and links only doctest (no CommonLibSSE/Bullet/TBB), mirroring
+# tests/config.
+option(BUILD_OWNER_TESTS "Build the external mesh owner doctest suite" OFF)
+
 # default definitions
 add_definitions(-DBT_USE_SSE_IN_API)
 
@@ -54,7 +59,9 @@ list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 
 add_subdirectory(src)
 
-if(BUILD_CONFIG_TESTS OR BUILD_VALIDATOR_TESTS)
+if(BUILD_CONFIG_TESTS
+   OR BUILD_VALIDATOR_TESTS
+   OR BUILD_OWNER_TESTS)
 	enable_testing()
 endif()
 if(BUILD_CONFIG_TESTS)
@@ -62,6 +69,9 @@ if(BUILD_CONFIG_TESTS)
 endif()
 if(BUILD_VALIDATOR_TESTS)
 	add_subdirectory(tests/validator)
+endif()
+if(BUILD_OWNER_TESTS)
+	add_subdirectory(tests/owner)
 endif()
 
 if(BUILD_PATTERN_TESTS)

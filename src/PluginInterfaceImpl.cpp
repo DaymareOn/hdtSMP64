@@ -1,4 +1,6 @@
 #include "PluginInterfaceImpl.h"
+#include "ExternalOwner.h"
+#include "dhdtPapyrusFunctions.h"
 
 hdt::PluginInterfaceImpl hdt::g_pluginInterface;
 
@@ -28,6 +30,46 @@ void hdt::PluginInterfaceImpl::removeListener(IPostStepListener* l)
 	if (l) {
 		m_postStepDispatcher.RemoveEventSink(l);
 	}
+}
+
+void hdt::PluginInterfaceImpl::addMeshOwner(IMeshOwner* owner, const MeshOwnerInfo& info)
+{
+	ExternalOwnerRegistry::instance().addOwner(owner, info);
+}
+
+void hdt::PluginInterfaceImpl::removeMeshOwner(IMeshOwner* owner)
+{
+	ExternalOwnerRegistry::instance().removeOwner(owner);
+}
+
+void hdt::PluginInterfaceImpl::relinquishMesh(IMeshOwner* owner, std::uint64_t claimToken)
+{
+	const auto relinquished = ExternalOwnerRegistry::instance().relinquish(owner, claimToken);
+	if (!relinquished || relinquished->actorFormId == 0) {
+		return;
+	}
+
+	SKSE::GetTaskInterface()->AddTask([formId = relinquished->actorFormId] {
+		auto& registry = ExternalOwnerRegistry::instance();
+		registry.beginRelinquishedReload(formId);
+		if (auto* actor = RE::TESForm::LookupByID<RE::Actor>(formId)) {
+			papyrus::impl::ResetPhysicsImpl(actor, false);
+		}
+		registry.endRelinquishedReload(formId);
+	});
+}
+
+void hdt::PluginInterfaceImpl::reloadActorPhysics(RE::Actor* actor)
+{
+	if (!actor) {
+		return;
+	}
+
+	SKSE::GetTaskInterface()->AddTask([handle = RE::ActorHandle(actor)] {
+		if (auto a = handle.get()) {
+			papyrus::impl::ResetPhysicsImpl(a.get(), false);
+		}
+	});
 }
 
 void hdt::PluginInterfaceImpl::onPostPostLoad()
