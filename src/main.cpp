@@ -758,6 +758,11 @@ extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* a_s
 	//
 	Events::Sources::FrameSyncEventSource::GetSingleton()->AddEventSink(hdt::SkyrimPhysicsWorld::get());
 
+	// Sinks run in registration order: registering any earlier would run plugin FrameSync listeners before SMP
+	// has written its own bone transforms.
+	Events::Sources::FrameEventSource::GetSingleton()->AddEventSink(&hdt::g_pluginInterface);
+	Events::Sources::FrameSyncEventSource::GetSingleton()->AddEventSink(&hdt::g_pluginInterface);
+
 	//
 	Events::Sources::ShutdownEventEventSource::GetSingleton()->AddEventSink(hdt::ActorManager::instance());
 	Events::Sources::ShutdownEventEventSource::GetSingleton()->AddEventSink(hdt::SkyrimPhysicsWorld::get());

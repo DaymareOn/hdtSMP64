@@ -46,6 +46,21 @@ namespace hdt
 	using IPreStepListener = RE::BSTEventSink<PreStepEvent>;
 	using IPostStepListener = RE::BSTEventSink<PostStepEvent>;
 
+	//Sent on the main thread right after the engine update; hdtSMP64 launches its simulation from this event.
+	struct PluginFrameEvent
+	{
+		bool gamePaused{ false };
+	};
+
+	//Sent on the main thread after hdtSMP64 has joined its simulation and written its own bone transforms,
+	//before skinning. Plugin listeners run after hdtSMP64's own handler.
+	struct PluginFrameSyncEvent
+	{
+	};
+
+	using IFrameListener = RE::BSTEventSink<PluginFrameEvent>;
+	using IFrameSyncListener = RE::BSTEventSink<PluginFrameSyncEvent>;
+
 	class PluginInterface
 	{
 	public:
@@ -68,7 +83,7 @@ namespace hdt
 		};
 
 	public:
-		constexpr static Version INTERFACE_VERSION{ 2, 1, 0 };
+		constexpr static Version INTERFACE_VERSION{ 2, 2, 0 };
 		constexpr static Version BULLET_VERSION{ 3, 24, 0 };
 
 	public:
@@ -98,5 +113,13 @@ namespace hdt
 
 		// @brief Re-runs the soft reload for an actor, so every one of its meshes asks the mesh owners again.
 		virtual void reloadActorPhysics(RE::Actor*) = 0;
+
+		// @brief Registers a listener for PluginFrameEvent. Listeners run in registration order.
+		virtual void addFrameListener(IFrameListener*) = 0;
+		virtual void removeFrameListener(IFrameListener*) = 0;
+
+		// @brief Registers a listener for PluginFrameSyncEvent. Listeners run in registration order.
+		virtual void addFrameSyncListener(IFrameSyncListener*) = 0;
+		virtual void removeFrameSyncListener(IFrameSyncListener*) = 0;
 	};
 }
