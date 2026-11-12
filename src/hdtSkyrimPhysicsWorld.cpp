@@ -1,5 +1,6 @@
 #include "hdtSkyrimPhysicsWorld.h"
 #include "PluginInterfaceImpl.h"
+#include "Profiling.h"
 #include "WeatherManager.h"
 #include "hdtPhysicsProfiler.h"
 
@@ -94,6 +95,8 @@ namespace hdt
 
 	void SkyrimPhysicsWorld::doUpdate(float interval)
 	{
+		HDT_ZONE("hdtSMP64::DoUpdate");
+
 		_MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
 
 		// Time passed since last computation
@@ -127,6 +130,11 @@ namespace hdt
 				m_resetPc -= m_resetPc > 0;
 
 				m_tasks.run([this, interval, tick, remainingTimeStep] { doUpdate2ndStep(interval, tick, remainingTimeStep); });
+
+				HDT_FRAME("hdtSMP64.Tick");
+				HDT_PLOT("hdtSMP64/Systems", static_cast<int64_t>(m_systems.size()));
+				HDT_PLOT("hdtSMP64/RigidBodies", static_cast<int64_t>(m_nonStaticRigidBodies.size()));
+				HDT_PLOT("hdtSMP64/ActiveSkeletons", static_cast<int64_t>(ActorManager::instance()->activeSkeletons));
 			}
 		}
 	}
@@ -135,6 +143,8 @@ namespace hdt
 	{
 		if (m_suspended)
 			return;
+
+		HDT_ZONE("hdtSMP64::PhysicsStep");
 
 		std::lock_guard<decltype(m_lock)> l(m_lock);
 
@@ -324,6 +334,8 @@ namespace hdt
 
 	RE::BSEventNotifyControl SkyrimPhysicsWorld::ProcessEvent(const Events::FrameEvent* e, RE::BSTEventSource<Events::FrameEvent>*)
 	{
+		HDT_ZONE("hdtSMP64::FrameEvent");
+
 		auto mm = RE::UI::GetSingleton();
 
 		if ((e->gamePaused || mm->GameIsPaused()) && !m_suspended) {
