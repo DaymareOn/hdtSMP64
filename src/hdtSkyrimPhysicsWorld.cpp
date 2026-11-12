@@ -153,6 +153,7 @@ namespace hdt
 			BT_PROFILE("HDTSMP_doUpdate2ndStep");
 			updateActiveState();
 			auto offset = applyTranslationOffset();
+			setTraceFrameOffset(offset);
 			stepSimulation(remainingTimeStep, 0, tick);
 			restoreTranslationOffset(offset);
 			m_accumulatedInterval = 0;

@@ -2,6 +2,7 @@
 
 #include "hdtSkinnedMeshSystem.h"
 #include "hdtSkyrimSystem.h"
+#include "hdtTraceRecorder.h"
 #include <BulletCollision/CollisionDispatch/btSimulationIslandManager.h>
 #include <BulletDynamics/Dynamics/btDiscreteDynamicsWorldMt.h>
 
@@ -23,6 +24,9 @@ namespace hdt
 
 		btVector3& getWind() { return m_windSpeed; }
 		const btVector3& getWind() const { return m_windSpeed; }
+
+		/// Tells the trace recorder the recentring offset applied to the bodies for the coming stepSimulation.
+		void setTraceFrameOffset(const btVector3& a_offset) { m_traceFrameOffset = a_offset; }
 
 	protected:
 		std::vector<float> m_timeSteps;
@@ -51,6 +55,8 @@ namespace hdt
 
 		void applyGravity() override;
 		void applyWind(btScalar timeStep);
+		void stepAndTrace(btScalar timeStep);
+		void beginTraceIfRequested();
 
 		void predictUnconstraintMotion(btScalar timeStep) override;
 		void integrateTransforms(btScalar timeStep) override;
@@ -62,6 +68,9 @@ namespace hdt
 
 		btVector3 m_windSpeed;       // world windspeed
 		btScalar m_windTime = 0.0f;  // wind simulation clock
+
+		TraceRecorder m_trace;
+		btVector3 m_traceFrameOffset{ 0, 0, 0 };
 
 	private:
 		std::vector<SkinnedMeshBody*> _bodies;

@@ -147,14 +147,35 @@ namespace hdt
 		}
 	}
 
+	void SkinnedMeshWorld::beginTraceIfRequested()
+	{
+		TraceRequest request;
+		if (m_trace.pollRequest(request)) {
+			std::vector<RE::BSTSmartPointer<SkinnedMeshBone>> bones;
+			for (auto& system : m_systems)
+				bones.insert(bones.end(), system->m_bones.begin(), system->m_bones.end());
+			m_trace.begin(request, std::move(bones), m_constraints, getSolverInfo(), m_gravity);
+		}
+		m_trace.beginFrame(m_traceFrameOffset);
+	}
+
+	void SkinnedMeshWorld::stepAndTrace(btScalar timeStep)
+	{
+		m_trace.recordPre(timeStep);
+		internalSingleStepSimulation(timeStep);
+		m_trace.recordPost();
+	}
+
 	int SkinnedMeshWorld::stepSimulation(btScalar remainingTimeStep, int, btScalar fixedTimeStep)
 	{
 		applyGravity();
 		if (hdt::SkyrimPhysicsWorld::get()->m_enableWind)
 			applyWind(remainingTimeStep);
 
+		beginTraceIfRequested();
+
 		while (remainingTimeStep > fixedTimeStep) {
-			internalSingleStepSimulation(fixedTimeStep);
+			stepAndTrace(fixedTimeStep);
 			remainingTimeStep -= fixedTimeStep;
 		}
 
@@ -166,7 +187,7 @@ namespace hdt
 		// (appearing more stiff or damping differently at various framerates).
 		constexpr auto minPossiblePeriod = 1.0f / 300.0f;
 		if (remainingTimeStep > minPossiblePeriod)
-			internalSingleStepSimulation(remainingTimeStep);
+			stepAndTrace(remainingTimeStep);
 		clearForces();
 
 		_bodies.clear();

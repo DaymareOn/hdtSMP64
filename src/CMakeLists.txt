@@ -33,6 +33,8 @@ set(SOURCE_FILES
 	"${SOURCE_DIR}/hdtSkinnedMesh/hdtSkinnedMeshWorld.h"
 	"${SOURCE_DIR}/hdtSkinnedMesh/hdtStiffSpringConstraint.cpp"
 	"${SOURCE_DIR}/hdtSkinnedMesh/hdtStiffSpringConstraint.h"
+	"${SOURCE_DIR}/hdtSkinnedMesh/hdtTraceRecorder.cpp"
+	"${SOURCE_DIR}/hdtSkinnedMesh/hdtTraceRecorder.h"
 	"${SOURCE_DIR}/hdtSkinnedMesh/hdtVertex.cpp"
 	"${SOURCE_DIR}/hdtSkinnedMesh/hdtVertex.h"
 	"${SOURCE_DIR}/Events.h"
