@@ -1,7 +1,11 @@
 #pragma once
 
+#include "PluginOwnerAPI.h"
+
 /*Plugins should register for messages from hdtSMP64 via SKSE during SKSE's PostLoad event.
 * When ready, hdtSMP64 will send a message of type MSG_STARTUP containing a PluginInterface* as data.
+*
+* Plugin authors need both this header and PluginOwnerAPI.h.
 *
 * A plugin MUST verify compatibility with the interface version before calling any other functions.
 * The interface version is semantic, meaning that
@@ -64,7 +68,7 @@ namespace hdt
 		};
 
 	public:
-		constexpr static Version INTERFACE_VERSION{ 2, 0, 0 };
+		constexpr static Version INTERFACE_VERSION{ 2, 1, 0 };
 		constexpr static Version BULLET_VERSION{ 3, 24, 0 };
 
 	public:
@@ -77,5 +81,22 @@ namespace hdt
 
 		virtual void addListener(IPostStepListener*) = 0;
 		virtual void removeListener(IPostStepListener*) = 0;
+
+		// @brief Registers an owner that is asked to take over simulation of specific meshes, ordered by
+		// MeshOwnerInfo::priority and then by registration order. Ignores null and already registered owners.
+		virtual void addMeshOwner(IMeshOwner*, const MeshOwnerInfo&) = 0;
+
+		// @brief Unregisters an owner. Call it from the game main thread, never concurrently with an owner callback.
+		// Its claims end without release callbacks and hdtSMP64 simulates those meshes itself from the next rebuild.
+		virtual void removeMeshOwner(IMeshOwner*) = 0;
+
+		// @brief Hands a claimed mesh back, for example after the owner lost its GPU device. hdtSMP64 rebuilds the
+		// claim's actor on the main thread and simulates the mesh itself, and does not ask this owner about that
+		// mesh and actor again during that rebuild. Later rebuilds ask it again. Safe to call from any thread;
+		// ignored if the token is not a live claim of this owner. The owner gets no release call for the token.
+		virtual void relinquishMesh(IMeshOwner*, std::uint64_t claimToken) = 0;
+
+		// @brief Re-runs the soft reload for an actor, so every one of its meshes asks the mesh owners again.
+		virtual void reloadActorPhysics(RE::Actor*) = 0;
 	};
 }

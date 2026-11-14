@@ -4,6 +4,7 @@
 
 #include "DynamicHDT.h"
 #include "Events.h"
+#include "ExternalOwner.h"
 #include "hdtSkyrimSystem.h"
 
 namespace hdt
@@ -62,7 +63,14 @@ namespace hdt
 			// a_windFactor is a percentage [0,1] with 0 being no wind effect to 1 being full wind effect.
 			void setWindFactor(float a_windFactor);
 
+			// @brief Asks the registered mesh owners whether one of them takes over simulation of this item.
+			// @return Null when an owner claimed the mesh, so no system is created for it, or when creation failed.
+			RE::BSTSmartPointer<SkyrimSystem> createSystem(MeshKind kind, RE::NiNode* skeleton, RE::NiAVObject* model, std::unordered_map<RE::BSFixedString, RE::BSFixedString>&& renameMap, SkyrimSystem* oldSystem);
+
 			RE::BSTSmartPointer<SkyrimSystem> m_physics;
+			// Shared so copies of an item (vector growth, console snapshots) do not release the claim early;
+			// the last copy does.
+			std::shared_ptr<ExternalClaim> m_claim;
 			bool m_hasDynamicPhysics = false;
 		};
 
