@@ -72,6 +72,52 @@ void hdt::PluginInterfaceImpl::reloadActorPhysics(RE::Actor* actor)
 	});
 }
 
+void hdt::PluginInterfaceImpl::addFrameListener(IFrameListener* l)
+{
+	if (l) {
+		m_frameDispatcher.AddEventSink(l);
+	}
+}
+
+void hdt::PluginInterfaceImpl::removeFrameListener(IFrameListener* l)
+{
+	if (l) {
+		m_frameDispatcher.RemoveEventSink(l);
+	}
+}
+
+void hdt::PluginInterfaceImpl::addFrameSyncListener(IFrameSyncListener* l)
+{
+	if (l) {
+		m_frameSyncDispatcher.AddEventSink(l);
+	}
+}
+
+void hdt::PluginInterfaceImpl::removeFrameSyncListener(IFrameSyncListener* l)
+{
+	if (l) {
+		m_frameSyncDispatcher.RemoveEventSink(l);
+	}
+}
+
+RE::BSEventNotifyControl hdt::PluginInterfaceImpl::ProcessEvent(const Events::FrameEvent* e, RE::BSTEventSource<Events::FrameEvent>*)
+{
+	if (e) {
+		const PluginFrameEvent event{ e->gamePaused };
+		m_frameDispatcher.SendEvent(std::addressof(event));
+	}
+
+	return RE::BSEventNotifyControl::kContinue;
+}
+
+RE::BSEventNotifyControl hdt::PluginInterfaceImpl::ProcessEvent(const Events::FrameSyncEvent*, RE::BSTEventSource<Events::FrameSyncEvent>*)
+{
+	const PluginFrameSyncEvent event;
+	m_frameSyncDispatcher.SendEvent(std::addressof(event));
+
+	return RE::BSEventNotifyControl::kContinue;
+}
+
 void hdt::PluginInterfaceImpl::onPostPostLoad()
 {
 	// Send ourselves to any plugin that registered during the PostLoad event
