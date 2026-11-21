@@ -5,6 +5,8 @@
 #include "Patterns/hdtPatternLibrary.h"
 #include "Patterns/hdtXmlPatternExpander.h"
 #include "XmlReader.h"
+
+#include <tbb/task_arena.h>
 #include "hdtSkyrimPhysicsWorld.h"
 
 // F16C isn't supported on super old processors. AVX2+ (AVX processors can have it, but not guaranteed)
@@ -365,13 +367,15 @@ namespace hdt
 		}
 
 		if (m_deferredBuilds.size() > 2) {
-			tbb::parallel_for_each(
-				m_deferredBuilds.begin(), m_deferredBuilds.end(),
-				[](const DeferredBuild& db) {
-					if (db.vertexShape)
-						db.vertexShape->autoGen();
-					db.body->finishBuild();
-				});
+			tbb::this_task_arena::isolate([&] {
+				tbb::parallel_for_each(
+					m_deferredBuilds.begin(), m_deferredBuilds.end(),
+					[](const DeferredBuild& db) {
+						if (db.vertexShape)
+							db.vertexShape->autoGen();
+						db.body->finishBuild();
+					});
+			});
 		} else if (!m_deferredBuilds.empty()) {
 			for (const auto& db : m_deferredBuilds) {
 				if (db.vertexShape)
