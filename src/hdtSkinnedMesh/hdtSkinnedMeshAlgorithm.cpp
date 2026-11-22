@@ -1,4 +1,5 @@
 #include "hdtSkinnedMeshAlgorithm.h"
+#include "Profiling.h"
 #include "hdtCollider.h"
 #include <tbb/task_arena.h>
 
@@ -431,6 +432,8 @@ namespace hdt
 	void SkinnedMeshAlgorithm::MergeBuffer::apply(SkinnedMeshBody* body0, SkinnedMeshBody* body1,
 		CollisionDispatcher* dispatcher)
 	{
+		HDT_ZONE("hdtSMP64::MergeApply");
+
 		// only visit cells that were actually written to this frame,
 		// instead of looping all bones0 * bones1 (far fewer iterations)
 		for (int flatIdx : activeCells) {
@@ -484,8 +487,14 @@ namespace hdt
 	template <class T0, class T1>
 	void SkinnedMeshAlgorithm::processCollision(T0* shape0, T1* shape1, MergeBuffer& merge, CollisionResult* collision)
 	{
-		int count = std::min(checkCollide(shape0, shape1, collision), MaxCollisionCount);
+		int count;
+		{
+			HDT_ZONE("hdtSMP64::CheckCollide");
+			count = std::min(checkCollide(shape0, shape1, collision), MaxCollisionCount);
+		}
+
 		if (count > 0) {
+			HDT_ZONE("hdtSMP64::MergeCollisions");
 			// results come back in random order from parallel workers, sort so doMerge's
 			// early break actually bails on shallow contacts instead of random ones
 			std::sort(collision, collision + count, [](const CollisionResult& a, const CollisionResult& b) {
@@ -498,6 +507,8 @@ namespace hdt
 	void SkinnedMeshAlgorithm::processCollision(SkinnedMeshBody* body0, SkinnedMeshBody* body1,
 		CollisionDispatcher* dispatcher)
 	{
+		HDT_ZONE("hdtSMP64::ProcessBodyPair");
+
 		// thread_local so we don't heap-alloc these 200+ times per frame.
 		// MergeBuffer::resize() is O(1) after first call (generation counter, no zeroing).
 		// Safe against TBB work-stealing re-entrancy: SkinnedMeshAlgorithm::processCollision

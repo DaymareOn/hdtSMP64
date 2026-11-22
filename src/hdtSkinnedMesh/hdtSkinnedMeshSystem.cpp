@@ -1,5 +1,6 @@
 #include "hdtSkinnedMeshSystem.h"
 
+#include "Profiling.h"
 #include "hdtBoneScaleConstraint.h"
 #include "hdtSkinnedMeshBody.h"
 #include "hdtSkinnedMeshShape.h"
@@ -10,6 +11,8 @@ namespace hdt
 	{
 		if (this->block_resetting)
 			return;
+
+		HDT_ZONE("hdtSMP64::ReadTransform");
 
 		for (const auto& bone : m_bones) {
 			bone->readTransform(timeStep);
@@ -26,6 +29,8 @@ namespace hdt
 
 	void SkinnedMeshSystem::writeTransform()
 	{
+		HDT_ZONE("hdtSMP64::WriteTransform");
+
 		for (int i = 0; i < m_bones.size(); ++i) {
 			if (m_bones[i]->m_rig.isKinematicObject()) {
 				continue;
@@ -37,6 +42,8 @@ namespace hdt
 
 	void SkinnedMeshSystem::internalUpdate()
 	{
+		HDT_ZONE("hdtSMP64::SystemInternalUpdate");
+
 		for (auto& i : m_bones)
 			i->internalUpdate();
 

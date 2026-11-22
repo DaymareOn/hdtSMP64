@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Profiling.h"
 #include "hdtSkinnedMeshSystem.h"
 #include "hdtSkyrimSystem.h"
 #include <BulletCollision/CollisionDispatch/btSimulationIslandManager.h>
@@ -33,6 +34,8 @@ namespace hdt
 			if (n == 0)
 				return;
 
+			HDT_ZONE("hdtSMP64::ReadAllTransforms");
+
 			m_timeSteps.resize(n);
 
 			// processSkeletonRoot must be ran synchronously to avoid race issues
@@ -46,11 +49,14 @@ namespace hdt
 
 		void writeTransform()
 		{
+			HDT_ZONE("hdtSMP64::WriteAllTransforms");
+
 			for (int i = 0; i < m_systems.size(); ++i) m_systems[i]->writeTransform();
 		}
 
 		void applyGravity() override;
 		void applyWind(btScalar timeStep);
+		void internalSingleStepSimulation(btScalar timeStep) override;
 
 		void predictUnconstraintMotion(btScalar timeStep) override;
 		void integrateTransforms(btScalar timeStep) override;

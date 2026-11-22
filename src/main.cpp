@@ -2,6 +2,7 @@
 #include "Events.h"
 #include "Hooks.h"
 #include "PluginInterfaceImpl.h"
+#include "Profiling.h"
 #include "SMPDebug.h"
 #include "UI/FSMPMenu.h"
 #include "Validator/hdtAssetValidator.h"
@@ -745,6 +746,8 @@ extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* a_s
 
 	hdt::loadConfig();
 	hdt::logConfig();
+
+	HDT_APP_INFO("hdtSMP64");
 
 	const auto messaging = SKSE::GetMessagingInterface();
 	if (!messaging->RegisterListener("SKSE", MessageHandler)) {

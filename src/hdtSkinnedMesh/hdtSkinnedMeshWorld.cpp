@@ -1,4 +1,5 @@
 #include "hdtSkinnedMeshWorld.h"
+#include "Profiling.h"
 #include "hdtBoneScaleConstraint.h"
 #include "hdtDispatcher.h"
 #include "hdtSkinnedMeshAlgorithm.h"
@@ -149,6 +150,8 @@ namespace hdt
 
 	int SkinnedMeshWorld::stepSimulation(btScalar remainingTimeStep, int, btScalar fixedTimeStep)
 	{
+		HDT_ZONE("hdtSMP64::StepSimulation");
+
 		applyGravity();
 		if (hdt::SkyrimPhysicsWorld::get()->m_enableWind)
 			applyWind(remainingTimeStep);
@@ -175,6 +178,13 @@ namespace hdt
 		return 0;
 	}
 
+	void SkinnedMeshWorld::internalSingleStepSimulation(btScalar timeStep)
+	{
+		HDT_ZONE("hdtSMP64::InternalSingleStep");
+
+		btDiscreteDynamicsWorldMt::internalSingleStepSimulation(timeStep);
+	}
+
 	// --Todo: This, and the systems related to it, can be optimized a bit more. I WILL BE BACK...
 	// This optimizes Bullet's broadphase by removing tons of redudent work. We don't use persistent manifolds,
 	// we don't have static objects, etc..
@@ -183,6 +193,7 @@ namespace hdt
 	void SkinnedMeshWorld::performDiscreteCollisionDetection()
 	{
 		BT_PROFILE("performDiscreteCollisionDetection");
+		HDT_ZONE("hdtSMP64::CollisionDetection");
 
 		for (auto& system : m_systems) {
 			system->internalUpdate();
@@ -237,6 +248,7 @@ namespace hdt
 		constexpr btScalar kPressureCenterOffset = 0.8f;
 
 		BT_PROFILE("HDTSMP_applyWind");
+		HDT_ZONE("hdtSMP64::ApplyWind");
 
 		const btScalar windMagnitude = m_windSpeed.length();
 		if (btFuzzyZero(windMagnitude))
@@ -300,6 +312,8 @@ namespace hdt
 
 	void SkinnedMeshWorld::predictUnconstraintMotion(btScalar timeStep)
 	{
+		HDT_ZONE("hdtSMP64::PredictUnconstraintMotion");
+
 		struct UpdaterPredictUnconstraintMotion : public btIParallelForBody
 		{
 			btScalar timeStep;
@@ -331,6 +345,8 @@ namespace hdt
 
 	void SkinnedMeshWorld::integrateTransforms(btScalar timeStep)
 	{
+		HDT_ZONE("hdtSMP64::IntegrateTransforms");
+
 		for (int i = 0; i < m_collisionObjects.size(); ++i) {
 			auto body = m_collisionObjects[i];
 			if (body->isKinematicObject()) {
@@ -420,6 +436,7 @@ namespace hdt
 	void SkinnedMeshWorld::solveConstraints(btContactSolverInfo& solverInfo)
 	{
 		BT_PROFILE("solveConstraints");
+		HDT_ZONE("hdtSMP64::SolveConstraints");
 		if (!m_collisionObjects.size())
 			return;
 
