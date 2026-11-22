@@ -191,7 +191,8 @@ jobs:
             -DVCPKG_MANIFEST_MODE=ON `
             -DCompiledPluginsPath="${{ github.workspace }}/out/build/${{ matrix.preset }}/plugins" `
             -DPROJECT_BUILD_INFO="${{ needs.prepare.outputs.build_info }}" `
-            -DBUILD_VALIDATOR_TESTS=ON
+            -DBUILD_VALIDATOR_TESTS=ON `
+            -DBUILD_TRACE_TESTS=ON
 
       - name: Create the CompiledPluginsPath folder structure
         run: mkdir -p "${{ github.workspace }}/out/build/${{ matrix.preset }}/plugins/SKSE/Plugins/"
