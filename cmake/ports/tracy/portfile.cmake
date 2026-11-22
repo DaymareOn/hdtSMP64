@@ -1,0 +1,44 @@
+vcpkg_from_github(
+	OUT_SOURCE_PATH
+	SOURCE_PATH
+	REPO
+	wolfpld/tracy
+	REF
+	f2a4f2529e7e71844c9e434b877770a21ecf7587
+	SHA512
+	b1c93209f19bc4f6c98606ed5c69447b299917e548f8560526c069c4689b5562a88e68abaf9fcc9fde492c95a0c60a7909c544475ca7b78f2fff63c0dad13f26
+	HEAD_REF
+	master)
+
+vcpkg_check_features(
+	OUT_FEATURE_OPTIONS
+	FEATURE_OPTIONS
+	FEATURES
+	on-demand
+	TRACY_ON_DEMAND
+	fibers
+	TRACY_FIBERS
+	verbose
+	TRACY_VERBOSE
+	INVERTED_FEATURES
+	crash-handler
+	TRACY_NO_CRASH_HANDLER)
+
+vcpkg_cmake_configure(
+	SOURCE_PATH
+	${SOURCE_PATH}
+	OPTIONS
+	-DDOWNLOAD_CAPSTONE=OFF
+	-DLEGACY=ON
+	-DTRACY_ENABLE=ON
+	${FEATURE_OPTIONS}
+	MAYBE_UNUSED_VARIABLES
+	DOWNLOAD_CAPSTONE
+	LEGACY)
+vcpkg_cmake_install()
+
+vcpkg_copy_pdbs()
+vcpkg_cmake_config_fixup(PACKAGE_NAME Tracy CONFIG_PATH lib/cmake/Tracy)
+
+vcpkg_install_copyright(FILE_LIST "${SOURCE_PATH}/LICENSE")
+file(REMOVE_RECURSE "${CURRENT_PACKAGES_DIR}/debug/include")
