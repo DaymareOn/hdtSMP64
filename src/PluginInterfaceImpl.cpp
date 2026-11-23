@@ -1,4 +1,7 @@
 #include "PluginInterfaceImpl.h"
+#include "ActorManager.h"
+#include "ExternalOwner.h"
+#include "dhdtPapyrusFunctions.h"
 
 hdt::PluginInterfaceImpl hdt::g_pluginInterface;
 
@@ -28,6 +31,36 @@ void hdt::PluginInterfaceImpl::removeListener(IPostStepListener* l)
 	if (l) {
 		m_postStepDispatcher.RemoveEventSink(l);
 	}
+}
+
+void hdt::PluginInterfaceImpl::addMeshOwner(IMeshOwner* owner, const MeshOwnerInfo& info)
+{
+	ExternalOwnerRegistry::instance().addOwner(owner, info);
+}
+
+void hdt::PluginInterfaceImpl::removeMeshOwner(IMeshOwner* owner)
+{
+	const auto serializeWithClaims = ActorManager::instance()->lockGuard();
+	for (const std::uint32_t formId : ExternalOwnerRegistry::instance().removeOwner(owner)) {
+		SKSE::GetTaskInterface()->AddTask([formId] {
+			if (auto* actor = RE::TESForm::LookupByID<RE::Actor>(formId)) {
+				papyrus::impl::ResetPhysicsImpl(actor, false);
+			}
+		});
+	}
+}
+
+void hdt::PluginInterfaceImpl::reloadActorPhysics(RE::Actor* actor)
+{
+	if (!actor) {
+		return;
+	}
+
+	SKSE::GetTaskInterface()->AddTask([handle = RE::ActorHandle(actor)] {
+		if (auto a = handle.get()) {
+			papyrus::impl::ResetPhysicsImpl(a.get(), false);
+		}
+	});
 }
 
 void hdt::PluginInterfaceImpl::onPostPostLoad()

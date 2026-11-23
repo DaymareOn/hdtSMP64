@@ -4,6 +4,7 @@
 
 #include "DynamicHDT.h"
 #include "Events.h"
+#include "ExternalOwner.h"
 #include "hdtSkyrimSystem.h"
 
 namespace hdt
@@ -62,7 +63,11 @@ namespace hdt
 			// a_windFactor is a percentage [0,1] with 0 being no wind effect to 1 being full wind effect.
 			void setWindFactor(float a_windFactor);
 
+			RE::BSTSmartPointer<SkyrimSystem> createSystem(MeshKind kind, RE::NiNode* skeleton, RE::NiAVObject* model, std::unordered_map<RE::BSFixedString, RE::BSFixedString>&& renameMap, SkyrimSystem* oldSystem);
+
 			RE::BSTSmartPointer<SkyrimSystem> m_physics;
+			std::shared_ptr<ExternalClaim> m_claim;
+			void releaseClaim();
 			bool m_hasDynamicPhysics = false;
 		};
 
