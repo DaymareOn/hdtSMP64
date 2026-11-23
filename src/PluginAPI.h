@@ -46,6 +46,29 @@ namespace hdt
 	using IPreStepListener = RE::BSTEventSink<PreStepEvent>;
 	using IPostStepListener = RE::BSTEventSink<PostStepEvent>;
 
+	// Sent on the main thread after hdtSMP64's own frame handler, outside its simulation lock.
+	struct PluginFrameEvent
+	{
+		// True when hdtSMP64 suspends its simulation: engine pause, a pausing menu, or loading.
+		bool gamePaused{ false };
+		// The interval hdtSMP64 simulated this frame; 0 when it did not step.
+		float timeStep{ 0.0f };
+	};
+
+	// Sent on the main thread after hdtSMP64 has joined its simulation and written its bone transforms, before skinning.
+	struct PluginFrameSyncEvent
+	{
+	};
+
+	// Sent once on the main thread at game quit, before mesh claims are released. Frame events stop after it.
+	struct PluginShutdownEvent
+	{
+	};
+
+	using IFrameListener = RE::BSTEventSink<PluginFrameEvent>;
+	using IFrameSyncListener = RE::BSTEventSink<PluginFrameSyncEvent>;
+	using IShutdownListener = RE::BSTEventSink<PluginShutdownEvent>;
+
 	class PluginInterface
 	{
 	public:
@@ -68,7 +91,7 @@ namespace hdt
 		};
 
 	public:
-		constexpr static Version INTERFACE_VERSION{ 2, 1, 0 };
+		constexpr static Version INTERFACE_VERSION{ 2, 2, 0 };
 		constexpr static Version BULLET_VERSION{ 3, 24, 0 };
 
 	public:
@@ -94,5 +117,20 @@ namespace hdt
 		// gives a mesh back (decline in claim, then call this). Main thread only, not from inside claim or release; the
 		// rebuild is queued, so release runs later.
 		virtual void reloadActorPhysics(RE::Actor*) = 0;
+
+		// @brief Registers a listener for PluginFrameEvent. Listeners run in registration order, on the main thread,
+		// after hdtSMP64's own handlers. A listener may add or remove listeners; additions take effect from the next
+		// event. A listener must stay valid until its removal returns. Adding or removing from another thread blocks
+		// until the current event ends. Do not call removeMeshOwner from a listener.
+		virtual void addFrameListener(IFrameListener*) = 0;
+		virtual void removeFrameListener(IFrameListener*) = 0;
+
+		// @brief Registers a listener for PluginFrameSyncEvent. Same contract as addFrameListener.
+		virtual void addFrameSyncListener(IFrameSyncListener*) = 0;
+		virtual void removeFrameSyncListener(IFrameSyncListener*) = 0;
+
+		// @brief Registers a listener for PluginShutdownEvent. Same contract as addFrameListener.
+		virtual void addShutdownListener(IShutdownListener*) = 0;
+		virtual void removeShutdownListener(IShutdownListener*) = 0;
 	};
 }
